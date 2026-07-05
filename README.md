@@ -2,9 +2,10 @@
 
 > Living spec for a high-quality, low-power, two-part desk clock: a circular MCU-driven analog dial beside a reflective monochrome info panel.
 
-**Status:** v0.7 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
+**Status:** v0.8 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
 
 **Changelog**
+- v0.8 — **Amp locked = TI TAS5825M** (I²S + I²C closed-loop Class-D w/ DSP), PBTL mono into the 4 Ω DMA58-4: PVDD 5 V for ~3 W, optional ~12 V boost for ~8–12 W; DSP loads a ~150–180 Hz high-pass + limiter to protect the 2 mm-Xmax driver. MAX98357A demoted to simple/no-DSP alt. **Driver confirmed = 2× TI DRV8835** (dual H-bridge each; VM 5 V for full torque, VCC 3.3 V; PHASE/ENABLE with PWM microstep → 8 GPIO). Full datasheets added to [`/datasheet`](datasheet/); [`datasheet/README.md`](datasheet/README.md) now carries a **System IO & power domains** table (rails + per-part GPIO/voltage).
 - v0.7 — **Speaker PC68-4 → Dayton DMA58-4** (2″ dual-magnet full-range — the driver we actually have a datasheet for) → smaller driver relaxes body depth to **≥45–60 mm / ~100–250 cc** chamber (optional **DMA58-PR** passive radiator for bass). **Movement locked = Juken X40.879**: its datasheet is a short **pinout addendum** that defers to the **X27 base spec** for torque/current/dimensions — both now in [`/datasheet`](datasheet/). Added the **full Sharp LS032B7DD02 device spec** (replaced the marketing brief); corrected display **active area → 42.67 × 68.07 mm** and **power → 30 µW hold / 250 µW update @ 5 V (VDD 4.8–5.5 V)**; **X40.879 price → ~$14** (was ~$25, DigiKey). Datasheets summarized in [`datasheet/README.md`](datasheet/README.md).
 - v0.6 — **Split-face locked as THE design**: circular MCU-driven analog clock (~75 mm) + reflective monochrome info panel (**Sharp LS032B7DD02**). **Single MCU** (ESP32-S3). New **orientation awareness** (R14): flat (clock left / display right) ↔ standing (clock top / display bottom), accel-sensed; MCU rotates the display and re-references the analog "12". Movement re-picked for 75 mm → **Juken X40.879** (DigiKey) + external Hall homing. Motor driver **DRV8833 → DRV8835** (DRV8833 is NRND). Backlight subsystem removed (reflective display). Shopping list moved **Mouser → DigiKey**. Sections renumbered consecutively; wide color bar-TFT demoted to *superseded*.
 - v0.5 — locked **Dayton PC68-4** speaker; added **Juken X10.506** + more movements; new requirement **R12** (MCU sets/adjusts analog time → sweep-quartz demoted).
@@ -166,7 +167,7 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 
 ## 7. Audio subsystem (R3, R11)
 
-- **Amp:** **MAX98357A** (I²S, 3.2 W @ 4 Ω/5 V, zero config — loud enough for an alarm) or **TAS5825M** (I²S + I²C DSP EQ/limiter/loudness — "close to a BT speaker", louder).
+- **Amp: TAS5825M** ⭐ (I²S in + I²C, closed-loop Class-D with 192-kHz DSP — EQ/3-band DRC/loudness/limiter/thermal-foldback; THD+N ≤0.03%, SNR ≥110 dB). Run **PBTL mono** into the 4 Ω DMA58-4; **PVDD 5 V → ~3 W**, add a ~12 V boost for ~8–12 W. Needs an **LC output filter** + I²C DSP-load at boot (tune in TI PPC3). *Simple alt:* **MAX98357A** (3.2 W @ 4 Ω/5 V, zero-config resistors, filterless — no DSP/protection).
 - **Chain:** ESP32-S3 → **I²S** (3 pins: BCLK, LRCLK, DOUT) → amp → speaker.
 - **Source:** WAV (trivial) / FLAC (decoder + CPU) on microSD; system sounds in flash.
 - **Tap-to-snooze:** accel hardware tap IRQ (§8) so the MCU sleeps until tapped.
@@ -280,7 +281,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Analog movement (dual shaft) | Juken X40.879 | ~$14 | [DigiKey 28528329 ✅](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) |
 | Motor driver carrier (×1–2) | Pololu DRV8835 (#2135) | ~$4 | [DigiKey 10450429](https://www.digikey.com/en/products/detail/pololu/2135/10450429) |
 | Home Hall (×2) | DRV5032 breakout / bare | ~$1 | [DigiKey 7400094 ✅](https://www.digikey.com/en/products/detail/texas-instruments/DRV5032FADBZR/7400094) |
-| I²S amp breakout | Adafruit 3006 (MAX98357A) | ~$6 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%203006) |
+| I²S amp (bring-up) | Adafruit 3006 (MAX98357A) → TAS5825M EVM for DSP | ~$6 / — | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%203006) |
 | Speaker (2″ full-range) | Dayton DMA58-4 | ~$19 | *(Parts Express 295-582 — not DigiKey)* |
 | T/RH breakout | Adafruit 5776 (SHT40) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%205776) |
 | VOC breakout | Adafruit 4829 (SGP40) | ~$15 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%204829) |
@@ -298,8 +299,8 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Analog movement | Juken X40.879 (dual shaft) | vertical, compact | ~$14 | ✅ | [28528329](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) |
 | Motor driver ×2 | DRV8835DSSR | 12-WSON | ~$1.3 | ✅ | [3088201](https://www.digikey.com/en/products/detail/texas-instruments/DRV8835DSSR/3088201) |
 | Home Hall ×2 | DRV5032FADBZR | SOT-23 | ~$0.6 | ✅ | [7400094](https://www.digikey.com/en/products/detail/texas-instruments/DRV5032FADBZR/7400094) |
-| Audio amp (simple) | MAX98357AETE+T | TQFN-16 | ~$2.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=MAX98357AETE%2BT) |
-| Audio amp (DSP alt) | TAS5825MRHBR | VQFN-32 | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TAS5825MRHBR) |
+| Audio amp ⭐ (DSP, chosen) | TAS5825MRHBR | VQFN-32 | ~$3–5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TAS5825MRHBR) |
+| Audio amp (simple alt) | MAX98357AETE+T | TQFN-16 | ~$2.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=MAX98357AETE%2BT) |
 | T/RH | SHT40-AD1B-R2 | DFN-4 | ~$3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SHT40-AD1B-R2) |
 | VOC | SGP41-D-R4 | DFN-6 | ~$6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SGP41-D-R4) |
 | Light | VEML7700-TR | OPLGA | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=VEML7700-TR) |
@@ -329,7 +330,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 - **Info display:** Sharp **LS032B7DD02** reflective MIP ⭐ / mono OLED (burn-in, emits) / square IPS TFT (backlit) / EPD (ghosts on seconds). *Superseded: wide color bar-TFT (NHD-3.9).*
 - **Analog movement:** Juken **X40.879** (DigiKey, 75 mm) ⭐ / Juken X10.506 (small, built-in homing) / VID28-05·BKA30D-R5 (budget, off-DigiKey) / X27.168 ×2 (single-shaft).
 - **Motor driver:** DRV8835 ⭐ / TB6612FNG. *(DRV8833 NRND.)*
-- **Amp:** MAX98357A ⭐ (simple) / TAS5825M (DSP).
+- **Amp:** TAS5825M ⭐ (I²S+DSP, PBTL mono) / MAX98357A (simple, no-DSP).
 - **Power:** BQ25185 + MAX17048 (ESP) / nPM1300 (ST).
 - **RTC:** RV-3028-C7 (ULP) / DS3231 (simple).
 - **Speaker:** Dayton DMA58-4 ⭐ (2″) / Dayton PC68-4 (2.5″, more bass) / Adafruit 3351 (budget).
@@ -358,3 +359,5 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | 2026-07-04 | **X40.879 confirmed** as the movement; **X27 = its companion datasheet** | X40 datasheet is a pinout addendum (two independent dual-shaft coils, X27-compatible mechanics) that defers to the X27 base spec; both filed in `/datasheet` |
 | 2026-07-04 | Corrected display specs vs the full Sharp device spec | Active area **42.67 × 68.07 mm**; power **30 µW hold / 250 µW update** @ **5 V (VDD 4.8–5.5 V)**, 3 V logic; replaced the marketing brief with `LD-2023X13` |
 | 2026-07-04 | **X40.879 price ~$25 → ~$14** | Live DigiKey pricing (28528329) |
+| 2026-07-04 | **Amp locked = TAS5825M** (MAX98357A → simple alt) | DSP high-pass/limiter protects the 2 mm-Xmax DMA58-4 and makes a 2″ driver sound full; PBTL mono, 5 V→~3 W or +12 V boost→~8–12 W; full datasheet on file |
+| 2026-07-04 | **Driver confirmed = 2× DRV8835** | High-impedance (~260 Ω) gauge coils are voltage-driven, not chopper-driven; DRV8835 gives full 5 V torque + flyback; avoid A4988/DRV8825/TMC choppers; full datasheet on file |
