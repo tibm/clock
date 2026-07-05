@@ -1,8 +1,8 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04) and **match the root [`README.md`](../README.md)** (v0.12).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05) and **match the root [`README.md`](../README.md)** (v0.15).
 
-> 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors, fuel gauge) are pushed onto **pre-made breakout modules** or **dropped**; see the root README manufacturing section.
+> 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, LIS3DH**; fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section.
 
 > 🔩 **The stepper ships as two files.** `stepper_motor_x40-879.pdf` is a 2-page **pinout addendum** for the dual-shaft **X40.879** (the motor we're buying); it explicitly defers to the **X27 base spec** (`stepper_motor_x27_base-spec.pdf`) for torque, current, and dimensions. Keep both.
 
@@ -20,16 +20,20 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 9 | `battery_protector_s-8261.pdf` | **S-8261** (`S-8261AAxMD`) | ABLIC | **SOT-23-6** | ✅ | ~$0.4 | none (autonomous) |
 | 10 | `protection_mosfet_ao4800.pdf` | **AO4800** (dual N-FET, protector) | Alpha & Omega | **SO-8** | ✅ | ~$0.3 | none (protector FET) |
 | 11 | `connector_display_fpc_fh34.pdf` | **FH34SRJ-10S-0.5SH** | Hirose | **FPC/ZIF 0.5 mm (SMT, on-board)** | ✅ | ~$0.7 | 10-pin display FPC tail |
-| 12 | `sensor_temp_tmp117.pdf` | **TMP117** (`TMP117AIDRVR`) | Texas Instruments | WSON-6 → **breakout** | ✅ | ~$1.9 | I²C (±0.1 °C) |
-| 13 | `sensor_humidity_temp_sht4x.pdf` | **SHT45** (`SHT45-AD1B-R2`) | Sensirion | DFN-4 → **breakout** | ✅ | ~$4.5 | I²C (±0.1 °C / ±1 %RH) |
-| 14 | `sensor_light_tsl2591.pdf` | **TSL2591** (`TSL25911FN`) | ams-OSRAM | WFDFN-6 → **breakout** | ✅ | ~$3 | I²C (188 µlx–88 klx) |
-| 15 | `sensor_accel_bma400.pdf` | **BMA400** | Bosch Sensortec | LGA-12 → **breakout** | ✅ | ~$1.6 | I²C/SPI (tap + orient) |
+| 12 | `sensor_env_bme688.pdf` | **BME688** | Bosch Sensortec | LGA-8 → **module** | ✅ | ~$5 | I²C/SPI — **chosen env part:** T+RH+press+**VOC/gas** (one chip = climate + air-quality) |
+| 13 | `sensor_light_tsl2591.pdf` | **TSL2591** (`TSL25911FN`) | ams-OSRAM | WFDFN-6 → **module** | ✅ | ~$3 | I²C (188 µlx–88 klx) |
+| 14 | `sensor_accel_lis3dh.pdf` | **LIS3DH** | STMicroelectronics | LGA-16 → **module** | ✅ | ~$2 | I²C/SPI (tap + orient) |
+| 15 | `sensor_homing_optical_itr8307.pdf` | **ITR8307** (`ITR8307/TR8`) | Everlight | **4-SMD (3.4×1.5×1.1 mm, gullwing) — on-board** | ✅ | ~$0.5 | reflective opto (analog → ADC/comparator) |
 
-**Sensors ride on I²C breakout modules** (rows 12–15): every one is leadless (WSON/DFN/WFDFN/LGA), so per the hand-solder rule they mount on **Qwiic/STEMMA breakouts** on a sensor flex, away from the main-PCB heat — not bare silicon. The **display connector (row 11) is the exception**: a 0.5 mm FPC/ZIF is explicitly hand-solderable, so it sits **on the main PCB**. **No RTC IC** — timekeeping is the **ESP32-S3 internal RTC off a 32.768 kHz crystal** (XTAL32K, GPIO15/16) + SNTP; no coin cell (see root README §6/§8/§10).
+**Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
+- **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.
+- **2b — future: one custom sensor daughterboard** carrying the **same three bare chips**, JLCPCB SMT-assembled; you hand-solder only its 0.1″ header / castellated edge → smallest footprint, still no iron on a leadless pad. Same part numbers → same I²C addresses → 2a firmware runs unchanged.
+
+The **display connector (row 11) is the exception** among leadless-class parts: a 0.5 mm FPC/ZIF is explicitly hand-solderable, so it sits **on the main PCB**. **No RTC IC** — timekeeping is the **ESP32-S3 internal RTC off a 32.768 kHz crystal** (XTAL32K, GPIO15/16) + SNTP; no coin cell (see root README §6/§8/§10).
 
 **Fuel gauge dropped** (no hand-solderable equivalent — every 1-cell gauge is TDFN/WLP): SoC is now **voltage-based via the ESP32-S3 ADC** on a divider off the cell. See root README §10 / `../power.md`.
 
-**Removed datasheets (leadless, replaced above):** `amp_tas5825m.pdf` (VQFN-32), `motor_driver_drv8835.pdf` (WSON-12), `pd_sink_stusb4500.pdf` (QFN-24), `charger_bq25628e.pdf` (WQFN-18), `fuel_gauge_max17048.pdf` (µDFN/WLP), `battery_protector_lc05111cmt.pdf` (WDFN-6).
+**Removed datasheets (leadless, replaced above):** `amp_tas5825m.pdf` (VQFN-32), `motor_driver_drv8835.pdf` (WSON-12), `pd_sink_stusb4500.pdf` (QFN-24), `charger_bq25628e.pdf` (WQFN-18), `fuel_gauge_max17048.pdf` (µDFN/WLP), `battery_protector_lc05111cmt.pdf` (WDFN-6). **v0.15 sensor consolidation:** `sensor_temp_tmp117.pdf` (TMP117 — dropped, redundant), `sensor_humidity_temp_sht4x.pdf` (SHT45 — folded into BME688), `sensor_accel_bma400.pdf` (BMA400 — replaced by LIS3DH).
 
 ---
 
@@ -49,8 +53,9 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 | **LT3652** charger | VIN (VBUS) **≤32 V**; BAT (system node) | 3.3 V (open-drain status) | CHRG + FAULT status → **~2**; NTC/timer/float = passives |
 | **Cell voltage sense** | off cell via divider | ADC | 1 ADC pin → **1** |
 | **S-8261 + AO4800** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
+| **ITR8307** hand homing | IR LED + phototransistor off **3.3 V** (R-limited) | 3.3 V (ADC) | reflective opto behind a punched dial hole → **1 ADC/comparator**; no magnets |
 
-**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**SHT45** T/RH, **TMP117** temp *(opt)*, **SGP41** VOC, **TSL2591** light, **BMA400** accel — all now datasheeted, rows 12–15) — **kept small** (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (not on I²C). Homing uses **2× DRV5032** Hall (SOT-23, 3.3 V, open-drain → 2 GPIO). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + Halls 2 + amp mute 1 + SD (**SPI 4** to save pins) + charger status 2 + Vbat ADC 1 + PD PG 1 + LEDs ~2 + encoder/buttons ~4 ≈ **31–35 GPIO** → fits ≤36, but reserve a strapping-safe map early. **The steppers are still 8 pins** — the TB6612FNG is driven PWM-on-the-inputs (PWMA/PWMB tied high) to keep parity with the DRV8835 it replaces (the conventional PWM-pin scheme would cost 12).
+**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**BME688** T/RH/press/VOC, **TSL2591** light, **LIS3DH** accel — rows 12–15b) — **kept small** (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (not on I²C). Homing uses **1× ITR8307** reflective optical (§16; 4-SMD, 3.3 V, analog out → **1 ADC/comparator GPIO**, no magnets). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + optical home 1 + amp mute 1 + SD (**SPI 4** to save pins) + charger status 2 + Vbat ADC 1 + PD PG 1 + LEDs ~2 + encoder/buttons ~4 ≈ **30–34 GPIO** → fits ≤36, but reserve a strapping-safe map early. **The steppers are still 8 pins** — the TB6612FNG is driven PWM-on-the-inputs (PWMA/PWMB tied high) to keep parity with the DRV8835 it replaces (the conventional PWM-pin scheme would cost 12).
 
 ---
 
@@ -105,7 +110,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
   - **Voltage:** operating **5–9 V DC**; absolute-max driving voltage 10 V. Driven at **5 V** via TB6612FNG VM for full torque.
   - **Current:** coil R 230/260/290 Ω → **≈19 mA/coil at 5 V**; **two coils per shaft**, bipolar. **8 coil terminals** total (external-shaft 1–4, internal-shaft 5–8) → four H-bridges = two TB6612FNG.
   - Holding torque 3.5–4.0 mN·m; dynamic 1.0–1.45 mN·m @ 200°/s; noise ~40 dB(A); temp −40…+105 °C.
-- **Description:** 1/3° per step (60°/step rotor), up to 600°/s, 1/180 gear. Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external Hall homing.
+- **Description:** 1/3° per step (60°/step rotor), up to 600°/s, 1/180 gear. Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external **optical** homing (ITR8307, §16).
 - **Interface:** Not a data bus — **two 2-phase bipolar coil sets** driven from the ESP32 via **2× TB6612FNG** (below), PWM microstep. Connects via **wire + JST**.
 - **Released:** X40 pinout rev A (`FO-220-01-B`); X27 base is a long-standing automotive gauge motor.
 
@@ -135,7 +140,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
   - **Current:** **1.2 A/ch continuous (3.2 A peak)** — vs the ~19 mA the coils need → huge margin, runs cold.
   - **IO (per chip, 3.3 V logic):** channel A = `AIN1`,`AIN2`,`PWMA`; channel B = `BIN1`,`BIN2`,`PWMB`; plus `STBY`. **Pin-efficient microstep scheme:** tie `PWMA`/`PWMB` **high** and **PWM the four IN pins** for sign-magnitude microstep → **4 GPIO/chip = 8 total** + one shared `STBY` (parity with the DRV8835 it replaces). *(The textbook scheme — PWM on `PWMx`, direction on the IN pins — is 6/chip = 12 GPIO; avoid it here to protect the pin budget.)* Outputs AO1/AO2, BO1/BO2 to the coils. Decouple VM & VCC (0.1 µF min + bulk).
 - **Description:** Integrated flyback (protects the MCU), low-drop MOSFET outputs → full 5 V coil drive, thermal shutdown. No internal current chopper → microstepping is PWM/voltage-based (ideal for these high-impedance gauge coils). **Do not** use A4988/DRV8825/DRV8434/TMC-class choppers — they can't regulate ~19 mA into 260 Ω.
-- **Interface:** GPIO + PWM (IN/IN sign-magnitude). Homing via 2× DRV5032 Hall (SOT-23, separate).
+- **Interface:** GPIO + PWM (IN/IN sign-magnitude). Homing via **1× ITR8307 reflective optical** (§16, separate — no hand magnets).
 - **Released:** long-standing, active (Toshiba Bi-CD).
 
 ## 7. WCH CH224K — USB-PD Sink Controller *(resistor-configured)*
@@ -184,45 +189,65 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Power / IO:** passive; carries the display's 3-wire SPI + DISP/EXTCOMIN/EXTMODE. Panel VDD/VDDA **5 V**, logic **3 V** (§1).
 - **Price:** ~$0.7.
 
-## 12. TI TMP117 — ±0.1 °C Precision Temperature Sensor *(dedicated ambient temp)*
+## 12. Bosch BME688 — Environmental Combo *(chosen env part — one chip = T + RH + pressure + VOC/gas)*
 
-- **Product:** 16-bit digital temp sensor, **±0.1 °C (max) over −20…+50 °C with no calibration**, 0.0078 °C resolution, 48-bit EEPROM, PT100/PT1000 RTD-class. I²C/SMBus, up to 4/bus, programmable ALERT.
-- **Refs:** `TMP117AIDRVR` · **Texas Instruments** · **WSON-6 (2×2 mm)** · **DigiKey # 9685284** · datasheet `SNIS189`.
-- **Power / IO:** 1.8–5.5 V, **3.5 µA typ**; I²C (3.3 V-compatible) + optional ALERT.
-- **Hand-assembly:** WSON is leadless → **breakout** (Adafruit 4821, Qwiic/STEMMA) on the sensor flex, away from self-heating parts.
-- **Role:** meets "ambient temp to **0.1 °C**." **Optional / redundant if the SHT45 (§13) is fitted** (SHT45 temp is also ±0.1 °C) — add TMP117 only for a fast, RH-decoupled, traceable temp reference.
-- **Price:** ~$1.9 bare / ~$5 breakout.
+- **Product:** 4-in-1 environmental sensor — **temperature + humidity + barometric pressure + VOC/gas resistance** with the **BSEC** library computing an IAQ/air-quality index. One chip does the whole climate + air-quality job → **one sensor on the bus, one board on the chain**.
+- **Refs:** `BME688` · **Bosch Sensortec** · **LGA-8 (3×3 mm)** · datasheet `BST-BME688-DS000` (`sensor_env_bme688.pdf`).
+- **Power / IO:** 1.71–3.6 V; I²C (addr 0x76/0x77) **or** SPI; ~3.7 µA @ 1 Hz T/RH/P, gas heater is the power draw (duty-cycle it).
+- **Accuracy:** T **±0.5 °C**, RH **±3 %RH**, P ±0.6 hPa — plenty for a room-comfort readout; the win is folding T/RH/VOC/AQI onto **one** part.
+- **Hand-assembly:** LGA leadless → **module. 2a board = Adafruit 5046 (BME688, STEMMA QT), ~$19** ([DK # 14313482](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482)); on **2b** the bare BME688 is machine-placed on the daughterboard (same chip → firmware unchanged).
+- **Firmware:** Bosch **BSEC 2.x** (BME68x) for IAQ; raw T/RH/P/gas without it. Root README §6c/§8.
+- **Interface:** I²C (shared) + optional INT.
+- **Price:** ~$5 bare / ~$19 board.
 
-## 13. Sensirion SHT45 — ±1.0 %RH / ±0.1 °C Humidity + Temp *(accurate ambient RH — also covers temp)*
-
-- **Product:** 4th-gen capacitive **RH + temp** sensor; **±1.0 %RH** and **±0.1 °C** — the ultra-high-accuracy grade of the SHT4x family (tighter than the SHT40's ±1.8 %RH / ±0.2 °C). On-chip heater; I²C.
-- **Refs:** `SHT45-AD1B-R2` · **Sensirion** · **DFN-4 (1.5×1.5 mm)** · **DigiKey # 16360966** · datasheet `Datasheet_SHT4x`. (`SHT45-AD1F-R2`, DK # 17180856 = with PTFE membrane/filter.)
-- **Power / IO:** 1.08–3.6 V, ~0.4 µA avg; I²C addr 0x44.
-- **Hand-assembly:** DFN leadless → **breakout** (Adafruit 5665 / SparkFun) on the vented sensor flex. **Also supplies the RH/T compensation the SGP41 VOC sensor requires.**
-- **Role:** satisfies **humidity (accurate)** *and* **temperature (0.1 °C)** in one part → can stand in for the TMP117.
-- **All-in-one alt:** **Bosch BME688** — adds pressure + gas/AQI, but looser T/RH (±0.5 °C / ±3 %RH); pick it only to fold VOC/AQI onto one chip (§8, root README).
-- **Price:** ~$4.5 bare / ~$6 breakout.
-
-## 14. ams-OSRAM TSL2591 — High-Dynamic-Range Ambient Light Sensor *(weak-light sensitive)*
+## 13. ams-OSRAM TSL2591 — High-Dynamic-Range Ambient Light Sensor *(weak-light sensitive)*
 
 - **Product:** I²C ALS with **full-spectrum + IR photodiodes**, **600,000,000:1 dynamic range → 188 µlux to 88,000 lux** (gain 1×–9876×, integration 100–600 ms). Far more sensitive in near-dark than the VEML7700 (~0.0036 lux floor) → resolves a **very dim bedroom**.
-- **Refs:** `TSL25911FN` · **ams-OSRAM** · **WFDFN-6 (2×2 mm)** · **DigiKey # 4162547** · datasheet `TSL2591 (Apr-2013)`.
+- **Refs:** `TSL25911FN` · **ams-OSRAM** · **WFDFN-6 (2×2 mm)** · **DigiKey # 4162547** · datasheet `TSL2591 (Apr-2013)` (`sensor_light_tsl2591.pdf`).
 - **Power / IO:** 2.7–3.6 V, ~90 µA active / ~3 µA sleep; I²C + INT (open-drain, programmable thresholds).
-- **Hand-assembly:** WFDFN leadless → **breakout** (Adafruit 1980, DK # 4990786, Qwiic) at the light window.
+- **Hand-assembly:** WFDFN leadless → **module. 2a board = Adafruit 1980 (TSL2591, STEMMA QT), $6.95** ([DK # 4990786](https://www.digikey.com/en/products/detail/adafruit-industries-llc/1980/4990786)); on **2b** the bare TSL2591 is machine-placed on the daughterboard.
 - **Use:** ALS auto-dim (front-light gate, halo brightness) + the "true 0 emission at night" logic — the sub-millilux floor detects a fully dark room. Lux from CH0(full)/CH1(IR).
-- **Alt:** **Vishay VEML7700** — outputs lux directly, simpler/cheaper, floor ~0.0036 lux (adequate but less sensitive).
-- **Price:** ~$3 bare / ~$3–5 breakout.
+- **Alt:** **Vishay VEML7700** — outputs lux directly, simpler/cheaper, floor ~0.0036 lux (adequate but less sensitive); Adafruit 4162, ~$5.
+- **Price:** ~$3 bare / **$6.95 board**.
 
-## 15. Bosch BMA400 — Ultra-Low-Power Accel + Orientation *(tap-to-snooze + flat/standing, R14)*
+## 14. ST LIS3DH — Triple-Axis Accelerometer *(tap-to-snooze + flat/standing, R14)*
 
-- **Product:** 3-axis ±2/4/8/16 g accelerometer, **< 14.5 µA at full performance** (auto-wake/low-power modes), on-chip **tap/double-tap, orientation-change, activity & step** engines with interrupts. I²C/SPI.
-- **Refs:** `BMA400` · **Bosch Sensortec** · **LGA-12 (2×2 mm)** · **DigiKey # 8634935** · datasheet `BST-BMA400-DS000` (AES-encrypted PDF — opens, no text-extract).
-- **Power / IO:** 1.71–3.6 V; two INT pins. **Gravity-vector read → static flat-vs-standing (R14)**; **hardware tap IRQ** wakes the MCU for **tap-to-snooze (R3)** so it can sleep between events.
-- **Hand-assembly:** LGA leadless → **breakout** (SparkFun Qwiic BMA400 / Adafruit) mounted rigidly to the body so gravity reads true.
+- **Product:** 3-axis ±2/4/8/16 g accelerometer, 10-bit, on-chip **tap / double-tap** and low-power modes with two programmable interrupts. I²C/SPI. Low-res is fine here — flat-vs-standing is a static gravity read and tap is an IRQ.
+- **Refs:** `LIS3DH` · **STMicroelectronics** · **LGA-16 (3×3 mm)** · datasheet `LIS3DH` (`sensor_accel_lis3dh.pdf`).
+- **Power / IO:** 1.71–3.6 V; ~2 µA low-power to ~11 µA normal; two INT pins. **Gravity-vector read → static flat-vs-standing (R14)**; **hardware tap IRQ** wakes the MCU for **tap-to-snooze (R3)** so it can sleep between events.
+- **Hand-assembly:** LGA leadless → **module. 2a board = Adafruit 2809 (LIS3DH, STEMMA QT), $4.95** ([DK # 5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319)); on **2b** the bare LIS3DH is machine-placed on the daughterboard. Mount rigidly to the body so gravity reads true.
+- **Firmware:** Adafruit_LIS3DH / esp-idf-lib. Well-supported; same driver whether 2a board or 2b bare.
 - **Interface:** I²C (shared) + INT.
-- **Price:** ~$1.6 bare / ~$5 breakout.
+- **Price:** ~$2 bare / ~$5 board.
 
-## 16. Timekeeping — no RTC IC *(ESP32-S3 RTC + 32.768 kHz crystal)*
+## 15. Sensor build — option 2a (chosen) vs 2b (future) — *identical sensor set*
+
+**Both paths carry the same three sensors — BME688 + TSL2591 + LIS3DH — so the firmware is identical either way.** Every one is leadless, so the cluster is built as **modules**, never bare on the main PCB:
+
+- **2a — chosen now: STEMMA QT / Qwiic daisy-chain.** Three ready Adafruit boards, one 4-wire I²C chain, zero leadless soldering:
+
+  | Sensor | Board | ~Price | Ref |
+  |--------|-------|--------|-----|
+  | Env (T/RH/press/VOC) | **Adafruit 5046** (BME688) | ~$19 | [DK 14313482](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482) |
+  | Light (weak-light) | **Adafruit 1980** (TSL2591) | $6.95 | [DK 4990786](https://www.digikey.com/en/products/detail/adafruit-industries-llc/1980/4990786) |
+  | Accel (tap+orient) | **Adafruit 2809** (LIS3DH) | $4.95 | [DK 5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
+
+  Chain to the main board over one JST-SH STEMMA QT cable → SDA/SCL/3V3/GND. ≈ **$31** for the three.
+
+- **2b — future: one custom sensor daughterboard.** The **same three bare chips** (BME688 + TSL2591 + LIS3DH — §12/13/14) on a small PCB, **JLCPCB/PCBA machine-placed**; you **hand-solder only its 0.1″ header / castellated edge** to the main board. Never an iron on a leadless pad → mfg rule intact; smallest footprint; one physical board to install. **Same part numbers → same I²C addresses → the 2a firmware runs unchanged.**
+
+## 16. Everlight ITR8307 — Reflective Optical Sensor *(hand homing, root README §5)*
+
+- **Product:** reflective photo-interrupter — GaAs IR-LED + phototransistor mounted **side-by-side** in a tiny plastic package; senses a high-contrast index mark on each hand's underside as it sweeps a **hole punched in the dial**. Short-range (target a few mm away).
+- **Refs:** Part # `ITR8307/TR8` · Mfr **Everlight** · **DigiKey # 2693862** · datasheet rev 4.
+- **Price / link:** ~**$0.5** — [DigiKey 2693862](https://www.digikey.com/en/products/detail/everlight-electronics-co-ltd/ITR8307-TR8/2693862) (active).
+- **Dimensions (L × W × H):** **3.4 × 1.5 × 1.1 mm** (4-SMD) — the **smallest reflective sensor evaluated → smallest dial hole** (the design goal). Gullwing 4-SMD = hand-solderable, mounts **on the main PCB** (not a breakout).
+- **Power / IO:** IR-LED forward ~1.2 V at a few mA (external R sets I_F); phototransistor collector to **3.3 V** through a load → an **analog level read by 1 ESP32 ADC pin (or a comparator)**. No magnets, no I²C.
+- **Use (§5):** one sensor behind the dial; **sequential per-shaft homing** removes hand-ID ambiguity (park one hand off-index, sweep the other to the edge; repeat). Re-home on boot / after NTP / after long runs; step-count between.
+- **Why it (vs TCND5000):** the Vishay **TCND5000** (**6 × 4.3 × 3.75 mm**, peak 6 mm, range 2–25 mm) reaches farther but is **~5× the footprint** → a bigger hole, so it was **dropped**. ITR8307's short range is fine because the hands sweep **<3 mm** off the dial. *(Replaces the earlier 2× DRV5032 Hall + hand magnets.)*
+- **Interface:** analog reflective (ADC/comparator edge).
+
+## 17. Timekeeping — no RTC IC *(ESP32-S3 RTC + 32.768 kHz crystal)*
 
 **Decision: no dedicated RTC chip, no coin cell.** A battery-less RTC IC would lose time on total power loss exactly as the S3 does, so it adds parts without buying anything. The S3's *own* RTC is fine **as long as it runs off a good reference** — its internal RC oscillator drifts %-level over temperature (amp/LED heat nearby), so:
 
@@ -234,7 +259,7 @@ See root README §1/§6c/§8/§10.
 
 ---
 
-## Reconciliation with root README (v0.12)
+## Reconciliation with root README (v0.15)
 
 All parts match the root [`README.md`](../README.md):
 
@@ -248,7 +273,8 @@ All parts match the root [`README.md`](../README.md):
 | **Power / safety** | ✅ **CH224K** (PD) + **LT3652** (1S buck charger, BAT-node power-path) + **S-8261 + AO4800** protector + reverse P-FET + NTC + TVS. Fuel gauge → **ESP32 ADC**. See [`../power.md`](../power.md). |
 | **Charger telemetry** | ⚠️ **downgrade:** LT3652 has **no I²C** and a **single-window NTC** (not multi-zone JEITA). Health-cap 4.05 V is enforced in hardware; SoC/faults via ADC + status pins. Double-redundant overcharge preserved. |
 | **Display connector** | ✅ **FH34SRJ-10S-0.5SH** (Hirose, 10-pin 0.5 mm ZIF) — the panel spec's own recommended mate; **on-board** (FPC/ZIF is hand-solderable). |
-| **Sensors (precise)** | ✅ temp **TMP117** (±0.1 °C, opt) · T/RH **SHT45** (±0.1 °C / ±1 %RH, replaces SHT40) · light **TSL2591** (weak-light, replaces VEML7700) · accel **BMA400** (tap + orient). All leadless → **I²C breakouts**. |
+| **Sensors (v0.15 consolidated)** | ✅ env **BME688** (T/RH/press/**VOC** — one chip = climate + air-quality) · light **TSL2591** (weak-light) · accel **LIS3DH** (tap + orient). All leadless → **I²C modules**, **same set on both paths**: **2a** = Adafruit STEMMA QT chain (5046 + 1980 + 2809); **2b** = future custom daughterboard (same 3 bare chips → firmware unchanged). Dropped TMP117/SHT45/SGP41/BMA400 datasheets. |
+| **Hand homing** | ✅ **1× Everlight ITR8307** reflective optical (§16, 4-SMD, on-board) — single sensor + punched dial hole, sequential, **no hand magnets**. Replaces 2× DRV5032 Hall; **TCND5000 evaluated & dropped** (6×4.3×3.75 mm ≈ 5× bigger → bigger hole). |
 | **Timekeeping** | ✅ **No RTC IC / no battery** — S3 internal RTC off a **32.768 kHz crystal** (XTAL32K) + SNTP (~±20 ppm ≈ 1.7 s/day). Total power loss → re-sync on boot (clock animation). RV-3028-C7/DS3231SN datasheet removed. |
 
 **No open discrepancies.** Intentional non-"matches": **PC68-4** (retained as a speaker *alternative*), and **CH224K sourced off-DigiKey** (no hand-solderable DigiKey PD sink exists).
