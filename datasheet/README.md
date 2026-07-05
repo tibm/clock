@@ -1,43 +1,49 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04) and **match the root [`README.md`](../README.md)** (v0.8).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04) and **match the root [`README.md`](../README.md)** (v0.11).
+
+> 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors, fuel gauge) are pushed onto **pre-made breakout modules** or **dropped**; see the root README manufacturing section.
 
 > 🔩 **The stepper ships as two files.** `stepper_motor_x40-879.pdf` is a 2-page **pinout addendum** for the dual-shaft **X40.879** (the motor we're buying); it explicitly defers to the **X27 base spec** (`stepper_motor_x27_base-spec.pdf`) for torque, current, and dimensions. Keep both.
 
-| # | File | Part | Mfr | Active | ~Price | Interface |
-|---|------|------|-----|--------|--------|-----------|
-| 1 | `display_ls032b7dd02.pdf` | LS032B7DD02 (full device spec) | Sharp | ✅ | ~$38 | 3-wire SPI |
-| 2 | `mcu_esp32-s3-wroom-1-n16r8.pdf` | ESP32-S3-WROOM-1-N16R8 | Espressif | ✅ | ~$6.8 | host: Wi-Fi/BLE + UART/SPI/I²C/I²S |
-| 3 | `speaker_dma58-4.pdf` | DMA58-4 | Dayton Audio | ✅ | ~$19 | Analog (passive driver) |
-| 4 | `stepper_motor_x40-879.pdf` | **X40.879** (dual-shaft) | Juken / Switec | ✅ | ~$14 | 2-phase bipolar × 2 |
-| 4b | `stepper_motor_x27_base-spec.pdf` | X27 base spec *(companion to #4)* | Juken / Switec | ✅ | — | — |
-| 5 | `amp_tas5825m.pdf` | TAS5825M | Texas Instruments | ✅ | ~$3–5 | I²S in + I²C control |
-| 6 | `motor_driver_drv8835.pdf` | DRV8835 (× 2) | Texas Instruments | ✅ | ~$2.2 | GPIO/PWM (PH/EN) |
-| 7 | `pd_sink_stusb4500.pdf` | STUSB4500 | STMicroelectronics | ✅ | ~$2 | USB-PD (I²C/NVM) |
-| 8 | `charger_bq25628e.pdf` | BQ25628E | Texas Instruments | ✅ | ~$1.5 | I²C |
-| 9 | `fuel_gauge_max17048.pdf` | MAX17048 | Analog Devices | ✅ | ~$1.5 | I²C |
-| 10 | `battery_protector_lc05111cmt.pdf` | LC05111C02 | onsemi | ✅ | ~$0.6 | none (autonomous) |
+| # | File | Part | Mfr | Package (hand-solder) | Active | ~Price | Interface |
+|---|------|------|-----|-----------------------|--------|--------|-----------|
+| 1 | `display_ls032b7dd02.pdf` | LS032B7DD02 (full device spec) | Sharp | module + FPC | ✅ | ~$38 | 3-wire SPI |
+| 2 | `mcu_esp32-s3-wroom-1-n16r8.pdf` | ESP32-S3-WROOM-1-N16R8 | Espressif | **module (castellated)** | ✅ | ~$6.8 | Wi-Fi/BLE + UART/SPI/I²C/I²S |
+| 3 | `speaker_dma58-4.pdf` | DMA58-4 | Dayton Audio | wired (passive) | ✅ | ~$19 | Analog |
+| 4 | `stepper_motor_x40-879.pdf` | **X40.879** (dual-shaft) | Juken / Switec | wired | ✅ | ~$14 | 2-phase bipolar × 2 |
+| 4b | `stepper_motor_x27_base-spec.pdf` | X27 base spec *(companion to #4)* | Juken / Switec | wired | ✅ | — | — |
+| 5 | `amp_tas5760m.pdf` | **TAS5760M** (`TAS5760MDAPR`) | Texas Instruments | **HTSSOP-32 (DAP, PowerPAD)** | ✅ | ~$4–6 | I²S in + I²C control |
+| 6 | `motor_driver_tb6612fng.pdf` | **TB6612FNG** (× 2) | Toshiba | **SSOP-24 (no exposed pad)** | ✅ | ~$2.4 | GPIO/PWM (IN/IN) |
+| 7 | `pd_sink_ch224k.pdf` | **CH224K** | WCH (Qinheng) | **ESSOP-10** | ✅ | ~$0.4 | USB-PD (resistor-set) |
+| 8 | `charger_lt3652.pdf` | **LT3652** (`LT3652EMSE#PBF`) | Analog Devices | **MSOP-12E (PowerPAD)** | ✅ | ~$5–6 | autonomous (resistor-set) |
+| 9 | `battery_protector_s-8261.pdf` | **S-8261** (`S-8261AAxMD`) | ABLIC | **SOT-23-6** | ✅ | ~$0.4 | none (autonomous) |
+| 10 | `protection_mosfet_ao4800.pdf` | **AO4800** (dual N-FET, protector) | Alpha & Omega | **SO-8** | ✅ | ~$0.3 | none (protector FET) |
+
+**Fuel gauge dropped** (no hand-solderable equivalent — every 1-cell gauge is TDFN/WLP): SoC is now **voltage-based via the ESP32-S3 ADC** on a divider off the cell. See root README §10 / `../power.md`.
+
+**Removed datasheets (leadless, replaced above):** `amp_tas5825m.pdf` (VQFN-32), `motor_driver_drv8835.pdf` (WSON-12), `pd_sink_stusb4500.pdf` (QFN-24), `charger_bq25628e.pdf` (WQFN-18), `fuel_gauge_max17048.pdf` (µDFN/WLP), `battery_protector_lc05111cmt.pdf` (WDFN-6).
 
 ---
 
 ## System IO & power domains
 
-The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V logic)** is the host; everything else hangs off it. Rails (see [`../power.md`](../power.md) for the full tree + battery safety): **3.3 V** (logic) · **5 V** (display panel + stepper VM) · **12 V boost** (amp PVDD, gated) · **15 V VBUS** (LED, plugged). Source: **USB-PD 15 V** → BQ25792 buck-boost charger, 1S Li-ion 18650.
+The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V logic)** is the host; everything else hangs off it. Rails (see [`../power.md`](../power.md) for the full tree + battery safety): **3.3 V** (logic, from the 5 V rail) · **5 V** (display panel + stepper VM) · **12 V boost** (amp PVDD, gated) · **15 V VBUS** (LED, plugged). Source: **USB-PD 15 V** (CH224K) → LT3652 buck charger, 1S Li-ion 18650; the charger **BAT node is the always-on system supply**.
 
 | Part | Power rail(s) (abs-max) | Logic level | ESP32-S3 signals (GPIO count) |
 |------|-------------------------|-------------|-------------------------------|
 | **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; ≤36 GPIO to budget |
 | **LS032B7DD02** display | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | SPI SCLK · SI · SCS + DISP + EXTCOMIN → **~4–5** (EXTMODE tied to VDD) |
-| **TAS5825M** amp | PVDD **12 V** (boost; range 4.5–26.4) + DVDD **3.3 V** (abs 3.9) | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + PDN (+ FAULT in) + I²C(shared) → **~4 + shared I²C** |
-| **DMA58-4** speaker | — (passive, from amp OUT) | — | none (analog off TAS5825M PBTL output) |
-| **DRV8835 × 2** driver | VM **5 V** (0–11) + VCC **3.3 V** (2–7) | 3.3 V | MODE(tie-hi) + APHASE·AENBL·BPHASE·BENBL → **4 / chip = 8** |
-| **X40.879** stepper | coils fed from DRV8835 VM **5 V** | — | none direct (via DRV8835); 2 shafts × 2 coils |
-| **STUSB4500** PD sink | VSYS 3.0–5.5 V; VBUS ≤28 V | 3.3 V | I²C (config/status) + ALERT/ATTACH → **~2 shared + 1** |
-| **BQ25628E** charger | VIN (VBUS) ≤18 V; SYS (NVDC) | 3.3 V | I²C + /INT, TS(NTC), CE → **~2 shared + 2** |
-| **MAX17048** gauge | cell 2.5–4.5 V | 3.3 V | I²C + optional /ALRT → **~2 shared + 1** |
-| **LC05111C02** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
+| **TAS5760M** amp | PVDD **12 V** (boost; range 4.5–26.4) + DVDD **3.3 V** | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + SPK_SD (mute/PDN) + I²C(shared) → **~4 + shared I²C** |
+| **DMA58-4** speaker | — (passive, from amp OUT) | — | none (analog off TAS5760M PBTL output) |
+| **TB6612FNG × 2** driver | VM **5 V** (0–13.5, abs 15) + VCC **3.3 V** (2.7–5.5) | 3.3 V | AIN1·AIN2·BIN1·BIN2 (PWM'd) + STBY → **4 / chip = 8** + shared STBY |
+| **X40.879** stepper | coils fed from TB6612FNG VM **5 V** | — | none direct (via TB6612FNG); 2 shafts × 2 coils |
+| **CH224K** PD sink | VBUS **4–22 V**; VDD off VBUS | 3.3 V (PG open-drain) | CFG (resistors, no GPIO) + PG → **~1** |
+| **LT3652** charger | VIN (VBUS) **≤32 V**; BAT (system node) | 3.3 V (open-drain status) | CHRG + FAULT status → **~2**; NTC/timer/float = passives |
+| **Cell voltage sense** | off cell via divider | ADC | 1 ADC pin → **1** |
+| **S-8261 + AO4800** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
 
-**Shared / not-yet-datasheeted:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (SHT4x, SGP41, VEML7700, BMA400, RTC). Homing uses **2× DRV5032** Hall (3.3 V, open-drain → 2 GPIO). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + Halls 2 + amp PDN 1 + SD (SDMMC 6 / SPI 4) + LEDs ~2 + encoder/buttons ~4 ≈ **30–34 GPIO** → fits, but reserve a strapping-safe map early. **The 8 stepper pins are the single biggest consumer** (direct-GPIO drive would cost the same 8, so DRV8835 is free in pin terms).
+**Shared / not-yet-datasheeted:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (SHT4x, SGP41, VEML7700, BMA400, RTC) — **now smaller** (no charger, no fuel gauge on I²C). Homing uses **2× DRV5032** Hall (SOT-23, 3.3 V, open-drain → 2 GPIO). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + Halls 2 + amp mute 1 + SD (**SPI 4** to save pins) + charger status 2 + Vbat ADC 1 + PD PG 1 + LEDs ~2 + encoder/buttons ~4 ≈ **31–35 GPIO** → fits ≤36, but reserve a strapping-safe map early. **The steppers are still 8 pins** — the TB6612FNG is driven PWM-on-the-inputs (PWMA/PWMB tied high) to keep parity with the DRV8835 it replaces (the conventional PWM-pin scheme would cost 12).
 
 ---
 
@@ -51,9 +57,9 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
   - **Voltage:** VDD/VDDA recommended **4.8 / 5.0 / 5.5 V** (min/typ/max); absolute max −0.3…+5.8 V. Logic inputs (SCLK/SI/SCS/DISP/EXTCOMIN) high = **2.7 / 3.0 / VDD V** → **3.3 V-MCU compatible**.
   - **Power consumption:** HOLD (no update) **30 µW typ** (330 µW max); data update @ 1 Hz **250 µW typ** (750 µW max) — i.e. ≈6 µA hold / ≈50 µA update at 5 V. (Peak COM current is higher; size the rail with margin.)
   - **IO:** 3-wire SPI (SCLK, SI, SCS) + DISP (on/off) + EXTCOMIN (VCOM toggle) + EXTMODE (tie to VDD). ~4–5 ESP32 GPIO.
-- **Description:** Reflective/transflective monochrome MIP LCD — retains its image at near-zero power, daylight-readable, no backlight. Response 30 ms, viewing angle 120°/120°, operating −20…+70 °C. FPC connector.
+- **Hand-assembly:** module with an **FPC tail** → mate with a **hand-solderable fine-pitch FPC/ZIF connector** (or an FPC-to-header breakout). No bare leadless silicon.
 - **Interface:** **3-wire SPI** + DISP/EXTCOMIN/EXTMODE control.
-- **Released:** device spec © 2023 (rev `LD-2023X13`, 01-Nov-2023). *(This file replaced the earlier 2-page marketing brief.)*
+- **Released:** device spec © 2023 (rev `LD-2023X13`, 01-Nov-2023).
 
 ## 2. Espressif ESP32-S3-WROOM-1-N16R8 — Wi-Fi + BLE MCU module *(host)*
 
@@ -65,7 +71,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
   - **Voltage:** 3.0–3.6 V (typ 3.3 V). Absolute max 3.6 V, min −0.3 V. External supply ≥ 0.5 A.
   - **Current:** Wi-Fi TX peak up to **355 mA**; BLE TX peak up to **344 mA**; RX ~95 mA. Modem-sleep ~13–108 mA. Light-sleep **240 µA**; deep-sleep 7–170 µA; power-off **1 µA**.
   - **IO:** up to **36 GPIO**, muxable to UART/SPI/I²C/I²S/SDIO/PWM/ADC. GPIO source 40 mA / sink 28 mA.
-- **Description:** Single-chip 2.4 GHz Wi-Fi 802.11 b/g/n + Bluetooth LE 5 host driving the whole system. (`-1U` = external antenna.)
+- **Hand-assembly:** **module with castellated edge pads** → drag-solder with an iron. The bottom center GND/thermal pad benefits from a via array (heat from the back / hot-air optional) but the castellations carry all signal + power. This is a *module*, not a bare QFN — acceptable.
 - **Interface:** **Wireless** Wi-Fi + BLE 5; **wired** UART/SPI/I²C/I²S/SDIO via GPIO mux.
 - **Released:** module ~2021 (SoC launched Dec 2020); datasheet v1.8.
 
@@ -75,7 +81,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Refs:** Part # `DMA58-4` · Mfr **Dayton Audio** · Parts Express # 295-582 · Amazon ASIN B07L9JKSGV. **Not on DigiKey.**
 - **Price / link:** ~**$18.99** — [Parts Express 295-582](https://www.parts-express.com/Dayton-Audio-DMA58-4-2-Dual-Magnet-Aluminum-Cone-Full-Range-Driver-4-Ohm-295-582) · also [Amazon](https://www.amazon.com/dp/B07L9JKSGV).
 - **Dimensions (W × L × D):** **55.9 × 55.9 × 31.75 mm** (2.20″ square × 1.25″ deep). Cutout Ø 49.8 mm (1.96″); bolt circle Ø 64.3 mm (2.53″).
-- **Power / IO:** Passive driver — **no supply, no logic.** 4 Ω nominal (Re 3.6 Ω), **15 W RMS** → ≈7.7 V RMS / ≈1.94 A RMS at full power. Fs 165.5 Hz, SPL 86.2 dB @ 2.83 V/1 m, Xmax 2.0 mm, VC Ø 25 mm, Vas 0.149 L, range 160–20,000 Hz. **Connects to the TAS5825M PBTL output**, not the MCU.
+- **Power / IO:** Passive driver — **no supply, no logic.** 4 Ω nominal (Re 3.6 Ω), **15 W RMS** → ≈7.7 V RMS / ≈1.94 A RMS at full power. Fs 165.5 Hz, SPL 86.2 dB @ 2.83 V/1 m, Xmax 2.0 mm, VC Ø 25 mm, Vas 0.149 L, range 160–20,000 Hz. **Connects to the TAS5760M PBTL output** via **wire + JST**, not the MCU.
 - **Description:** High-performance 2″ full-range driver for a small sealed box; matching **DMA58-PR** passive radiator available. Needs baffle + ~100–250 cc sealed enclosure.
 - **Interface:** None (analog audio).
 - **Released:** ~2019 (reviewed *Voice Coil*, Dec 2019).
@@ -84,99 +90,96 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 > Two datasheets: `stepper_motor_x40-879.pdf` (**X40 pinout note**, `SP-X40-e-A-Pinout`) covers *only* pinout + drive sequence; torque, current, coil resistance, dimensions, temperature all come from `stepper_motor_x27_base-spec.pdf` (**X27 series spec**, `SP-X27-e-C`) — the X40's two shafts use **X27-compatible mechanics**.
 
-- **Product:** X40.879 — a **dual coaxial-shaft** stepper (independent hour + minute shafts) built from two X27-class movements; drives directly from an MCU (here, via 2× DRV8835).
+- **Product:** X40.879 — a **dual coaxial-shaft** stepper (independent hour + minute shafts) built from two X27-class movements; drives directly from an MCU (here, via 2× TB6612FNG).
 - **Refs:** Part # `X40.879` · Mfr **Juken Swiss Technology / Switec** · DigiKey # 28528329. Base spec = `X27` series (e.g. X27.168, DigiKey # 26832207).
 - **Price / link:** ~**$14.00** (qty 30) — [DigiKey 28528329](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) (active, confirmed dual-axis).
 - **Dimensions:** per-movement **Ø 30 × 9 mm** (X27 base). X40 overall isn't in the pinout note — it stacks two coaxial shafts → taller vertical profile.
 - **Power / IO** (from X27 base spec):
-  - **Voltage:** operating **5–9 V DC**; absolute-max driving voltage 10 V. Driven at **5 V** via DRV8835 VM for full torque.
-  - **Current:** coil R 230/260/290 Ω → **≈19 mA/coil at 5 V**; **two coils per shaft**, bipolar. **8 coil terminals** total (external-shaft 1–4, internal-shaft 5–8) → four H-bridges = two DRV8835.
+  - **Voltage:** operating **5–9 V DC**; absolute-max driving voltage 10 V. Driven at **5 V** via TB6612FNG VM for full torque.
+  - **Current:** coil R 230/260/290 Ω → **≈19 mA/coil at 5 V**; **two coils per shaft**, bipolar. **8 coil terminals** total (external-shaft 1–4, internal-shaft 5–8) → four H-bridges = two TB6612FNG.
   - Holding torque 3.5–4.0 mN·m; dynamic 1.0–1.45 mN·m @ 200°/s; noise ~40 dB(A); temp −40…+105 °C.
 - **Description:** 1/3° per step (60°/step rotor), up to 600°/s, 1/180 gear. Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external Hall homing.
-- **Interface:** Not a data bus — **two 2-phase bipolar coil sets** driven from the ESP32 via **2× DRV8835** (below), PWM microstep.
+- **Interface:** Not a data bus — **two 2-phase bipolar coil sets** driven from the ESP32 via **2× TB6612FNG** (below), PWM microstep. Connects via **wire + JST**.
 - **Released:** X40 pinout rev A (`FO-220-01-B`); X27 base is a long-standing automotive gauge motor.
 
-## 5. Texas Instruments TAS5825M — I²S DSP Class-D Amp *(chosen amp)*
+## 5. Texas Instruments TAS5760M — I²S Digital-Input Class-D Amp *(chosen amp)*
 
-- **Product:** Digital-input, **closed-loop Class-D** amp with a **192-kHz audio DSP** (EQ, 3-band DRC/loudness, limiter, thermal foldback). Stereo, or **PBTL mono** for the single 4 Ω DMA58-4.
-- **Refs:** Part # `TAS5825M` (orderable `TAS5825MRHBR`, VQFN-32) · Mfr **Texas Instruments** · datasheet `SLASF29`. [TI product page](https://www.ti.com/product/TAS5825M).
-- **Price / link:** ~**$3–5** — DigiKey keyword `TAS5825MRHBR` (active).
-- **Package:** VQFN-32 (5 × 5 mm, exposed thermal pad → copper pour).
+- **Product:** Digital-input **closed-loop Class-D** amp with I²S input and I²C control. Stereo, or **PBTL mono** for the single 4 Ω DMA58-4. Integrated **digital clipper**, selectable gain, DC-detect / over-current / over-temperature (thermal foldback) protection. **ACTIVE — recommended for new designs.**
+- **Refs:** Part # `TAS5760M` (orderable **`TAS5760MDAPR`**, HTSSOP-32) · Mfr **Texas Instruments** · datasheet `SLOS736`. [TI product page](https://www.ti.com/product/TAS5760M).
+- **Price / link:** ~**$4–6** — DigiKey keyword `TAS5760MDAPR` (verify active/stock).
+- **Package:** **HTSSOP-32 (DAP, PowerPAD)** — 32 gullwing leads (iron-solderable) + a thermal belly pad → copper pour + thermal-via array. *(A 48-pin HTSSOP `DCA` also exists; the 32-pin DAP is the compact hand-solderable choice.)*
 - **Power / IO:**
-  - **Voltage:** **PVDD 4.5–26.4 V** power stage (run at **5 V** for ~3 W, or add a ~12 V boost for ~8–12 W) + **DVDD 1.8 V or 3.3 V** logic/IO (abs-max 3.9 V). Internal 1.5 V (VR_DIG) and 5 V (AVDD) LDOs — **do not load externally**.
-  - **Current:** quiescent < 20 mA @ PVDD 12 V.
-  - **IO (all DVDD/3.3 V-referenced, thresholds 70 %/30 % VDVDD):** **I²S** = SDIN, SCLK(BCLK), LRCLK (3-wire, no MCLK needed); **I²C** = SDA, SCL (+ `ADR` resistor sets address) — shared bus; **PDN** power-down; GPIO0/1/2 = FAULT/MUTE/SDOUT. → **~4 dedicated GPIO + shared I²C**.
-- **Output power / quality:** 1 × 53 W (4 Ω, 22 V, 1 % THD) down to ~3 W at PVDD 5 V; **THD+N ≤ 0.03 %** @ 1 W/12 V; **SNR ≥ 110 dB (A-wt)**, ICN ≤ 35 µV. Needs an **LC output filter** to the speaker (recommended for EMC even though it's inductor-less capable).
-- **Why it's chosen:** the DSP loads a **~150–180 Hz high-pass + limiter + loudness/EQ** at boot (via I²C) — protects the small 2 mm-Xmax driver from over-excursion and makes it sound full. Tune with TI **PPC3 (PurePath Console)** → export register/coeff blob for the firmware.
-- **Interface:** **I²S** (audio in) + **I²C** (control/DSP).
-- **Alt (simpler):** MAX98357A — no I²C, 3.2 W @ 5 V, filterless, but no DSP/protection.
+  - **Voltage:** **PVDD 4.5–26.4 V** power stage (run at **~12 V** boost for ~8–12 W to the alarm, or 5 V for ~3 W) + **DVDD 3.3 V** logic/IO.
+  - **Current:** low quiescent; scales with output.
+  - **IO (DVDD/3.3 V-referenced):** **I²S** = SDIN, SCLK(BCLK), LRCLK (no MCLK needed); **I²C** = SDA, SCL (+ address strap) — shared bus; **SPK_SD** (mute / shutdown). → **~4 dedicated GPIO + shared I²C**.
+- **Output power / quality:** up to **55 W stereo / 114 W mono PBTL** (rail-dependent) — for our 12 V PVBTL into 4 Ω that's ~8–12 W with plenty of headroom. Needs an **LC output filter** to the speaker (recommended for EMC).
+- **Why it's chosen (vs the QFN TAS5825M it replaces):** it keeps the **I²S digital path + I²C control + output protection** in a **leaded, hand-solderable HTSSOP**. It does **not** carry the TAS5825M's full biquad DSP (EQ/DRC), so the **~150 Hz high-pass + limiter/EQ that protects the 2 mm-Xmax driver runs in ESP32-S3 firmware** (a few biquads at 44.1/48 kHz before I²S) — cheap on the S3.
+- **Interface:** **I²S** (audio in) + **I²C** (control).
+- **Alt (fully analog, hand-solderable):** **PCM5102A** I²S DAC (TSSOP-20) → **TPA3116D2** analog Class-D (HTSSOP-32); all DSP in firmware.
 
-## 6. Texas Instruments DRV8835 — Dual H-Bridge Motor Driver *(× 2, chosen stepper driver)*
+## 6. Toshiba TB6612FNG — Dual H-Bridge Motor Driver *(× 2, chosen stepper driver)*
 
-- **Product:** Dual low-voltage H-bridge. **One DRV8835 per shaft** (2 H-bridges = the shaft's 2 coils); **two chips** for the X40.879.
-- **Refs:** Part # `DRV8835` (orderable `DRV8835DSSR`, 12-WSON) · Mfr **Texas Instruments** · datasheet `SLVSB18H` (Aug 2016). DigiKey # 3088201.
-- **Price / link:** ~**$2.19/1** — [DigiKey 3088201](https://www.digikey.com/en/products/detail/texas-instruments/DRV8835DSSR/3088201) (active). *(DRV8833 is NRND; TB6612FNG is the drop-in alt.)*
-- **Package:** 12-WSON (3 × 3 mm, thermal pad).
+- **Product:** Dual H-bridge with **low-Rds MOSFET outputs**. **One TB6612FNG per shaft** (2 H-bridges = the shaft's 2 coils); **two chips** for the X40.879.
+- **Refs:** Part # `TB6612FNG` (orderable **`TB6612FNG,C,8,EL`**) · Mfr **Toshiba** · datasheet (rev 20141001). DigiKey # 1730070.
+- **Price / link:** ~**$2.40/1** — [DigiKey 1730070](https://www.digikey.com/en/products/detail/toshiba-semiconductor-and-storage/TB6612FNG-C-8-EL/1730070) (active, ships today).
+- **Package:** **SSOP-24 (5.3 × 8.2 mm, 0.65 mm pitch, NO exposed pad)** — pure gullwing, the **easiest** part on the board to hand-solder (iron only, no belly pad). This is *why* it wins over the WSON DRV8835 and HTSSOP DRV8833.
 - **Power / IO:**
-  - **Voltage:** **VM 0–11 V** motor supply (run at **5 V** for full stepper torque) + **VCC 2–7 V** logic (**3.3 V** from the MCU). Internal charge pump; sleep 95 nA.
-  - **Current:** **1.5 A per H-bridge** max — vs the ~19 mA the coils need → huge margin, runs cold.
-  - **IO (per chip, 3.3 V logic):** `MODE` (tie **high** = PHASE/ENABLE mode) + `APHASE`/`AENBL` + `BPHASE`/`BENBL`. PHASE = coil direction, **ENABLE = PWM duty for microstep** (drive >20 kHz via ESP32 MCPWM). → **4 GPIO/chip = 8 GPIO total**. Outputs AOUT1/2, BOUT1/2 to the coils. Decouple VM & VCC with 0.1 µF (min).
-- **Description:** Robust, integrated flyback (protects the MCU), level-shifted 3.3 V inputs, full 5 V coil drive. No internal current chopper → microstepping is PWM/voltage-based (fine for these high-impedance gauge coils). **Do not** use A4988/DRV8825/DRV8434/TMC-class choppers — they can't regulate ~19 mA into 260 Ω.
-- **Interface:** GPIO + PWM (PHASE/ENABLE). Homing via 2× DRV5032 Hall (separate).
-- **Released:** rev H, Aug 2016; long-standing, active.
+  - **Voltage:** **VM 0–13.5 V** motor supply (run at **5 V** for full stepper torque) + **VCC 2.7–5.5 V** logic (**3.3 V** from the MCU). Internal thermal shutdown + flyback diodes.
+  - **Current:** **1.2 A/ch continuous (3.2 A peak)** — vs the ~19 mA the coils need → huge margin, runs cold.
+  - **IO (per chip, 3.3 V logic):** channel A = `AIN1`,`AIN2`,`PWMA`; channel B = `BIN1`,`BIN2`,`PWMB`; plus `STBY`. **Pin-efficient microstep scheme:** tie `PWMA`/`PWMB` **high** and **PWM the four IN pins** for sign-magnitude microstep → **4 GPIO/chip = 8 total** + one shared `STBY` (parity with the DRV8835 it replaces). *(The textbook scheme — PWM on `PWMx`, direction on the IN pins — is 6/chip = 12 GPIO; avoid it here to protect the pin budget.)* Outputs AO1/AO2, BO1/BO2 to the coils. Decouple VM & VCC (0.1 µF min + bulk).
+- **Description:** Integrated flyback (protects the MCU), low-drop MOSFET outputs → full 5 V coil drive, thermal shutdown. No internal current chopper → microstepping is PWM/voltage-based (ideal for these high-impedance gauge coils). **Do not** use A4988/DRV8825/DRV8434/TMC-class choppers — they can't regulate ~19 mA into 260 Ω.
+- **Interface:** GPIO + PWM (IN/IN sign-magnitude). Homing via 2× DRV5032 Hall (SOT-23, separate).
+- **Released:** long-standing, active (Toshiba Bi-CD).
 
-> Power/safety chain (§§7–10) covers Option A from [`../power.md`](../power.md). Rail converters (TPS61088/61023/63900/92200), reverse P-FET, NTC, TVS are in the power BOM, not datasheeted here (standard parts).
+## 7. WCH CH224K — USB-PD Sink Controller *(resistor-configured)*
 
-## 7. STMicroelectronics STUSB4500 — USB-PD Sink Controller
+- **Product:** autonomous USB Type-C / PD **sink** controller — negotiates a PD contract **with no MCU**; the requested voltage is set by a **single resistor** (CFG), no NVM programming.
+- **Refs:** `CH224K` · **WCH / Nanjing Qinheng** · **ESSOP-10** (SOP-10, leaded, exposed-pad-free enough to iron). LCSC # C970725. *(Not on DigiKey — sourced from LCSC/Mouser; the exception to the DigiKey-first rule, since every DigiKey PD sink is QFN.)*
+- **Price:** ~$0.40 (active; drop-in successor `CH224A` if EOL).
+- **Power / IO:** **VBUS 4–22 V**; VDD off VBUS. Standalone: a resistor on **CFG1** selects the requested PDO (**5 / 9 / 12 / 15 / 20 V**); built-in **OVP + OTP**; **PG** (power-good, open-drain) → 1 GPIO. Supports PD3.0/2.0 + BC1.2.
+- **Use:** set **CFG for 15 V** (headroom for the LED string + LT3652 VIN + the audio/rail boosts); auto-requests 15 V, **falls back to 5 V** if the source can't supply it (system still runs, LED dimmer). VBUS → LT3652 VIN + LED CC driver. Read PG to know a high-voltage contract is live.
+- **Interface:** USB-PD (CC) + resistor config + PG.
 
-- **Product:** autonomous Type-C / USB-PD **sink** controller — negotiates a PD contract **with no MCU** (auto-run); dead-battery mode.
-- **Refs:** `STUSB4500QTR` · **ST** · DigiKey # 9092189 · QFN-24 (4×4 mm).
-- **Price:** ~$2 (active).
-- **Power / IO:** VSYS 3.0–5.5 V, VDD 4.1–22 V; **VBUS pins ≤28 V**, CC short-to-VBUS protection 22 V. On-chip **PMOS VBUS gate drivers** + VBUS monitor/discharge. Up to **3 sink PDOs in NVM**. **I²C** (config/status) + ALERT/ATTACH.
-- **Use:** program PDO1 = 5 V, PDO2 = 9 V, **PDO3 = 15 V max** (BQ25628E VIN ≤18 V — don't request 20 V). Requests highest available, falls back to 5 V. VBUS → LED driver + charger.
-- **Interface:** USB-PD (CC) + I²C.
+## 8. Analog Devices LT3652 — 1-Cell Buck Battery Charger *(chosen charger)*
 
-## 8. Texas Instruments BQ25628E — 1-Cell Buck Charger *(chosen charger)*
+- **Product:** monolithic **step-down (buck) battery charger**, 4.95–32 V input, **up to 2 A** charge, constant-current/constant-voltage. Fully **autonomous** (resistor/capacitor-programmed — no I²C).
+- **Refs:** `LT3652` (orderable **`LT3652EMSE#PBF`**) · **Analog Devices** · **MSOP-12E** (12-lead MSOP, PowerPAD) *(3×3 DFN-12 also exists — use the MSOP)*. DigiKey # 2225686. Datasheet `3652fe`.
+- **Price:** ~$5–6 (active).
+- **Power / IO:**
+  - **VIN:** **4.95–32 V** operating (abs-max 40 V) → the **15 V VBUS** from CH224K is well inside range.
+  - **Float voltage:** set by an **external divider to the 3.3 V feedback reference** → programmed to **4.05 V** (health cap). Optional **4.2 V "full" mode** by switching a parallel FB resistor with a small FET/GPIO.
+  - **Charge current:** set by a sense resistor (V_SENSE(chg) 100 mV / R_SENSE), here ~1–1.75 A.
+  - **Temperature:** **NTC pin** — connects the holder's 10 k NTC; **charging pauses hot/cold** (temperature-qualified, meets "no charge <0/>45 °C"). *(Single hot/cold window, not multi-zone JEITA — documented downgrade from the BQ25628E it replaces.)*
+  - **Safety timer:** programmable via the **CTIMER** cap; C/10 termination; auto-recharge; **CHRG + FAULT** open-drain status → 2 GPIO.
+- **System role (power-path):** the **BAT node is the always-on system supply** for the rail converters. When plugged, the LT3652 regulates BAT to 4.05 V and sources load **up to 2 A → runs with no cell**; when unplugged, the cell supplies the rails through the protector FETs. No separate NVDC power-path IC needed.
+- **Health cap & telemetry:** the 4.05 V cap is enforced **in hardware by the float divider** (no firmware needed — simpler and safer); SoC/faults read via **ADC + CHRG/FAULT** instead of I²C.
+- **Interface:** none (autonomous); status pins + NTC.
 
-- **Product:** I²C, **1-cell, 2 A buck charger** with **NVDC power-path** and **integrated FETs** (input RBFET + HSFET/LSFET + BATFET).
-- **Refs:** `BQ25628ERYKR` · **TI** · DigiKey # 21298592 · WQFN-18 (3×2.5 mm).
-- **Price:** ~$1.5 (active).
-- **Power / IO:** **VIN ≤18 V** (from VBUS); charge ≤2 A, termination 5–310 mA (5 mA steps); **VBATREG programmable** (set **4.05 V** health / 4.2 V full); **JEITA** via TS/NTC; **ship mode** (BATFET off, **1.5 µA** Iq, 0.15 µA battery leakage); input OVP + safety timers + thermal reg. **I²C** + /INT.
-- **Use:** at boot set VBATREG 4.05 V, ICHG ~1–1.75 A, input-limit per PD, JEITA; poll faults; ship-mode for storage. **SYS** feeds the rail converters.
-- **Interface:** I²C.
+## 9. ABLIC S-8261 + 10. Alpha & Omega AO4800 — 1-Cell Protector *(independent safety)*
 
-## 9. Analog Devices MAX17048 — Fuel Gauge
-
-- **Product:** tiny micropower **1-cell ModelGauge** fuel gauge (voltage-based, **no sense resistor**).
-- **Refs:** `MAX17048G+T10` · **Analog Devices** · µDFN/WLP.
-- **Price:** ~$1.5 (active).
-- **Power / IO:** supply = **cell 2.5–4.5 V**; ~3–4 µA active (µA hibernate). **I²C** + optional /ALRT (low-SoC IRQ).
-- **Use:** quick-start on cell insert; MCU reads SoC% for UI, **low-battery shutdown (~3.2 V/10 %)**, and 80 % charge-cap logic.
-- **Interface:** I²C.
-
-## 10. onsemi LC05111C02 — 1-Cell Protector w/ Integrated FET *(independent safety)*
-
-- **Product:** 1-cell Li-ion **protection IC with integrated power MOSFET** — independent OV/OD/OCD/OCC/SCP cutoff (redundant to the charger).
-- **Refs:** `LC05111C02MTTTG` · **onsemi** · WDFN-6 (2.6×4.0 mm).
-- **Price:** ~$0.6 (active).
-- **Power / IO:** VCC abs ≤12 V. **Variant C02: overcharge 4.28 V (release 4.18 V), over-discharge 2.70 V**; overcurrent-charge/discharge + short-circuit; low-Rds integrated FET. **Autonomous — no config** (thresholds fixed by variant).
-- **Use:** wire in the cell − path between the 18650 and PACK−; needs only a couple of external R/C. This is the belt-and-suspenders cutoff if the charger fails.
+- **Product:** discrete 1-cell Li-ion **protection IC (S-8261)** + **external dual N-channel MOSFET (AO4800)** — the independent OV/OD/OCD/OCC/SCP cutoff, redundant to the LT3652. Replaces the DFN integrated-FET LC05111 with two **leaded, hand-solderable** parts (the ubiquitous "protector-IC + 8205-style dual-FET" topology).
+- **Refs:**
+  - Protector: `S-8261` — pick **`S-8261AAxMD`** (**overcharge detect 4.28 V**, matching the old LC05111C02) · **ABLIC** · **SOT-23-6** · [DigiKey S-8261 series](https://www.digikey.com/htmldatasheets/production/9482/0/0/1/s-8261-series.html). *(Confirm the exact suffix's OV/OD thresholds against the datasheet voltage table before ordering.)*
+  - FET: `AO4800` — **dual N-channel, 30 V, SO-8**, low-Rds · **Alpha & Omega Semiconductor** · DigiKey-stocked (keyword `AO4800`).
+- **Price:** ~$0.4 (S-8261) + ~$0.3 (AO4800).
+- **Power / IO:** protector monitors cell voltage/current and drives the two series FETs (charge + discharge) in the cell **−** path. **S-8261:** overcharge **~4.28 V** (variant-fixed), over-discharge ~2.3–2.5 V, overcurrent + short-circuit detection — **autonomous, no config**. **AO4800:** VDS 30 V, low Rds(on), continuous current far above our <2 A.
+- **Use:** wire the AO4800 dual FET in the cell **−** path between the 18650 and PACK−, gates from the S-8261; a couple of external R/C set the delays. Belt-and-suspenders cutoff if the LT3652 fails. Overcharge is thus **double-redundant** (LT3652 CV 4.05 V + S-8261 4.28 V).
 - **Interface:** none (autonomous).
 
 ---
 
-## Reconciliation with root README (v0.10)
+## Reconciliation with root README (v0.11)
 
 All parts match the root [`README.md`](../README.md):
 
 | Item | Status |
 |------|--------|
-| **Speaker** | ✅ DMA58-4 chosen (§7/§16); PC68-4 kept as documented "bigger-box alt". |
+| **Hand-solderable-only** | ✅ every bare-PCB IC is leaded (SOIC/SOP/SSOP/TSSOP/HTSSOP/MSOP/SOT-23) or a castellated module; no QFN/DFN/BGA/LGA on the board. |
+| **Speaker** | ✅ DMA58-4 chosen; PC68-4 kept as documented "bigger-box alt". |
 | **Stepper** | ✅ X40.879 (+ X27 companion datasheet); root §5 explains the dependency. |
-| **Audio amp** | ✅ **TAS5825M** locked; MAX98357A demoted to simple alt. |
-| **Motor driver** | ✅ **2× DRV8835** locked. |
-| **Power / safety** | ✅ **Option A**: STUSB4500 + **BQ25628E** + MAX17048 + **LC05111** + reverse P-FET + NTC + TVS. Buck-boost BQ25792 dropped (buck is enough for 1S); secondary OVP/TCO/PPTC dropped (over-engineering). See [`../power.md`](../power.md). |
-| **X40.879 price** | ✅ ~$14 (was ~$25). |
-| **Display specs** | ✅ Active area 42.67 × 68.07 mm; power 30 µW hold / 250 µW update @ 5 V; full device spec on file. |
+| **Audio amp** | ✅ **TAS5760M** (HTSSOP) locked, replacing the QFN TAS5825M; firmware does the HPF/limiter DSP. PCM5102A+TPA3116 = analog alt. |
+| **Motor driver** | ✅ **2× TB6612FNG** (SSOP-24) locked, replacing the WSON DRV8835. |
+| **Power / safety** | ✅ **CH224K** (PD) + **LT3652** (1S buck charger, BAT-node power-path) + **S-8261 + AO4800** protector + reverse P-FET + NTC + TVS. Fuel gauge → **ESP32 ADC**. See [`../power.md`](../power.md). |
+| **Charger telemetry** | ⚠️ **downgrade:** LT3652 has **no I²C** and a **single-window NTC** (not multi-zone JEITA). Health-cap 4.05 V is enforced in hardware; SoC/faults via ADC + status pins. Double-redundant overcharge preserved. |
 
-**No open discrepancies.** The one intentional non-"match" is **PC68-4**, deliberately retained in the root README as a larger/cheaper speaker *alternative* — not the chosen part.
+**No open discrepancies.** Intentional non-"matches": **PC68-4** (retained as a speaker *alternative*), and **CH224K sourced off-DigiKey** (no hand-solderable DigiKey PD sink exists).

@@ -2,9 +2,12 @@
 
 > Living spec for a high-quality, low-power, two-part desk clock: a circular MCU-driven analog dial beside a reflective monochrome info panel.
 
-**Status:** v0.10 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
+> 🔩 **Manufacturing constraint — HAND-SOLDERABLE PARTS ONLY.** The bare PCB is fab'd externally; **every part is hand-soldered with an iron.** No **QFN / DFN / WSON / BGA / WLP / LGA** silicon sits bare on the board — every active IC is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. The two power parts (amp `TAS5760M`, charger `LT3652`) are HTSSOP/MSOP **PowerPAD** — leads iron-solderable, belly pad on a thermal-via array (back-side hot-air optional). Functions that *only* exist leadless → **pre-made breakout modules** (env/MEMS sensors SHT4x, SGP41, VEML7700, BMA400 as I²C Qwiic/STEMMA boards) or **dropped** (fuel gauge → ESP32 ADC). **Passives ≥ 0603** (0402 min); connectors hand-solderable (through-hole / wide-pad SMD: USB-C, FPC/ZIF, JST, SD cage). **This grows the PCB — accepted.**
+
+**Status:** v0.11 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
 
 **Changelog**
+- v0.11 — **Hand-solderable parts only (hard mfg constraint):** every bare-PCB IC is now a leaded package — no QFN/DFN/BGA/LGA. Swaps: amp **TAS5825M (VQFN) → TAS5760M** (HTSSOP-32, I²S+I²C; HPF/limiter DSP moves to firmware); driver **2× DRV8835 (WSON) → 2× TB6612FNG** (SSOP-24); PD **STUSB4500 (QFN) → CH224K** (ESSOP-10, resistor-set, off-DigiKey); charger **BQ25628E (WQFN) → LT3652** (MSOP-12E buck, BAT-node power-path, resistor-set 4.05 V + NTC + timer — no I²C, single-window temp); **fuel gauge MAX17048 (µDFN) dropped → ESP32 ADC**; protector **LC05111 (DFN) → S-8261 (SOT-23-6) + AO4800 dual-FET (SO-8)**. Leadless-only env sensors → **I²C breakout modules**. New top-of-file mfg note; datasheets swapped in [`/datasheet`](datasheet/); board grows — accepted.
 - v0.10 — **Power/safety simplified (Option A)**: buck-boost **BQ25792 → BQ25628E** (1-cell buck charger, integrated FETs — buck is enough since input always > 1S cell); independent **cell protector = onsemi LC05111** (integrated FET) + **reverse-polarity P-FET** + NTC/JEITA + TVS = **double-redundant, industry-standard for 1S**. Dropped BQ29700+FETs, **secondary OVP, one-shot TCO, PPTC** (over-engineering for a single cell). Datasheets added (STUSB4500, BQ25628E, MAX17048, LC05111); `power.md` now has a **How-to-use / bring-up** section. Power subtotal ~$23 → ~$15.
 - v0.9 — **Power tree locked** ([`power.md`](power.md)): **USB-PD sink (STUSB4500, 15 V)** → **BQ25792** buck-boost charger/path (+ MAX17048), 1S. Rails 3.3 / 5 / 12 V-audio-boost / 15 V-VBUS-LED. Battery = **user-supplied 18650 in a holder, Li-ion ONLY (labeled)**; **48 h backup**; health-cap ~80 %. **Mandatory board safety for any 18650**: reverse-polarity (LM74700-Q1), primary PCM (BQ29700+FETs), redundant secondary OVP, PPTC + thermal cutoff, NTC/JEITA, TVS, FR barrier — triple-redundant overcharge, layered over-discharge. Charger BQ25185 → **BQ25792**; §10/§16/§17 updated.
 - v0.8 — **Amp locked = TI TAS5825M** (I²S + I²C closed-loop Class-D w/ DSP), PBTL mono into the 4 Ω DMA58-4: PVDD 5 V for ~3 W, optional ~12 V boost for ~8–12 W; DSP loads a ~150–180 Hz high-pass + limiter to protect the 2 mm-Xmax driver. MAX98357A demoted to simple/no-DSP alt. **Driver confirmed = 2× TI DRV8835** (dual H-bridge each; VM 5 V for full torque, VCC 3.3 V; PHASE/ENABLE with PWM microstep → 8 GPIO). Full datasheets added to [`/datasheet`](datasheet/); [`datasheet/README.md`](datasheet/README.md) now carries a **System IO & power domains** table (rails + per-part GPIO/voltage).
@@ -126,7 +129,7 @@ Flush cover glass over the panel with a **printed border mask** (bezel disappear
 - **Homing:** on boot and after each NTP sync, drive each shaft to its Hall index, then step to the exact time; TZ/DST/**orientation** = step to the new absolute position (fast, both directions).
 - **Orientation:** because the dial is **numeral-free/symmetric**, the MCU redefines "12" per orientation (§3) using the same absolute addressing that serves R12.
 - Buy/reuse the **360°/no-stop** movement; **microstep @ >20 kHz PWM** for silence; **light, counterbalanced hands** (metal hands OK on the X40.879's higher torque).
-- **Driver:** **DRV8835** (active) — 2×, one per shaft. *DRV8833 is NRND on DigiKey; TB6612FNG is an alternate.* **Homing Hall:** DRV5032 + magnet per shaft. **Libs:** SwitecX25 / GewoonGijs-VID28 / AccelStepper.
+- **Driver:** **2× TB6612FNG** (SSOP-24, hand-solderable, no exposed pad) — one per shaft; VM 5 V, VCC 3.3 V; **PWM the IN pins with PWMA/PWMB tied high → sign-magnitude microstep in 8 GPIO** (parity with the old DRV8835). *DRV8835/DRV8833 are WSON/HTSSOP — replaced for hand-assembly.* **Homing Hall:** DRV5032 (SOT-23) + magnet per shaft. **Libs:** SwitecX25 / GewoonGijs-VID28 / AccelStepper.
 
 ---
 
@@ -148,7 +151,7 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 | Requirement | Library / component |
 |---|---|
 | Info display (mono, SPI) | **LVGL v9** at 1-bit depth + Sharp Memory-LCD panel driver (`esp_lcd` panel or an Adafruit `SHARP_Memory` port) |
-| Analog steppers (§5) | **DRV8835** via GPIO/PWM; **AccelStepper** / **SwitecX25** / VID28 lib; microstep for silence |
+| Analog steppers (§5) | **TB6612FNG** via GPIO/PWM; **AccelStepper** / **SwitecX25** / VID28 lib; microstep for silence |
 | Orientation + tap (R14, R3) | **BMA400** driver: gravity-vector orientation (flat/standing) + hardware tap IRQ |
 | Wi-Fi | `esp_wifi` |
 | BLE-pair → Wi-Fi provision (R9) | `wifi_provisioning` (BLE transport) + Espressif **"ESP BLE Provisioning"** phone app |
@@ -156,12 +159,12 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 | NTP + TZ/DST (R1) | `esp_netif_sntp` + POSIX `TZ` string (`setenv`/`tzset`) |
 | Env sensors (R4) | Sensirion `embedded-i2c-sht4x / sgp41 / scd4x / sps30`; Bosch **BSEC/BME68x** |
 | Light / RTC | VEML7700 (esp-idf-lib / Adafruit); RV-3028 lib or DS3231 `RTClib` |
-| Audio out (I²S) | `esp_driver_i2s`; decode via **ESP-ADF** (MP3/AAC/FLAC/WAV) or Arduino **ESP32-audioI2S** |
+| Audio out (I²S) | `esp_driver_i2s`; decode via **ESP-ADF** (MP3/AAC/FLAC/WAV) or Arduino **ESP32-audioI2S**; **~150 Hz high-pass + limiter/EQ biquads run here** (TAS5760M has no on-chip DSP) |
 | Halo + front-light | `led_strip` (RMT/SPI, SK6812) + `ledc` (PWM dimming) |
 | SD + assets | `esp_vfs_fat` + `sdmmc`; `LittleFS` for internal flash |
 
 **Fastest bring-up:** **ESPHome** gets sensors / SNTP / addressable LED / I²S audio running in an afternoon; the memory LCD + steppers likely need a custom component or a drop to ESP-IDF. **esp-bsp** has ready board+display+LVGL configs.
-**Caveat:** nPM1300 driver support is Nordic/Zephyr-centric — on ESP32-S3 use **BQ25628E (I²C 1-cell buck charger) + MAX17048** (mature Arduino/IDF libs) instead; see [`power.md`](power.md).
+**Caveat:** the **LT3652** charger is autonomous (no driver needed) — read charge state via **CHRG/FAULT GPIO + cell-voltage ADC** (no I²C charger/gauge); the health-cap 4.05 V is fixed in hardware by the float divider. See [`power.md`](power.md).
 
 **RTOS/lang:** C/C++ + FreeRTOS (ESP-IDF). MicroPython for quick experiments only.
 
@@ -169,7 +172,7 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 
 ## 7. Audio subsystem (R3, R11)
 
-- **Amp: TAS5825M** ⭐ (I²S in + I²C, closed-loop Class-D with 192-kHz DSP — EQ/3-band DRC/loudness/limiter/thermal-foldback; THD+N ≤0.03%, SNR ≥110 dB). Run **PBTL mono** into the 4 Ω DMA58-4; **PVDD 5 V → ~3 W**, add a ~12 V boost for ~8–12 W. Needs an **LC output filter** + I²C DSP-load at boot (tune in TI PPC3). *Simple alt:* **MAX98357A** (3.2 W @ 4 Ω/5 V, zero-config resistors, filterless — no DSP/protection).
+- **Amp: TAS5760M** ⭐ (I²S in + I²C control, closed-loop Class-D, **HTSSOP-32 → hand-solderable**; digital clipper + DC-detect/OC/OT protection; up to 55 W stereo / 114 W mono PBTL). Run **PBTL mono** into the 4 Ω DMA58-4; **PVDD ~12 V boost → ~8–12 W** (or 5 V → ~3 W). Needs an **LC output filter**. **No on-chip biquad DSP** (unlike the superseded QFN TAS5825M) → the **~150 Hz high-pass + limiter/EQ that protects the 2 mm-Xmax driver runs in ESP32-S3 firmware**. *Analog alt (all hand-solderable):* **PCM5102A** DAC (TSSOP-20) → **TPA3116D2** Class-D (HTSSOP-32).
 - **Chain:** ESP32-S3 → **I²S** (3 pins: BCLK, LRCLK, DOUT) → amp → speaker.
 - **Source:** WAV (trivial) / FLAC (decoder + CPU) on microSD; system sounds in flash.
 - **Tap-to-snooze:** accel hardware tap IRQ (§8) so the MCU sleeps until tapped.
@@ -182,9 +185,9 @@ The small display does **not** limit audio — the speaker lives behind/beside i
 | Driver | **2″ (Dayton DMA58-4), 4 Ω, 15 W, 86.2 dB** | 56 × 56 mm × ~32 mm deep |
 | Bass helper | **DMA58-PR** passive radiator (optional, big low-end gain) | ~2″, ~20 mm deep |
 | **Sealed chamber** | **~100–250 cc** sealed, or less w/ DMA58-PR passive radiator | dominant space cost → sets min body depth ~45 mm |
-| Amp | MAX98357A ~10×15 mm / TAS5825M ~15×20 mm + LC filter | on main PCB |
+| Amp | **TAS5760M** HTSSOP-32 ~11×11 mm + LC filter | on main PCB |
 
-**Loudness:** MAX98357A + DMA58-4 ≈ 85–90 dB @ 0.5 m — plenty for an alarm, pleasant at desk distance. **Rule:** plan a body **≥45–60 mm deep** with a dedicated ~100–250 cc sealed chamber. Vent nothing from the chamber toward the AQ sensors.
+**Loudness:** TAS5760M + DMA58-4 ≈ 90+ dB @ 0.5 m (12 V PVDD headroom) — plenty for an alarm, pleasant at desk distance. **Rule:** plan a body **≥45–60 mm deep** with a dedicated ~100–250 cc sealed chamber. Vent nothing from the chamber toward the AQ sensors.
 
 ### 7b. Speaker options — comparison
 
@@ -198,7 +201,7 @@ The small display does **not** limit audio — the speaker lives behind/beside i
 | Driver + passive radiator | 2.5″ FR + PR | Ø66 + PR | — | best "BT-speaker" feel | $15–25 | real bass in a small box | 2 parts + box tuning |
 | 3″ full-range (Visaton FRS8) | 3″ driver | Ø80 | 20–30 W | if depth allows | $12–20 | fullest, loudest | biggest footprint |
 
-**Chosen: Dayton DMA58-4** in a sealed **~100–250 cc** chamber (Fs 165.5 Hz → sealed roll-off ~200–260 Hz; add the matching **DMA58-PR** passive radiator for more low-end), driven by **TAS5825M** (DSP EQ, recommended) or MAX98357A. Body depth ≥45–60 mm follows from this. **Dayton PC68-4** (2.5″, lower Fs, more bass) is the bigger-box alt; **Adafruit 3351** the compact/budget fallback. *(Speaker is from Parts Express, not DigiKey.)*
+**Chosen: Dayton DMA58-4** in a sealed **~100–250 cc** chamber (Fs 165.5 Hz → sealed roll-off ~200–260 Hz; add the matching **DMA58-PR** passive radiator for more low-end), driven by **TAS5760M** (I²S; ~150 Hz HPF + limiter in firmware). Body depth ≥45–60 mm follows from this. **Dayton PC68-4** (2.5″, lower Fs, more bass) is the bigger-box alt; **Adafruit 3351** the compact/budget fallback. *(Speaker is from Parts Express, not DigiKey.)*
 
 ---
 
@@ -232,18 +235,19 @@ A single 3-axis accel (**BMA400**) covers **tap-to-snooze *and* orientation** �
 
 > Full power tree, budget, and battery-safety detail in [`power.md`](power.md). Summary below (kept in sync).
 
-- **Input:** USB-C with **USB-PD sink** (**STUSB4500**, request 15 V; graceful fallback 9/5 V).
-- **Charge/path/gauge:** **BQ25628E** (I²C 1-cell **buck** charger + NVDC power-path, integrated FETs, Vin ≤18 V, prog. charge V/I, JEITA, ship-mode) + **MAX17048** (fuel gauge). Buck is enough for 1S (input always > cell). Runs plugged with **no cell**.
+- **Input:** USB-C with **USB-PD sink** (**CH224K**, ESSOP-10, resistor-set request 15 V; graceful fallback 5 V).
+- **Charge / path:** **LT3652** (MSOP-12E 1-cell **buck** charger, VIN ≤32 V, resistor-set **4.05 V** float + charge current, **NTC** temp-qualified charging, safety timer). The **BAT node is the always-on system supply** → runs plugged with **no cell** (LT3652 sources up to 2 A). *No I²C — autonomous; state via CHRG/FAULT + ADC.*
+- **Fuel gauge:** **ESP32-S3 ADC** on a cell divider (no hand-solderable gauge IC exists) → voltage-based SoC, low-batt shutdown ~3.2 V.
 - **Battery:** **user-supplied 18650 in a holder, Li-ion ONLY** (labeled "Li-ion 18650 only · 2.5–4.2 V"). Recommend a protected 3000–3500 mAh cell. **48 h backup** target.
-- **Health:** charge-cap **~80 % (4.05 V)**; optional user "top to 100 %".
-- **Rails:** **3.3 V** (MCU) · **5 V** (panel + stepper) · **12 V boost** (audio PVDD, gated) · **15 V VBUS** (LED sunrise, plugged only).
-- **Safety (mandatory, wood/bedroom, any 18650) — simple + double-redundant:** independent **cell protector** (onsemi **LC05111**, integrated FET: OV/OD/OC/SC) redundant to the charger, **reverse-polarity P-FET**, **NTC + JEITA**, TVS, insert-qualify, FR barrier + venting. Double-redundant overcharge (charger 4.05 V + protector 4.28 V), layered over-discharge. *(Secondary OVP/TCO/PPTC dropped — over-engineering for 1S.)* Full wiring/config in [`power.md`](power.md).
+- **Health:** charge-cap **~80 % (4.05 V)** — fixed in hardware by the LT3652 float divider; optional GPIO-switched divider for a 4.2 V "full" mode.
+- **Rails:** **3.3 V** (MCU, from 5 V) · **5 V** (panel + stepper) · **12 V boost** (audio PVDD, gated) · **15 V VBUS** (LED sunrise, plugged only). All rail converters in **leaded** packages (see §16 / `power.md`).
+- **Safety (mandatory, wood/bedroom, any 18650) — simple + double-redundant:** independent **cell protector** (**S-8261** SOT-23-6 + **AO4800** dual-N SO-8 FET: OV/OD/OC/SC) redundant to the charger, **reverse-polarity P-FET**, **NTC** temp-qualified charge, TVS, insert-qualify, FR barrier + venting. Double-redundant overcharge (charger 4.05 V + protector **4.28 V**), layered over-discharge. *(⚠ vs the superseded BQ25628E: no I²C telemetry + single-window NTC, not multi-zone JEITA — still meets "no charge <0/>45 °C". Secondary OVP/TCO/PPTC still dropped.)* Full wiring/config in [`power.md`](power.md).
 
 ---
 
 ## 11. Storage (R9, R11)
 
-- **microSD** (SDMMC) — user tones, images, widget assets.
+- **microSD** (SPI mode, 4-wire — saves GPIO vs SDMMC) — user tones, images, widget assets.
 - **Flash** (module 16 MB + optional external OSPI NOR) — fonts, glyph atlases, system sounds, OTA, config.
 
 ---
@@ -270,7 +274,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 
 ## 15. PCB considerations
 
-4-layer min (6 if dense); solid ground plane, RF keep-out (or use a module w/ onboard antenna to inherit certs). **3-wire SPI** to the memory LCD is short and low-bandwidth — **no length-matching needed** (the RGB pixel-clock group is gone with the bar TFT). **Two stepper shafts** via 2× DRV8835 — keep coil traces + PWM away from RF/audio; place a **home Hall (DRV5032)** at each shaft. Class-D + speaker return away from RF/analog. Copper for charger/amp heat. FPC/ZIF for the display, JST for battery/speaker/LED/movement, SD cage, USB-C w/ ESD+CC.
+4-layer min (6 if dense); solid ground plane, RF keep-out (or use a module w/ onboard antenna to inherit certs). **3-wire SPI** to the memory LCD is short and low-bandwidth — **no length-matching needed** (the RGB pixel-clock group is gone with the bar TFT). **Two stepper shafts** via 2× TB6612FNG — keep coil traces + PWM away from RF/audio; place a **home Hall (DRV5032)** at each shaft. Class-D + speaker return away from RF/analog. Copper for charger/amp heat. FPC/ZIF for the display, JST for battery/speaker/LED/movement, SD cage, USB-C w/ ESD+CC. **Hand-solder rules:** leaded ICs only (no QFN/DFN/BGA/LGA); **≥0603 passives**; the PowerPAD amp + charger get a **thermal-via array** under the belly pad; leadless-only sensors ride on I²C **breakout modules**; use generous footprints/spacing — board area is traded for hand-assembly.
 
 ---
 
@@ -285,9 +289,9 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | SoC dev board (16 MB / 8 MB PSRAM) | ESP32-S3-DevKitC-1-N16R8 | ~$18 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=ESP32-S3-DevKitC-1-N16R8) |
 | Info display (reflective MIP) | Sharp LS032B7DD02 | ~$39 | [DigiKey 23349498 ✅](https://www.digikey.com/en/products/detail/sharp-microelectronics/LS032B7DD02/23349498) |
 | Analog movement (dual shaft) | Juken X40.879 | ~$14 | [DigiKey 28528329 ✅](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) |
-| Motor driver carrier (×1–2) | Pololu DRV8835 (#2135) | ~$4 | [DigiKey 10450429](https://www.digikey.com/en/products/detail/pololu/2135/10450429) |
+| Motor driver carrier (×2) | SparkFun TB6612FNG (ROB-14451) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=TB6612FNG%20carrier) |
 | Home Hall (×2) | DRV5032 breakout / bare | ~$1 | [DigiKey 7400094 ✅](https://www.digikey.com/en/products/detail/texas-instruments/DRV5032FADBZR/7400094) |
-| I²S amp (bring-up) | Adafruit 3006 (MAX98357A) → TAS5825M EVM for DSP | ~$6 / — | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%203006) |
+| I²S amp (bring-up) | Adafruit 3006 (MAX98357A) → TAS5760M EVM | ~$6 / — | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%203006) |
 | Speaker (2″ full-range) | Dayton DMA58-4 | ~$19 | *(Parts Express 295-582 — not DigiKey)* |
 | T/RH breakout | Adafruit 5776 (SHT40) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%205776) |
 | VOC breakout | Adafruit 4829 (SGP40) | ~$15 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%204829) |
@@ -303,39 +307,39 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Info display | Sharp LS032B7DD02 | 3.16″, 47×76 mm | ~$39 | ✅ | [23349498](https://www.digikey.com/en/products/detail/sharp-microelectronics/LS032B7DD02/23349498) |
 | Display FPC connector | (match panel FPC pitch) | — | ~$0.5 | — | [search](https://www.digikey.com/en/products/result?keywords=FPC%20connector) |
 | Analog movement | Juken X40.879 (dual shaft) | vertical, compact | ~$14 | ✅ | [28528329](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) |
-| Motor driver ×2 | DRV8835DSSR | 12-WSON | ~$1.3 | ✅ | [3088201](https://www.digikey.com/en/products/detail/texas-instruments/DRV8835DSSR/3088201) |
+| Motor driver ×2 | TB6612FNG,C,8,EL | **SSOP-24** | ~$2.4 | ✅ | [1730070](https://www.digikey.com/en/products/detail/toshiba-semiconductor-and-storage/TB6612FNG-C-8-EL/1730070) |
 | Home Hall ×2 | DRV5032FADBZR | SOT-23 | ~$0.6 | ✅ | [7400094](https://www.digikey.com/en/products/detail/texas-instruments/DRV5032FADBZR/7400094) |
-| Audio amp ⭐ (DSP, chosen) | TAS5825MRHBR | VQFN-32 | ~$3–5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TAS5825MRHBR) |
-| Audio amp (simple alt) | MAX98357AETE+T | TQFN-16 | ~$2.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=MAX98357AETE%2BT) |
-| T/RH | SHT40-AD1B-R2 | DFN-4 | ~$3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SHT40-AD1B-R2) |
-| VOC | SGP41-D-R4 | DFN-6 | ~$6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SGP41-D-R4) |
-| Light | VEML7700-TR | OPLGA | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=VEML7700-TR) |
-| Accel (tap+orient) | BMA400 | LGA-12 | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=BMA400) |
-| RTC | RV-3028-C7 | C7 pkg | ~$3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=RV-3028-C7) |
-| PD sink | STUSB4500QTR | QFN-24 | ~$2 | ✅ | [13577… search](https://www.digikey.com/en/products/result?keywords=STUSB4500QTR) |
-| Charger + path (1-cell buck, integ. FETs) | BQ25628ERYKR | WQFN-18 | ~$1.5 | ✅ | [21298592](https://www.digikey.com/en/products/detail/texas-instruments/BQ25628ERYKR/21298592) |
-| Fuel gauge | MAX17048G+T10 | µDFN | ~$1.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=MAX17048G%2BT10) |
-| Cell protector (integ. FET, independent) | LC05111C02MTTTG | WDFN-6 | ~$0.6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=LC05111C02MTTTG) |
+| Audio amp ⭐ (chosen) | TAS5760MDAPR | **HTSSOP-32** | ~$4–6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TAS5760MDAPR) |
+| Audio amp (analog alt) | PCM5102A + TPA3116D2 | TSSOP-20 + HTSSOP-32 | ~$4 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=PCM5102A) |
+| T/RH *(I²C module)* | SHT4x breakout | DFN → module | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%205776) |
+| VOC *(I²C module)* | SGP41 breakout | DFN → module | ~$15 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%204829) |
+| Light *(I²C module)* | VEML7700 breakout | OPLGA → module | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%204162) |
+| Accel (tap+orient) *(I²C module)* | BMA400 breakout | LGA → module | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=BMA400%20breakout) |
+| RTC | DS3231 (SOIC-16) or RV-3028 module | **SOIC-16** / module | ~$3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=DS3231SN%23) |
+| PD sink | CH224K | **ESSOP-10** | ~$0.4 | ✅ | [LCSC C970725 *(not DigiKey)*](https://www.lcsc.com/product-detail/C970725.html) |
+| Charger (1-cell buck, BAT-node path) | LT3652EMSE#PBF | **MSOP-12E** | ~$5–6 | ✅ | [2225686](https://www.digikey.com/en/products/detail/analog-devices-inc/LT3652EMSE-PBF/2225686) |
+| Fuel gauge | *(none — ESP32 ADC on cell divider)* | — | ~$0 | — | — |
+| Cell protector (independent) | S-8261AAxMD + AO4800 dual-N FET | **SOT-23-6 + SO-8** | ~$0.7 | ✅ | [S-8261](https://www.digikey.com/htmldatasheets/production/9482/0/0/1/s-8261-series.html) · [AO4800](https://www.digikey.com/en/products/result?keywords=AO4800) |
 | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=AO3401A) |
 | Cell temp sense | 10 k NTC (Murata NCP18XH103) | 0402 | ~$0.1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=NCP18XH103F03RB) |
 | Transient | TVS SMAJ22A (VBUS) + SMAJ5.0A (BAT) | SMA | ~$0.4 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SMAJ22A) |
-| Audio boost SYS→12 V | TPS61088RHLR | VQFN-20 | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS61088RHLR) |
-| 5 V rail (boost) | TPS61023 | SOT-563 | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS61023) |
-| 3.3 V rail (buck-boost, low Iq) | TPS63900 | VQFN | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS63900) |
+| Audio boost BAT→12 V (gated) | LM2587S-ADJ (or MT3608) | **TO-263 / SOT-23-6** | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=LM2587S-ADJ) |
+| 5 V rail (boost) | MT3608 (or TPS61023) | **SOT-23-6 / SOT-563** | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=MT3608) |
+| 3.3 V rail (from 5 V) | TLV62569 buck (or AMS1117-3.3 LDO) | **SOT-23-6 / SOT-223** | ~$0.6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TLV62569DBVR) |
 | LED CC driver (off VBUS) | TPS92200D1 | SOT-23 | ~$1.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS92200) |
 | 18650 holder | Keystone/MPD 18650 holder | — | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=18650%20holder) |
 | Halo LEDs ×~16 | SK6812MINI-E | 3.5×3.5 mm | ~$0.2 ea | — | *(Adafruit / alt distributor)* |
 | Front-light (opt) | white LED + FET/CC driver | — | ~$0.5 | — | — |
 | microSD socket | Hirose DM3AT-SF-PEJM5 | push-push | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=DM3AT-SF-PEJM5) |
-| USB-C recept | GCT USB4085-GF-A | — | ~$0.8 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=USB4085-GF-A) |
+| USB-C recept (power+CC) | GCT USB4105-GF-A (TH tabs) | TH / wide-pad | ~$0.8 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=USB4105-GF-A) |
 | *CO₂ (opt)* | SCD41-D-R2 | — | ~$24 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SCD41-D-R2) |
 | *PM2.5 (opt)* | SPS30 | — | ~$38 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SPS30) |
 | Speaker driver | Dayton DMA58-4 (2″ FR) | 56×56×32 mm | ~$19 | — | *(Parts Express 295-582)* |
 | Passive radiator *(opt)* | Dayton DMA58-PR (2″) | — | ~$8 | — | *(Parts Express)* |
 
-**Core electronics subtotal (excl. speaker/cell/PCB): ~$120–140** (PD + 1-cell buck charger + battery-safety ≈ +$15–16 of power electronics — simplified from ~$25). With speaker + user-supplied 18650 + holder + 4-layer PCB + passives ≈ **~$190–220**. +CO₂/PM ≈ +$62. *(Cell is user-supplied; safety HW is non-negotiable — see [`power.md`](power.md).)*
+**Core electronics subtotal (excl. speaker/cell/PCB): ~$130–155** (power electronics ≈ +$16–18 — the LT3652 is the priciest swap; env sensors now ride on I²C **breakout modules** ≈ +$10–15 vs bare parts). With speaker + user-supplied 18650 + holder + 4-layer PCB + passives ≈ **~$200–240**. +CO₂/PM ≈ +$62. *(Cell is user-supplied; safety HW is non-negotiable — see [`power.md`](power.md).)*
 
-**Cost/space levers:** budget movement (VID28-05, −$10, off-DigiKey) + Hall homing; MAX98357A vs TAS5825M (−$2.5, no DSP); skip CO₂/PM; the display + movement are the two big line items.
+**Cost/space levers:** budget movement (VID28-05, −$10, off-DigiKey) + Hall homing; skip CO₂/PM; the display + movement are the two big line items. *(Amp DSP is free — it runs in firmware.)*
 
 ---
 
@@ -344,9 +348,9 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 - **MCU:** ESP32-S3 ⭐ single-chip / STM32U5 + ST67W611M1 (ULP) / nRF5340 + nRF7002 (Nordic ULP) / RW612 (single-chip) / ESP32-P4 + C6 (future MIPI).
 - **Info display:** Sharp **LS032B7DD02** reflective MIP ⭐ / mono OLED (burn-in, emits) / square IPS TFT (backlit) / EPD (ghosts on seconds). *Superseded: wide color bar-TFT (NHD-3.9).*
 - **Analog movement:** Juken **X40.879** (DigiKey, 75 mm) ⭐ / Juken X10.506 (small, built-in homing) / VID28-05·BKA30D-R5 (budget, off-DigiKey) / X27.168 ×2 (single-shaft).
-- **Motor driver:** DRV8835 ⭐ / TB6612FNG. *(DRV8833 NRND.)*
-- **Amp:** TAS5825M ⭐ (I²S+DSP, PBTL mono) / MAX98357A (simple, no-DSP).
-- **Power:** STUSB4500 (PD sink) + **BQ25628E** (1-cell buck charger/path) + MAX17048 (gauge) + **LC05111** protector + reverse P-FET; 1S Li-ion 18650 holder. *(Alts: BQ25792 buck-boost if 24 V PD tolerance needed; nPM1300 PMIC for fewest chips.)*
+- **Motor driver:** **2× TB6612FNG** ⭐ (SSOP-24, hand-solderable). *(DRV8835/DRV8833 = WSON/HTSSOP, replaced.)*
+- **Amp:** **TAS5760M** ⭐ (I²S+I²C, HTSSOP, PBTL mono; firmware DSP) / PCM5102A + TPA3116 (analog).
+- **Power:** **CH224K** (PD sink) + **LT3652** (1-cell buck charger, BAT-node path) + **ESP32 ADC** gauge + **S-8261 + AO4800** protector + reverse P-FET; 1S Li-ion 18650 holder. *(All leaded/hand-solderable; CH224K off-DigiKey.)*
 - **RTC:** RV-3028-C7 (ULP) / DS3231 (simple).
 - **Speaker:** Dayton DMA58-4 ⭐ (2″) / Dayton PC68-4 (2.5″, more bass) / Adafruit 3351 (budget).
 
@@ -380,3 +384,11 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | 2026-07-04 | **Battery = user-supplied 18650, Li-ion ONLY, labeled** | Replaceable; runs with no cell on USB; must be safe for any inserted 18650 |
 | 2026-07-04 | **Battery safety non-negotiable** (board-level) | Wood/bedroom: must be safe for any inserted 18650; don't cost-trim safety |
 | 2026-07-04 | **Power/safety simplified → Option A** (BQ25792→**BQ25628E** buck; **LC05111** protector + reverse P-FET; drop secondary OVP/TCO/PPTC) | 1S input always > cell → buck suffices; charger + one integrated protector = double-redundant (phone/wearable standard), not laptop-pack triple. Simpler, safe, ~$8 cheaper |
+| 2026-07-04 | **Hand-solderable-only mfg constraint** (hard) | Builder hand-solders every part; no equipment for QFN/DFN/BGA/LGA. Board area traded for assembly |
+| 2026-07-04 | **Amp TAS5825M (VQFN) → TAS5760M (HTSSOP-32)** | Keeps I²S+I²C + output protection in a leaded pkg; HPF/limiter DSP moves to ESP32 firmware (no on-chip biquads) |
+| 2026-07-04 | **Driver 2× DRV8835 (WSON) → 2× TB6612FNG (SSOP-24)** | Pure-gullwing, no exposed pad = easiest hand-solder; PWM-on-IN scheme keeps the 8-GPIO budget |
+| 2026-07-04 | **PD STUSB4500 (QFN) → CH224K (ESSOP-10)** | Resistor-set PD sink, hand-solderable; off-DigiKey (every DigiKey PD sink is QFN) |
+| 2026-07-04 | **Charger BQ25628E (WQFN) → LT3652 (MSOP-12E)** | Leaded buck charger, VIN ≤32 V, resistor-set 4.05 V + NTC + timer; BAT-node power-path. Loses I²C + multi-zone JEITA (single-window NTC); health-cap now hardware-set |
+| 2026-07-04 | **Fuel gauge MAX17048 (µDFN) dropped → ESP32 ADC** | No hand-solderable 1-cell gauge exists; voltage-based SoC on a divider suffices |
+| 2026-07-04 | **Protector LC05111 (DFN) → S-8261 (SOT-23-6) + AO4800 (SO-8)** | Ubiquitous leaded protector-IC + dual-FET; OV 4.28 V matches the old part; double-redundant OV preserved |
+| 2026-07-04 | **Leadless-only sensors → I²C breakout modules** | SHT4x/SGP41/VEML7700/BMA400 only exist DFN/LGA → mount as Qwiic/STEMMA boards, not bare silicon |

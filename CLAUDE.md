@@ -14,19 +14,19 @@ Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel
 | MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ≤36 GPIO |
 | Display | Sharp LS032B7DD02 | 5 V panel / 3 V logic | 3-wire SPI, reflective MIP |
 | Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; Hall homing |
-| Motor driver | 2× DRV8835 | VM 5 V / VCC 3.3 V | PH/EN, PWM microstep, 8 GPIO |
-| Amp | TI TAS5825M | PVDD 5 V(+12 V opt)/DVDD 3.3 V | I²S+I²C DSP, PBTL mono |
+| Motor driver | 2× TB6612FNG | VM 5 V / VCC 3.3 V | SSOP-24; PWM-on-IN microstep, 8 GPIO |
+| Amp | TI TAS5760M | PVDD 12 V / DVDD 3.3 V | HTSSOP-32; I²S+I²C, PBTL mono (firmware DSP) |
 | Speaker | Dayton DMA58-4 (2″, 4 Ω) | — | off amp; ~100–250 cc sealed |
 
 ## Rails
-- **3.3 V** logic · **5 V** panel+stepper · **12 V** audio boost (gated) · **15 V VBUS** LED (plugged). USB-PD in (15 V) → **BQ25628E** 1-cell buck charger. See `power.md`.
+- **3.3 V** logic (from 5 V) · **5 V** panel+stepper · **12 V** audio boost (gated) · **15 V VBUS** LED (plugged). USB-PD in (15 V, **CH224K**) → **LT3652** 1-cell buck charger (BAT-node power-path). All converters leaded. See `power.md`.
 
 ## Safety (NON-NEGOTIABLE)
 Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be **safe for ANY 18650** ("if it fits, it must be safe") — assume unprotected/reversed/wrong-SoC/hot cell; do **not** rely on the cell's PCM.
-- **Double-redundant** OV/OD/OC/SC = charger **BQ25628E** (CV 4.05 V, JEITA, timers) **+ independent protector LC05111** (integrated FET, OV 4.28 V). Industry-standard for 1S — simple, not over-built.
+- **Double-redundant** OV/OD/OC/SC = charger **LT3652** (CV 4.05 V via FB divider, NTC temp-qual, safety timer) **+ independent protector S-8261 (SOT-23-6) + AO4800 dual-FET (SO-8)** (OV 4.28 V). Industry-standard for 1S — simple, not over-built.
 - **Reverse-polarity P-FET** on BAT+ (bare cell can't be keyed).
-- **NTC + JEITA** (no charge <0/>45 °C); cell voltage-qualified on insert.
-- **Charge-cap ~80 % (4.05 V)**; **runs with no cell** on USB.
+- **NTC temp-qualified charge** (LT3652 NTC pin: no charge <0/>45 °C — single hot/cold window, not multi-zone JEITA); cell voltage-qualified on insert (ADC).
+- **Charge-cap ~80 % (4.05 V)** — fixed in HW by the LT3652 float divider (no I²C; SoC/faults via ADC + CHRG/FAULT); **runs with no cell** on USB (BAT node feeds rails).
 - **Physical:** ventilated cell compartment, FR/metal barrier vs wood, spacing from amp/charger heat, vent path, secure retention.
 - **Li-ion ONLY** (labeled). Never trim safety parts. Full wiring/config in `power.md`.
 - *Dropped as over-engineering for 1S:* secondary OVP, one-shot TCO, PPTC (TCO optional).
@@ -36,9 +36,10 @@ Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be *
 - Dates absolute (e.g. 2026-07-04).
 - Verify part status/specs against the datasheet before recommending.
 - Flag README ↔ datasheet discrepancies.
+- **Hand-solderable parts ONLY** (hard constraint): leaded pkgs (SOIC/SOP/SSOP/TSSOP/HTSSOP/MSOP/SOT-23) or castellated modules — **no QFN/DFN/WSON/BGA/WLP/LGA** bare on the board. PowerPAD (amp/charger) OK with a thermal-via array. Leadless-only functions → breakout modules or dropped (e.g. fuel gauge → ADC). ≥0603 passives; hand-solderable connectors (USB-C/FPC/JST/SD).
 
 ## Stack
-- ESP-IDF v5.x (C/FreeRTOS). Libs: LVGL 1-bit, AccelStepper/SwitecX25, NimBLE, esp_netif_sntp. See `README.md` §6c.
+- ESP-IDF v5.x (C/FreeRTOS). Libs: LVGL 1-bit, AccelStepper/SwitecX25, NimBLE, esp_netif_sntp; **firmware biquad HPF+limiter for the amp** (TAS5760M has no on-chip DSP). See `README.md` §6c.
 
 ---
 
