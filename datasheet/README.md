@@ -13,21 +13,29 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 4b | `stepper_motor_x27_base-spec.pdf` | X27 base spec *(companion to #4)* | Juken / Switec | ✅ | — | — |
 | 5 | `amp_tas5825m.pdf` | TAS5825M | Texas Instruments | ✅ | ~$3–5 | I²S in + I²C control |
 | 6 | `motor_driver_drv8835.pdf` | DRV8835 (× 2) | Texas Instruments | ✅ | ~$2.2 | GPIO/PWM (PH/EN) |
+| 7 | `pd_sink_stusb4500.pdf` | STUSB4500 | STMicroelectronics | ✅ | ~$2 | USB-PD (I²C/NVM) |
+| 8 | `charger_bq25628e.pdf` | BQ25628E | Texas Instruments | ✅ | ~$1.5 | I²C |
+| 9 | `fuel_gauge_max17048.pdf` | MAX17048 | Analog Devices | ✅ | ~$1.5 | I²C |
+| 10 | `battery_protector_lc05111cmt.pdf` | LC05111C02 | onsemi | ✅ | ~$0.6 | none (autonomous) |
 
 ---
 
 ## System IO & power domains
 
-The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V logic)** is the host; everything else hangs off it. Two power rails are needed — **3.3 V** (logic) and **5 V** (display panel + stepper VM + amp PVDD) — from USB-C 5 V / a battery boost; an optional **~12 V boost** only if we want the amp louder than ~3 W.
+The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V logic)** is the host; everything else hangs off it. Rails (see [`../power.md`](../power.md) for the full tree + battery safety): **3.3 V** (logic) · **5 V** (display panel + stepper VM) · **12 V boost** (amp PVDD, gated) · **15 V VBUS** (LED, plugged). Source: **USB-PD 15 V** → BQ25792 buck-boost charger, 1S Li-ion 18650.
 
 | Part | Power rail(s) (abs-max) | Logic level | ESP32-S3 signals (GPIO count) |
 |------|-------------------------|-------------|-------------------------------|
 | **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; ≤36 GPIO to budget |
 | **LS032B7DD02** display | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | SPI SCLK · SI · SCS + DISP + EXTCOMIN → **~4–5** (EXTMODE tied to VDD) |
-| **TAS5825M** amp | PVDD **5 V** (4.5–26.4) + DVDD **3.3 V** (abs 3.9) | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + PDN (+ FAULT in) + I²C(shared) → **~4 + shared I²C** |
+| **TAS5825M** amp | PVDD **12 V** (boost; range 4.5–26.4) + DVDD **3.3 V** (abs 3.9) | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + PDN (+ FAULT in) + I²C(shared) → **~4 + shared I²C** |
 | **DMA58-4** speaker | — (passive, from amp OUT) | — | none (analog off TAS5825M PBTL output) |
 | **DRV8835 × 2** driver | VM **5 V** (0–11) + VCC **3.3 V** (2–7) | 3.3 V | MODE(tie-hi) + APHASE·AENBL·BPHASE·BENBL → **4 / chip = 8** |
 | **X40.879** stepper | coils fed from DRV8835 VM **5 V** | — | none direct (via DRV8835); 2 shafts × 2 coils |
+| **STUSB4500** PD sink | VSYS 3.0–5.5 V; VBUS ≤28 V | 3.3 V | I²C (config/status) + ALERT/ATTACH → **~2 shared + 1** |
+| **BQ25628E** charger | VIN (VBUS) ≤18 V; SYS (NVDC) | 3.3 V | I²C + /INT, TS(NTC), CE → **~2 shared + 2** |
+| **MAX17048** gauge | cell 2.5–4.5 V | 3.3 V | I²C + optional /ALRT → **~2 shared + 1** |
+| **LC05111C02** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
 
 **Shared / not-yet-datasheeted:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (SHT4x, SGP41, VEML7700, BMA400, RTC). Homing uses **2× DRV5032** Hall (3.3 V, open-drain → 2 GPIO). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + Halls 2 + amp PDN 1 + SD (SDMMC 6 / SPI 4) + LEDs ~2 + encoder/buttons ~4 ≈ **30–34 GPIO** → fits, but reserve a strapping-safe map early. **The 8 stepper pins are the single biggest consumer** (direct-GPIO drive would cost the same 8, so DRV8835 is free in pin terms).
 
@@ -117,18 +125,57 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Interface:** GPIO + PWM (PHASE/ENABLE). Homing via 2× DRV5032 Hall (separate).
 - **Released:** rev H, Aug 2016; long-standing, active.
 
+> Power/safety chain (§§7–10) covers Option A from [`../power.md`](../power.md). Rail converters (TPS61088/61023/63900/92200), reverse P-FET, NTC, TVS are in the power BOM, not datasheeted here (standard parts).
+
+## 7. STMicroelectronics STUSB4500 — USB-PD Sink Controller
+
+- **Product:** autonomous Type-C / USB-PD **sink** controller — negotiates a PD contract **with no MCU** (auto-run); dead-battery mode.
+- **Refs:** `STUSB4500QTR` · **ST** · DigiKey # 9092189 · QFN-24 (4×4 mm).
+- **Price:** ~$2 (active).
+- **Power / IO:** VSYS 3.0–5.5 V, VDD 4.1–22 V; **VBUS pins ≤28 V**, CC short-to-VBUS protection 22 V. On-chip **PMOS VBUS gate drivers** + VBUS monitor/discharge. Up to **3 sink PDOs in NVM**. **I²C** (config/status) + ALERT/ATTACH.
+- **Use:** program PDO1 = 5 V, PDO2 = 9 V, **PDO3 = 15 V max** (BQ25628E VIN ≤18 V — don't request 20 V). Requests highest available, falls back to 5 V. VBUS → LED driver + charger.
+- **Interface:** USB-PD (CC) + I²C.
+
+## 8. Texas Instruments BQ25628E — 1-Cell Buck Charger *(chosen charger)*
+
+- **Product:** I²C, **1-cell, 2 A buck charger** with **NVDC power-path** and **integrated FETs** (input RBFET + HSFET/LSFET + BATFET).
+- **Refs:** `BQ25628ERYKR` · **TI** · DigiKey # 21298592 · WQFN-18 (3×2.5 mm).
+- **Price:** ~$1.5 (active).
+- **Power / IO:** **VIN ≤18 V** (from VBUS); charge ≤2 A, termination 5–310 mA (5 mA steps); **VBATREG programmable** (set **4.05 V** health / 4.2 V full); **JEITA** via TS/NTC; **ship mode** (BATFET off, **1.5 µA** Iq, 0.15 µA battery leakage); input OVP + safety timers + thermal reg. **I²C** + /INT.
+- **Use:** at boot set VBATREG 4.05 V, ICHG ~1–1.75 A, input-limit per PD, JEITA; poll faults; ship-mode for storage. **SYS** feeds the rail converters.
+- **Interface:** I²C.
+
+## 9. Analog Devices MAX17048 — Fuel Gauge
+
+- **Product:** tiny micropower **1-cell ModelGauge** fuel gauge (voltage-based, **no sense resistor**).
+- **Refs:** `MAX17048G+T10` · **Analog Devices** · µDFN/WLP.
+- **Price:** ~$1.5 (active).
+- **Power / IO:** supply = **cell 2.5–4.5 V**; ~3–4 µA active (µA hibernate). **I²C** + optional /ALRT (low-SoC IRQ).
+- **Use:** quick-start on cell insert; MCU reads SoC% for UI, **low-battery shutdown (~3.2 V/10 %)**, and 80 % charge-cap logic.
+- **Interface:** I²C.
+
+## 10. onsemi LC05111C02 — 1-Cell Protector w/ Integrated FET *(independent safety)*
+
+- **Product:** 1-cell Li-ion **protection IC with integrated power MOSFET** — independent OV/OD/OCD/OCC/SCP cutoff (redundant to the charger).
+- **Refs:** `LC05111C02MTTTG` · **onsemi** · WDFN-6 (2.6×4.0 mm).
+- **Price:** ~$0.6 (active).
+- **Power / IO:** VCC abs ≤12 V. **Variant C02: overcharge 4.28 V (release 4.18 V), over-discharge 2.70 V**; overcurrent-charge/discharge + short-circuit; low-Rds integrated FET. **Autonomous — no config** (thresholds fixed by variant).
+- **Use:** wire in the cell − path between the 18650 and PACK−; needs only a couple of external R/C. This is the belt-and-suspenders cutoff if the charger fails.
+- **Interface:** none (autonomous).
+
 ---
 
-## Reconciliation with root README (v0.8)
+## Reconciliation with root README (v0.10)
 
-All parts now match the root [`README.md`](../README.md):
+All parts match the root [`README.md`](../README.md):
 
 | Item | Status |
 |------|--------|
 | **Speaker** | ✅ DMA58-4 chosen (§7/§16); PC68-4 kept as documented "bigger-box alt". |
 | **Stepper** | ✅ X40.879 (+ X27 companion datasheet); root §5 explains the dependency. |
-| **Audio amp** | ✅ **TAS5825M** locked as *the* amp (v0.8); MAX98357A demoted to simple alt. |
-| **Motor driver** | ✅ **2× DRV8835** locked as *the* driver (already the pick; confirmed v0.8). |
+| **Audio amp** | ✅ **TAS5825M** locked; MAX98357A demoted to simple alt. |
+| **Motor driver** | ✅ **2× DRV8835** locked. |
+| **Power / safety** | ✅ **Option A**: STUSB4500 + **BQ25628E** + MAX17048 + **LC05111** + reverse P-FET + NTC + TVS. Buck-boost BQ25792 dropped (buck is enough for 1S); secondary OVP/TCO/PPTC dropped (over-engineering). See [`../power.md`](../power.md). |
 | **X40.879 price** | ✅ ~$14 (was ~$25). |
 | **Display specs** | ✅ Active area 42.67 × 68.07 mm; power 30 µW hold / 250 µW update @ 5 V; full device spec on file. |
 

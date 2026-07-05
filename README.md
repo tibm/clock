@@ -2,9 +2,11 @@
 
 > Living spec for a high-quality, low-power, two-part desk clock: a circular MCU-driven analog dial beside a reflective monochrome info panel.
 
-**Status:** v0.8 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
+**Status:** v0.10 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
 
 **Changelog**
+- v0.10 — **Power/safety simplified (Option A)**: buck-boost **BQ25792 → BQ25628E** (1-cell buck charger, integrated FETs — buck is enough since input always > 1S cell); independent **cell protector = onsemi LC05111** (integrated FET) + **reverse-polarity P-FET** + NTC/JEITA + TVS = **double-redundant, industry-standard for 1S**. Dropped BQ29700+FETs, **secondary OVP, one-shot TCO, PPTC** (over-engineering for a single cell). Datasheets added (STUSB4500, BQ25628E, MAX17048, LC05111); `power.md` now has a **How-to-use / bring-up** section. Power subtotal ~$23 → ~$15.
+- v0.9 — **Power tree locked** ([`power.md`](power.md)): **USB-PD sink (STUSB4500, 15 V)** → **BQ25792** buck-boost charger/path (+ MAX17048), 1S. Rails 3.3 / 5 / 12 V-audio-boost / 15 V-VBUS-LED. Battery = **user-supplied 18650 in a holder, Li-ion ONLY (labeled)**; **48 h backup**; health-cap ~80 %. **Mandatory board safety for any 18650**: reverse-polarity (LM74700-Q1), primary PCM (BQ29700+FETs), redundant secondary OVP, PPTC + thermal cutoff, NTC/JEITA, TVS, FR barrier — triple-redundant overcharge, layered over-discharge. Charger BQ25185 → **BQ25792**; §10/§16/§17 updated.
 - v0.8 — **Amp locked = TI TAS5825M** (I²S + I²C closed-loop Class-D w/ DSP), PBTL mono into the 4 Ω DMA58-4: PVDD 5 V for ~3 W, optional ~12 V boost for ~8–12 W; DSP loads a ~150–180 Hz high-pass + limiter to protect the 2 mm-Xmax driver. MAX98357A demoted to simple/no-DSP alt. **Driver confirmed = 2× TI DRV8835** (dual H-bridge each; VM 5 V for full torque, VCC 3.3 V; PHASE/ENABLE with PWM microstep → 8 GPIO). Full datasheets added to [`/datasheet`](datasheet/); [`datasheet/README.md`](datasheet/README.md) now carries a **System IO & power domains** table (rails + per-part GPIO/voltage).
 - v0.7 — **Speaker PC68-4 → Dayton DMA58-4** (2″ dual-magnet full-range — the driver we actually have a datasheet for) → smaller driver relaxes body depth to **≥45–60 mm / ~100–250 cc** chamber (optional **DMA58-PR** passive radiator for bass). **Movement locked = Juken X40.879**: its datasheet is a short **pinout addendum** that defers to the **X27 base spec** for torque/current/dimensions — both now in [`/datasheet`](datasheet/). Added the **full Sharp LS032B7DD02 device spec** (replaced the marketing brief); corrected display **active area → 42.67 × 68.07 mm** and **power → 30 µW hold / 250 µW update @ 5 V (VDD 4.8–5.5 V)**; **X40.879 price → ~$14** (was ~$25, DigiKey). Datasheets summarized in [`datasheet/README.md`](datasheet/README.md).
 - v0.6 — **Split-face locked as THE design**: circular MCU-driven analog clock (~75 mm) + reflective monochrome info panel (**Sharp LS032B7DD02**). **Single MCU** (ESP32-S3). New **orientation awareness** (R14): flat (clock left / display right) ↔ standing (clock top / display bottom), accel-sensed; MCU rotates the display and re-references the analog "12". Movement re-picked for 75 mm → **Juken X40.879** (DigiKey) + external Hall homing. Motor driver **DRV8833 → DRV8835** (DRV8833 is NRND). Backlight subsystem removed (reflective display). Shopping list moved **Mouser → DigiKey**. Sections renumbered consecutively; wide color bar-TFT demoted to *superseded*.
@@ -159,7 +161,7 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 | SD + assets | `esp_vfs_fat` + `sdmmc`; `LittleFS` for internal flash |
 
 **Fastest bring-up:** **ESPHome** gets sensors / SNTP / addressable LED / I²S audio running in an afternoon; the memory LCD + steppers likely need a custom component or a drop to ESP-IDF. **esp-bsp** has ready board+display+LVGL configs.
-**Caveat:** nPM1300 driver support is Nordic/Zephyr-centric — on ESP32-S3 use **BQ25185 + MAX17048** (mature Arduino/IDF libs) instead.
+**Caveat:** nPM1300 driver support is Nordic/Zephyr-centric — on ESP32-S3 use **BQ25628E (I²C 1-cell buck charger) + MAX17048** (mature Arduino/IDF libs) instead; see [`power.md`](power.md).
 
 **RTOS/lang:** C/C++ + FreeRTOS (ESP-IDF). MicroPython for quick experiments only.
 
@@ -228,10 +230,14 @@ A single 3-axis accel (**BMA400**) covers **tap-to-snooze *and* orientation** �
 
 ## 10. Power (R5)
 
-- **Input:** USB-C.
-- **Charge/path/gauge:** ESP path → **BQ25185** (charger + power-path) + **MAX17048** (fuel gauge). ST path → **nPM1300** (all-in-one). Discrete alt: BQ24074.
-- **Battery:** single-cell Li-ion/LiPo pouch (flat), 2000–3000 mAh.
-- **Rails:** 3V3 main; gated boost for **halo + optional front-light** on battery (run off USB 5 V when plugged).
+> Full power tree, budget, and battery-safety detail in [`power.md`](power.md). Summary below (kept in sync).
+
+- **Input:** USB-C with **USB-PD sink** (**STUSB4500**, request 15 V; graceful fallback 9/5 V).
+- **Charge/path/gauge:** **BQ25628E** (I²C 1-cell **buck** charger + NVDC power-path, integrated FETs, Vin ≤18 V, prog. charge V/I, JEITA, ship-mode) + **MAX17048** (fuel gauge). Buck is enough for 1S (input always > cell). Runs plugged with **no cell**.
+- **Battery:** **user-supplied 18650 in a holder, Li-ion ONLY** (labeled "Li-ion 18650 only · 2.5–4.2 V"). Recommend a protected 3000–3500 mAh cell. **48 h backup** target.
+- **Health:** charge-cap **~80 % (4.05 V)**; optional user "top to 100 %".
+- **Rails:** **3.3 V** (MCU) · **5 V** (panel + stepper) · **12 V boost** (audio PVDD, gated) · **15 V VBUS** (LED sunrise, plugged only).
+- **Safety (mandatory, wood/bedroom, any 18650) — simple + double-redundant:** independent **cell protector** (onsemi **LC05111**, integrated FET: OV/OD/OC/SC) redundant to the charger, **reverse-polarity P-FET**, **NTC + JEITA**, TVS, insert-qualify, FR barrier + venting. Double-redundant overcharge (charger 4.05 V + protector 4.28 V), layered over-discharge. *(Secondary OVP/TCO/PPTC dropped — over-engineering for 1S.)* Full wiring/config in [`power.md`](power.md).
 
 ---
 
@@ -306,9 +312,18 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Light | VEML7700-TR | OPLGA | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=VEML7700-TR) |
 | Accel (tap+orient) | BMA400 | LGA-12 | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=BMA400) |
 | RTC | RV-3028-C7 | C7 pkg | ~$3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=RV-3028-C7) |
-| PD sink | STUSB4500QTR | QFN-24 | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=STUSB4500QTR) |
-| Charger + power-path | BQ25185YBGR | DSBGA | ~$1.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=BQ25185YBGR) |
+| PD sink | STUSB4500QTR | QFN-24 | ~$2 | ✅ | [13577… search](https://www.digikey.com/en/products/result?keywords=STUSB4500QTR) |
+| Charger + path (1-cell buck, integ. FETs) | BQ25628ERYKR | WQFN-18 | ~$1.5 | ✅ | [21298592](https://www.digikey.com/en/products/detail/texas-instruments/BQ25628ERYKR/21298592) |
 | Fuel gauge | MAX17048G+T10 | µDFN | ~$1.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=MAX17048G%2BT10) |
+| Cell protector (integ. FET, independent) | LC05111C02MTTTG | WDFN-6 | ~$0.6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=LC05111C02MTTTG) |
+| Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=AO3401A) |
+| Cell temp sense | 10 k NTC (Murata NCP18XH103) | 0402 | ~$0.1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=NCP18XH103F03RB) |
+| Transient | TVS SMAJ22A (VBUS) + SMAJ5.0A (BAT) | SMA | ~$0.4 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=SMAJ22A) |
+| Audio boost SYS→12 V | TPS61088RHLR | VQFN-20 | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS61088RHLR) |
+| 5 V rail (boost) | TPS61023 | SOT-563 | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS61023) |
+| 3.3 V rail (buck-boost, low Iq) | TPS63900 | VQFN | ~$2 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS63900) |
+| LED CC driver (off VBUS) | TPS92200D1 | SOT-23 | ~$1.5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TPS92200) |
+| 18650 holder | Keystone/MPD 18650 holder | — | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=18650%20holder) |
 | Halo LEDs ×~16 | SK6812MINI-E | 3.5×3.5 mm | ~$0.2 ea | — | *(Adafruit / alt distributor)* |
 | Front-light (opt) | white LED + FET/CC driver | — | ~$0.5 | — | — |
 | microSD socket | Hirose DM3AT-SF-PEJM5 | push-push | ~$1 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=DM3AT-SF-PEJM5) |
@@ -318,7 +333,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Speaker driver | Dayton DMA58-4 (2″ FR) | 56×56×32 mm | ~$19 | — | *(Parts Express 295-582)* |
 | Passive radiator *(opt)* | Dayton DMA58-PR (2″) | — | ~$8 | — | *(Parts Express)* |
 
-**Core electronics subtotal (excl. speaker/battery/PCB): ~$110–130** (the analog movement + drivers + Halls add ~$18 vs the display-only build). With speaker + Li-ion pouch + 4-layer PCB + passives ≈ **~$180–210**. +CO₂/PM ≈ +$62.
+**Core electronics subtotal (excl. speaker/cell/PCB): ~$120–140** (PD + 1-cell buck charger + battery-safety ≈ +$15–16 of power electronics — simplified from ~$25). With speaker + user-supplied 18650 + holder + 4-layer PCB + passives ≈ **~$190–220**. +CO₂/PM ≈ +$62. *(Cell is user-supplied; safety HW is non-negotiable — see [`power.md`](power.md).)*
 
 **Cost/space levers:** budget movement (VID28-05, −$10, off-DigiKey) + Hall homing; MAX98357A vs TAS5825M (−$2.5, no DSP); skip CO₂/PM; the display + movement are the two big line items.
 
@@ -331,7 +346,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 - **Analog movement:** Juken **X40.879** (DigiKey, 75 mm) ⭐ / Juken X10.506 (small, built-in homing) / VID28-05·BKA30D-R5 (budget, off-DigiKey) / X27.168 ×2 (single-shaft).
 - **Motor driver:** DRV8835 ⭐ / TB6612FNG. *(DRV8833 NRND.)*
 - **Amp:** TAS5825M ⭐ (I²S+DSP, PBTL mono) / MAX98357A (simple, no-DSP).
-- **Power:** BQ25185 + MAX17048 (ESP) / nPM1300 (ST).
+- **Power:** STUSB4500 (PD sink) + **BQ25628E** (1-cell buck charger/path) + MAX17048 (gauge) + **LC05111** protector + reverse P-FET; 1S Li-ion 18650 holder. *(Alts: BQ25792 buck-boost if 24 V PD tolerance needed; nPM1300 PMIC for fewest chips.)*
 - **RTC:** RV-3028-C7 (ULP) / DS3231 (simple).
 - **Speaker:** Dayton DMA58-4 ⭐ (2″) / Dayton PC68-4 (2.5″, more bass) / Adafruit 3351 (budget).
 
@@ -361,3 +376,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | 2026-07-04 | **X40.879 price ~$25 → ~$14** | Live DigiKey pricing (28528329) |
 | 2026-07-04 | **Amp locked = TAS5825M** (MAX98357A → simple alt) | DSP high-pass/limiter protects the 2 mm-Xmax DMA58-4 and makes a 2″ driver sound full; PBTL mono, 5 V→~3 W or +12 V boost→~8–12 W; full datasheet on file |
 | 2026-07-04 | **Driver confirmed = 2× DRV8835** | High-impedance (~260 Ω) gauge coils are voltage-driven, not chopper-driven; DRV8835 gives full 5 V torque + flyback; avoid A4988/DRV8825/TMC choppers; full datasheet on file |
+| 2026-07-04 | **Power: USB-PD (15 V) + BQ25792 buck-boost** (was BQ25185) | PD gives headroom for loud audio + sunrise + fast charge; buck-boost accepts 3.6–24 V + firmware health-cap; supersedes nPM1300/BQ25185 |
+| 2026-07-04 | **Battery = user-supplied 18650, Li-ion ONLY, labeled** | Replaceable; runs with no cell on USB; must be safe for any inserted 18650 |
+| 2026-07-04 | **Battery safety non-negotiable** (board-level) | Wood/bedroom: must be safe for any inserted 18650; don't cost-trim safety |
+| 2026-07-04 | **Power/safety simplified → Option A** (BQ25792→**BQ25628E** buck; **LC05111** protector + reverse P-FET; drop secondary OVP/TCO/PPTC) | 1S input always > cell → buck suffices; charger + one integrated protector = double-redundant (phone/wearable standard), not laptop-pack triple. Simpler, safe, ~$8 cheaper |
