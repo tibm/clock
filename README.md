@@ -4,9 +4,11 @@
 
 > 🔩 **Manufacturing constraint — HAND-SOLDERABLE PARTS ONLY.** The bare PCB is fab'd externally; **every part is hand-soldered with an iron.** No **QFN / DFN / WSON / BGA / WLP / LGA** silicon sits bare on the board — every active IC is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. The two power parts (amp `TAS5760M`, charger `LT3652`) are HTSSOP/MSOP **PowerPAD** — leads iron-solderable, belly pad on a thermal-via array (back-side hot-air optional). Functions that *only* exist leadless → **pre-made breakout modules** (env/MEMS sensors SHT4x, SGP41, VEML7700, BMA400 as I²C Qwiic/STEMMA boards) or **dropped** (fuel gauge → ESP32 ADC). **Passives ≥ 0603** (0402 min); connectors hand-solderable (through-hole / wide-pad SMD: USB-C, FPC/ZIF, JST, SD cage). **This grows the PCB — accepted.**
 
-**Status:** v0.11 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
+**Status:** v0.13 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-04
 
 **Changelog**
+- v0.13 — **RTC IC dropped → ESP32-S3 RTC + 32.768 kHz crystal (no battery).** A battery-less RTC chip loses time on total power loss exactly like the S3, so it adds parts without fixing anything; the S3's internal RC oscillator alone drifts %-level over temperature (bad for a clock). Fix = a ~30¢ **32.768 kHz watch crystal** on XTAL32K (GPIO15/16) → ±~20 ppm ≈ 1.7 s/day, disciplined by **SNTP**. On loss of USB **and** the 18650, time is lost → re-sync on boot with a clock animation (accepted). Removed the RV-3028-C7/DS3231SN row + datasheet; §8, §16, §17, §6c synced.
+- v0.12 — **Sensors, display connector & RTC finalized to precise parts + datasheets** ([`/datasheet`](datasheet/) rows 11–16): display FPC → **Hirose FH34SRJ-10S-0.5SH** (10-pin 0.5 mm ZIF, the panel spec's own recommended mate, on-board); T/RH → **SHT45** (±0.1 °C / ±1 %RH, replaces SHT40) + optional dedicated **TMP117** (±0.1 °C); light → **TSL2591** (188 µlx–88 klx, weak-light, replaces VEML7700); accel+orient → **BMA400** (now datasheeted); RTC **kept = RV-3028-C7** (ULP 45 nA) / **DS3231SN** (SOIC-16, on-board) — the S3's internal RTC dies on full power loss, so a backed-up RTC gives instant-correct hands at cold boot + holdover. Production BOM (§16b), §8 sensor table, and [`datasheet/README.md`](datasheet/README.md) synced; leadless sensors ride on I²C breakouts, the FPC connector is on-board.
 - v0.11 — **Hand-solderable parts only (hard mfg constraint):** every bare-PCB IC is now a leaded package — no QFN/DFN/BGA/LGA. Swaps: amp **TAS5825M (VQFN) → TAS5760M** (HTSSOP-32, I²S+I²C; HPF/limiter DSP moves to firmware); driver **2× DRV8835 (WSON) → 2× TB6612FNG** (SSOP-24); PD **STUSB4500 (QFN) → CH224K** (ESSOP-10, resistor-set, off-DigiKey); charger **BQ25628E (WQFN) → LT3652** (MSOP-12E buck, BAT-node power-path, resistor-set 4.05 V + NTC + timer — no I²C, single-window temp); **fuel gauge MAX17048 (µDFN) dropped → ESP32 ADC**; protector **LC05111 (DFN) → S-8261 (SOT-23-6) + AO4800 dual-FET (SO-8)**. Leadless-only env sensors → **I²C breakout modules**. New top-of-file mfg note; datasheets swapped in [`/datasheet`](datasheet/); board grows — accepted.
 - v0.10 — **Power/safety simplified (Option A)**: buck-boost **BQ25792 → BQ25628E** (1-cell buck charger, integrated FETs — buck is enough since input always > 1S cell); independent **cell protector = onsemi LC05111** (integrated FET) + **reverse-polarity P-FET** + NTC/JEITA + TVS = **double-redundant, industry-standard for 1S**. Dropped BQ29700+FETs, **secondary OVP, one-shot TCO, PPTC** (over-engineering for a single cell). Datasheets added (STUSB4500, BQ25628E, MAX17048, LC05111); `power.md` now has a **How-to-use / bring-up** section. Power subtotal ~$23 → ~$15.
 - v0.9 — **Power tree locked** ([`power.md`](power.md)): **USB-PD sink (STUSB4500, 15 V)** → **BQ25792** buck-boost charger/path (+ MAX17048), 1S. Rails 3.3 / 5 / 12 V-audio-boost / 15 V-VBUS-LED. Battery = **user-supplied 18650 in a holder, Li-ion ONLY (labeled)**; **48 h backup**; health-cap ~80 %. **Mandatory board safety for any 18650**: reverse-polarity (LM74700-Q1), primary PCM (BQ29700+FETs), redundant secondary OVP, PPTC + thermal cutoff, NTC/JEITA, TVS, FR barrier — triple-redundant overcharge, layered over-discharge. Charger BQ25185 → **BQ25792**; §10/§16/§17 updated.
@@ -25,7 +27,7 @@
 
 | # | Requirement | Primary approach (see §) |
 |---|-------------|--------------------------|
-| R1 | Accurate time (TZ, seconds, day, date), periodic server sync | TCXO/RTC + SNTP over Wi-Fi (§6, §8) |
+| R1 | Accurate time (TZ, seconds, day, date), periodic server sync | ESP32-S3 RTC off a 32.768 kHz crystal + SNTP over Wi-Fi (no RTC IC/battery) (§6, §8) |
 | R2 | ALS-driven lighting, **true 0 emission at night** | Halo + optional display front-light, hard-off enable + ALS (§8, §9) |
 | R3 | Alarm, tap-to-snooze, loud multi-asset audio, sunrise halo from bottom | Accel tap-detect + Class-D audio + RGBW halo (§7, §9) |
 | R4 | Air quality (VOC/AQI), temperature, humidity | SHT4x + SGP41 (or BME688); optional CO₂/PM (§8) |
@@ -156,9 +158,9 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 | Wi-Fi | `esp_wifi` |
 | BLE-pair → Wi-Fi provision (R9) | `wifi_provisioning` (BLE transport) + Espressif **"ESP BLE Provisioning"** phone app |
 | BLE stack | **NimBLE** |
-| NTP + TZ/DST (R1) | `esp_netif_sntp` + POSIX `TZ` string (`setenv`/`tzset`) |
+| NTP + TZ/DST (R1) | `esp_netif_sntp` + POSIX `TZ` string (`setenv`/`tzset`); run the S3 RTC off the **32.768 kHz XTAL32K** (GPIO15/16) so it holds ±~20 ppm between syncs — **no RTC chip, no battery** |
 | Env sensors (R4) | Sensirion `embedded-i2c-sht4x / sgp41 / scd4x / sps30`; Bosch **BSEC/BME68x** |
-| Light / RTC | VEML7700 (esp-idf-lib / Adafruit); RV-3028 lib or DS3231 `RTClib` |
+| Light | **TSL2591** (Adafruit_TSL2591 / esp-idf-lib) or VEML7700. Precision temp: **TMP117** (Adafruit_TMP117) |
 | Audio out (I²S) | `esp_driver_i2s`; decode via **ESP-ADF** (MP3/AAC/FLAC/WAV) or Arduino **ESP32-audioI2S**; **~150 Hz high-pass + limiter/EQ biquads run here** (TAS5760M has no on-chip DSP) |
 | Halo + front-light | `led_strip` (RMT/SPI, SK6812) + `ledc` (PWM dimming) |
 | SD + assets | `esp_vfs_fat` + `sdmmc`; `LittleFS` for internal flash |
@@ -209,14 +211,15 @@ The small display does **not** limit audio — the speaker lives behind/beside i
 
 | Function | Part | Notes | ~Cost |
 |----------|------|-------|-------|
-| Temp + humidity | **Sensirion SHT4x** | best-in-class, low power | $2–4 |
-| VOC (+NOx) index | **Sensirion SGP41** | pairs with SHT4x | $5–8 |
-| *All-in-one alt* | **Bosch BME688** | T/RH/pressure/gas; BSEC lib | $8–12 |
+| Temp + humidity ⭐ | **Sensirion SHT45** (`SHT45-AD1B-R2`) | **±0.1 °C / ±1.0 %RH** — accurate grade of SHT4x; also feeds SGP41 comp | $4–6 |
+| Precision temp *(opt)* | **TI TMP117** | **±0.1 °C** dedicated; redundant if SHT45 fitted — use for a fast, RH-decoupled reference | $2–5 |
+| VOC (+NOx) index | **Sensirion SGP41** | pairs with SHT45 (needs its T/RH) | $5–8 |
+| *All-in-one alt* | **Bosch BME688** | T/RH/pressure/gas + AQI; BSEC lib — looser (±0.5 °C / ±3 %RH) | $8–12 |
 | CO₂ *(opt)* | **Sensirion SCD41** | true NDIR CO₂ | $18–30 |
 | PM2.5 *(opt)* | **Sensirion SPS30** | has fan; power/size | $30–45 |
-| Ambient light | **Vishay VEML7700** | auto-dim halo + front-light | $1.5–3 |
+| Ambient light ⭐ | **ams-OSRAM TSL2591** (`TSL25911FN`) | **188 µlx–88 klx**, 600M:1 range → resolves near-dark; VEML7700 = lux-direct alt | $2–3 |
 | **Motion / tap / orientation** | **Bosch BMA400** | nA-class, hardware tap engine **+ gravity-vector orientation (flat/standing, R14)** | $1.5–2.5 |
-| RTC (holdover) | **RV-3028-C7** (ULP) or **DS3231** | coin-cell backup, SNTP-disciplined | $2–6 |
+| Timekeeping | **ESP32-S3 RTC + 32.768 kHz crystal** (no RTC IC) | **No coin cell.** Crystal (~±20 ppm ≈ 1.7 s/day) holds between **SNTP** syncs; total power loss (USB **and** 18650 gone) → re-sync on boot, clock animation meanwhile. A battery-less RTC IC would add parts without fixing the loss case → dropped | ~$0.3 |
 
 A single 3-axis accel (**BMA400**) covers **tap-to-snooze *and* orientation** — no gyro needed, since flat-vs-standing is a static gravity reading. All I²C on a shared bus (§14). **Vent AQ sensors to outside air, away from amp/LEDs/battery** — their heat skews T/RH/VOC.
 
@@ -293,10 +296,11 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Home Hall (×2) | DRV5032 breakout / bare | ~$1 | [DigiKey 7400094 ✅](https://www.digikey.com/en/products/detail/texas-instruments/DRV5032FADBZR/7400094) |
 | I²S amp (bring-up) | Adafruit 3006 (MAX98357A) → TAS5760M EVM | ~$6 / — | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%203006) |
 | Speaker (2″ full-range) | Dayton DMA58-4 | ~$19 | *(Parts Express 295-582 — not DigiKey)* |
-| T/RH breakout | Adafruit 5776 (SHT40) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%205776) |
+| T/RH breakout (±0.1 °C) | Adafruit 5665 (SHT45) | ~$6 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%205665) |
+| Precision temp breakout *(opt)* | Adafruit 4821 (TMP117) | ~$8 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%204821) |
 | VOC breakout | Adafruit 4829 (SGP40) | ~$15 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%204829) |
-| Light breakout | Adafruit 4162 (VEML7700) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=Adafruit%204162) |
-| Accel breakout (tap+orient) | BMA400 breakout (or Adafruit 2809 LIS3DH) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=BMA400) |
+| Light breakout (weak-light) | Adafruit 1980 (TSL2591) | ~$7 | [DigiKey 4990786](https://www.digikey.com/en/products/detail/adafruit-industries-llc/1980/4990786) |
+| Accel breakout (tap+orient) | SparkFun BMA400 Qwiic (or Adafruit 2809 LIS3DH) | ~$5 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=BMA400) |
 | RGBW halo strip | SK6812 RGBW strip | ~$8 | *(Adafruit / AliExpress)* |
 
 ### 16b. Production BOM (ICs, custom PCB)
@@ -305,17 +309,18 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 |-------|-----|-----------|-------|--------|-------------|
 | SoC module | ESP32-S3-WROOM-1-N16R8 | 18×25.5 mm | ~$6.8 | ✅ | [16162642](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N16R8/16162642) |
 | Info display | Sharp LS032B7DD02 | 3.16″, 47×76 mm | ~$39 | ✅ | [23349498](https://www.digikey.com/en/products/detail/sharp-microelectronics/LS032B7DD02/23349498) |
-| Display FPC connector | (match panel FPC pitch) | — | ~$0.5 | — | [search](https://www.digikey.com/en/products/result?keywords=FPC%20connector) |
+| Display FPC connector | Hirose FH34SRJ-10S-0.5SH(50) | **FPC/ZIF, 10-pos, 0.5 mm** | ~$0.7 | ✅ | [3880272](https://www.digikey.com/en/products/detail/hirose-electric-co-ltd/FH34SRJ-10S-0-5SH-50/3880272) |
 | Analog movement | Juken X40.879 (dual shaft) | vertical, compact | ~$14 | ✅ | [28528329](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) |
 | Motor driver ×2 | TB6612FNG,C,8,EL | **SSOP-24** | ~$2.4 | ✅ | [1730070](https://www.digikey.com/en/products/detail/toshiba-semiconductor-and-storage/TB6612FNG-C-8-EL/1730070) |
 | Home Hall ×2 | DRV5032FADBZR | SOT-23 | ~$0.6 | ✅ | [7400094](https://www.digikey.com/en/products/detail/texas-instruments/DRV5032FADBZR/7400094) |
 | Audio amp ⭐ (chosen) | TAS5760MDAPR | **HTSSOP-32** | ~$4–6 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=TAS5760MDAPR) |
 | Audio amp (analog alt) | PCM5102A + TPA3116D2 | TSSOP-20 + HTSSOP-32 | ~$4 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=PCM5102A) |
-| T/RH *(I²C module)* | SHT4x breakout | DFN → module | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%205776) |
-| VOC *(I²C module)* | SGP41 breakout | DFN → module | ~$15 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%204829) |
-| Light *(I²C module)* | VEML7700 breakout | OPLGA → module | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%204162) |
-| Accel (tap+orient) *(I²C module)* | BMA400 breakout | LGA → module | ~$5 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=BMA400%20breakout) |
-| RTC | DS3231 (SOIC-16) or RV-3028 module | **SOIC-16** / module | ~$3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=DS3231SN%23) |
+| T/RH ⭐ *(I²C module)* | Sensirion SHT45-AD1B-R2 (±0.1 °C / ±1 %RH) | DFN-4 → module | ~$5 | ✅ | [16360966](https://www.digikey.com/en/products/detail/sensirion-ag/SHT45-AD1B-R2/16360966) |
+| Temp, precision *(opt — SHT45 covers it)* | TI TMP117AIDRVR (±0.1 °C) | WSON-6 → module | ~$5 | ✅ | [9685284](https://www.digikey.com/en/products/detail/texas-instruments/TMP117AIDRVR/9685284) |
+| VOC *(I²C module)* | SGP41 breakout (needs SHT45 for T/RH comp) | DFN → module | ~$15 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=Adafruit%204829) |
+| Light ⭐ *(I²C module)* | ams-OSRAM TSL2591 / TSL25911FN (188 µlx–88 klx) | WFDFN-6 → module | ~$5 | ✅ | [4162547](https://www.digikey.com/en/products/detail/ams-osram-usa-inc/TSL25911FN/4162547) |
+| Accel (tap+orient) *(I²C module)* | Bosch BMA400 (bare) → Qwiic breakout | LGA-12 → module | ~$5 | ✅ | [8634935](https://www.digikey.com/en/products/detail/bosch-sensortec/BMA400/8634935) |
+| Timekeeping xtal (no RTC IC, no battery) | 32.768 kHz crystal — Epson FC-135 / Abracon ABS07 (CL 6–12.5 pF) → S3 XTAL32K (GPIO15/16) | 3.2×1.5 mm SMD (2-pad) *(or TH cylinder)* | ~$0.3 | ✅ | [search](https://www.digikey.com/en/products/result?keywords=FC-135%2032.768) |
 | PD sink | CH224K | **ESSOP-10** | ~$0.4 | ✅ | [LCSC C970725 *(not DigiKey)*](https://www.lcsc.com/product-detail/C970725.html) |
 | Charger (1-cell buck, BAT-node path) | LT3652EMSE#PBF | **MSOP-12E** | ~$5–6 | ✅ | [2225686](https://www.digikey.com/en/products/detail/analog-devices-inc/LT3652EMSE-PBF/2225686) |
 | Fuel gauge | *(none — ESP32 ADC on cell divider)* | — | ~$0 | — | — |
@@ -351,7 +356,9 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 - **Motor driver:** **2× TB6612FNG** ⭐ (SSOP-24, hand-solderable). *(DRV8835/DRV8833 = WSON/HTSSOP, replaced.)*
 - **Amp:** **TAS5760M** ⭐ (I²S+I²C, HTSSOP, PBTL mono; firmware DSP) / PCM5102A + TPA3116 (analog).
 - **Power:** **CH224K** (PD sink) + **LT3652** (1-cell buck charger, BAT-node path) + **ESP32 ADC** gauge + **S-8261 + AO4800** protector + reverse P-FET; 1S Li-ion 18650 holder. *(All leaded/hand-solderable; CH224K off-DigiKey.)*
-- **RTC:** RV-3028-C7 (ULP) / DS3231 (simple).
+- **Timekeeping (no RTC IC / no battery):** ESP32-S3 internal RTC off a **32.768 kHz crystal** (~±20 ppm, GPIO15/16) + periodic **SNTP** — drift ≈ 1–2 s/day between syncs, corrected each sync. On total power loss (USB **and** 18650 gone) time is lost → re-sync on next boot, clock animation meanwhile. *A battery-less RTC IC adds parts without fixing the loss case, so it's dropped; the crystal is the real accuracy fix.*
+- **Sensors:** T/RH **SHT45** ⭐ (±0.1 °C / ±1 %RH) + precision temp **TMP117** (opt) / light **TSL2591** ⭐ (weak-light) or VEML7700 (lux-direct) / accel+orient **BMA400** / VOC **SGP41** / all-in-one **BME688**. All leadless → **I²C breakouts**.
+- **Display connector:** **Hirose FH34SRJ-10S-0.5SH** ⭐ (10-pin 0.5 mm FPC/ZIF, on-board) — panel-spec recommended; alts FH28-10S-0.5SH / Molex 503480-1000 / Panasonic AYF531035.
 - **Speaker:** Dayton DMA58-4 ⭐ (2″) / Dayton PC68-4 (2.5″, more bass) / Adafruit 3351 (budget).
 
 ---
@@ -392,3 +399,8 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | 2026-07-04 | **Fuel gauge MAX17048 (µDFN) dropped → ESP32 ADC** | No hand-solderable 1-cell gauge exists; voltage-based SoC on a divider suffices |
 | 2026-07-04 | **Protector LC05111 (DFN) → S-8261 (SOT-23-6) + AO4800 (SO-8)** | Ubiquitous leaded protector-IC + dual-FET; OV 4.28 V matches the old part; double-redundant OV preserved |
 | 2026-07-04 | **Leadless-only sensors → I²C breakout modules** | SHT4x/SGP41/VEML7700/BMA400 only exist DFN/LGA → mount as Qwiic/STEMMA boards, not bare silicon |
+| 2026-07-04 | **Display connector = Hirose FH34SRJ-10S-0.5SH** | LS032B7DD02 tail is a 10-pin 0.5 mm FPC (device spec Table 4-1 / 8-2-1); this HRS part is a spec-recommended, dual-contact mate; 0.5 mm ZIF is hand-solderable → on-board (alts: FH28-10S-0.5SH, Molex 503480-1000, Panasonic AYF531035) |
+| 2026-07-04 | **T/RH SHT40 → SHT45; + optional TMP117** | SHT45 hits **±0.1 °C / ±1 %RH** (R4 accuracy) and supplies SGP41's T/RH compensation; **TMP117** (±0.1 °C) added as an optional dedicated/RH-decoupled temp reference |
+| 2026-07-04 | **Light VEML7700 → TSL2591** | 188 µlx–88 klx / 600M:1 range resolves **near-dark** (weak ambient light) for night auto-dim + 0-emission logic; VEML7700 kept as the lux-direct alt |
+| 2026-07-04 | **RTC kept (RV-3028-C7 / DS3231SN)** | The ESP32-S3's own RTC loses time on full power loss (USB out **and** cell removed/dead) and is uncompensated; a coin-cell-backed RTC drives the hands to the correct absolute time **instantly at cold boot**, SNTP-disciplined. RV-3028-C7 = ULP 45 nA (breakout); DS3231SN = SOIC-16 TCXO on-board |
+| 2026-07-04 | **RTC IC dropped → S3 RTC + 32.768 kHz crystal (no battery)** *(supersedes above)* | No 2nd battery wanted; a battery-less RTC chip doesn't survive power loss either, so it adds parts for nothing. The S3's internal RC drifts %-level over temp → a **32.768 kHz crystal** on XTAL32K gives ±~20 ppm (≈1.7 s/day), SNTP-disciplined. Total power loss (USB + cell gone) → lose time, re-sync on boot behind a clock animation |

@@ -1,6 +1,6 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04) and **match the root [`README.md`](../README.md)** (v0.11).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04) and **match the root [`README.md`](../README.md)** (v0.12).
 
 > 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors, fuel gauge) are pushed onto **pre-made breakout modules** or **dropped**; see the root README manufacturing section.
 
@@ -19,6 +19,13 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 8 | `charger_lt3652.pdf` | **LT3652** (`LT3652EMSE#PBF`) | Analog Devices | **MSOP-12E (PowerPAD)** | ✅ | ~$5–6 | autonomous (resistor-set) |
 | 9 | `battery_protector_s-8261.pdf` | **S-8261** (`S-8261AAxMD`) | ABLIC | **SOT-23-6** | ✅ | ~$0.4 | none (autonomous) |
 | 10 | `protection_mosfet_ao4800.pdf` | **AO4800** (dual N-FET, protector) | Alpha & Omega | **SO-8** | ✅ | ~$0.3 | none (protector FET) |
+| 11 | `connector_display_fpc_fh34.pdf` | **FH34SRJ-10S-0.5SH** | Hirose | **FPC/ZIF 0.5 mm (SMT, on-board)** | ✅ | ~$0.7 | 10-pin display FPC tail |
+| 12 | `sensor_temp_tmp117.pdf` | **TMP117** (`TMP117AIDRVR`) | Texas Instruments | WSON-6 → **breakout** | ✅ | ~$1.9 | I²C (±0.1 °C) |
+| 13 | `sensor_humidity_temp_sht4x.pdf` | **SHT45** (`SHT45-AD1B-R2`) | Sensirion | DFN-4 → **breakout** | ✅ | ~$4.5 | I²C (±0.1 °C / ±1 %RH) |
+| 14 | `sensor_light_tsl2591.pdf` | **TSL2591** (`TSL25911FN`) | ams-OSRAM | WFDFN-6 → **breakout** | ✅ | ~$3 | I²C (188 µlx–88 klx) |
+| 15 | `sensor_accel_bma400.pdf` | **BMA400** | Bosch Sensortec | LGA-12 → **breakout** | ✅ | ~$1.6 | I²C/SPI (tap + orient) |
+
+**Sensors ride on I²C breakout modules** (rows 12–15): every one is leadless (WSON/DFN/WFDFN/LGA), so per the hand-solder rule they mount on **Qwiic/STEMMA breakouts** on a sensor flex, away from the main-PCB heat — not bare silicon. The **display connector (row 11) is the exception**: a 0.5 mm FPC/ZIF is explicitly hand-solderable, so it sits **on the main PCB**. **No RTC IC** — timekeeping is the **ESP32-S3 internal RTC off a 32.768 kHz crystal** (XTAL32K, GPIO15/16) + SNTP; no coin cell (see root README §6/§8/§10).
 
 **Fuel gauge dropped** (no hand-solderable equivalent — every 1-cell gauge is TDFN/WLP): SoC is now **voltage-based via the ESP32-S3 ADC** on a divider off the cell. See root README §10 / `../power.md`.
 
@@ -43,7 +50,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 | **Cell voltage sense** | off cell via divider | ADC | 1 ADC pin → **1** |
 | **S-8261 + AO4800** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
 
-**Shared / not-yet-datasheeted:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (SHT4x, SGP41, VEML7700, BMA400, RTC) — **now smaller** (no charger, no fuel gauge on I²C). Homing uses **2× DRV5032** Hall (SOT-23, 3.3 V, open-drain → 2 GPIO). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + Halls 2 + amp mute 1 + SD (**SPI 4** to save pins) + charger status 2 + Vbat ADC 1 + PD PG 1 + LEDs ~2 + encoder/buttons ~4 ≈ **31–35 GPIO** → fits ≤36, but reserve a strapping-safe map early. **The steppers are still 8 pins** — the TB6612FNG is driven PWM-on-the-inputs (PWMA/PWMB tied high) to keep parity with the DRV8835 it replaces (the conventional PWM-pin scheme would cost 12).
+**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**SHT45** T/RH, **TMP117** temp *(opt)*, **SGP41** VOC, **TSL2591** light, **BMA400** accel — all now datasheeted, rows 12–15) — **kept small** (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (not on I²C). Homing uses **2× DRV5032** Hall (SOT-23, 3.3 V, open-drain → 2 GPIO). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + Halls 2 + amp mute 1 + SD (**SPI 4** to save pins) + charger status 2 + Vbat ADC 1 + PD PG 1 + LEDs ~2 + encoder/buttons ~4 ≈ **31–35 GPIO** → fits ≤36, but reserve a strapping-safe map early. **The steppers are still 8 pins** — the TB6612FNG is driven PWM-on-the-inputs (PWMA/PWMB tied high) to keep parity with the DRV8835 it replaces (the conventional PWM-pin scheme would cost 12).
 
 ---
 
@@ -168,7 +175,66 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 ---
 
-## Reconciliation with root README (v0.11)
+## 11. Hirose FH34SRJ-10S-0.5SH — Display FPC/ZIF Connector *(mates the LS032B7DD02 tail)*
+
+- **Product:** 10-position, **0.5 mm-pitch** FPC/FFC **ZIF** connector, **dual (upper + lower) contact**, SMT right-angle, back-flip actuator, 1.0 mm profile, accepts 0.3 mm FPC, 0.5 A/contact.
+- **Refs:** `FH34SRJ-10S-0.5SH(50)` · **Hirose** · **DigiKey # 3880272**. The LS032B7DD02 device spec **Table 8-2-1 lists it as a recommended mating connector** (alternatives it names: HRS **FH28-10S-0.5SH** bottom-contact, **Molex 503480-1000**, **Panasonic AYF531035**).
+- **Why this one:** the panel tail is a **10-pin, 0.5 mm-pitch FPC** — pinout (datasheet Table 4-1 / 8-1-1): `1 SCLK · 2 SI · 3 SCS · 4 EXTCOMIN · 5 DISP · 6 VDDA · 7 VDD · 8 EXTMODE · 9 VSS · 10 VSSA`. Dual-contact + reinforced actuator = best retention for a moving/rotating body.
+- **Hand-assembly:** a **0.5 mm ZIF FPC connector is explicitly allowed** by the mfg rule (fine-pitch FPC/ZIF) → mounts **on the main PCB** (not a breakout). Slide the FPC in, flip the latch.
+- **Power / IO:** passive; carries the display's 3-wire SPI + DISP/EXTCOMIN/EXTMODE. Panel VDD/VDDA **5 V**, logic **3 V** (§1).
+- **Price:** ~$0.7.
+
+## 12. TI TMP117 — ±0.1 °C Precision Temperature Sensor *(dedicated ambient temp)*
+
+- **Product:** 16-bit digital temp sensor, **±0.1 °C (max) over −20…+50 °C with no calibration**, 0.0078 °C resolution, 48-bit EEPROM, PT100/PT1000 RTD-class. I²C/SMBus, up to 4/bus, programmable ALERT.
+- **Refs:** `TMP117AIDRVR` · **Texas Instruments** · **WSON-6 (2×2 mm)** · **DigiKey # 9685284** · datasheet `SNIS189`.
+- **Power / IO:** 1.8–5.5 V, **3.5 µA typ**; I²C (3.3 V-compatible) + optional ALERT.
+- **Hand-assembly:** WSON is leadless → **breakout** (Adafruit 4821, Qwiic/STEMMA) on the sensor flex, away from self-heating parts.
+- **Role:** meets "ambient temp to **0.1 °C**." **Optional / redundant if the SHT45 (§13) is fitted** (SHT45 temp is also ±0.1 °C) — add TMP117 only for a fast, RH-decoupled, traceable temp reference.
+- **Price:** ~$1.9 bare / ~$5 breakout.
+
+## 13. Sensirion SHT45 — ±1.0 %RH / ±0.1 °C Humidity + Temp *(accurate ambient RH — also covers temp)*
+
+- **Product:** 4th-gen capacitive **RH + temp** sensor; **±1.0 %RH** and **±0.1 °C** — the ultra-high-accuracy grade of the SHT4x family (tighter than the SHT40's ±1.8 %RH / ±0.2 °C). On-chip heater; I²C.
+- **Refs:** `SHT45-AD1B-R2` · **Sensirion** · **DFN-4 (1.5×1.5 mm)** · **DigiKey # 16360966** · datasheet `Datasheet_SHT4x`. (`SHT45-AD1F-R2`, DK # 17180856 = with PTFE membrane/filter.)
+- **Power / IO:** 1.08–3.6 V, ~0.4 µA avg; I²C addr 0x44.
+- **Hand-assembly:** DFN leadless → **breakout** (Adafruit 5665 / SparkFun) on the vented sensor flex. **Also supplies the RH/T compensation the SGP41 VOC sensor requires.**
+- **Role:** satisfies **humidity (accurate)** *and* **temperature (0.1 °C)** in one part → can stand in for the TMP117.
+- **All-in-one alt:** **Bosch BME688** — adds pressure + gas/AQI, but looser T/RH (±0.5 °C / ±3 %RH); pick it only to fold VOC/AQI onto one chip (§8, root README).
+- **Price:** ~$4.5 bare / ~$6 breakout.
+
+## 14. ams-OSRAM TSL2591 — High-Dynamic-Range Ambient Light Sensor *(weak-light sensitive)*
+
+- **Product:** I²C ALS with **full-spectrum + IR photodiodes**, **600,000,000:1 dynamic range → 188 µlux to 88,000 lux** (gain 1×–9876×, integration 100–600 ms). Far more sensitive in near-dark than the VEML7700 (~0.0036 lux floor) → resolves a **very dim bedroom**.
+- **Refs:** `TSL25911FN` · **ams-OSRAM** · **WFDFN-6 (2×2 mm)** · **DigiKey # 4162547** · datasheet `TSL2591 (Apr-2013)`.
+- **Power / IO:** 2.7–3.6 V, ~90 µA active / ~3 µA sleep; I²C + INT (open-drain, programmable thresholds).
+- **Hand-assembly:** WFDFN leadless → **breakout** (Adafruit 1980, DK # 4990786, Qwiic) at the light window.
+- **Use:** ALS auto-dim (front-light gate, halo brightness) + the "true 0 emission at night" logic — the sub-millilux floor detects a fully dark room. Lux from CH0(full)/CH1(IR).
+- **Alt:** **Vishay VEML7700** — outputs lux directly, simpler/cheaper, floor ~0.0036 lux (adequate but less sensitive).
+- **Price:** ~$3 bare / ~$3–5 breakout.
+
+## 15. Bosch BMA400 — Ultra-Low-Power Accel + Orientation *(tap-to-snooze + flat/standing, R14)*
+
+- **Product:** 3-axis ±2/4/8/16 g accelerometer, **< 14.5 µA at full performance** (auto-wake/low-power modes), on-chip **tap/double-tap, orientation-change, activity & step** engines with interrupts. I²C/SPI.
+- **Refs:** `BMA400` · **Bosch Sensortec** · **LGA-12 (2×2 mm)** · **DigiKey # 8634935** · datasheet `BST-BMA400-DS000` (AES-encrypted PDF — opens, no text-extract).
+- **Power / IO:** 1.71–3.6 V; two INT pins. **Gravity-vector read → static flat-vs-standing (R14)**; **hardware tap IRQ** wakes the MCU for **tap-to-snooze (R3)** so it can sleep between events.
+- **Hand-assembly:** LGA leadless → **breakout** (SparkFun Qwiic BMA400 / Adafruit) mounted rigidly to the body so gravity reads true.
+- **Interface:** I²C (shared) + INT.
+- **Price:** ~$1.6 bare / ~$5 breakout.
+
+## 16. Timekeeping — no RTC IC *(ESP32-S3 RTC + 32.768 kHz crystal)*
+
+**Decision: no dedicated RTC chip, no coin cell.** A battery-less RTC IC would lose time on total power loss exactly as the S3 does, so it adds parts without buying anything. The S3's *own* RTC is fine **as long as it runs off a good reference** — its internal RC oscillator drifts %-level over temperature (amp/LED heat nearby), so:
+
+- **Add a 32.768 kHz crystal** on the S3's **XTAL32K** pins (GPIO15/16) → the RTC slow clock runs at **~±20 ppm ≈ 1.7 s/day**, disciplined by **SNTP** whenever online (even a daily sync keeps error to a couple seconds). Part = a jellybean passive (**Epson FC-135 / Abracon ABS07**, 3.2×1.5 mm 2-pad SMD or a TH cylinder), ~$0.3, hand-solderable — no datasheet filed (like the NTC/TVS/caps).
+- **The S3 is essentially always powered** (USB or the 18650 on the always-on BAT node), so the RTC domain rarely dies. If **both** USB and the 18650 are gone, time is lost → **re-sync via SNTP on next boot**, running a clock animation meanwhile (accepted, keeps HW simple).
+- *If you ever wanted true powered-off holdover* it would take an RTC IC **plus** a coin cell/supercap (e.g. RV-3028-C7 45 nA, or DS3231SN SOIC-16 TCXO) — explicitly **out of scope** here (no second battery).
+
+See root README §1/§6c/§8/§10.
+
+---
+
+## Reconciliation with root README (v0.12)
 
 All parts match the root [`README.md`](../README.md):
 
@@ -181,5 +247,8 @@ All parts match the root [`README.md`](../README.md):
 | **Motor driver** | ✅ **2× TB6612FNG** (SSOP-24) locked, replacing the WSON DRV8835. |
 | **Power / safety** | ✅ **CH224K** (PD) + **LT3652** (1S buck charger, BAT-node power-path) + **S-8261 + AO4800** protector + reverse P-FET + NTC + TVS. Fuel gauge → **ESP32 ADC**. See [`../power.md`](../power.md). |
 | **Charger telemetry** | ⚠️ **downgrade:** LT3652 has **no I²C** and a **single-window NTC** (not multi-zone JEITA). Health-cap 4.05 V is enforced in hardware; SoC/faults via ADC + status pins. Double-redundant overcharge preserved. |
+| **Display connector** | ✅ **FH34SRJ-10S-0.5SH** (Hirose, 10-pin 0.5 mm ZIF) — the panel spec's own recommended mate; **on-board** (FPC/ZIF is hand-solderable). |
+| **Sensors (precise)** | ✅ temp **TMP117** (±0.1 °C, opt) · T/RH **SHT45** (±0.1 °C / ±1 %RH, replaces SHT40) · light **TSL2591** (weak-light, replaces VEML7700) · accel **BMA400** (tap + orient). All leadless → **I²C breakouts**. |
+| **Timekeeping** | ✅ **No RTC IC / no battery** — S3 internal RTC off a **32.768 kHz crystal** (XTAL32K) + SNTP (~±20 ppm ≈ 1.7 s/day). Total power loss → re-sync on boot (clock animation). RV-3028-C7/DS3231SN datasheet removed. |
 
 **No open discrepancies.** Intentional non-"matches": **PC68-4** (retained as a speaker *alternative*), and **CH224K sourced off-DigiKey** (no hand-solderable DigiKey PD sink exists).
