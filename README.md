@@ -329,22 +329,22 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | ⭐ | Env: T/RH/press/VOC *(I²C module)* | Bosch BME688 (one chip = climate + air-quality); 2a board = Adafruit 5046 | LGA-8 → module | ~$5 / $19 | [14313482](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482) |
 | ⭐ | Light *(I²C module)* | ams-OSRAM TSL2591 / TSL25911FN (188 µlx–88 klx); 2a board = Adafruit 1980 | WFDFN-6 → module | ~$5 / $7 | [4162547](https://www.digikey.com/en/products/detail/ams-osram-usa-inc/TSL25911FN/4162547) |
 | ⭐ | Accel (tap+orient) *(I²C module)* | ST LIS3DH; 2a board = Adafruit 2809 | LGA-16 → module | ~$2 / $5 | [2809/5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
-| ⚠️ | Timekeeping xtal (no RTC IC/battery) | 32.768 kHz — Epson FC-135 / Abracon ABS07 (**lock CL + load caps**) → S3 XTAL32K (GPIO15/16) | 3.2×1.5 mm SMD (2-pad) | ~$0.3 | [search](https://www.digikey.com/en/products/result?keywords=FC-135%2032.768) |
+| ⭐ | Timekeeping xtal (no RTC IC/battery) | **Abracon ABS07-32.768KHZ-T** (32.768 kHz, **CL 12.5 pF**, ±20 ppm) → S3 XTAL32K (GPIO15/16); match load caps to CL | 3.2×1.5 mm 2-SMD | ~$0.3 | [1236858](https://www.digikey.com/en/products/detail/abracon-llc/ABS07-32-768KHZ-T/1236858) |
 | ⭐ | PD sink | CH224K | **ESSOP-10** | ~$0.4 | [LCSC C970725 *(not DigiKey)*](https://www.lcsc.com/product-detail/C970725.html) |
 | ⭐ | Charger (1-cell buck, BAT-node path) | LT3652EMSE#PBF | **MSOP-12E** | ~$5–6 | [2225686](https://www.digikey.com/en/products/detail/analog-devices-inc/LT3652EMSE-PBF/2225686) |
 | ⭐ | Cell protector (independent) | S-8261AAxMD + AO4800 dual-N FET | **SOT-23-6 + SO-8** | ~$0.7 | [S-8261](https://www.digikey.com/htmldatasheets/production/9482/0/0/1/s-8261-series.html) · [AO4800](https://www.digikey.com/en/products/result?keywords=AO4800) |
-| ⚠️ | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | [search](https://www.digikey.com/en/products/result?keywords=AO3401A) |
-| ⚠️ | Cell temp sense | 10 k NTC (Murata NCP18XH103) | 0402 | ~$0.1 | [search](https://www.digikey.com/en/products/result?keywords=NCP18XH103F03RB) |
-| ⚠️ | Transient | TVS SMAJ22A (VBUS) + SMAJ5.0A (BAT) | SMA | ~$0.4 | [search](https://www.digikey.com/en/products/result?keywords=SMAJ22A) |
-| ⚠️ | Audio boost BAT→12 V (gated) | LM2587S-ADJ (or MT3608) | **TO-263 / SOT-23-6** | ~$2 | [search](https://www.digikey.com/en/products/result?keywords=LM2587S-ADJ) |
-| ⚠️ | 5 V rail (boost) | MT3608 (or TPS61023) | **SOT-23-6 / SOT-563** | ~$1 | [search](https://www.digikey.com/en/products/result?keywords=MT3608) |
-| ⚠️ | 3.3 V rail (from 5 V) | TLV62569 buck (or AMS1117-3.3 LDO) | **SOT-23-6 / SOT-223** | ~$0.6 | [search](https://www.digikey.com/en/products/result?keywords=TLV62569DBVR) |
+| ⭐ | Reverse-polarity | **AO3401A** P-FET (−30 V, −4 A, R<sub>DS</sub>~50 mΩ) on BAT+ | **SOT-23-3** | ~$0.24 | [1855773](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO3401A/1855773) |
+| ⭐ | Cell temp sense | **Murata NCP18XH103F03RB** 10 k NTC (B25/50 = 3380 K, ±1 %) → LT3652 NTC pin | **0603** | ~$0.10 | [1644665](https://www.digikey.com/en/products/detail/murata-electronics/NCP18XH103F03RB/1644665) |
+| ⭐ | Transient | **Littelfuse SMAJ22A** (VBUS) + **SMAJ5.0A** (BAT) — 400 W uni | **DO-214AC (SMA)** | ~$0.8 | [SMAJ22A 762286](https://www.digikey.com/en/products/detail/littelfuse-inc/SMAJ22A/762286) · [SMAJ5.0A 762250](https://www.digikey.com/en/products/detail/littelfuse-inc/SMAJ5-0A/762250) |
+| ⭐ | Audio boost BAT→12 V (gated) | **TI TPS55340PWPR** (5 A/40 V boost) — *swaps LM2587S-ADJ: obsolete-leaded; /NOPB is $12.59 & 0 stock* | **HTSSOP-14 (PWP, PowerPAD)** | ~$2.5 | [3727185](https://www.digikey.com/en/products/detail/texas-instruments/TPS55340PWPR/3727185) |
+| ⭐ | 5 V rail (boost) | **TI TPS61023DRLR** (3.7 A, 0.5–5.5 V in) — DigiKey-stocked vs off-DK MT3608 | **SOT-563** | ~$1.2 | [11310667](https://www.digikey.com/en/products/detail/texas-instruments/TPS61023DRLR/11310667) |
+| ⭐ | 3.3 V rail (from 5 V) | **TI TLV62569DBVR** buck (2 A, 2.5–5.5 V in) | **SOT-23-6** | ~$0.25 | [7688370](https://www.digikey.com/en/products/detail/texas-instruments/TLV62569DBVR/7688370) |
 | ⚠️ | LED CC driver (off VBUS) | TPS92200D1 | SOT-23 | ~$1.5 | [search](https://www.digikey.com/en/products/result?keywords=TPS92200) |
-| ⚠️ | 18650 holder | Keystone/MPD 18650 holder | — | ~$1 | [search](https://www.digikey.com/en/products/result?keywords=18650%20holder) |
+| ⭐ | 18650 holder | **Keystone 1043** (TH PC-pin, UL94V-0) — ventilated placement per `power.md` | TH leaf-spring | ~$2.9 | [2745669](https://www.digikey.com/en/products/detail/keystone-electronics/1043/2745669) |
 | ⚠️ | Halo LEDs ×~16 | SK6812MINI-E | 3.5×3.5 mm | ~$0.2 ea | *(Adafruit / alt distributor)* |
 | ➕ | Front-light *(improvement)* | white LED + FET/CC driver | — | ~$0.5 | — |
-| ⚠️ | microSD socket | Hirose DM3AT-SF-PEJM5 | push-push | ~$1 | [search](https://www.digikey.com/en/products/result?keywords=DM3AT-SF-PEJM5) |
-| ⚠️ | USB-C recept (power+CC) | GCT USB4105-GF-A (TH tabs) | TH / wide-pad | ~$0.8 | [search](https://www.digikey.com/en/products/result?keywords=USB4105-GF-A) |
+| ⭐ | microSD socket | **Hirose DM3AT-SF-PEJM5** (push-push, 8-pos) | push-push, SMT R/A | ~$2.85 | [2533565](https://www.digikey.com/en/products/detail/hirose-electric-co-ltd/DM3AT-SF-PEJM5/2533565) |
+| ⭐ | USB-C recept (power+CC) | **GCT USB4105-GF-A** (USB 2.0 Type-C, 5 A) | SMT + TH tabs | ~$0.8 | [11198441](https://www.digikey.com/en/products/detail/gct/USB4105-GF-A/11198441) |
 | ⭐ | Speaker driver | Dayton DMA58-4 (2″ FR) | 56×56×32 mm | ~$19 | *(Parts Express 295-582)* |
 | ➕ | CO₂ *(improvement)* | Sensirion SCD41-D-R2 | — | ~$24 | [search](https://www.digikey.com/en/products/result?keywords=SCD41-D-R2) |
 | ➕ | PM2.5 *(improvement)* | Sensirion SPS30 | — | ~$38 | [search](https://www.digikey.com/en/products/result?keywords=SPS30) |

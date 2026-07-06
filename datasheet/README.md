@@ -1,6 +1,6 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05) and **match the root [`README.md`](../README.md)** (v0.15).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**) and **match the root [`README.md`](../README.md)** (v0.15).
 
 > 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, LIS3DH**; fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section.
 
@@ -24,6 +24,16 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 13 | `sensor_light_tsl2591.pdf` | **TSL2591** (`TSL25911FN`) | ams-OSRAM | WFDFN-6 → **module** | ✅ | ~$3 | I²C (188 µlx–88 klx) |
 | 14 | `sensor_accel_lis3dh.pdf` | **LIS3DH** | STMicroelectronics | LGA-16 → **module** | ✅ | ~$2 | I²C/SPI (tap + orient) |
 | 15 | `sensor_homing_optical_itr8307.pdf` | **ITR8307** (`ITR8307/TR8`) | Everlight | **4-SMD (3.4×1.5×1.1 mm, gullwing) — on-board** | ✅ | ~$0.5 | reflective opto (analog → ADC/comparator) |
+| 16 | `xtal_32k_abs07.pdf` | **ABS07-32.768KHZ-T** (32.768 kHz, CL 12.5 pF, ±20 ppm) | Abracon | **3.2×1.5 mm 2-SMD** | ✅ | ~$0.3 | RTC clock (S3 XTAL32K) |
+| 17 | `reverse_pfet_ao3401a.pdf` | **AO3401A** (−30 V, −4 A P-ch) | Alpha & Omega | **SOT-23-3** | ✅ | ~$0.24 | reverse-polarity FET |
+| 18 | `ntc_10k_ncp18xh103.pdf` | **NCP18XH103F03RB** 10 k NTC (B25/50 = 3380 K, ±1 %) | Murata | **0603** | ✅ | ~$0.10 | analog → LT3652 NTC |
+| 19 | `tvs_smaj.pdf` | **SMAJ22A** (VBUS) + **SMAJ5.0A** (BAT), 400 W uni | Littelfuse | **DO-214AC (SMA)** | ✅ | ~$0.4 ea | TVS clamp |
+| 20 | `boost_12v_audio_tps55340.pdf` | **TPS55340PWPR** (5 A/40 V boost) | Texas Instruments | **HTSSOP-14 (PWP, PowerPAD)** | ✅ | ~$2.5 | amp 12 V rail (gated) |
+| 21 | `boost_5v_tps61023.pdf` | **TPS61023DRLR** (3.7 A boost, 0.5–5.5 V in) | Texas Instruments | **SOT-563** | ✅ | ~$1.2 | 5 V rail |
+| 22 | `buck_3v3_tlv62569.pdf` | **TLV62569DBVR** (2 A buck, 2.5–5.5 V in) | Texas Instruments | **SOT-23-6** | ✅ | ~$0.25 | 3.3 V rail |
+| 23 | `holder_18650_keystone_1043.pdf` | **1043** 18650 holder (UL94V-0) | Keystone | **TH PC-pin** | ✅ | ~$2.9 | cell holder |
+| 24 | `connector_microsd_dm3at.pdf` | **DM3AT-SF-PEJM5** microSD (push-push) | Hirose | **push-push SMT R/A** | ✅ | ~$2.85 | SD (SPI) |
+| 25 | `connector_usb_c_usb4105.pdf` | **USB4105-GF-A** USB-C (USB 2.0, 5 A) | GCT | **SMT + TH tabs** | ✅ | ~$0.8 | USB-C power+CC |
 
 **Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
 - **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.
@@ -251,11 +261,30 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 **Decision: no dedicated RTC chip, no coin cell.** A battery-less RTC IC would lose time on total power loss exactly as the S3 does, so it adds parts without buying anything. The S3's *own* RTC is fine **as long as it runs off a good reference** — its internal RC oscillator drifts %-level over temperature (amp/LED heat nearby), so:
 
-- **Add a 32.768 kHz crystal** on the S3's **XTAL32K** pins (GPIO15/16) → the RTC slow clock runs at **~±20 ppm ≈ 1.7 s/day**, disciplined by **SNTP** whenever online (even a daily sync keeps error to a couple seconds). Part = a jellybean passive (**Epson FC-135 / Abracon ABS07**, 3.2×1.5 mm 2-pad SMD or a TH cylinder), ~$0.3, hand-solderable — no datasheet filed (like the NTC/TVS/caps).
+- **Add a 32.768 kHz crystal** on the S3's **XTAL32K** pins (GPIO15/16) → the RTC slow clock runs at **~±20 ppm ≈ 1.7 s/day**, disciplined by **SNTP** whenever online (even a daily sync keeps error to a couple seconds). Part now **locked = Abracon ABS07-32.768KHZ-T** (3.2×1.5 mm 2-SMD, **CL 12.5 pF** → size the two load caps to CL, ~9–10 pF each after stray), ~$0.3, hand-solderable — **datasheet filed (row 16, `xtal_32k_abs07.pdf`)**.
 - **The S3 is essentially always powered** (USB or the 18650 on the always-on BAT node), so the RTC domain rarely dies. If **both** USB and the 18650 are gone, time is lost → **re-sync via SNTP on next boot**, running a clock animation meanwhile (accepted, keeps HW simple).
 - *If you ever wanted true powered-off holdover* it would take an RTC IC **plus** a coin cell/supercap (e.g. RV-3028-C7 45 nA, or DS3231SN SOIC-16 TCXO) — explicitly **out of scope** here (no second battery).
 
 See root README §1/§6c/§8/§10.
+
+---
+
+## 18. Power-path & interconnect parts *(rows 16–25 — locked 2026-07-05)*
+
+The remaining ⚠️ Production-BOM rows, now locked to exact hand-solderable parts + filed datasheets (LEDs deferred — too many opens). All DigiKey-active/orderable unless noted.
+
+- **16 — Abracon `ABS07-32.768KHZ-T`** (32.768 kHz xtal) · DK [1236858](https://www.digikey.com/en/products/detail/abracon-llc/ABS07-32-768KHZ-T/1236858) · 3.2×1.5 mm 2-SMD · **CL 12.5 pF**, ±20 ppm, ESR ≤70 kΩ · S3 XTAL32K (GPIO15/16); load caps ≈ 2·(CL − Cstray). ~$0.3.
+- **17 — Alpha & Omega `AO3401A`** (reverse-polarity P-FET) · DK [1855773](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO3401A/1855773) · **SOT-23-3** · −30 V, −4 A, R<sub>DS(on)</sub> ≤50 mΩ @ −10 V. Series P-FET on BAT+ (bare cell can't be keyed). ~$0.24.
+- **18 — Murata `NCP18XH103F03RB`** (10 k NTC) · DK [1644665](https://www.digikey.com/en/products/detail/murata-electronics/NCP18XH103F03RB/1644665) · **0603** (⚠️ BOM §16b said "0402" — corrected; NCP18 = 0603, meets the ≥0603 rule) · 10 kΩ ±1 %, **B25/50 = 3380 K**. Wires to the LT3652 NTC pin for hot/cold charge-qualify. ~$0.10.
+- **19 — Littelfuse `SMAJ22A` + `SMAJ5.0A`** (TVS) · DK [762286](https://www.digikey.com/en/products/detail/littelfuse-inc/SMAJ22A/762286) / [762250](https://www.digikey.com/en/products/detail/littelfuse-inc/SMAJ5-0A/762250) · **DO-214AC (SMA)** · 400 W uni; SMAJ22A (Vwm 22 V) on VBUS (15 V PD + headroom), SMAJ5.0A (Vwm 5 V) on the BAT node. ~$0.4 ea. *(Filed datasheet is the Bourns-published SMAJ series — identical JEDEC part numbers/specs; Littelfuse's own PDF is Akamai/bot-blocked from direct download.)*
+- **20 — TI `TPS55340PWPR`** (12 V audio boost, gated) · DK [3727185](https://www.digikey.com/en/products/detail/texas-instruments/TPS55340PWPR/3727185) · **HTSSOP-14 (PWP, PowerPAD)** · 2.9–32 V in → 3–38 V out, **5 A/40 V** integrated FET, 1.2 MHz. **Replaces the BOM's LM2587S-ADJ** — that part is obsolete-leaded and its active `/NOPB` is **$12.59 & 0 stock**; TPS55340 is leaded/hand-solderable, in-stock, ~5× cheaper, ample for the TAS5760M PVDD. ~$2.5.
+- **21 — TI `TPS61023DRLR`** (5 V rail boost) · DK [11310667](https://www.digikey.com/en/products/detail/texas-instruments/TPS61023DRLR/11310667) · **SOT-563** (small but gullwing → hand-solderable) · 0.5–5.5 V in, **3.7 A** valley limit, 94 % @ 3.6→5 V. Chosen over MT3608 (off-DigiKey). ~$1.2.
+- **22 — TI `TLV62569DBVR`** (3.3 V rail buck) · DK [7688370](https://www.digikey.com/en/products/detail/texas-instruments/TLV62569DBVR/7688370) · **SOT-23-6** · 2.5–5.5 V in, **2 A** sync buck, 1.5 MHz. Bucks the 5 V rail → 3.3 V logic (over the AMS1117 LDO alt — far better efficiency). ~$0.25.
+- **23 — Keystone `1043`** (18650 holder) · DK [2745669](https://www.digikey.com/en/products/detail/keystone-electronics/1043/2745669) · TH leaf-spring PC-pin, UL94V-0 nylon · single-cell, user-replaceable. Mount in the ventilated FR/metal-barriered compartment per `../power.md`. ~$2.9.
+- **24 — Hirose `DM3AT-SF-PEJM5`** (microSD) · DK [2533565](https://www.digikey.com/en/products/detail/hirose-electric-co-ltd/DM3AT-SF-PEJM5/2533565) · **push-push SMT R/A**, 8-pos, gold, 10 k cycles · SD over the S3 SPI bus (4 pins). ~$2.85.
+- **25 — GCT `USB4105-GF-A`** (USB-C receptacle) · DK [11198441](https://www.digikey.com/en/products/detail/gct/USB4105-GF-A/11198441) · USB 2.0 Type-C, **5 A**, SMT body + **TH hold-down tabs** (rugged), 20 k cycles · VBUS/CC to the CH224K PD sink. ~$0.8.
+
+**⚠️ Still open (deferred — LEDs):** halo LEDs (SK6812MINI-E) + LED CC driver (TPS92200) + front-light — *too many opens (count, layout, driver topology, VBUS gating); revisit separately.*
 
 ---
 
@@ -275,6 +304,7 @@ All parts match the root [`README.md`](../README.md):
 | **Display connector** | ✅ **FH34SRJ-10S-0.5SH** (Hirose, 10-pin 0.5 mm ZIF) — the panel spec's own recommended mate; **on-board** (FPC/ZIF is hand-solderable). |
 | **Sensors (v0.15 consolidated)** | ✅ env **BME688** (T/RH/press/**VOC** — one chip = climate + air-quality) · light **TSL2591** (weak-light) · accel **LIS3DH** (tap + orient). All leadless → **I²C modules**, **same set on both paths**: **2a** = Adafruit STEMMA QT chain (5046 + 1980 + 2809); **2b** = future custom daughterboard (same 3 bare chips → firmware unchanged). Dropped TMP117/SHT45/SGP41/BMA400 datasheets. |
 | **Hand homing** | ✅ **1× Everlight ITR8307** reflective optical (§16, 4-SMD, on-board) — single sensor + punched dial hole, sequential, **no hand magnets**. Replaces 2× DRV5032 Hall; **TCND5000 evaluated & dropped** (6×4.3×3.75 mm ≈ 5× bigger → bigger hole). |
-| **Timekeeping** | ✅ **No RTC IC / no battery** — S3 internal RTC off a **32.768 kHz crystal** (XTAL32K) + SNTP (~±20 ppm ≈ 1.7 s/day). Total power loss → re-sync on boot (clock animation). RV-3028-C7/DS3231SN datasheet removed. |
+| **Timekeeping** | ✅ **No RTC IC / no battery** — S3 internal RTC off a **32.768 kHz crystal** (XTAL32K) + SNTP (~±20 ppm ≈ 1.7 s/day). Total power loss → re-sync on boot (clock animation). RV-3028-C7/DS3231SN datasheet removed. Xtal now locked = **ABS07-32.768KHZ-T** (row 16). |
+| **Power-path & interconnect** | ✅ **rows 16–25 locked + datasheeted** (2026-07-05): xtal ABS07-32.768KHZ-T · reverse P-FET AO3401A · NTC NCP18XH103F03RB (**0603**) · TVS SMAJ22A+SMAJ5.0A · **12 V boost TPS55340PWPR** (replaces LM2587S-ADJ) · 5 V boost TPS61023DRLR · 3.3 V buck TLV62569DBVR · holder Keystone 1043 · microSD DM3AT-SF-PEJM5 · USB-C USB4105-GF-A. All hand-solderable, DigiKey-active. **LEDs deferred.** |
 
-**No open discrepancies.** Intentional non-"matches": **PC68-4** (retained as a speaker *alternative*), and **CH224K sourced off-DigiKey** (no hand-solderable DigiKey PD sink exists).
+**No open discrepancies.** Corrections this pass: NTC size **0402 → 0603** (NCP18 is 0603; BOM cell fixed), and audio boost **LM2587S-ADJ → TPS55340PWPR** (the former's active `/NOPB` is $12.59 & out of stock). Intentional non-"matches": **PC68-4** (speaker *alternative*), **CH224K off-DigiKey** (no hand-solderable DigiKey PD sink), and the filed **TVS datasheet is the Bourns-published SMAJ** series (identical JEDEC part; Littelfuse's own PDF is Akamai/bot-blocked). **Still open:** LED subsystem (halo SK6812MINI-E + CC driver + front-light) — deferred.
