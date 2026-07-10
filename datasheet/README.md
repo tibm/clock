@@ -1,6 +1,6 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**) and **match the root [`README.md`](../README.md)** (v0.15).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**) and **match the root [`README.md`](../README.md)** (v0.15).
 
 > 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, LIS3DH**; fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section.
 
@@ -34,6 +34,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 23 | `holder_18650_keystone_1043.pdf` | **1043** 18650 holder (UL94V-0) | Keystone | **TH PC-pin** | ✅ | ~$2.9 | cell holder |
 | 24 | `connector_microsd_dm3at.pdf` | **DM3AT-SF-PEJM5** microSD (push-push) | Hirose | **push-push SMT R/A** | ✅ | ~$2.85 | SD (SPI) |
 | 25 | `connector_usb_c_usb4105.pdf` | **USB4105-GF-A** USB-C (USB 2.0, 5 A) | GCT | **SMT + TH tabs** | ✅ | ~$0.8 | USB-C power+CC |
+| 26 | `expander_mcp23017.pdf` | **MCP23017** (I²C; SPI twin `MCP23S17`) | Microchip | **SOIC-28 W / SSOP-28** | ✅ | ~$1.3 | I²C 16-bit GPIO expander (+INT) |
 
 **Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
 - **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.
@@ -53,7 +54,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 | Part | Power rail(s) (abs-max) | Logic level | ESP32-S3 signals (GPIO count) |
 |------|-------------------------|-------------|-------------------------------|
-| **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; ≤36 GPIO to budget |
+| **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; **~33 usable GPIO** on **N16R8** (octal PSRAM claims GPIO35/36/37) |
 | **LS032B7DD02** display | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | SPI SCLK · SI · SCS + DISP + EXTCOMIN → **~4–5** (EXTMODE tied to VDD) |
 | **TAS5760M** amp | PVDD **12 V** (boost; range 4.5–26.4) + DVDD **3.3 V** | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + SPK_SD (mute/PDN) + I²C(shared) → **~4 + shared I²C** |
 | **DMA58-4** speaker | — (passive, from amp OUT) | — | none (analog off TAS5760M PBTL output) |
@@ -64,8 +65,15 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 | **Cell voltage sense** | off cell via divider | ADC | 1 ADC pin → **1** |
 | **S-8261 + AO4800** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
 | **ITR8307** hand homing | IR LED + phototransistor off **3.3 V** (R-limited) | 3.3 V (ADC) | reflective opto behind a punched dial hole → **1 ADC/comparator**; no magnets |
+| **MCP23017** IO expander | 1.8–5.5 V (**3.3 V**) | 3.3 V (I²C + INT) | on the **shared I²C** (no new bus pins) + **INT → 1 GPIO**; fans out 16 slow I/O → offloads SPK_SD, 12 V EN, stepper STBY, buttons, enc-SW (**net −4 MCU GPIO**) |
 
-**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**BME688** T/RH/press/VOC, **TSL2591** light, **LIS3DH** accel — rows 12–15b) — **kept small** (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (not on I²C). Homing uses **1× ITR8307** reflective optical (§16; 4-SMD, 3.3 V, analog out → **1 ADC/comparator GPIO**, no magnets). Rough running total: I²S 3 + I²C 2 + display SPI ~5 + steppers 8 + optical home 1 + amp mute 1 + SD (**SPI 4** to save pins) + charger status 2 + Vbat ADC 1 + PD PG 1 + LEDs ~2 + encoder/buttons ~4 ≈ **30–34 GPIO** → fits ≤36, but reserve a strapping-safe map early. **The steppers are still 8 pins** — the TB6612FNG is driven PWM-on-the-inputs (PWMA/PWMB tied high) to keep parity with the DRV8835 it replaces (the conventional PWM-pin scheme would cost 12).
+**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**BME688** T/RH/press/VOC, **TSL2591** light, **LIS3DH** accel — rows 12–15b) **and the MCP23017 IO expander (row 26)** — **kept small** otherwise (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (GPIO15/16, dedicated — not on I²C). Homing uses **1× ITR8307** reflective optical (§16; 4-SMD, 3.3 V, analog out → **1 ADC GPIO**, no magnets).
+
+**GPIO tally (post-expander):** I²S 3 + shared-I²C 2 + display SPI ~5 + steppers 8 + optical home 1 + SD SPI 4 + charger status 2 + Vbat ADC 1 + PD PG 1 + LED data/dim ~2 + encoder A/B 2 + sensor INT 1 + expander INT 1 ≈ **33 GPIO** + the 2 dedicated XTAL32K pins. The **MCP23017 (§19)** pulls **SPK_SD, 12 V-boost EN, stepper STBY, and the buttons/encoder-switch** off the host (**net −4 GPIO** for +1 INT, since it rides the existing I²C bus).
+
+> ⚠️ **N16R8 budget is tighter than the old "≤36".** The **octal PSRAM claims GPIO35/36/37** (verified in the S3-WROOM-1 datasheet pin table — "not available for other use"), so the module frees only **~33 usable pads**; reserve GPIO19/20 for native USB → **~31 truly free**, four of them strapping. So ~33 needed sits *at* the ceiling. Recover margin by (a) **sharing microSD on the display SPI bus** (common MOSI/SCLK/MISO, per-device CS → **−2**), (b) **software VCOM** (tie EXTMODE=L, drop EXTCOMIN → **−1**), or (c) a **quad-PSRAM module (…R2)**, which keeps GPIO35–37 free (trade 8 MB→2 MB PSRAM).
+
+**Peripheral/PWM count is fine (verified vs. the S3 datasheet):** the 8 stepper AIN/BIN go on **MCPWM** (2 units × 3 operators = **12 PWM outputs**; 8 used) — *not* LEDC — leaving all **8 LEDC** channels for LED-CC dimming + optional EXTCOMIN. SK6812 halo → **RMT** (4 TX ch). Encoder A/B → **PCNT** (4 units, hardware quadrature, zero CPU). Audio → **I²S0** (of 2). Display + SD → the **2 GP-SPI** hosts (or one shared). Both analog inputs (Vbat, homing) **must land on ADC1 = GPIO1–10** — **ADC2 is unusable while Wi-Fi is active**. **The steppers stay 8 pins** — TB6612FNG driven PWM-on-the-inputs (PWMA/PWMB tied high); the conventional PWM-pin scheme would cost 12.
 
 ---
 
@@ -288,6 +296,17 @@ The remaining ⚠️ Production-BOM rows, now locked to exact hand-solderable pa
 
 ---
 
+## 19. Microchip MCP23017 — I²C 16-Bit IO Expander *(offloads slow control lines)*
+
+- **Refs:** `MCP23017` (I²C; pin-compatible SPI twin `MCP23S17`) · **Microchip** · **SOIC-28 wide / SSOP-28** (both hand-solderable gullwing; **avoid the 28-QFN**). Datasheet **DS20001952** (`expander_mcp23017.pdf`).
+- **Price:** ~$1.3 (active, widely stocked).
+- **Power / IO:** 1.8–5.5 V (run at **3.3 V** off the logic rail); **16 bidirectional I/O** in two 8-bit ports; **3 hardware address pins** → up to 8 devices per bus; **INTA/INTB interrupt-on-change** (configurable active-hi/lo/open-drain, mirrorable). I²C to **1.7 MHz** (MCP23S17 SPI to 10 MHz).
+- **Use:** hangs on the **existing shared I²C bus** (sensors + amp) → **zero new bus GPIO**; costs **1 MCU pin for INT** so button/knob presses wake without polling. Offloads *slow / static* lines off the pin-starved S3: **SPK_SD** (amp mute), **12 V-boost EN**, stepper **STBY**, **rear buttons + encoder push-switch**. **Net −4 GPIO** on the host.
+- **Do NOT offload (hard limits):** the 8 stepper **AIN/BIN are PWM** (>20 kHz carrier for silent microstep) — an expander can't bit-bang them, and a **PCA9685 PWM expander tops out ~1.5 kHz**, ~15× too slow; keep them on **MCPWM**. **Encoder A/B quadrature** stays on native GPIO via the S3 **PCNT** counter (an I²C-polled expander drops steps on a fast spin). I²S, SPI, RMT (SK6812) and the ADC inputs likewise stay on the MCU.
+- **Interface:** I²C (2 shared) + 1 INT GPIO. Prefer I²C over the SD-SPI bus — I²C adds **no** MCU pin, SPI would cost a CS.
+
+---
+
 ## Reconciliation with root README (v0.15)
 
 All parts match the root [`README.md`](../README.md):
@@ -305,6 +324,7 @@ All parts match the root [`README.md`](../README.md):
 | **Sensors (v0.15 consolidated)** | ✅ env **BME688** (T/RH/press/**VOC** — one chip = climate + air-quality) · light **TSL2591** (weak-light) · accel **LIS3DH** (tap + orient). All leadless → **I²C modules**, **same set on both paths**: **2a** = Adafruit STEMMA QT chain (5046 + 1980 + 2809); **2b** = future custom daughterboard (same 3 bare chips → firmware unchanged). Dropped TMP117/SHT45/SGP41/BMA400 datasheets. |
 | **Hand homing** | ✅ **1× Everlight ITR8307** reflective optical (§16, 4-SMD, on-board) — single sensor + punched dial hole, sequential, **no hand magnets**. Replaces 2× DRV5032 Hall; **TCND5000 evaluated & dropped** (6×4.3×3.75 mm ≈ 5× bigger → bigger hole). |
 | **Timekeeping** | ✅ **No RTC IC / no battery** — S3 internal RTC off a **32.768 kHz crystal** (XTAL32K) + SNTP (~±20 ppm ≈ 1.7 s/day). Total power loss → re-sync on boot (clock animation). RV-3028-C7/DS3231SN datasheet removed. Xtal now locked = **ABS07-32.768KHZ-T** (row 16). |
+| **IO expander (new)** | ✅ **MCP23017** (SOIC/SSOP-28) on the shared I²C + INT — offloads SPK_SD / 12 V EN / stepper STBY / buttons / enc-SW (**net −4 GPIO**). Steppers stay on **MCPWM**, encoder on **PCNT** — *not* the expander (PWM/quadrature can't be offloaded). See §19. |
 | **Power-path & interconnect** | ✅ **rows 16–25 locked + datasheeted** (2026-07-05): xtal ABS07-32.768KHZ-T · reverse P-FET AO3401A · NTC NCP18XH103F03RB (**0603**) · TVS SMAJ22A+SMAJ5.0A · **12 V boost TPS55340PWPR** (replaces LM2587S-ADJ) · 5 V boost TPS61023DRLR · 3.3 V buck TLV62569DBVR · holder Keystone 1043 · microSD DM3AT-SF-PEJM5 · USB-C USB4105-GF-A. All hand-solderable, DigiKey-active. **LEDs deferred.** |
 
 **No open discrepancies.** Corrections this pass: NTC size **0402 → 0603** (NCP18 is 0603; BOM cell fixed), and audio boost **LM2587S-ADJ → TPS55340PWPR** (the former's active `/NOPB` is $12.59 & out of stock). Intentional non-"matches": **PC68-4** (speaker *alternative*), **CH224K off-DigiKey** (no hand-solderable DigiKey PD sink), and the filed **TVS datasheet is the Bourns-published SMAJ** series (identical JEDEC part; Littelfuse's own PDF is Akamai/bot-blocked). **Still open:** LED subsystem (halo SK6812MINI-E + CC driver + front-light) — deferred.
