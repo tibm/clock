@@ -30,8 +30,8 @@
 | # | Requirement | Primary approach (see §) |
 |---|-------------|--------------------------|
 | R1 | Accurate time (TZ, seconds, day, date), periodic server sync | ESP32-S3 RTC off a 32.768 kHz crystal + SNTP over Wi-Fi (no RTC IC/battery) (§6, §8) |
-| R2 | ALS-driven lighting, **true 0 emission at night** | Halo + optional display front-light, hard-off enable + ALS (§8, §9) |
-| R3 | Alarm, tap-to-snooze, loud multi-asset audio, sunrise halo from bottom | Accel tap-detect + Class-D audio + RGBW halo (§7, §9) |
+| R2 | ALS-driven lighting, **true 0 emission at night** | Wake light + panel light (dial + display frontlight), hard-off enable + ALS (§8, §9) |
+| R3 | Alarm, tap-to-snooze, loud multi-asset audio, sunrise glow from bottom | Accel tap-detect + Class-D audio + tunable-white sunrise wake light (§7, §9) |
 | R4 | Air quality (VOC/AQI), temperature, humidity | **BME688** (T/RH/press/VOC in one chip); optional CO₂/PM (§8) |
 | R5 | USB-C powered, battery backup + charge, run untethered | USB-C PD sink + charger + Li-ion + fuel gauge (§10) |
 | R6 | Info display: low-power, **second-refresh, no ghosting, 0 light when off, daylight-readable** | Reflective Memory LCD (MIP) — no backlight to leak light (§4) |
@@ -54,9 +54,9 @@ The old *"seconds vs E-Paper ghosting"* and *"reflective vs wide"* tensions are 
 - **Face B — reflective monochrome info panel (chosen):** a **Sharp Memory LCD (MIP)** for date/weather/seconds/stocks. Reflective ⇒ **0 emission when off** and **daylight-readable with no backlight**, so the "dark at night" requirement is met *inherently* — there is no backlight to hard-off.
 
 **Baked-in:**
-- **Single MCU** (ESP32-S3) drives both faces + audio + sensors + halo — no coprocessor.
+- **Single MCU** (ESP32-S3) drives both faces + audio + sensors + LED lighting — no coprocessor.
 - **Numeral-free / symmetric dial** + absolute stepper addressing so the clock reads correctly in **both orientations** (§3).
-- Only light emitters are the **RGBW halo** and an **optional on-demand front-light** — both hard-off = 0 emission at night.
+- Only light emitters are the **wake light** (tunable-white sunrise) and the **panel light** (dial ring + display frontlight, one shared channel) — both hard-off = 0 emission at night.
 - Split power domains (always-on low-power + bursty Wi-Fi).
 
 **Superseded:** the earlier wide color **bar-TFT** primary display (rationale kept in the Decision log & §17).
@@ -172,7 +172,7 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 | Light | **TSL2591** (Adafruit_TSL2591 / esp-idf-lib) or VEML7700 |
 | Hand homing (§5) | **1× reflective optical** (ITR8307) → ADC/comparator edge; single-sensor sequential homing in firmware, no magnets |
 | Audio out (I²S) | `esp_driver_i2s`; decode via **ESP-ADF** (MP3/AAC/FLAC/WAV) or Arduino **ESP32-audioI2S**; **~150 Hz high-pass + limiter/EQ biquads run here** (TAS5760M has no on-chip DSP) |
-| Halo + front-light | `led_strip` (RMT/SPI, SK6812) + `ledc` (PWM dimming) |
+| Wake + panel LEDs | `ledc` (PWM dimming, 3 ch: 2 wake tunable-white + 1 panel); 12 V COB via AO3400A — see [`led.md`](led.md) |
 | SD + assets | `esp_vfs_fat` + `sdmmc`; `LittleFS` for internal flash |
 
 **Fastest bring-up:** **ESPHome** gets sensors / SNTP / addressable LED / I²S audio running in an afternoon; the memory LCD + steppers likely need a custom component or a drop to ESP-IDF. **esp-bsp** has ready board+display+LVGL configs.
@@ -239,10 +239,12 @@ A single 3-axis accel covers **tap-to-snooze *and* orientation** — no gyro nee
 
 ## 9. Lighting (R2, R3)
 
+Two modes, **3 PWM channels**, low-side switched by **AO3400A** MOSFETs (no SK6812, no CC driver), on
+**two rails**: wake = 12 V COB (plugged-only), panel = 5 V discrete LEDs (always). Full spec in [`led.md`](led.md).
+
 - **No backlight** — the info panel is reflective (0 emission when off, daylight-readable).
-- **Optional display front-light:** edge white-LED front-light (the LS032 front-light variant) for **on-demand** night reading; ALS-gated, warm dim, **hard-off by default** → 0 emission at night.
-- **Halo:** **SK6812 RGBW** (warm-white channel) or APA102/SK9822 (SPI, deterministic) along the base; frosted diffuser; sunrise = warm-white ramp over N min before audio; also serves as the night-light.
-- *Optional:* subtle edge-lit **analog-dial** illumination if hands need night visibility — off by default.
+- **Wake light (2 ch):** **12 V** tunable-white COB (**3000K + 4000K**, Inspired LED) in a 100–120 mm sunrise diffuser; warm→neutral ramp over ~30 min before audio; also serves as the night-light. **Plugged-only** (12 V boost is plugged-only; firmware gates the wake PWM off on battery). Warm = IO45, cool = IO46.
+- **Panel light (1 ch):** **≤12 discrete 5 V warm LEDs** (Cree CLM3C-MKW, series-R each) shared between the **display front-light** (front-lights the reflective LCD for night reading) **and** the **75 mm analog-dial** ring; one PWM, same intensity, enabled together; ALS-gated warm dim, **hard-off by default** → 0 emission at night. On **5 V** → works on battery. Pin = IO7.
 
 ---
 
@@ -255,7 +257,7 @@ A single 3-axis accel covers **tap-to-snooze *and* orientation** — no gyro nee
 - **Fuel gauge:** **ESP32-S3 ADC** on a cell divider (no hand-solderable gauge IC exists) → voltage-based SoC, low-batt shutdown ~3.2 V.
 - **Battery:** **user-supplied 18650 in a holder, Li-ion ONLY** (labeled "Li-ion 18650 only · 2.5–4.2 V"). Recommend a protected 3000–3500 mAh cell. **48 h backup** target.
 - **Health:** charge-cap **~80 % (4.05 V)** — fixed in hardware by the LT3652 float divider; optional GPIO-switched divider for a 4.2 V "full" mode.
-- **Rails:** **3.3 V** (MCU, from 5 V) · **5 V** (panel + stepper) · **12 V boost** (audio PVDD, gated) · **15 V VBUS** (LED sunrise, plugged only). All rail converters in **leaded** packages (see §16 / `power.md`).
+- **Rails:** **3.3 V** (MCU, from 5 V) · **5 V** (display panel + stepper + **panel LEDs** + amp-PVDD mux aux) · **12 V boost** (audio PVDD **+ wake LEDs**, **plugged-only**) · **15 V VBUS** (LT3652 charger VIN, plugged). Audio PVDD auto-muxes 12 V (plugged) / 5 V (battery) via an **LTC4412** → quieter alarm on battery. All rail converters in **leaded** packages (see §16 / `power.md`).
 - **Safety (mandatory, wood/bedroom, any 18650) — simple + double-redundant:** independent **cell protector** (**S-8261** SOT-23-6 + **AO4800** dual-N SO-8 FET: OV/OD/OC/SC) redundant to the charger, **reverse-polarity P-FET**, **NTC** temp-qualified charge, TVS, insert-qualify, FR barrier + venting. Double-redundant overcharge (charger 4.05 V + protector **4.28 V**), layered over-discharge. *(⚠ vs the superseded BQ25628E: no I²C telemetry + single-window NTC, not multi-zone JEITA — still meets "no charge <0/>45 °C". Secondary OVP/TCO/PPTC still dropped.)* Full wiring/config in [`power.md`](power.md).
 
 ---
@@ -311,7 +313,8 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | Env breakout (T/RH/press/VOC) ⭐ | Adafruit 5046 (BME688) | ~$19 | [DigiKey 14313482](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482) |
 | Light breakout (weak-light) ⭐ | Adafruit 1980 (TSL2591) | $6.95 | [DigiKey 4990786](https://www.digikey.com/en/products/detail/adafruit-industries-llc/1980/4990786) |
 | Accel breakout (tap+orient) ⭐ | Adafruit 2809 (LIS3DH) | $4.95 | [DigiKey 5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
-| RGBW halo strip | SK6812 RGBW strip | ~$8 | *(Adafruit / AliExpress)* |
+| Wake COB (12 V, 2 ch) | Inspired LED 12V-COB-3000K-12M + 12V-COB-4000K-12M | ~$15 (cut segs) | [16714316](https://www.digikey.com/en/products/detail/inspired-led-llc/12V-COB-3000K-12M/16714316) · [16714317](https://www.digikey.com/en/products/detail/inspired-led-llc/12V-COB-4000K-12M/16714317) |
+| Panel LEDs (5 V, ≤12) | Cree CLM3C-MKW-CWAXB233 (warm 3200K, $0.31 ea) + ~180 Ω each | ~$4 | [1987465](https://www.digikey.com/en/products/detail/cree-led-inc/CLM3C-MKW-CWAXB233/1987465) |
 
 ### 16b. Production BOM (ICs, custom PCB)
 
@@ -336,13 +339,14 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the display driver sits b
 | ⭐ | Reverse-polarity | **AO3401A** P-FET (−30 V, −4 A, R<sub>DS</sub>~50 mΩ) on BAT+ | **SOT-23-3** | ~$0.24 | [1855773](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO3401A/1855773) |
 | ⭐ | Cell temp sense | **Murata NCP18XH103F03RB** 10 k NTC (B25/50 = 3380 K, ±1 %) → LT3652 NTC pin | **0603** | ~$0.10 | [1644665](https://www.digikey.com/en/products/detail/murata-electronics/NCP18XH103F03RB/1644665) |
 | ⭐ | Transient | **Littelfuse SMAJ22A** (VBUS) + **SMAJ5.0A** (BAT) — 400 W uni | **DO-214AC (SMA)** | ~$0.8 | [SMAJ22A 762286](https://www.digikey.com/en/products/detail/littelfuse-inc/SMAJ22A/762286) · [SMAJ5.0A 762250](https://www.digikey.com/en/products/detail/littelfuse-inc/SMAJ5-0A/762250) |
-| ⭐ | Audio boost BAT→12 V (gated) | **TI TPS55340PWPR** (5 A/40 V boost) — *swaps LM2587S-ADJ: obsolete-leaded; /NOPB is $12.59 & 0 stock* | **HTSSOP-14 (PWP, PowerPAD)** | ~$2.5 | [3727185](https://www.digikey.com/en/products/detail/texas-instruments/TPS55340PWPR/3727185) |
+| ⭐ | Audio + wake-LED boost BAT→12 V (plugged-only) | **TI TPS55340PWPR** (5 A/40 V boost) — *swaps LM2587S-ADJ: obsolete-leaded; /NOPB is $12.59 & 0 stock* | **HTSSOP-14 (PWP, PowerPAD)** | ~$2.5 | [3727185](https://www.digikey.com/en/products/detail/texas-instruments/TPS55340PWPR/3727185) |
 | ⭐ | 5 V rail (boost) | **TI TPS61023DRLR** (3.7 A, 0.5–5.5 V in) — DigiKey-stocked vs off-DK MT3608 | **SOT-563** | ~$1.2 | [11310667](https://www.digikey.com/en/products/detail/texas-instruments/TPS61023DRLR/11310667) |
 | ⭐ | 3.3 V rail (from 5 V) | **TI TLV62569DBVR** buck (2 A, 2.5–5.5 V in) | **SOT-23-6** | ~$0.25 | [7688370](https://www.digikey.com/en/products/detail/texas-instruments/TLV62569DBVR/7688370) |
-| ⚠️ | LED CC driver (off VBUS) | TPS92200D1 | SOT-23 | ~$1.5 | [search](https://www.digikey.com/en/products/result?keywords=TPS92200) |
+| ⚠️ | LED low-side switches ×3 | **AO3400A** N-FET (+ 100 Ω gate, 10 kΩ pulldown) — panel + 2× wake | **SOT-23** | ~$0.10 ea | [search](https://www.digikey.com/en/products/result?keywords=AO3400A) |
 | ⭐ | 18650 holder | **Keystone 1043** (TH PC-pin, UL94V-0) — ventilated placement per `power.md` | TH leaf-spring | ~$2.9 | [2745669](https://www.digikey.com/en/products/detail/keystone-electronics/1043/2745669) |
-| ⚠️ | Halo LEDs ×~16 | SK6812MINI-E | 3.5×3.5 mm | ~$0.2 ea | *(Adafruit / alt distributor)* |
-| ➕ | Front-light *(improvement)* | white LED + FET/CC driver | — | ~$0.5 | — |
+| ⭐ | Wake LEDs (12 V COB, plugged-only) | Inspired LED **12V-COB-3000K-12M** (warm) + **12V-COB-4000K-12M** (neutral) — self-ballasted, $0.64/0.98″ seg | strip | ~$15 | [16714316](https://www.digikey.com/en/products/detail/inspired-led-llc/12V-COB-3000K-12M/16714316) · [16714317](https://www.digikey.com/en/products/detail/inspired-led-llc/12V-COB-4000K-12M/16714317) |
+| ⭐ | Panel LEDs (5 V, ≤12) | Cree **CLM3C-MKW-CWAXB233** (warm 3200K, Vf 3.2 V, $0.31 ea) + ~180 Ω each | PLCC-2 | ~$4 | [1987465](https://www.digikey.com/en/products/detail/cree-led-inc/CLM3C-MKW-CWAXB233/1987465) |
+| ⚠️ | Amp PVDD rail-mux (12 V↔5 V) | **LTC4412** low-loss PowerPath + P-FET — 12 V (plugged) / 5 V (battery) | **SOT-23-6** | ~$2 | [search](https://www.digikey.com/en/products/result?keywords=LTC4412) |
 | ⭐ | microSD socket | **Hirose DM3AT-SF-PEJM5** (push-push, 8-pos) | push-push, SMT R/A | ~$2.85 | [2533565](https://www.digikey.com/en/products/detail/hirose-electric-co-ltd/DM3AT-SF-PEJM5/2533565) |
 | ⭐ | USB-C recept (power+CC) | **GCT USB4105-GF-A** (USB 2.0 Type-C, 5 A) | SMT + TH tabs | ~$0.8 | [11198441](https://www.digikey.com/en/products/detail/gct/USB4105-GF-A/11198441) |
 | ⭐ | Speaker driver | Dayton DMA58-4 (2″ FR) | 56×56×32 mm | ~$19 | *(Parts Express 295-582)* |
