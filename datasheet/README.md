@@ -1,6 +1,6 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**) and **match the root [`README.md`](../README.md)** (v0.15).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**; **LED / backup-mode / TCO / VCOM 2026-07-12**) and **match the root [`README.md`](../README.md)** (v0.16).
 
 > 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, LIS3DH**; fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section.
 
@@ -55,7 +55,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 | Part | Power rail(s) (abs-max) | Logic level | ESP32-S3 signals (GPIO count) |
 |------|-------------------------|-------------|-------------------------------|
 | **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; **~33 usable GPIO** on **N16R8** (octal PSRAM claims GPIO35/36/37) |
-| **LS032B7DD02** display | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | SPI SCLK · SI · SCS + DISP + EXTCOMIN → **~4–5** (EXTMODE tied to VDD) |
+| **LS032B7DD02** display | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | SPI SCLK · SI · SCS on host (**3**) + DISP on the expander; **software VCOM → EXTMODE tied LOW, no EXTCOMIN** (see `../esp32.md`) |
 | **TAS5760M** amp | PVDD **12 V plugged / 5 V on battery** (via LTC4412 mux; range 4.5–26.4) + DVDD **3.3 V** | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + SPK_SD (mute/PDN) + I²C(shared) → **~4 + shared I²C** |
 | **DMA58-4** speaker | — (passive, from amp OUT) | — | none (analog off TAS5760M PBTL output) |
 | **TB6612FNG × 2** driver | VM **5 V** (0–13.5, abs 15) + VCC **3.3 V** (2.7–5.5) | 3.3 V | AIN1·AIN2·BIN1·BIN2 (PWM'd) + STBY → **4 / chip = 8** + shared STBY |
@@ -86,7 +86,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Power / IO:**
   - **Voltage:** VDD/VDDA recommended **4.8 / 5.0 / 5.5 V** (min/typ/max); absolute max −0.3…+5.8 V. Logic inputs (SCLK/SI/SCS/DISP/EXTCOMIN) high = **2.7 / 3.0 / VDD V** → **3.3 V-MCU compatible**.
   - **Power consumption:** HOLD (no update) **30 µW typ** (330 µW max); data update @ 1 Hz **250 µW typ** (750 µW max) — i.e. ≈6 µA hold / ≈50 µA update at 5 V. (Peak COM current is higher; size the rail with margin.)
-  - **IO:** 3-wire SPI (SCLK, SI, SCS) + DISP (on/off) + EXTCOMIN (VCOM toggle) + EXTMODE (tie to VDD). ~4–5 ESP32 GPIO.
+  - **IO:** 3-wire SPI (SCLK, SI, SCS) + DISP (on/off) + EXTCOMIN (VCOM toggle) + EXTMODE (VCOM-source select). **Our design uses software VCOM: EXTMODE tied LOW, VCOM inverted via the SPI frame-inversion bit → EXTCOMIN unused** (tie EXTMODE=VDD only for hardware EXTCOMIN). Host GPIO = SCLK/SI/SCS (3), DISP on the MCP23017. See `../esp32.md`.
 - **Hand-assembly:** module with an **FPC tail** → mate with a **hand-solderable fine-pitch FPC/ZIF connector** (or an FPC-to-header breakout). No bare leadless silicon.
 - **Interface:** **3-wire SPI** + DISP/EXTCOMIN/EXTMODE control.
 - **Released:** device spec © 2023 (rev `LD-2023X13`, 01-Nov-2023).
@@ -269,7 +269,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 **Decision: no dedicated RTC chip, no coin cell.** A battery-less RTC IC would lose time on total power loss exactly as the S3 does, so it adds parts without buying anything. The S3's *own* RTC is fine **as long as it runs off a good reference** — its internal RC oscillator drifts %-level over temperature (amp/LED heat nearby), so:
 
-- **Add a 32.768 kHz crystal** on the S3's **XTAL32K** pins (GPIO15/16) → the RTC slow clock runs at **~±20 ppm ≈ 1.7 s/day**, disciplined by **SNTP** whenever online (even a daily sync keeps error to a couple seconds). Part now **locked = Abracon ABS07-32.768KHZ-T** (3.2×1.5 mm 2-SMD, **CL 12.5 pF** → size the two load caps to CL, ~9–10 pF each after stray), ~$0.3, hand-solderable — **datasheet filed (row 16, `xtal_32k_abs07.pdf`)**.
+- **Add a 32.768 kHz crystal** on the S3's **XTAL32K** pins (GPIO15/16) → the RTC slow clock runs at **~±20 ppm ≈ 1.7 s/day**, disciplined by **SNTP** whenever online (even a daily sync keeps error to a couple seconds). Part now **locked = Abracon ABS07-32.768KHZ-T** (3.2×1.5 mm 2-SMD, **CL 12.5 pF** → two load caps ≈ **18 pF each** = 2·(C_L − C_stray) ≈ 2·(12.5 − 3); see `../power_values.md` §6), ~$0.3, hand-solderable — **datasheet filed (row 16, `xtal_32k_abs07.pdf`)**.
 - **The S3 is essentially always powered** (USB or the 18650 on the always-on BAT node), so the RTC domain rarely dies. If **both** USB and the 18650 are gone, time is lost → **re-sync via SNTP on next boot**, running a clock animation meanwhile (accepted, keeps HW simple).
 - *If you ever wanted true powered-off holdover* it would take an RTC IC **plus** a coin cell/supercap (e.g. RV-3028-C7 45 nA, or DS3231SN SOIC-16 TCXO) — explicitly **out of scope** here (no second battery).
 
@@ -307,7 +307,7 @@ Production-BOM rows, now locked to hand-solderable parts + filed datasheets. All
 
 ---
 
-## Reconciliation with root README (v0.15)
+## Reconciliation with root README (v0.16)
 
 All parts match the root [`README.md`](../README.md):
 
@@ -327,4 +327,4 @@ All parts match the root [`README.md`](../README.md):
 | **IO expander** | ✅ **MCP23017** (SOIC/SSOP-28) on the shared I²C + INT — offloads SPK_SD / 12 V EN / stepper STBY / buttons / enc-SW / **PD PG** / **charger CHRG/FAULT** (**net −7 GPIO**; MCU ≈ **30**). Steppers stay on **MCPWM**, encoder on **PCNT** — *not* the expander (PWM/quadrature can't be offloaded). See §19. |
 | **Power-path & interconnect** | ✅ **rows 16–25 locked + datasheeted** (2026-07-05): xtal ABS07-32.768KHZ-T · reverse P-FET AO3401A · NTC NCP18XH103F03RB (**0603**) · TVS SMAJ22A+SMAJ5.0A · **12 V boost TPS55340PWPR** (replaces LM2587S-ADJ) · 5 V boost TPS61023DRLR · 3.3 V buck TLV62569DBVR · holder Keystone 1043 · microSD DM3AT-SF-PEJM5 · USB-C USB4105-GF-A. All hand-solderable, DigiKey-active. **LEDs deferred.** |
 
-**No open discrepancies.** Corrections this pass: NTC size **0402 → 0603** (NCP18 is 0603; BOM cell fixed), and audio boost **LM2587S-ADJ → TPS55340PWPR** (the former's active `/NOPB` is $12.59 & out of stock). Intentional non-"matches": **PC68-4** (speaker *alternative*), **CH224K off-DigiKey** (no hand-solderable DigiKey PD sink), and the filed **TVS datasheet is the Bourns-published SMAJ** series (identical JEDEC part; Littelfuse's own PDF is Akamai/bot-blocked). **LED 12 V source RESOLVED (2026-07-12):** no barrel jack — shared TPS55340 boost (plugged-only) + LTC4412 amp-PVDD mux to 5 V on battery; wake COB (Inspired LED 3000K/4000K) + panel LEDs (Cree CLM3C, 5 V) parts locked. **Bench-only:** LTC4412 mux FET network + LT3652 NTC bias + TPS55340 comp network.
+**No open discrepancies.** Corrections this pass: NTC size **0402 → 0603** (NCP18 is 0603; BOM cell fixed), audio boost **LM2587S-ADJ → TPS55340PWPR** (the former's active `/NOPB` is $12.59 & out of stock), and **32.768 kHz load caps 9–10 pF → ~18 pF** (§17 arithmetic error — correct value is 2·(C_L − C_stray); matches `../power_values.md` §6). Intentional non-"matches": **PC68-4** (speaker *alternative*), **CH224K off-DigiKey** (no hand-solderable DigiKey PD sink), and the filed **TVS datasheet is the Bourns-published SMAJ** series (identical JEDEC part; Littelfuse's own PDF is Akamai/bot-blocked). **Resolved 2026-07-12:** (1) **LED 12 V source** — no barrel jack; shared TPS55340 boost (plugged-only) + LTC4412 amp-PVDD mux to 5 V on battery; wake COB (Inspired LED 3000K/4000K) + panel LEDs (Cree CLM3C, 5 V) locked. (2) **Backup mode = adaptive** (modem-sleep → deep-sleep at low SoC). (3) **One-shot ~77 °C TCO added** to the cell − path (⚠ pick exact part + file datasheet). (4) **Software VCOM** (EXTMODE=L, no EXTCOMIN) per `../esp32.md`. **Bench-only:** LTC4412 mux FET network + LT3652 NTC bias + TPS55340 comp network + TCO part selection.

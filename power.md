@@ -69,14 +69,15 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 - **Over-current / short:** S-8261 OCD/SCP → AO4800 FET + LT3652 current limit.
 - **Reverse insertion:** P-FET on BAT+ (bare cell can't be keyed).
 - **Temperature:** NTC on holder → LT3652 NTC pin (charge paused <0/>45 °C — single hot/cold window, *not* multi-zone JEITA) + firmware monitor.
+- **One-shot thermal cutoff (TCO ~77 °C):** non-resettable thermal fuse in series with the cell (in the cell − / PACK− path with the protector FETs), mounted against the holder. Independent of the NTC/charger — trips on any runaway heat (charge *or* discharge) and permanently opens the pack. *(Added 2026-07-12 for extra abuse margin.)*
 - **Transient/ESD:** TVS on VBUS + BAT.
 - **Physical (wood/bedroom):** ventilated cell compartment, FR/metal barrier vs wood, spacing from amp/charger heat, vent path, secure retention.
-- *Dropped as over-engineering for 1S:* secondary OVP, one-shot TCO, PPTC. (TCO ~77 °C remains a cheap optional if extra abuse margin is wanted.)
+- *Dropped as over-engineering for 1S:* secondary OVP, PPTC.
 
 **Residual:** an internally-shorted/damaged cell can't be fully prevented — mitigated by NTC cutoff, compartment, FR barrier, venting.
 
 ## How to use it (config + bring-up)
-**CH224K (PD sink)** — set the **CFG1 resistor for 15 V** (no NVM/MCU). Auto-requests 15 V, **falls back to 5 V** if unavailable. VBUS passes to the LED CC driver + LT3652 VIN. Read **PG** to confirm a high-V contract. (LT3652 VIN max 32 V → 15 V has ample margin; 20 V would also be safe, but the LED string is sized ~12–15 V.)
+**CH224K (PD sink)** — set the **CFG1 resistor for 15 V** (no NVM/MCU). Auto-requests 15 V, **falls back to 5 V** if unavailable. VBUS feeds **LT3652 VIN only** — the LEDs run off the internal boosts (wake = 12 V, panel = 5 V), **not VBUS**. Read **PG** to confirm a high-V contract. (LT3652 VIN max 32 V → 15 V has ample margin; 20 V would also be safe, but 15 V is chosen for headroom over the 12 V audio/wake boost.)
 
 **LT3652 (charger)** — autonomous, resistor/cap-programmed (no I²C): **float divider → 4.05 V** (health cap; a **976 k ∥ R_FB2 switched by a 2N7002** gives a **4.2 V "full" mode** — gate `FULLCHG_EN` on the IO expander), **R_SENSE → ICHG ≈ 1–1.75 A** (0.3–0.5 C, gentle/cool), **CTIMER cap → safety timer**, **NTC** on the holder for temp-qualified charge. **CHRG/FAULT** open-drain pins → 2 GPIO. The **BAT node feeds the rail converters** and is regulated to 4.05 V when plugged (runs with no cell, ≤2 A).
 
@@ -97,6 +98,7 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 | Cell protector | **S-8261AAxMD** + **AO4800** dual-N FET | SOT-23-6 + SO-8 | ~$0.7 | ✅ (ABLIC / AOS) |
 | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ |
 | Cell temp | 10 k NTC (Murata NCP18XH103) | 0603 | ~$0.1 | ✅ |
+| **One-shot TCO (~77 °C)** | thermal fuse in cell − path (e.g. SEFUSE SF/Bourns bimetal ~77 °C) | radial/tab | ~$0.4 | ⚠ pick + file datasheet |
 | Transient | TVS SMAJ22A (VBUS) + SMAJ5.0A (BAT) | SMA | ~$0.4 | ✅ |
 | Audio+wake-LED boost BAT→12 V (plugged-only) | **TPS55340PWPR** | HTSSOP-14 | ~$2.5 | ✅ |
 | 5 V boost (from BAT) | **TPS61023DRLR** | SOT-563 | ~$1.2 | ✅ |
@@ -106,9 +108,9 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 | 18650 holder | Keystone/MPD | — | ~$1 | ✅ |
 | Cell (user-supplied) | protected Li-ion 18650 3–3.5 Ah | — | ~$8 | user adds |
 
-**Power + safety subtotal ≈ $16–18** (excl. cell) — the LT3652 is the priciest line. Safety core (protector + reverse P-FET + NTC + TVS) ≈ $1.4.
+**Power + safety subtotal ≈ $16–18** (excl. cell) — the LT3652 is the priciest line. Safety core (protector + reverse P-FET + NTC + TVS + ~77 °C TCO) ≈ $1.8.
 
 ## Open decisions
 - ~~**LED 12 V source**~~ — **RESOLVED 2026-07-12:** no barrel jack; shared TPS55340 boost, plugged-only; amp PVDD auto-mux (LTC4412) to 5 V on battery; panel LEDs on 5 V. Bench: finalize the mux FET network + confirm wake-COB wattage keeps LED + audio ≤ ~12 W.
-- Backup firmware mode: Wi-Fi modem-sleep (responsive, ~2.5–5 days) vs deep-sleep sync (1–2 weeks).
-- Optional one-shot TCO (~77 °C) for extra abuse margin — in or out (default out).
+- ~~**Backup firmware mode**~~ — **RESOLVED 2026-07-12: adaptive.** Wi-Fi modem-sleep while SoC is healthy (responsive to app/BLE/alarm) → **drop to deep-sleep at low battery** to stretch runtime; alarm always fires. Threshold TBD in firmware (~30 % SoC start point).
+- ~~**One-shot TCO (~77 °C)**~~ — **RESOLVED 2026-07-12: in.** Non-resettable thermal fuse in the cell − path (see §Safety + BOM). Bench/BOM: pick the exact part + file its datasheet.

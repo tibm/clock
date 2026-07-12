@@ -7,19 +7,23 @@ Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel
 - `datasheet/README.md` — chosen parts: price, dims, power, **IO & power-domain table**.
 - `datasheet/*.pdf` — full datasheets.
 - `power.md` — power tree: USB-C/PD, rails, LED, battery, safety.
+- `esp32.md` — ESP32-S3 pin-level IO map + MCP23017 expander port map (schematic-ready).
+- `led.md` — LED subsystem: wake COB + panel LEDs, 3 PWM channels, AO3400A drivers.
+- `power_values.md` — schematic-ready FB/comp/passive values per converter + support networks.
 
 ## Locked BOM (core)
 | Block | Part | Rail | Notes |
 |---|---|---|---|
-| MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ≤36 GPIO |
-| Display | Sharp LS032B7DD02 | 5 V panel / 3 V logic | 3-wire SPI, reflective MIP |
-| Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; Hall homing |
+| MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
+| Display | Sharp LS032B7DD02 | 5 V panel / 3 V logic | 3-wire SPI, reflective MIP; software VCOM (EXTMODE=L) |
+| Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (ITR8307, no magnets) |
+| IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines, net −7 GPIO |
 | Motor driver | 2× TB6612FNG | VM 5 V / VCC 3.3 V | SSOP-24; PWM-on-IN microstep, 8 GPIO |
 | Amp | TI TAS5760M | PVDD 12 V / DVDD 3.3 V | HTSSOP-32; I²S+I²C, PBTL mono (firmware DSP) |
 | Speaker | Dayton DMA58-4 (2″, 4 Ω) | — | off amp; ~100–250 cc sealed |
 
 ## Rails
-- **3.3 V** logic (from 5 V) · **5 V** panel+stepper · **12 V** audio boost (gated) · **15 V VBUS** LED (plugged). USB-PD in (15 V, **CH224K**) → **LT3652** 1-cell buck charger (BAT-node power-path). All converters leaded. See `power.md`.
+- **3.3 V** logic (from 5 V) · **5 V** panel + stepper + **panel LEDs** + amp-PVDD mux aux · **12 V** boost = audio PVDD + **wake LEDs** (gated, **plugged-only**) · **15 V VBUS** = **LT3652 charger VIN** (plugged). USB-PD in (15 V, **CH224K**) → **LT3652** 1-cell buck charger (BAT-node power-path); amp PVDD auto-muxes 12 V↔5 V (**LTC4412**) → quieter alarm on battery. All converters leaded. See `power.md`.
 
 ## Safety (NON-NEGOTIABLE)
 Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be **safe for ANY 18650** ("if it fits, it must be safe") — assume unprotected/reversed/wrong-SoC/hot cell; do **not** rely on the cell's PCM.
@@ -27,9 +31,10 @@ Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be *
 - **Reverse-polarity P-FET** on BAT+ (bare cell can't be keyed).
 - **NTC temp-qualified charge** (LT3652 NTC pin: no charge <0/>45 °C — single hot/cold window, not multi-zone JEITA); cell voltage-qualified on insert (ADC).
 - **Charge-cap ~80 % (4.05 V)** — fixed in HW by the LT3652 float divider (no I²C; SoC/faults via ADC + CHRG/FAULT); **runs with no cell** on USB (BAT node feeds rails).
+- **One-shot TCO (~77 °C)** in series with the cell — non-resettable thermal fuse against a hot/internally-shorted cell (added 2026-07-12; belt-and-suspenders to the NTC).
 - **Physical:** ventilated cell compartment, FR/metal barrier vs wood, spacing from amp/charger heat, vent path, secure retention.
 - **Li-ion ONLY** (labeled). Never trim safety parts. Full wiring/config in `power.md`.
-- *Dropped as over-engineering for 1S:* secondary OVP, one-shot TCO, PPTC (TCO optional).
+- *Dropped as over-engineering for 1S:* secondary OVP, PPTC.
 
 ## Conventions
 - Units mm; prices single-unit USD; source **DigiKey** (verify active + link).
