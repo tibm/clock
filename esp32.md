@@ -102,7 +102,7 @@ Weak pull-ups + interrupt-on-change on the inputs; `IOCON.MIRROR=1` ORs INTA+INT
 | GPB5 | `VBAT_DIV_EN` | OUT | — | Vbat-divider disconnect FET gate |
 | GPB6–7 | *free* | — | — | 2 spare expander IO |
 
-Hard-safety (OV/OC/SC) is autonomous in the LT3652 + S-8261 — nothing time-critical rides the expander.
+Hard-safety (OV/OC/SC) is autonomous in the LT3652 + AP9101C — nothing time-critical rides the expander.
 
 ## Peripheral budget (vs. S3 capacity)
 

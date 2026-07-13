@@ -36,6 +36,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 25 | `connector_usb_c_usb4105.pdf` | **USB4105-GF-A** USB-C (USB 2.0, 5 A) | GCT | **SMT + TH tabs** | ✅ | ~$0.8 | USB-C power+CC |
 | 26 | `expander_mcp23017.pdf` | **MCP23017** (I²C; SPI twin `MCP23S17`) | Microchip | **SOIC-28 W / SSOP-28** | ✅ | ~$1.3 | I²C 16-bit GPIO expander (+INT) |
 | 27 | `pvdd_mux_ltc4412.pdf` | **LTC4412** (`LTC4412ES6#TRPBF`) | Analog Devices | **TSOT-23-6** | ✅ | ~$5.2 | amp-PVDD PowerPath mux (12 V↔5 V), autonomous |
+| 28 | `led_fet_ao3400a.pdf` | **AO3400A** (30 V, 5.7 A, N-ch) | Alpha & Omega | **SOT-23** | ✅ | ~$0.15 | LED low-side PWM switch ×3 (panel + 2× wake); logic-level, R<sub>DS(on)</sub> <48 mΩ @ V<sub>GS</sub> 2.5 V → driven direct from 3.3 V LEDC (100 Ω gate + 10 k pulldown). Complement of the AO3401A P-FET (row 17) |
 
 **Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
 - **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.

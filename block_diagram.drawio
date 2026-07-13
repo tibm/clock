@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="clock-spec">
   <diagram id="clock-block" name="System Block Diagram">
-    <mxGraphModel dx="2069" dy="1009" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1760" pageHeight="1040" math="0" shadow="0">
+    <mxGraphModel dx="1582" dy="888" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1760" pageHeight="1040" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -171,11 +171,15 @@
             <mxPoint x="1120" y="403" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="e21" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#1565C0;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;entryX=0.606;entryY=0.994;entryDx=0;entryDy=0;entryPerimeter=0;dashed=1;dashPattern=1 1;" target="amp" value="SPK_SD (mute/optional) [0]">
-          <mxGeometry relative="1" x="-0.0338" y="-1" as="geometry">
+        <mxCell id="e21" edge="1" parent="1" source="iox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#1565C0;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" target="amp" value="SPK_SD (mute) [0]">
+          <mxGeometry relative="1" x="-0.3182" as="geometry">
             <mxPoint as="offset" />
-            <mxPoint x="1090" y="429" as="sourcePoint" />
-            <mxPoint x="1492" y="329" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1320" y="841" />
+              <mxPoint x="1320" y="750" />
+              <mxPoint x="1720" y="750" />
+              <mxPoint x="1720" y="317" />
+            </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="e22" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#F2B705;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.564;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;exitPerimeter=0;" target="sens" value="I²C SCL [1]">
@@ -213,7 +217,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e27" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#F2B705;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1.007;exitY=0.801;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;exitPerimeter=0;" target="sd" value="SPI SCLK [1]">
+        <mxCell id="e27" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#F2B705;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1.007;exitY=0.801;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;exitPerimeter=0;" target="sd" value="SPI SCLK (shared w/ disp) [0]">
           <mxGeometry relative="1" x="0.6828" y="5" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
@@ -223,7 +227,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e28" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;startArrow=classic;strokeColor=#2E7D32;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1.001;exitY=0.853;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitPerimeter=0;" target="sd" value="MOSI / MISO [2]">
+        <mxCell id="e28" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;startArrow=classic;strokeColor=#2E7D32;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1.001;exitY=0.853;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitPerimeter=0;" target="sd" value="MOSI (shared) + MISO [1]">
           <mxGeometry relative="1" x="0.1082" y="6" as="geometry">
             <mxPoint as="offset" />
             <Array as="points">
@@ -366,7 +370,7 @@
           <mxGeometry height="18" width="22" x="94" y="107" as="geometry" />
         </mxCell>
         <mxCell id="ZhV544TkYlIsKLRpummm-8" connectable="0" parent="1" style="group" value="" vertex="1">
-          <mxGeometry height="115" width="210" x="1360" y="239" as="geometry" />
+          <mxGeometry height="143" width="300" x="1360" y="239" as="geometry" />
         </mxCell>
         <mxCell id="amp" parent="ZhV544TkYlIsKLRpummm-8" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AD1457;strokeWidth=1.5;fontSize=11;" value="&lt;b&gt;AMP&lt;/b&gt;&lt;br&gt;TAS5760M&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#555&quot;&gt;I²S in + I²C ctrl · PBTL mono&lt;/font&gt;" vertex="1">
           <mxGeometry height="64" width="210" y="30" as="geometry" />
@@ -379,6 +383,9 @@
         </mxCell>
         <mxCell id="fg_amp" parent="ZhV544TkYlIsKLRpummm-8" style="shape=triangle;direction=south;html=1;fillColor=#000000;strokeColor=#000000;fontColor=#000;fontSize=8;verticalLabelPosition=bottom;verticalAlign=top;" value="GND" vertex="1">
           <mxGeometry height="18" width="22" x="20" y="97" as="geometry" />
+        </mxCell>
+        <mxCell id="pvddnote" parent="ZhV544TkYlIsKLRpummm-8" style="text;html=1;align=left;verticalAlign=top;fontSize=9;fontColor=#AD1457;whiteSpace=wrap;" value="amp PVDD = LTC4412 mux:&lt;br&gt;12 V (plugged) / 5 V (battery)&lt;br&gt;→ quieter alarm on battery" vertex="1">
+          <mxGeometry height="46" width="180" x="120" y="97" as="geometry" />
         </mxCell>
         <mxCell id="ZhV544TkYlIsKLRpummm-9" connectable="0" parent="1" style="group" value="" vertex="1">
           <mxGeometry height="105" width="160" x="913" y="114.5" as="geometry" />
@@ -467,7 +474,7 @@
         <mxCell id="ZhV544TkYlIsKLRpummm-17" connectable="0" parent="1" style="group" value="" vertex="1">
           <mxGeometry height="75" width="190" x="60" y="657" as="geometry" />
         </mxCell>
-        <mxCell id="prot" parent="ZhV544TkYlIsKLRpummm-17" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E65100;strokeWidth=1.5;fontSize=11;" value="&lt;b&gt;CELL PROTECTOR&lt;/b&gt;&lt;br&gt;S-8261 + AO4800" vertex="1">
+        <mxCell id="prot" parent="ZhV544TkYlIsKLRpummm-17" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E65100;strokeWidth=1.5;fontSize=11;" value="&lt;b&gt;CELL PROTECTOR&lt;/b&gt;&lt;br&gt;AP9101C + AOSD32334C" vertex="1">
           <mxGeometry height="54" width="190" as="geometry" />
         </mxCell>
         <mxCell id="fg_prot" parent="ZhV544TkYlIsKLRpummm-17" style="shape=triangle;direction=south;html=1;fillColor=#000000;strokeColor=#000000;fontColor=#000;fontSize=8;verticalLabelPosition=bottom;verticalAlign=top;" value="GND" vertex="1">
@@ -532,6 +539,14 @@
         <mxCell id="e1" edge="1" parent="1" source="usbc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#D32F2F;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="pd" value="USB VBUS + CC [0]">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="e38" edge="1" parent="1" source="usbc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;startArrow=classic;strokeColor=#2E7D32;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.049;entryY=0.954;entryDx=0;entryDy=0;entryPerimeter=0;" target="mcu" value="USB D± → USB-JTAG (IO19/20) [2]">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="155" y="790" />
+              <mxPoint x="862" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
         <mxCell id="j_Qfl0-dNRsYloxILP6G-1" connectable="0" parent="1" style="group" value="" vertex="1">
           <mxGeometry height="103" width="190" x="462" y="880" as="geometry" />
         </mxCell>
@@ -550,13 +565,10 @@
             <Array as="points">
               <mxPoint x="1380" y="873" />
               <mxPoint x="1380" y="1020" />
-              <mxPoint x="1730" y="1020" />
-              <mxPoint x="1730" y="116" />
+              <mxPoint x="1740" y="1020" />
+              <mxPoint x="1740" y="116" />
             </Array>
           </mxGeometry>
-        </mxCell>
-        <mxCell id="pvddnote" parent="1" style="text;html=1;align=left;verticalAlign=top;fontSize=9;fontColor=#AD1457;whiteSpace=wrap;" value="amp PVDD = LTC4412 mux:&lt;br&gt;12 V (plugged) / 5 V (battery)&lt;br&gt;→ quieter alarm on battery" vertex="1">
-          <mxGeometry height="46" width="180" x="1360" y="358" as="geometry" />
         </mxCell>
         <mxCell id="ioxnote" parent="1" style="text;html=1;align=left;verticalAlign=top;fontSize=9;fontColor=#00838F;whiteSpace=wrap;" value="expander also drives:&lt;br&gt;LCD_DISP (display)&lt;br&gt;FULLCHG_EN (LT3652 4.2 V FB-FET) VBAT_DIV_EN (Vbat-divider FET)" vertex="1">
           <mxGeometry height="70" width="160" x="1210" y="890" as="geometry" />
