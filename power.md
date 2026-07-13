@@ -13,7 +13,7 @@ Power tree + battery safety + bring-up. Supersedes `README.md` §10 (kept in syn
 ## Architecture
 ```
 USB-C ─ CH224K (PD sink, resistor-set 15 V) ─ VBUS 5–15 V ── LT3652 VIN (buck charger)
-   cell path:  holder ─ reverse P-FET ─ [S-8261 + AO4800 dual-FET] ─ 18650(+)   ; Vbat → ESP32 ADC divider
+   cell path:  holder ─ reverse P-FET ─ [AP9101C + AOSD32334C dual-FET] ─ 18650(+)   ; Vbat → ESP32 ADC divider
                         LT3652 ── BAT node ─┬─ TPS61023 → 5 V   ─┬─ display panel + stepper VM + panel LEDs
                                             │                   ├─ TLV62569 → 3.3 V  (MCU/logic, always)
                                             │                   └─ (PVDD mux aux) ── amp PVDD on battery
@@ -64,9 +64,9 @@ intensity, enabled together); merging them freed the 4th channel and returned IO
 
 ## Safety (board-level, MANDATORY — simple + redundant)
 Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must be safe.** Don't rely on the cell's PCM.
-- **Overcharge — 2 independent cutoffs:** LT3652 CV at 4.05 V (float divider + safety timer) **and** S-8261 OV ~4.28 V → opens the AO4800 dual-FET.
-- **Over-discharge — layered:** firmware shutdown ~3.2 V (ADC) → S-8261 OD ~2.5 V → AO4800 discharge-FET off.
-- **Over-current / short:** S-8261 OCD/SCP → AO4800 FET + LT3652 current limit.
+- **Overcharge — 2 independent cutoffs:** LT3652 CV at 4.05 V (float divider + safety timer) **and** AP9101C OV 4.28 V → opens the AOSD32334C dual-FET.
+- **Over-discharge — layered:** firmware shutdown ~3.2 V (ADC) → AP9101C OD 2.80 V → AOSD32334C discharge-FET off.
+- **Over-current / short:** AP9101C OCD/SCP → AOSD32334C FET + LT3652 current limit.
 - **Reverse insertion:** P-FET on BAT+ (bare cell can't be keyed).
 - **Temperature:** NTC on holder → LT3652 NTC pin (charge paused <0/>45 °C — single hot/cold window, *not* multi-zone JEITA) + firmware monitor.
 - **One-shot thermal cutoff (TCO ~77 °C):** non-resettable thermal fuse in series with the cell (in the cell − / PACK− path with the protector FETs), mounted against the holder. Independent of the NTC/charger — trips on any runaway heat (charge *or* discharge) and permanently opens the pack. *(Added 2026-07-12 for extra abuse margin.)*
@@ -81,7 +81,7 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 
 **LT3652 (charger)** — autonomous, resistor/cap-programmed (no I²C): **float divider → 4.05 V** (health cap; a **976 k ∥ R_FB2 switched by a 2N7002** gives a **4.2 V "full" mode** — gate `FULLCHG_EN` on the IO expander), **R_SENSE → ICHG ≈ 1–1.75 A** (0.3–0.5 C, gentle/cool), **CTIMER cap → safety timer**, **NTC** on the holder for temp-qualified charge. **CHRG/FAULT** open-drain pins → 2 GPIO. The **BAT node feeds the rail converters** and is regulated to 4.05 V when plugged (runs with no cell, ≤2 A).
 
-**S-8261 + AO4800 (protector)** — no config (thresholds variant-fixed → pick **S-8261AAxMD = OV 4.28 V**; verify the OD/OCD suffix against the datasheet table). Wire the **AO4800 dual N-FET** (charge + discharge FETs) in the cell − path between the 18650 and PACK−, gated by the S-8261, with a couple of R/C for delays. Independent of the charger — the redundant OV/OD/OC/SC cutoff.
+**AP9101C + AOSD32334C (protector)** — no config (thresholds fixed by the part-number suffix → **AP9101CK6-BXTRG1 = OV 4.28 V / OD 2.80 V**, SOT-23-6). Wire the **AOSD32334C dual N-FET** (charge + discharge FETs) in the cell − path between the 18650 and PACK−, gated by the AP9101C **CO/DO** pins, with a couple of R/C for delays. Independent of the charger — the redundant OV/OD/OC/SC cutoff. *(AP9101C is NRND but DigiKey-stocked in cut-tape/singles — fine for this one-off build; the S-8261 is the drop-in-equivalent but reel-only, 3000 MOQ. Pin map differs from the S-8261, so set schematic nets from the AP9101C datasheet.)*
 
 **Reverse P-FET** — P-ch MOSFET (e.g. AO3401A / DMP3013), source = holder +, drain = system +, gate → GND via resistor (+ small zener clamp). Correct polarity → on; reversed cell → blocked.
 
@@ -93,9 +93,9 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 | Function | Part | Pkg (hand-solder) | ~$ | Ref |
 |---|---|---|---|---|
 | PD sink | **CH224K** | ESSOP-10 | ~$0.4 | LCSC C970725 *(not DK)* |
-| Charger (1S buck, BAT-node path) | **LT3652EMSE#PBF** | MSOP-12E | ~$5–6 | DK 2225686 ✅ |
+| Charger (1S buck, BAT-node path) | **LT3652EMSE#PBF** | MSOP-12E | ~$9.9 | DK 2225686 ✅ |
 | Fuel gauge | *(none — ESP32 ADC divider)* | — | ~$0 | — |
-| Cell protector | **S-8261AAxMD** + **AO4800** dual-N FET | SOT-23-6 + SO-8 | ~$0.7 | ✅ (ABLIC / AOS) |
+| Cell protector | **AP9101CK6-BXTRG1** + **AOSD32334C** dual-N FET | SOT-23-6 + SO-8 | ~$0.6 | ✅ (Diodes / AOS) |
 | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ |
 | Cell temp | 10 k NTC (Murata NCP18XH103) | 0603 | ~$0.1 | ✅ |
 | **One-shot TCO (~77 °C)** | thermal fuse in cell − path (e.g. SEFUSE SF/Bourns bimetal ~77 °C) | radial/tab | ~$0.4 | ⚠ pick + file datasheet |
@@ -108,7 +108,7 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 | 18650 holder | Keystone/MPD | — | ~$1 | ✅ |
 | Cell (user-supplied) | protected Li-ion 18650 3–3.5 Ah | — | ~$8 | user adds |
 
-**Power + safety subtotal ≈ $16–18** (excl. cell) — the LT3652 is the priciest line. Safety core (protector + reverse P-FET + NTC + TVS + ~77 °C TCO) ≈ $1.8.
+**Power + safety subtotal ≈ $20–22** (excl. cell) — the LT3652 is the priciest line. Safety core (protector + reverse P-FET + NTC + TVS + ~77 °C TCO) ≈ $1.8.
 
 ## Open decisions
 - ~~**LED 12 V source**~~ — **RESOLVED 2026-07-12:** no barrel jack; shared TPS55340 boost, plugged-only; amp PVDD auto-mux (LTC4412) to 5 V on battery; panel LEDs on 5 V. Bench: finalize the mux FET network + confirm wake-COB wattage keeps LED + audio ≤ ~12 W.

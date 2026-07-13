@@ -1,6 +1,6 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**; **LED / backup-mode / TCO / VCOM 2026-07-12**) and **match the root [`README.md`](../README.md)** (v0.16).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**; **LED / backup-mode / TCO / VCOM 2026-07-12**; **homing sensor re-picked → onsemi QRE1113 2026-07-12**; **amp-PVDD mux LTC4412 2026-07-12**; **cell protector re-picked → AP9101C (NRND, stocked) + AOSD32334C 2026-07-12**) and **match the root [`README.md`](../README.md)** (v0.17).
 
 > 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, LIS3DH**; fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section.
 
@@ -16,14 +16,14 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 5 | `amp_tas5760m.pdf` | **TAS5760M** (`TAS5760MDAPR`) | Texas Instruments | **HTSSOP-32 (DAP, PowerPAD)** | ✅ | ~$4–6 | I²S in + I²C control |
 | 6 | `motor_driver_tb6612fng.pdf` | **TB6612FNG** (× 2) | Toshiba | **SSOP-24 (no exposed pad)** | ✅ | ~$2.4 | GPIO/PWM (IN/IN) |
 | 7 | `pd_sink_ch224k.pdf` | **CH224K** | WCH (Qinheng) | **ESSOP-10** | ✅ | ~$0.4 | USB-PD (resistor-set) |
-| 8 | `charger_lt3652.pdf` | **LT3652** (`LT3652EMSE#PBF`) | Analog Devices | **MSOP-12E (PowerPAD)** | ✅ | ~$5–6 | autonomous (resistor-set) |
-| 9 | `battery_protector_s-8261.pdf` | **S-8261** (`S-8261AAxMD`) | ABLIC | **SOT-23-6** | ✅ | ~$0.4 | none (autonomous) |
-| 10 | `protection_mosfet_ao4800.pdf` | **AO4800** (dual N-FET, protector) | Alpha & Omega | **SO-8** | ✅ | ~$0.3 | none (protector FET) |
+| 8 | `charger_lt3652.pdf` | **LT3652** (`LT3652EMSE#PBF`) | Analog Devices | **MSOP-12E (PowerPAD)** | ✅ | ~$9.9 | autonomous (resistor-set) |
+| 9 | `battery_protector_ap9101c.pdf` | **AP9101C** (`AP9101CK6-BXTRG1`, OV 4.28 V) | Diodes | **SOT-23-6** | ✅ *NRND, stocked* | ~$0.28 | none (autonomous) |
+| 10 | `protection_mosfet_aosd32334c.pdf` | **AOSD32334C** (dual N-FET, protector) | Alpha & Omega | **SO-8** | ✅ | ~$0.28 | none (protector FET) |
 | 11 | `connector_display_fpc_fh34.pdf` | **FH34SRJ-10S-0.5SH** | Hirose | **FPC/ZIF 0.5 mm (SMT, on-board)** | ✅ | ~$0.7 | 10-pin display FPC tail |
 | 12 | `sensor_env_bme688.pdf` | **BME688** | Bosch Sensortec | LGA-8 → **module** | ✅ | ~$5 | I²C/SPI — **chosen env part:** T+RH+press+**VOC/gas** (one chip = climate + air-quality) |
 | 13 | `sensor_light_tsl2591.pdf` | **TSL2591** (`TSL25911FN`) | ams-OSRAM | WFDFN-6 → **module** | ✅ | ~$3 | I²C (188 µlx–88 klx) |
 | 14 | `sensor_accel_lis3dh.pdf` | **LIS3DH** | STMicroelectronics | LGA-16 → **module** | ✅ | ~$2 | I²C/SPI (tap + orient) |
-| 15 | `sensor_homing_optical_itr8307.pdf` | **ITR8307** (`ITR8307/TR8`) | Everlight | **4-SMD (3.4×1.5×1.1 mm, gullwing) — on-board** | ✅ | ~$0.5 | reflective opto (analog → ADC/comparator) |
+| 15 | `sensor_homing_QRE1113-D.PDF` | **QRE1113** | onsemi | **4-lead reflective (TH gull-wing, ≈3.6×2.9×1.7 mm) — on-board** (SMD `QRE1113GR` alt) | ✅ | ~$0.76 | reflective opto (analog → ADC/comparator) |
 | 16 | `xtal_32k_abs07.pdf` | **ABS07-32.768KHZ-T** (32.768 kHz, CL 12.5 pF, ±20 ppm) | Abracon | **3.2×1.5 mm 2-SMD** | ✅ | ~$0.3 | RTC clock (S3 XTAL32K) |
 | 17 | `reverse_pfet_ao3401a.pdf` | **AO3401A** (−30 V, −4 A P-ch) | Alpha & Omega | **SOT-23-3** | ✅ | ~$0.24 | reverse-polarity FET |
 | 18 | `ntc_10k_ncp18xh103.pdf` | **NCP18XH103F03RB** 10 k NTC (B25/50 = 3380 K, ±1 %) | Murata | **0603** | ✅ | ~$0.10 | analog → LT3652 NTC |
@@ -35,6 +35,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 24 | `connector_microsd_dm3at.pdf` | **DM3AT-SF-PEJM5** microSD (push-push) | Hirose | **push-push SMT R/A** | ✅ | ~$2.85 | SD (SPI) |
 | 25 | `connector_usb_c_usb4105.pdf` | **USB4105-GF-A** USB-C (USB 2.0, 5 A) | GCT | **SMT + TH tabs** | ✅ | ~$0.8 | USB-C power+CC |
 | 26 | `expander_mcp23017.pdf` | **MCP23017** (I²C; SPI twin `MCP23S17`) | Microchip | **SOIC-28 W / SSOP-28** | ✅ | ~$1.3 | I²C 16-bit GPIO expander (+INT) |
+| 27 | `pvdd_mux_ltc4412.pdf` | **LTC4412** (`LTC4412ES6#TRPBF`) | Analog Devices | **TSOT-23-6** | ✅ | ~$5.2 | amp-PVDD PowerPath mux (12 V↔5 V), autonomous |
 
 **Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
 - **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.
@@ -44,7 +45,7 @@ The **display connector (row 11) is the exception** among leadless-class parts: 
 
 **Fuel gauge dropped** (no hand-solderable equivalent — every 1-cell gauge is TDFN/WLP): SoC is now **voltage-based via the ESP32-S3 ADC** on a divider off the cell. See root README §10 / `../power.md`.
 
-**Removed datasheets (leadless, replaced above):** `amp_tas5825m.pdf` (VQFN-32), `motor_driver_drv8835.pdf` (WSON-12), `pd_sink_stusb4500.pdf` (QFN-24), `charger_bq25628e.pdf` (WQFN-18), `fuel_gauge_max17048.pdf` (µDFN/WLP), `battery_protector_lc05111cmt.pdf` (WDFN-6). **v0.15 sensor consolidation:** `sensor_temp_tmp117.pdf` (TMP117 — dropped, redundant), `sensor_humidity_temp_sht4x.pdf` (SHT45 — folded into BME688), `sensor_accel_bma400.pdf` (BMA400 — replaced by LIS3DH).
+**Removed datasheets (leadless, replaced above):** `amp_tas5825m.pdf` (VQFN-32), `motor_driver_drv8835.pdf` (WSON-12), `pd_sink_stusb4500.pdf` (QFN-24), `charger_bq25628e.pdf` (WQFN-18), `fuel_gauge_max17048.pdf` (µDFN/WLP), `battery_protector_lc05111cmt.pdf` (WDFN-6). **v0.15 sensor consolidation:** `sensor_temp_tmp117.pdf` (TMP117 — dropped, redundant), `sensor_humidity_temp_sht4x.pdf` (SHT45 — folded into BME688), `sensor_accel_bma400.pdf` (BMA400 — replaced by LIS3DH). **2026-07-12 protector re-pick (availability, not leadless):** `battery_protector_s-8261.pdf` (S-8261 → reel-only, 3000 MOQ) + `protection_mosfet_ao4800.pdf` (AO4800 → reel-only) → replaced by AP9101C + AOSD32334C (both DigiKey cut-tape/singles).
 
 ---
 
@@ -63,13 +64,13 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 | **CH224K** PD sink | VBUS **4–22 V**; VDD off VBUS | 3.3 V (PG open-drain) | CFG (resistors, no GPIO) + PG **(OD → MCP23017, not host)** → **0 MCU** |
 | **LT3652** charger | VIN (VBUS) **≤32 V**; BAT (system node) | 3.3 V (open-drain status) | CHRG + FAULT status **(OD → MCP23017, not host)** → **0 MCU**; NTC/timer/float = passives |
 | **Cell voltage sense** | off cell via divider | ADC | 1 ADC pin → **1** |
-| **S-8261 + AO4800** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
-| **ITR8307** hand homing | IR LED + phototransistor off **3.3 V** (R-limited) | 3.3 V (ADC) | reflective opto behind a punched dial hole → **1 ADC/comparator**; no magnets |
+| **AP9101C + AOSD32334C** protector | across cell (≤12 V) | — | none (autonomous OV/OD/OC/SC) |
+| **QRE1113** hand homing | IR LED + phototransistor off **3.3 V** (R-limited) | 3.3 V (ADC) | reflective opto behind a punched dial hole → **1 ADC/comparator**; no magnets |
 | **MCP23017** IO expander | 1.8–5.5 V (**3.3 V**) | 3.3 V (I²C + INT) | on the **shared I²C** (no new bus pins) + **INT → 1 GPIO**; fans out 16 slow I/O → offloads SPK_SD, 12 V EN, stepper STBY, buttons, enc-SW, **PD PG, charger CHRG/FAULT** (**net −7 MCU GPIO**) |
 
-**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**BME688** T/RH/press/VOC, **TSL2591** light, **LIS3DH** accel — rows 12–15b) **and the MCP23017 IO expander (row 26)** — **kept small** otherwise (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (GPIO15/16, dedicated — not on I²C). Homing uses **1× ITR8307** reflective optical (§16; 4-SMD, 3.3 V, analog out → **1 ADC GPIO**, no magnets).
+**Shared bus:** the **I²C bus** (SDA/SCL, 2 GPIO) is shared by the amp + all sensors (**BME688** T/RH/press/VOC, **TSL2591** light, **LIS3DH** accel — rows 12–15b) **and the MCP23017 IO expander (row 26)** — **kept small** otherwise (no charger, no fuel gauge, **no RTC** on I²C). Timekeeping = S3 RTC + a **32.768 kHz crystal** on XTAL32K (GPIO15/16, dedicated — not on I²C). Homing uses **1× QRE1113** reflective optical (§16; 4-lead, 3.3 V, analog out → **1 ADC GPIO**, no magnets).
 
-**GPIO tally (post-expander):** I²S 3 + shared-I²C 2 + display SPI ~5 + steppers 8 + optical home 1 + SD SPI 4 + Vbat ADC 1 + LED data/dim ~2 + encoder A/B 2 + sensor INT 1 + expander INT 1 ≈ **30 GPIO** + the 2 dedicated XTAL32K pins. **PD PG and charger CHRG/FAULT now ride the MCP23017** (interrupt-on-change → the single expander INT), not the host — they are slow open-drain status only, and the *hardware* OV/OC/SC safety is autonomous (LT3652 + S-8261), so nothing time-critical depends on those pins. The **MCP23017 (§19)** pulls **SPK_SD, 12 V-boost EN, stepper STBY, the buttons/encoder-switch, PD PG, and charger CHRG/FAULT** off the host (**net −7 GPIO** for +1 INT, since it rides the existing I²C bus).
+**GPIO tally (post-expander):** I²S 3 + shared-I²C 2 + display SPI ~5 + steppers 8 + optical home 1 + SD SPI 4 + Vbat ADC 1 + LED data/dim ~2 + encoder A/B 2 + sensor INT 1 + expander INT 1 ≈ **30 GPIO** + the 2 dedicated XTAL32K pins. **PD PG and charger CHRG/FAULT now ride the MCP23017** (interrupt-on-change → the single expander INT), not the host — they are slow open-drain status only, and the *hardware* OV/OC/SC safety is autonomous (LT3652 + AP9101C), so nothing time-critical depends on those pins. The **MCP23017 (§19)** pulls **SPK_SD, 12 V-boost EN, stepper STBY, the buttons/encoder-switch, PD PG, and charger CHRG/FAULT** off the host (**net −7 GPIO** for +1 INT, since it rides the existing I²C bus).
 
 > ⚠️ **N16R8 budget is tighter than the old "≤36".** The **octal PSRAM claims GPIO35/36/37** (verified in the S3-WROOM-1 datasheet pin table — "not available for other use"), so the module frees only **~33 usable pads**; reserve GPIO19/20 for native USB → **~31 truly free**, four of them strapping. With **PG + CHRG/FAULT moved to the expander (−3)**, ~30 needed now clears the ~31-free ceiling. Recover further margin by (a) **sharing microSD on the display SPI bus** (common MOSI/SCLK/MISO, per-device CS → **−2**), (b) **software VCOM** (tie EXTMODE=L, drop EXTCOMIN → **−1**), or (c) a **quad-PSRAM module (…R2)**, which keeps GPIO35–37 free (trade 8 MB→2 MB PSRAM).
 
@@ -128,7 +129,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
   - **Voltage:** operating **5–9 V DC**; absolute-max driving voltage 10 V. Driven at **5 V** via TB6612FNG VM for full torque.
   - **Current:** coil R 230/260/290 Ω → **≈19 mA/coil at 5 V**; **two coils per shaft**, bipolar. **8 coil terminals** total (external-shaft 1–4, internal-shaft 5–8) → four H-bridges = two TB6612FNG.
   - Holding torque 3.5–4.0 mN·m; dynamic 1.0–1.45 mN·m @ 200°/s; noise ~40 dB(A); temp −40…+105 °C.
-- **Description:** 1/3° per step (60°/step rotor), up to 600°/s, 1/180 gear. Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external **optical** homing (ITR8307, §16).
+- **Description:** 1/3° per step (60°/step rotor), up to 600°/s, 1/180 gear. Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external **optical** homing (QRE1113, §16).
 - **Interface:** Not a data bus — **two 2-phase bipolar coil sets** driven from the ESP32 via **2× TB6612FNG** (below), PWM microstep. Connects via **wire + JST**.
 - **Released:** X40 pinout rev A (`FO-220-01-B`); X27 base is a long-standing automotive gauge motor.
 
@@ -158,7 +159,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
   - **Current:** **1.2 A/ch continuous (3.2 A peak)** — vs the ~19 mA the coils need → huge margin, runs cold.
   - **IO (per chip, 3.3 V logic):** channel A = `AIN1`,`AIN2`,`PWMA`; channel B = `BIN1`,`BIN2`,`PWMB`; plus `STBY`. **Pin-efficient microstep scheme:** tie `PWMA`/`PWMB` **high** and **PWM the four IN pins** for sign-magnitude microstep → **4 GPIO/chip = 8 total** + one shared `STBY` (parity with the DRV8835 it replaces). *(The textbook scheme — PWM on `PWMx`, direction on the IN pins — is 6/chip = 12 GPIO; avoid it here to protect the pin budget.)* Outputs AO1/AO2, BO1/BO2 to the coils. Decouple VM & VCC (0.1 µF min + bulk).
 - **Description:** Integrated flyback (protects the MCU), low-drop MOSFET outputs → full 5 V coil drive, thermal shutdown. No internal current chopper → microstepping is PWM/voltage-based (ideal for these high-impedance gauge coils). **Do not** use A4988/DRV8825/DRV8434/TMC-class choppers — they can't regulate ~19 mA into 260 Ω.
-- **Interface:** GPIO + PWM (IN/IN sign-magnitude). Homing via **1× ITR8307 reflective optical** (§16, separate — no hand magnets).
+- **Interface:** GPIO + PWM (IN/IN sign-magnitude). Homing via **1× QRE1113 reflective optical** (§16, separate — no hand magnets).
 - **Released:** long-standing, active (Toshiba Bi-CD).
 
 ## 7. WCH CH224K — USB-PD Sink Controller *(resistor-configured)*
@@ -174,7 +175,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 - **Product:** monolithic **step-down (buck) battery charger**, 4.95–32 V input, **up to 2 A** charge, constant-current/constant-voltage. Fully **autonomous** (resistor/capacitor-programmed — no I²C).
 - **Refs:** `LT3652` (orderable **`LT3652EMSE#PBF`**) · **Analog Devices** · **MSOP-12E** (12-lead MSOP, PowerPAD) *(3×3 DFN-12 also exists — use the MSOP)*. DigiKey # 2225686. Datasheet `3652fe`.
-- **Price:** ~$5–6 (active).
+- **Price:** ~$9.9 (active).
 - **Power / IO:**
   - **VIN:** **4.95–32 V** operating (abs-max 40 V) → the **15 V VBUS** from CH224K is well inside range.
   - **Float voltage:** set by an **external divider to the 3.3 V feedback reference** → programmed to **4.05 V** (health cap). Optional **4.2 V "full" mode** by switching a parallel FB resistor with a small FET/GPIO.
@@ -185,15 +186,15 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Health cap & telemetry:** the 4.05 V cap is enforced **in hardware by the float divider** (no firmware needed — simpler and safer); SoC/faults read via **ADC + CHRG/FAULT** instead of I²C.
 - **Interface:** none (autonomous); status pins + NTC.
 
-## 9. ABLIC S-8261 + 10. Alpha & Omega AO4800 — 1-Cell Protector *(independent safety)*
+## 9. Diodes AP9101C + 10. Alpha & Omega AOSD32334C — 1-Cell Protector *(independent safety)*
 
-- **Product:** discrete 1-cell Li-ion **protection IC (S-8261)** + **external dual N-channel MOSFET (AO4800)** — the independent OV/OD/OCD/OCC/SCP cutoff, redundant to the LT3652. Replaces the DFN integrated-FET LC05111 with two **leaded, hand-solderable** parts (the ubiquitous "protector-IC + 8205-style dual-FET" topology).
+- **Product:** discrete 1-cell Li-ion **protection IC (AP9101C)** + **external dual N-channel MOSFET (AOSD32334C)** — the independent OV/OD/OCD/OCC/SCP cutoff, redundant to the LT3652. Two **leaded, hand-solderable** parts (the ubiquitous "protector-IC + 8205-style dual-FET" topology); replaces the earlier **S-8261 + AO4800**, which were orderable only in **3000-pc reels**.
 - **Refs:**
-  - Protector: `S-8261` — pick **`S-8261AAxMD`** (**overcharge detect 4.28 V**, matching the old LC05111C02) · **ABLIC** · **SOT-23-6** · [DigiKey S-8261 series](https://www.digikey.com/htmldatasheets/production/9482/0/0/1/s-8261-series.html). *(Confirm the exact suffix's OV/OD thresholds against the datasheet voltage table before ordering.)*
-  - FET: `AO4800` — **dual N-channel, 30 V, SO-8**, low-Rds · **Alpha & Omega Semiconductor** · DigiKey-stocked (keyword `AO4800`).
-- **Price:** ~$0.4 (S-8261) + ~$0.3 (AO4800).
-- **Power / IO:** protector monitors cell voltage/current and drives the two series FETs (charge + discharge) in the cell **−** path. **S-8261:** overcharge **~4.28 V** (variant-fixed), over-discharge ~2.3–2.5 V, overcurrent + short-circuit detection — **autonomous, no config**. **AO4800:** VDS 30 V, low Rds(on), continuous current far above our <2 A.
-- **Use:** wire the AO4800 dual FET in the cell **−** path between the 18650 and PACK−, gates from the S-8261; a couple of external R/C set the delays. Belt-and-suspenders cutoff if the LT3652 fails. Overcharge is thus **double-redundant** (LT3652 CV 4.05 V + S-8261 4.28 V).
+  - Protector: **`AP9101CK6-BXTRG1`** (**-BX suffix → overcharge 4.28 V / over-discharge 2.80 V**, factory-fixed) · **Diodes Inc.** · **SOT-23-6** · [DigiKey 7352542](https://www.digikey.com/en/products/detail/diodes-incorporated/AP9101CK6-BXTRG1/7352542). ⚠ **NRND** (Not For New Designs) but **DigiKey-stocked in cut-tape/singles** (~1.9 k in stock) → fine for this one-off. The **S-8261** (`S-8261AAxMD`, same 4.28 V) is the drop-in-equivalent *active* part but **reel-only, 3000 MOQ**; **XySemi XB5351 / Nisshinbo R5478** are active LCSC alternatives (all same CO/DO + external-dual-FET topology).
+  - FET: **`AOSD32334C`** — **dual N-channel, 30 V, ±20 V VGS, 7 A, SO-8**, Rds(on) <20 mΩ@10 V / <26 mΩ@4.5 V · **Alpha & Omega Semiconductor** · [DigiKey 11567511](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AOSD32334C/11567511) (cut-tape from 1 pc). Pin-function-identical to the AO4800 it replaces.
+- **Price:** ~$0.28 (AP9101C) + ~$0.28 (AOSD32334C).
+- **Power / IO:** the protector monitors cell voltage/current and drives the two series FETs (charge + discharge) via its **CO/DO** pins in the cell **−** path. **AP9101C (-BX):** overcharge **4.28 V**, over-discharge **2.80 V**, discharge-overcurrent + load-short + charge-overcurrent detection — **autonomous, no config**. **AOSD32334C:** VDS 30 V, VGS ±20 V, low Rds(on), continuous current (7 A) far above our <2 A.
+- **Use:** wire the AOSD32334C dual FET in the cell **−** path between the 18650 and PACK−, gates from the AP9101C **CO/DO**; a couple of external R/C set the delays. Belt-and-suspenders cutoff if the LT3652 fails. Overcharge is thus **double-redundant** (LT3652 CV 4.05 V + AP9101C 4.28 V). *(AP9101C pinout differs from the S-8261 — set schematic nets from its datasheet.)*
 - **Interface:** none (autonomous).
 
 ---
@@ -254,15 +255,15 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 - **2b — future: one custom sensor daughterboard.** The **same three bare chips** (BME688 + TSL2591 + LIS3DH — §12/13/14) on a small PCB, **JLCPCB/PCBA machine-placed**; you **hand-solder only its 0.1″ header / castellated edge** to the main board. Never an iron on a leadless pad → mfg rule intact; smallest footprint; one physical board to install. **Same part numbers → same I²C addresses → the 2a firmware runs unchanged.**
 
-## 16. Everlight ITR8307 — Reflective Optical Sensor *(hand homing, root README §5)*
+## 16. onsemi QRE1113 — Reflective Optical Sensor *(hand homing, root README §5)*
 
-- **Product:** reflective photo-interrupter — GaAs IR-LED + phototransistor mounted **side-by-side** in a tiny plastic package; senses a high-contrast index mark on each hand's underside as it sweeps a **hole punched in the dial**. Short-range (target a few mm away).
-- **Refs:** Part # `ITR8307/TR8` · Mfr **Everlight** · **DigiKey # 2693862** · datasheet rev 4.
-- **Price / link:** ~**$0.5** — [DigiKey 2693862](https://www.digikey.com/en/products/detail/everlight-electronics-co-ltd/ITR8307-TR8/2693862) (active).
-- **Dimensions (L × W × H):** **3.4 × 1.5 × 1.1 mm** (4-SMD) — the **smallest reflective sensor evaluated → smallest dial hole** (the design goal). Gullwing 4-SMD = hand-solderable, mounts **on the main PCB** (not a breakout).
-- **Power / IO:** IR-LED forward ~1.2 V at a few mA (external R sets I_F); phototransistor collector to **3.3 V** through a load → an **analog level read by 1 ESP32 ADC pin (or a comparator)**. No magnets, no I²C.
+- **Product:** miniature reflective object sensor — **940 nm IR-LED + phototransistor** mounted **side-by-side** in a small rectangular case; senses a high-contrast index mark on each hand's underside as it sweeps a **hole punched in the dial**. Phototransistor (analog) output; short-range (optimum ≈1 mm).
+- **Refs:** Part # `QRE1113` · Mfr **onsemi** (Fairchild heritage) · **DigiKey # 2175990** · datasheet `QRE1113/D` rev 9 (Dec 2024). Pins: **1 Anode · 2 Cathode · 3 Collector · 4 Emitter**.
+- **Price / link:** ~**$0.76** — [DigiKey 2175990](https://www.digikey.com/en/products/detail/onsemi/QRE1113/2175990) (active). **Replaces the earlier Everlight ITR8307, which went unavailable** — the QRE1113 is a widely second-sourced jellybean reflective sensor with the **same analog-out interface**, so it drops into the same ADC support network unchanged.
+- **Dimensions (L × W × H):** **≈3.6 × 2.9 × 1.7 mm** (4-lead). Two lead forms: **through-hole gull-wing `QRE1113`** (Case 100AQ — the DigiKey part above) or **SMD gull-wing `QRE1113GR`** (Case 100CY, tape & reel). Either is hand-solderable and mounts **on the main PCB** (not a breakout); the TH form is among the easiest parts on the board to hand-solder.
+- **Power / IO:** IR-LED **V_F 1.2 V typ (1.6 V max) @ 20 mA**, λ 940 nm → ~14 mA at 3V3 through a **150 Ω** ballast (**unchanged from the ITR8307 network**); phototransistor collector to **3.3 V** through a ≈**10 kΩ** load → an **analog level read by 1 ESP32 ADC pin (or a comparator)**. I_C(ON) 0.1–0.9 mA @ I_F 20 mA, V_CE 5 V, d = 1 mm; V_CEO 30 V; I_C ≤ 20 mA. No magnets, no I²C. See `../power_values.md` §6.
 - **Use (§5):** one sensor behind the dial; **sequential per-shaft homing** removes hand-ID ambiguity (park one hand off-index, sweep the other to the edge; repeat). Re-home on boot / after NTP / after long runs; step-count between.
-- **Why it (vs TCND5000):** the Vishay **TCND5000** (**6 × 4.3 × 3.75 mm**, peak 6 mm, range 2–25 mm) reaches farther but is **~5× the footprint** → a bigger hole, so it was **dropped**. ITR8307's short range is fine because the hands sweep **<3 mm** off the dial. *(Replaces the earlier 2× DRV5032 Hall + hand magnets.)*
+- **Range / why it fits:** collector current **peaks near d ≈ 1 mm** and falls off past a few mm (datasheet Fig. 2), which suits hands swept **<3 mm** off the dial (index mark on the underside). It is **larger than the ITR8307** (3.4×1.5×1.1 mm) → a marginally bigger dial hole, but still far smaller than the **Vishay TCND5000** (6×4.3×3.75 mm, peak 6 mm) that was evaluated for a long stand-off and **dropped**. *(Homing replaces the earlier 2× DRV5032 Hall + hand magnets.)*
 - **Interface:** analog reflective (ADC/comparator edge).
 
 ## 17. Timekeeping — no RTC IC *(ESP32-S3 RTC + 32.768 kHz crystal)*
@@ -291,6 +292,7 @@ Production-BOM rows, now locked to hand-solderable parts + filed datasheets. All
 - **23 — Keystone `1043`** (18650 holder) · DK [2745669](https://www.digikey.com/en/products/detail/keystone-electronics/1043/2745669) · TH leaf-spring PC-pin, UL94V-0 nylon · single-cell, user-replaceable. Mount in the ventilated FR/metal-barriered compartment per `../power.md`. ~$2.9.
 - **24 — Hirose `DM3AT-SF-PEJM5`** (microSD) · DK [2533565](https://www.digikey.com/en/products/detail/hirose-electric-co-ltd/DM3AT-SF-PEJM5/2533565) · **push-push SMT R/A**, 8-pos, gold, 10 k cycles · SD over the S3 SPI bus (4 pins). ~$2.85.
 - **25 — GCT `USB4105-GF-A`** (USB-C receptacle) · DK [11198441](https://www.digikey.com/en/products/detail/gct/USB4105-GF-A/11198441) · USB 2.0 Type-C, **5 A**, SMT body + **TH hold-down tabs** (rugged), 20 k cycles · VBUS/CC to the CH224K PD sink. ~$0.8.
+- **27 — Analog Devices `LTC4412ES6#TRPBF`** (amp-PVDD rail-mux) · DK [960173](https://www.digikey.com/en/products/detail/analog-devices-inc/LTC4412ES6-TRPBF/960173) · **TSOT-23-6** · low-loss **PowerPath OR-controller** driving an external P-FET; auto-selects **12 V (plugged)** vs **5 V (battery)** for the TAS5760M PVDD → quieter alarm on the cell (V range 3–28 V, well above the 12 V rail). Autonomous, no MCU. ~$5.2. *(Bench: finalize the external mux P-FET network — `../power_values.md` §8.)*
 
 **LED subsystem — locked incl. 12 V source (2026-07-12):** two modes, **3 PWM channels**, **two rails** (SK6812 halo + TPS92200 CC driver **both dropped**); low-side switched by **AO3400A** NMOS (100 Ω gate + 10 kΩ pulldown, ~1 kHz). **Wake-up** = **12 V** self-ballasted COB, **warm 3000K** (`12V-COB-3000K-12M`, DK 16714316) + **neutral 4000K** (`12V-COB-4000K-12M`, DK 16714317), Inspired LED; PWM ← IO45 (warm) / IO46 (cool). **Panel** = dial + LCD frontlight, **one shared channel** of **≤12 discrete 5 V warm LEDs** (Cree `CLM3C-MKW-CWAXB233`, DK 1987465; Vf 3.2 V, ~180 Ω series-R each), PWM ← IO7. **12 V source RESOLVED: no barrel jack** — the wake strips run off the shared **TPS55340 boost, plugged-only**; on battery the amp PVDD auto-drops to the 5 V rail via an **LTC4412 mux** (quieter alarm) and the panel LEDs (5 V) stay on. See [`../led.md`](../led.md) + [`../power.md`](../power.md) §LED + [`../power_values.md`](../power_values.md) §8. **Bench:** finalize the mux FET network; confirm wake-COB wattage keeps LED + audio ≤ ~12 W.
 
@@ -307,7 +309,7 @@ Production-BOM rows, now locked to hand-solderable parts + filed datasheets. All
 
 ---
 
-## Reconciliation with root README (v0.16)
+## Reconciliation with root README (v0.17)
 
 All parts match the root [`README.md`](../README.md):
 
@@ -318,13 +320,13 @@ All parts match the root [`README.md`](../README.md):
 | **Stepper** | ✅ X40.879 (+ X27 companion datasheet); root §5 explains the dependency. |
 | **Audio amp** | ✅ **TAS5760M** (HTSSOP) locked, replacing the QFN TAS5825M; firmware does the HPF/limiter DSP. PCM5102A+TPA3116 = analog alt. |
 | **Motor driver** | ✅ **2× TB6612FNG** (SSOP-24) locked, replacing the WSON DRV8835. |
-| **Power / safety** | ✅ **CH224K** (PD) + **LT3652** (1S buck charger, BAT-node power-path) + **S-8261 + AO4800** protector + reverse P-FET + NTC + TVS. Fuel gauge → **ESP32 ADC**. See [`../power.md`](../power.md). |
+| **Power / safety** | ✅ **CH224K** (PD) + **LT3652** (1S buck charger, BAT-node power-path) + **AP9101C + AOSD32334C** protector + reverse P-FET + NTC + TVS. Fuel gauge → **ESP32 ADC**. See [`../power.md`](../power.md). |
 | **Charger telemetry** | ⚠️ **downgrade:** LT3652 has **no I²C** and a **single-window NTC** (not multi-zone JEITA). Health-cap 4.05 V is enforced in hardware; SoC/faults via ADC + status pins. Double-redundant overcharge preserved. |
 | **Display connector** | ✅ **FH34SRJ-10S-0.5SH** (Hirose, 10-pin 0.5 mm ZIF) — the panel spec's own recommended mate; **on-board** (FPC/ZIF is hand-solderable). |
 | **Sensors (v0.15 consolidated)** | ✅ env **BME688** (T/RH/press/**VOC** — one chip = climate + air-quality) · light **TSL2591** (weak-light) · accel **LIS3DH** (tap + orient). All leadless → **I²C modules**, **same set on both paths**: **2a** = Adafruit STEMMA QT chain (5046 + 1980 + 2809); **2b** = future custom daughterboard (same 3 bare chips → firmware unchanged). Dropped TMP117/SHT45/SGP41/BMA400 datasheets. |
-| **Hand homing** | ✅ **1× Everlight ITR8307** reflective optical (§16, 4-SMD, on-board) — single sensor + punched dial hole, sequential, **no hand magnets**. Replaces 2× DRV5032 Hall; **TCND5000 evaluated & dropped** (6×4.3×3.75 mm ≈ 5× bigger → bigger hole). |
+| **Hand homing** | ✅ **1× onsemi QRE1113** reflective optical (§16, 4-lead, on-board) — single sensor + punched dial hole, sequential, **no hand magnets**. Replaces the **unavailable Everlight ITR8307** (same analog-out interface, same 150 Ω/10 kΩ network) and the earlier 2× DRV5032 Hall; **TCND5000 evaluated & dropped** (6×4.3×3.75 mm). |
 | **Timekeeping** | ✅ **No RTC IC / no battery** — S3 internal RTC off a **32.768 kHz crystal** (XTAL32K) + SNTP (~±20 ppm ≈ 1.7 s/day). Total power loss → re-sync on boot (clock animation). RV-3028-C7/DS3231SN datasheet removed. Xtal now locked = **ABS07-32.768KHZ-T** (row 16). |
 | **IO expander** | ✅ **MCP23017** (SOIC/SSOP-28) on the shared I²C + INT — offloads SPK_SD / 12 V EN / stepper STBY / buttons / enc-SW / **PD PG** / **charger CHRG/FAULT** (**net −7 GPIO**; MCU ≈ **30**). Steppers stay on **MCPWM**, encoder on **PCNT** — *not* the expander (PWM/quadrature can't be offloaded). See §19. |
 | **Power-path & interconnect** | ✅ **rows 16–25 locked + datasheeted** (2026-07-05): xtal ABS07-32.768KHZ-T · reverse P-FET AO3401A · NTC NCP18XH103F03RB (**0603**) · TVS SMAJ22A+SMAJ5.0A · **12 V boost TPS55340PWPR** (replaces LM2587S-ADJ) · 5 V boost TPS61023DRLR · 3.3 V buck TLV62569DBVR · holder Keystone 1043 · microSD DM3AT-SF-PEJM5 · USB-C USB4105-GF-A. All hand-solderable, DigiKey-active. **LEDs deferred.** |
 
-**No open discrepancies.** Corrections this pass: NTC size **0402 → 0603** (NCP18 is 0603; BOM cell fixed), audio boost **LM2587S-ADJ → TPS55340PWPR** (the former's active `/NOPB` is $12.59 & out of stock), and **32.768 kHz load caps 9–10 pF → ~18 pF** (§17 arithmetic error — correct value is 2·(C_L − C_stray); matches `../power_values.md` §6). Intentional non-"matches": **PC68-4** (speaker *alternative*), **CH224K off-DigiKey** (no hand-solderable DigiKey PD sink), and the filed **TVS datasheet is the Bourns-published SMAJ** series (identical JEDEC part; Littelfuse's own PDF is Akamai/bot-blocked). **Resolved 2026-07-12:** (1) **LED 12 V source** — no barrel jack; shared TPS55340 boost (plugged-only) + LTC4412 amp-PVDD mux to 5 V on battery; wake COB (Inspired LED 3000K/4000K) + panel LEDs (Cree CLM3C, 5 V) locked. (2) **Backup mode = adaptive** (modem-sleep → deep-sleep at low SoC). (3) **One-shot ~77 °C TCO added** to the cell − path (⚠ pick exact part + file datasheet). (4) **Software VCOM** (EXTMODE=L, no EXTCOMIN) per `../esp32.md`. **Bench-only:** LTC4412 mux FET network + LT3652 NTC bias + TPS55340 comp network + TCO part selection.
+**No open discrepancies.** Corrections this pass: NTC size **0402 → 0603** (NCP18 is 0603; BOM cell fixed), audio boost **LM2587S-ADJ → TPS55340PWPR** (the former's active `/NOPB` is $12.59 & out of stock), and **32.768 kHz load caps 9–10 pF → ~18 pF** (§17 arithmetic error — correct value is 2·(C_L − C_stray); matches `../power_values.md` §6). Intentional non-"matches": **PC68-4** (speaker *alternative*), **CH224K off-DigiKey** (no hand-solderable DigiKey PD sink), and the filed **TVS datasheet is the Bourns-published SMAJ** series (identical JEDEC part; Littelfuse's own PDF is Akamai/bot-blocked). **Resolved 2026-07-12:** (1) **LED 12 V source** — no barrel jack; shared TPS55340 boost (plugged-only) + LTC4412 amp-PVDD mux to 5 V on battery; wake COB (Inspired LED 3000K/4000K) + panel LEDs (Cree CLM3C, 5 V) locked. (2) **Backup mode = adaptive** (modem-sleep → deep-sleep at low SoC). (3) **One-shot ~77 °C TCO added** to the cell − path (⚠ pick exact part + file datasheet). (4) **Software VCOM** (EXTMODE=L, no EXTCOMIN) per `../esp32.md`. (5) **Homing sensor re-picked** — Everlight **ITR8307 went unavailable** → **onsemi QRE1113** (DigiKey 2175990, §16): same phototransistor analog-out interface, same 150 Ω/10 kΩ network, so electrically drop-in; slightly larger package (≈3.6×2.9×1.7 mm) → marginally bigger dial hole. `sensor_homing_optical_itr8307.pdf` removed, `sensor_homing_QRE1113-D.PDF` filed. **Bench-only:** LTC4412 mux FET network + LT3652 NTC bias + TPS55340 comp network + TCO part selection.

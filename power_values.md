@@ -105,7 +105,7 @@ Datasheet `boost_12v_audio_tps55340.pdf`. V_REF = **1.229 V**. Datasheet worked 
 |---|---|
 | **32.768 kHz XTAL** (ABS07, C_L 12.5 pF) | 2 × **18 pF** C0G load caps (= 2·(C_L − C_stray), C_stray ≈ 3 pF); no series R; ESR ≤ 70 kΩ |
 | **Vbat ADC divider** (+ disconnect FET, Decision #3) | R_top **100 k**, R_bot **100 k** (÷2: 4.2 V→2.1 V, ADC1 11 dB atten) + **100 nF** at node. **2N7002** in series with R_bot→GND, gate = `VBAT_DIV_EN` (expander) → off in deep-sleep (saves ~21 µA) |
-| **ITR8307 homing** | IR-LED ballast **150 Ω** (I_F ≈ 14 mA @ 3V3); phototransistor collector→3V3 via **10 k**, output→ADC (IO2) + **100 nF**. Tune 10 k for distance/reflectivity |
+| **QRE1113 homing** | IR-LED ballast **150 Ω** (V_F 1.2 V → I_F ≈ 14 mA @ 3V3); phototransistor collector→3V3 via **10 k**, output→ADC (IO2) + **100 nF**. Tune 10 k for distance/reflectivity |
 | **Reverse P-FET** (AO3401A) | source=holder+, drain=system BAT+; gate→GND **100 k**; optional 8–10 V Zener gate-source clamp |
 | **Protector** (S-8261 + AO4800) | R_VM ≈ **330 Ω**, C_VDD-VSS **0.1 µF**; AO4800 dual-NFET in cell− path ⚠️ verify delay caps + threshold suffix (S-8261AAxMD, OV 4.28 V) |
 | **I²C pull-ups** | main board **4.7 kΩ ×2** (SDA/SCL) @ 3V3. Sensor breakouts add 10 k each in ∥ — lift their jumpers if the bus gets too strong |

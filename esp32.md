@@ -45,7 +45,7 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `EN` | — | `EN` (reset) | — | IN, PU (ext 10k) | 3.3 V | reset · prog header | +1 µF to GND; DTR-toggled for UART download |
 | `IO0` | 0 | `BOOT` | — (strap) | IN, PU (ext 10k) | 3.3 V | boot/download strap · **only spare pad** | must be HIGH at boot; on prog header |
 | `IO1` | 1 | `VBAT_SENSE` | ADC1_CH0 | ANA IN | 3.3 V | LT3652 BAT node · SoC/voltage | ADC1 (Wi-Fi-safe); ÷2 divider + RC |
-| `IO2` | 2 | `HOME_OPTO` | ADC1_CH1 | ANA IN | 3.3 V | ITR8307 · hand-home reflect | ADC1; phototransistor load (or comparator) |
+| `IO2` | 2 | `HOME_OPTO` | ADC1_CH1 | ANA IN | 3.3 V | QRE1113 · hand-home reflect | ADC1; phototransistor load (or comparator) |
 | `IO3` | 3 | `STEP_M_BIN2` | MCPWM0 | OUT / AF | 3.3 V | TB6612 #1 · minute coil B− | strap (JTAG) floating-OK; motor idle at boot (STBY low) |
 | `IO4` | 4 | `STEP_M_AIN1` | MCPWM0_0A | OUT / AF | 3.3 V | TB6612 #1 · minute coil A+ | |
 | `IO5` | 5 | `STEP_M_AIN2` | MCPWM0_0B | OUT / AF | 3.3 V | TB6612 #1 · minute coil A− | |
