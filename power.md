@@ -48,7 +48,7 @@ bright wake light is **12 V** (plugged-only, self-ballasted COB); the faint pane
 
 Values + wiring in [`power_values.md`](power_values.md) §8. **Off-by-default at night**, ALS-gated;
 warm→neutral sunrise ramp over ~30 min. Dial ring + display frontlight run off **one** PWM (same
-intensity, enabled together); merging them freed the 4th channel and returned IO43 to a hardware UART log.
+intensity, enabled together); merging them freed the 4th channel — IO43 now carries the **I²S MCLK** to the amp (see `esp32.md`).
 
 > ✅ **12 V source — RESOLVED (2026-07-12).** **No barrel jack.** The wake strips run off the shared
 > **TPS55340 boost**, gated **plugged-only** (enabled only on the USB-PD contract). Rationale: the

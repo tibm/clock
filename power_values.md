@@ -23,7 +23,7 @@ Datasheet `charger_lt3652.pdf`. V_FB reference = **3.3 V**. Float set by a divid
 | **C_VIN** | **2×10 µF / 25 V** X7R low-ESR | RMS ripple = I_CHG/2 = 0.5 A worst case; TVS SMAJ22A already on VBUS |
 | **C_BAT** | **10 µF/10 V X7R + 100 µF/10 V polymer** | 100 µF bulk **required** because we run system load with no cell |
 | **VIN_REG UVLO** | R_IN1 = **316 k**, R_IN2 = **100 k** | V_IN(min) = 2.7·(R_IN1/R_IN2 + 1) ≈ 11.2 V → charger backs off if the 15 V contract sags. *(Alt: tie VIN_REG→VIN to disable.)* |
-| **NTC** | NCP18XH103 (10 k, B25/50 = 3380) NTC→GND + **bias R ⚠️** | 0/45 °C window per LT3652 NTC section — compute bias R against the threshold table |
+| **NTC** | NCP18XH103 (10 k, B25/50 = 3380) NTC→GND **+ 909 Ω (0.91 k, 1 %) in series** | LT3652 NTC pin **sources 50 µA**; trips at **1.36 V (0 °C, cold)** / **0.29 V (40 °C, hot)**. Bare 10 k → 0/40 °C; **datasheet: adding 0.91 k series raises the hot cutoff to 45 °C** → **0/45 °C window** ✓ (cold end ≈ 0 °C, series R negligible there) |
 
 > ⚠️ **Constraint:** the LT3652 needs **V_IN ≥ V_BAT + 3.3 ≈ 7.35 V** to charge. So charging (and
 > **no-cell operation**) works **only on the 15 V PD contract**. On the 5 V fallback the charger
@@ -147,19 +147,44 @@ level shifter. **Two rails:** wake = **12 V** (plugged-only, self-ballasted COB)
   (100 Ω gate + 10 kΩ pulldown, PWM IO7). ~0.6 W max on the 5 V rail (within the TPS61023 budget).
 
 **SK6812 halo + TPS92200 dropped.** Panel = dial + frontlight on **one shared channel** (same intensity,
-enabled together); merging them freed IO43 → UART log. MOSFET **AO3400A** (DigiKey) ×3.
+enabled together); merging them freed IO43 (now the I²S **MCLK** pin — §10). MOSFET **AO3400A** (DigiKey) ×3.
 
 ### Amp PVDD rail-mux (12 V ↔ 5 V) — enables the battery alarm
-The 12 V boost is **plugged-only**, so on battery the TAS5760M PVDD must fall back to the **5 V rail**
-(~3 W, quieter alarm). Auto-select the **higher present** supply into PVDD:
+The 12 V boost is **plugged-only**, so on battery the TAS5760M PVDD falls back to the **5 V rail**
+(~3 W, quieter alarm). **LTC4412 ideal-diode on the 5 V leg + Schottky on the 12 V leg**; 12 V wins when
+present. Pinout (TSOT-23-6): **1 VIN · 2 GND · 3 CTL · 4 STAT · 5 GATE · 6 SENSE**.
 
-| Item | Value | Basis |
+| LTC4412 pin / part | Connect to | Basis |
 |---|---|---|
-| **Mux controller** | **LTC4412** (SOT-23-6) low-loss PowerPath + a small **P-FET** ⚠️ | priority to **12 V** (boost, plugged) via a series P-FET/Schottky; LTC4412 switches the **5 V** aux in when 12 V is absent. Reverse-blocks so 12 V can't back-feed the 5 V rail. |
+| **VIN** (1) | **5 V** rail | primary (backup) source; +**0.1 µF** to GND |
+| **SENSE** (6) | **PVDD** node | senses load vs VIN (20 mV fwd-reg / 20 mV reverse-turn-off); +**0.1 µF** |
+| **GATE** (5) | gate of **Q_5V** | drives the 5 V→PVDD ideal-diode P-FET (gate clamp V_G(ON) = 7 V) |
+| **Q_5V** P-FET | **AO3401A** (reuse) — source = 5 V, drain = PVDD | low-loss; ~36 mΩ×0.6 A ≈ 22 mV → PVDD ≈ 4.96 V (> 4.5 V min). Body diode reverse-blocks when PVDD > 5 V. Lower-R_DS alt (e.g. DMP3017SFG) if tighter reg wanted |
+| **CTL** (3) | **GND** | fully automatic SENSE-based switchover (no MCU/expander line) |
+| **STAT** (4) | **470 k → 3V3** (optional) or NC | open-drain "12 V-present" flag; can land on a spare expander IN |
+| **12 V leg** | 12 V-boost OUT → **Schottky (SS34 / B340A, 40 V, ≥1.5 A)** → PVDD | 12 V has margin for the ~0.4 V drop (PVDD ≈ 11.6 V plugged); blocks 5 V↔12 V back-feed |
 | **PVDD bulk** | keep the §7 `0.1 + 1 + 220 µF` at the amp | mux output = PVDD node |
 
-> A plain 2-diode OR is **rejected**: 5 V − V_Schottky ≈ 4.6 V ≈ the TAS5760M PVDD 4.5 V min (no
-> margin). Use the low-loss FET mux. ⚠️ finalize the FET + LTC4412 CTRL/STAT network at schematic.
+When 12 V is up, PVDD rises to ~11.6 V > VIN(5 V) → LTC4412 turns Q_5V off (its body diode is also
+reverse-biased) → amp on 12 V. On battery the Schottky blocks and Q_5V ideal-diodes 5 V→PVDD.
+> A plain 2-diode OR is **rejected**: 5 V − V_Schottky ≈ 4.6 V ≈ the TAS5760M PVDD 4.5 V min (no margin) —
+> hence the low-loss FET on the **5 V** leg; the Schottky is only tolerable on the **12 V** leg.
+
+## 10. TAS5760M — control-mode straps, PBTL, gain, output filter (schematic-ready)
+Datasheet `amp_tas5760m.pdf` (32-pin DAP). **Software (I²C) control**, **PBTL mono** into the 4 Ω DMA58-4.
+
+| Item | Setting | Basis |
+|---|---|---|
+| **Control mode** | **Software/I²C** → tie **SPK_GAIN0 (11) + SPK_GAIN1 (12) HIGH to DVDD** (one 10 k pull-up serves both). This reallocates **PBTL/SCL (9) = SCL** and **FREQ/SDA (8) = SDA** as the I²C port | §8.4.2 |
+| **I²C address** | **0x6C** → **SPK_SLEEP/ADR (13) → GND** (weak PU, latched at power-up; HIGH = 0x6D). Prep a **0 Ω to GND** | §8.4.2.5.1 |
+| **PBTL enable** | firmware sets **reg 0x06 bit 7 = 1** (default 0 = BTL); channel-select = 0x06 bit 1. Wire **OUTA+∥OUTB+** and **OUTA−∥OUTB−** to the speaker | §8.4.2.3 |
+| **Analog gain** | firmware **A_GAIN[3:2] in reg 0x06**; start **19.2 dBV** (matches 12 V PVDD), digital boost default. (SW mode: gain is a register, not a pin) | §8.4.2.4 |
+| **Output LC (4 Ω)** | **10 µH + 0.68 µF per leg** (datasheet 4 Ω filter; 8 Ω = 22 µH, 6 Ω = 15 µH), f_c ≈ 30–40 kHz | §6.13 |
+| **SPK_SD (7)** | from **MCP23017 GPA0** (idle-low = shutdown at boot) | §8.4.2.1 |
+| **SPK_FAULT (6)** | open-drain → **10 k PU to 3V3**; optional to a spare expander IN (GPB6) for a HW fault line, else poll fault regs over I²C | §8.3.3.1 |
+| **SFT_CLIP (2)** | **tie to GVDD_REG** (soft-clipper off → clip at rail; firmware HPF + limiter + digital clipper protect the driver). Divider+cap only if a fixed soft-clip point is wanted | §8.4.1.3 |
+| **Reg pins** | ANA_REG(3)/GVDD_REG(32)/VCOM(4)/ANA_REF(5): **bypass caps only — do not load** | §8.3.1 |
+| **MCLK (14)** | TAS5760M **requires MCLK (128–512 × f_S)** — not MCLK-less. **`IO43` = `I2S_MCLK`** (HW I²S0 via the S3 GPIO matrix; reassigned from the aux UART log → logging = USB-CDC only). Target **256 f_S ≈ 12.288 MHz @ 48 kHz** | §8.3.2.1 / Table 6 |
 
 ---
 
@@ -175,7 +200,8 @@ The 12 V boost is **plugged-only**, so on battery the TAS5760M PVDD must fall ba
 ---
 
 ## Still open (needs a decision, datasheet, or bench)
-- **LED 12 V source — RESOLVED** (§8, 2026-07-12): no barrel jack; shared TPS55340 boost, plugged-only; amp PVDD auto-mux to 5 V on battery. **Bench items:** finalize the **LTC4412 + P-FET** mux network, and confirm final wake-COB wattage keeps **LED + audio ≤ ~12 W**.
-- **TAS5760M** PBTL-mode / I²C-address (ADR) / analog-gain **straps** + output-filter LC exact values — pull from `amp_tas5760m.pdf` (next pass).
-- **TB6612** PWMA/PWMB → tie to VCC (10 k or direct); coil→AO/BO order from the X40 pinout addendum.
-- **LT3652 NTC bias resistor** and **TPS55340 comp network** — validate against datasheet threshold table / bench.
+- **LTC4412 PVDD mux — RESOLVED** (§8): ideal-diode FET (AO3401A) on 5 V + Schottky on 12 V, CTL=GND. Bench: confirm wake-COB wattage keeps **LED + audio ≤ ~12 W**.
+- **TAS5760M — RESOLVED** (§10): SW/I²C (GAIN pins HIGH), addr 0x6C, PBTL reg 0x06[7], gain 19.2 dBV, LC 10 µH + 0.68 µF (4 Ω). **MCLK on IO43** (reassigned from the aux UART log; HW I²S0 via the S3 GPIO matrix, ~12.288 MHz) — logging = USB-CDC only.
+- **TB6612 — RESOLVED** (`esp32.md` pinout table): PWMA/PWMB tied HIGH to Vcc (PWM-on-IN); coil AO/BO → X40 contacts mapped.
+- **LT3652 NTC — RESOLVED** (§1): 10 k NTC **+ 0.91 k series** → 0/45 °C.
+- **TPS55340 comp network** — values in §5; validate on bench.

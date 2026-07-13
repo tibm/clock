@@ -156,7 +156,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e19" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#F2B705;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=0.996;exitY=0.192;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;exitPerimeter=0;" target="amp" value="I²S BCLK + LRCLK [2]">
+        <mxCell id="e19" edge="1" parent="1" source="mcu" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#F2B705;strokeWidth=2;fontSize=9;fontColor=#222;labelBackgroundColor=#FFFFFF;exitX=0.996;exitY=0.192;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;exitPerimeter=0;" target="amp" value="I²S BCLK+LRCLK+MCLK [3]">
           <mxGeometry relative="1" x="0.5044" as="geometry">
             <mxPoint x="-1" as="offset" />
           </mxGeometry>
