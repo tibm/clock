@@ -1,0 +1,310 @@
+(kicad_sch
+	(version 20250114)
+	(generator "clock_gen")
+	(generator_version "10.0")
+	(uuid "61f70774-42ab-5342-90c5-2ca108e18066")
+	(paper "A3")
+	(lib_symbols)
+	(sheet
+		(at 30 30)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "a280b4b4-e0ae-56d0-a54d-850a1a500b9b")
+		(property "Sheetname" "Power In (USB-C / PD)"
+			(at 30 29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "power_in.kicad_sch"
+			(at 30 61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 120 30)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "873ff7fb-8c02-57ba-a04d-c60d6930590d")
+		(property "Sheetname" "Charger & Battery Safety"
+			(at 120 29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "charger.kicad_sch"
+			(at 120 61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 210 30)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "feda3618-ac5e-57a4-bf65-8b36a3e3e43f")
+		(property "Sheetname" "Rails (5V / 3V3 / 12V)"
+			(at 210 29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "rails.kicad_sch"
+			(at 210 61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 30 75)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "3b94d4de-e1b7-5eff-8c53-e789e71f4d7f")
+		(property "Sheetname" "MCU (ESP32-S3)"
+			(at 30 74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "mcu.kicad_sch"
+			(at 30 106 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 120 75)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "fcec4b1b-adb1-51aa-9e6d-dc8f79a1a95a")
+		(property "Sheetname" "Audio (TAS5760M + PVDD mux)"
+			(at 120 74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "audio.kicad_sch"
+			(at 120 106 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 210 75)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "e12cb07f-7298-523f-97c3-b0f2bf0fe139")
+		(property "Sheetname" "Motor (2x TB6612 + stepper)"
+			(at 210 74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "motor.kicad_sch"
+			(at 210 106 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 30 120)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "ee1f046c-76db-5169-bac1-cbbb2492057a")
+		(property "Sheetname" "Display & microSD"
+			(at 30 119 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "display_sd.kicad_sch"
+			(at 30 151 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet
+		(at 120 120)
+		(size 70 30)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "ef5f2619-4946-5c71-a9fb-cccee225bfa1")
+		(property "Sheetname" "IO Expander / Sensors / LED"
+			(at 120 119 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Sheetfile" "io.kicad_sch"
+			(at 120 151 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+		(path "/a280b4b4-e0ae-56d0-a54d-850a1a500b9b"
+			(page "2")
+		)
+		(path "/873ff7fb-8c02-57ba-a04d-c60d6930590d"
+			(page "3")
+		)
+		(path "/feda3618-ac5e-57a4-bf65-8b36a3e3e43f"
+			(page "4")
+		)
+		(path "/3b94d4de-e1b7-5eff-8c53-e789e71f4d7f"
+			(page "5")
+		)
+		(path "/fcec4b1b-adb1-51aa-9e6d-dc8f79a1a95a"
+			(page "6")
+		)
+		(path "/e12cb07f-7298-523f-97c3-b0f2bf0fe139"
+			(page "7")
+		)
+		(path "/ee1f046c-76db-5169-bac1-cbbb2492057a"
+			(page "8")
+		)
+		(path "/ef5f2619-4946-5c71-a9fb-cccee225bfa1"
+			(page "9")
+		)
+	)
+	(embedded_fonts no)
+)

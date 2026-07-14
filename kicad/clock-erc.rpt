@@ -1,0 +1,50 @@
+ERC report (2026-07-13T21:09:09, Encoding UTF8)
+Report includes: Errors, Warnings
+
+***** Sheet /
+[lib_symbol_mismatch]: Symbol 'Micro_SD_Card_Det_Hirose_DM3AT' doesn't match copy in library 'Connector'
+    ; warning
+    @(250.19 mm, 129.54 mm): Symbol J6 [Micro_SD_Card_Det_Hirose_DM3AT]
+[lib_symbol_mismatch]: Symbol '2N7002' doesn't match copy in library 'Transistor_FET'
+    ; warning
+    @(30.48 mm, 209.55 mm): Symbol Q3 [2N7002]
+[lib_symbol_mismatch]: Symbol '2N7002' doesn't match copy in library 'Transistor_FET'
+    ; warning
+    @(279.40 mm, 139.70 mm): Symbol Q1 [2N7002]
+[lib_symbol_mismatch]: Symbol 'AO3400A' doesn't match copy in library 'Transistor_FET'
+    ; warning
+    @(90.17 mm, 260.35 mm): Symbol Q5 [AO3400A]
+[lib_symbol_mismatch]: Symbol 'AO3400A' doesn't match copy in library 'Transistor_FET'
+    ; warning
+    @(190.50 mm, 260.35 mm): Symbol Q6 [AO3400A]
+[lib_symbol_mismatch]: Symbol 'AO3400A' doesn't match copy in library 'Transistor_FET'
+    ; warning
+    @(289.56 mm, 260.35 mm): Symbol Q7 [AO3400A]
+
+***** Sheet /Power In (USB-C / PD)/
+
+***** Sheet /MCU (ESP32-S3)/
+
+***** Sheet /Display & microSD/
+
+***** Sheet /Charger & Battery Safety/
+
+***** Sheet /Audio (TAS5760M + PVDD mux)/
+
+***** Sheet /IO Expander / Sensors / LED/
+[pin_to_pin]: Pins of type Open emitter and Power output are connected
+    ; error
+    @(137.16 mm, 212.09 mm): Symbol U14 Pin 4 [Open emitter, Line]
+    @(304.80 mm, 100.33 mm): Symbol #FLG001 Pin 1 [Power output, Line]
+
+***** Sheet /Rails (5V / 3V3 / 12V)/
+
+***** Sheet /Motor (2x TB6612 + stepper)/
+
+ ** ERC messages: 7  Errors 1  Warnings 6
+
+ ** Ignored checks:
+    - Global label only appears once in the schematic
+    - Four connection points are joined together
+    - SPICE model issue
+    - Assigned footprint doesn't match footprint filters
