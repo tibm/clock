@@ -87,6 +87,26 @@ class Comp:
         self.is_power = is_power
         self.uuid = uid(f"comp:{ref}:{lib_id}:{x}:{y}")
 
+    def pin_etype(self, number):
+        return self.cache.pins(self.lib_id, self.unit)[number]["etype"]
+
+    def _xf(self, x, y):
+        """Library (Y-up) point -> schematic (Y-down) point for this instance's
+        placement (rot in {0,90,180,270}, optional mirror x|y)."""
+        bx, by = x, -y                       # Y flip (lib -> sch base)
+        if self.mirror == "x":
+            by = -by
+        elif self.mirror == "y":
+            bx = -bx
+        r = self.rot % 360
+        if r == 90:
+            bx, by = by, -bx
+        elif r == 180:
+            bx, by = -bx, -by
+        elif r == 270:
+            bx, by = -by, bx
+        return self.x + bx, self.y + by
+
     def pin_xy(self, number):
         pins = self.cache.pins(self.lib_id, self.unit)
         if number not in pins:
@@ -94,13 +114,16 @@ class Comp:
                            f"has {sorted(pins)}")
         p = pins[number]
         px, py, lib_angle = p["x"], p["y"], p["angle"]
-        if self.rot not in (0,) or self.mirror:
-            raise NotImplementedError("only rot=0, no mirror supported")
-        sx = self.x + px
-        sy = self.y - py
-        sch_pin_angle = (360 - lib_angle) % 360
-        outward = (sch_pin_angle + 180) % 360
-        return sx, sy, outward
+        cx, cy = self._xf(px, py)
+        # a point 1 mm toward the body (opposite the pin direction) to get outward
+        a = math.radians(lib_angle)
+        bx, by = self._xf(px - math.cos(a), py - math.sin(a))
+        dx, dy = cx - bx, cy - by
+        if abs(dx) >= abs(dy):
+            outward = 0 if dx > 0 else 180
+        else:
+            outward = 90 if dy > 0 else 270
+        return round(cx, 4), round(cy, 4), outward
 
 
 class Schematic:
@@ -118,6 +141,8 @@ class Schematic:
         self.page = page
         self.uuid = uid(f"file:{name}")
         self.comps: list[Comp] = []
+        self.nodes = []       # (comp, pin, netname) — logical net declarations
+        self._fy = 40.0       # cursor for the auto power-flag strip
         self.wires = []
         self.labels = []      # (kind, text, x, y, rot)
         self.juncs = []
@@ -170,6 +195,8 @@ class Schematic:
         return self.comp(ref, "Device:Fuse", x, y, value, fp)
 
     def wire(self, x1, y1, x2, y2):
+        if abs(x1 - x2) < 0.05 and abs(y1 - y2) < 0.05:
+            return                      # skip degenerate/zero-length wires
         self.wires.append((x1, y1, x2, y2))
 
     def junction(self, x, y):
@@ -187,38 +214,29 @@ class Schematic:
     def rect(self, x1, y1, x2, y2):
         self.rects.append((x1, y1, x2, y2))
 
-    def net(self, comp, pin, text, kind="global", stub=2.54, add_junction=False):
-        """Attach a named net to a pin via a short stub + label."""
-        x, y, outward = comp.pin_xy(pin)
-        dx, dy = _DIR[outward]
-        ex, ey = x + dx * stub, y + dy * stub
-        if stub:
-            self.wire(x, y, ex, ey)
-        # label rotation for readability
-        lrot = {0: 0, 180: 180, 270: 90, 90: 270}[outward]
-        self.label(text, ex, ey, lrot, kind)
-        if add_junction:
-            self.junction(x, y)
-        return ex, ey
-
+    # nets rendered as power-port symbols (span the whole hierarchy)
+    POWER_NETS = {"GND", "+3V3", "+5V", "+12V", "VBUS", "VBAT", "PVDD"}
     _PWR_LIB = {"GND": "power:GND", "+3V3": "power:+3V3", "+5V": "power:+5V",
-                "+12V": "power:+12V", "VBUS": "power:VBUS", "VBAT": "clock:VBAT"}
+                "+12V": "power:+12V", "VBUS": "power:VBUS", "VBAT": "clock:VBAT",
+                "PVDD": "clock:PVDD"}
+
+    # ---- logical-net declaration (rendered later by finalize) ----
+    def node(self, comp, pin, net):
+        """Declare that a component pin belongs to a net. Rendering (power
+        symbol / cross-sheet label / on-page wire) is decided in finalize()."""
+        self.nodes.append((comp, pin, net))
+
+    # back-compat aliases: both just declare a node now
+    def net(self, comp, pin, text, **kw):
+        self.node(comp, pin, text)
+
+    def power(self, comp, pin, sym, **kw):
+        self.node(comp, pin, sym)
 
     def nc(self, comp, pin):
         """Place a no-connect flag on a pin endpoint."""
         x, y, _ = comp.pin_xy(pin)
         self.noconn(x, y)
-
-    def power(self, comp, pin, sym, stub=2.54):
-        """Attach a real power-port symbol (GND/+3V3/+5V/+12V/VBUS/VBAT) to a pin.
-        All power symbols have their pin at local (0,0), so the symbol drops
-        directly on the stub end with no rotation."""
-        x, y, outward = comp.pin_xy(pin)
-        dx, dy = _DIR[outward]
-        ex, ey = x + dx * stub, y + dy * stub
-        if stub:
-            self.wire(x, y, ex, ey)
-        return self.power_at(ex, ey, sym)
 
     def power_at(self, x, y, sym):
         lib = self._PWR_LIB[sym]
@@ -228,20 +246,123 @@ class Schematic:
         return x, y
 
     def pwr_flag(self, x, y):
-        """Drop a PWR_FLAG at (x,y) so ERC sees the net as driven."""
         Schematic._flg_count += 1
         ref = f"#FLG{Schematic._flg_count:03d}"
         self.comp(ref, "power:PWR_FLAG", x, y, value="PWR_FLAG", unit=1,
                   rot=0, is_power=True)
 
     def flag(self, net, x, y):
-        """Place a PWR_FLAG + named global label to mark a net as driven (ERC).
-        The label attaches to the flag pin via a short wire stub."""
-        Schematic._flg_count += 1
-        ref = f"#FLG{Schematic._flg_count:03d}"
-        c = self.comp(ref, "power:PWR_FLAG", x, y, value="PWR_FLAG", unit=1,
-                      rot=0, is_power=True)
-        self.net(c, "1", net, stub=2.54)
+        """A rail/GND power symbol + PWR_FLAG wired together (marks a source /
+        derived-supply net as driven for ERC). Self-contained; not a node."""
+        x = round(x / 1.27) * 1.27       # keep on grid so the wire meets the pins
+        y = round(y / 1.27) * 1.27
+        self.power_at(x, y, net)
+        self.wire(x, y, x + 5.08, y)
+        self.pwr_flag(x + 5.08, y)
+
+    def rail_flag(self, net):
+        """Auto-placed power-rail flag in a right-margin strip (once per rail)."""
+        self.flag(net, 372.11, self._fy)
+        self._fy += 10.16
+
+    def local_flag(self, net, comp, pin):
+        """PWR_FLAG for an on-page supply net (e.g. a resistor-fed VDD): placed
+        just below the given member pin and declared onto the net so the router
+        wires it in."""
+        x, y, _ = comp.pin_xy(pin)
+        self.pwr_flag(x, y + 10.16)
+        # node the flag's pin onto the net (its pin sits at y+10.16)
+        fl = self.comps[-1]
+        self.node(fl, "1", net)
+
+    # ---- rendering (called by finalize) ----
+    def _stub(self, comp, pin, length=2.54):
+        x, y, outward = comp.pin_xy(pin)
+        dx, dy = _DIR[outward]
+        return x, y, x + dx * length, y + dy * length, outward
+
+    def _render_power(self, comp, pin, net):
+        x, y, ex, ey, _ = self._stub(comp, pin)
+        self.wire(x, y, ex, ey)
+        self.power_at(ex, ey, net)
+
+    _LROT = {0: 0, 180: 180, 270: 90, 90: 270}
+    WIRE_SPAN = 20.0   # cluster tighter than this -> wire; else use labels
+
+    def _render_label(self, comp, pin, net, kind="global"):
+        x, y, ex, ey, outward = self._stub(comp, pin)
+        self.wire(x, y, ex, ey)
+        self.label(net, ex, ey, self._LROT[outward], kind)
+
+    def _span(self, members):
+        pts = [c.pin_xy(p)[:2] for c, p in members]
+        s = 0.0
+        for i in range(len(pts)):
+            for j in range(i + 1, len(pts)):
+                s = max(s, abs(pts[i][0] - pts[j][0]) + abs(pts[i][1] - pts[j][1]))
+        return s
+
+    def _render_global(self, net, members):
+        """Cross-sheet net. Compact members are wired together with ONE label;
+        spread members each get their own global label (never cross-merges)."""
+        if len(members) > 1 and self._span(members) <= self.WIRE_SPAN:
+            self._wire_cluster(members)
+            c, p = members[0]
+            x, y, outward = c.pin_xy(p)
+            dx, dy = _DIR[outward]
+            lx, ly = x + dx * 5.08, y + dy * 5.08
+            self.wire(x, y, lx, ly)
+            self.label(net, lx, ly, self._LROT[outward], "global")
+        else:
+            for c, p in members:
+                self._render_label(c, p, net, "global")
+
+    def _route_local(self, net, members):
+        """On-page net: wire clustered members; spread members get local labels
+        (connect by name within the sheet, never cross-merge with other wires)."""
+        if len(members) > 1 and self._span(members) <= self.WIRE_SPAN:
+            self._wire_cluster(members)
+        else:
+            for c, p in members:
+                self._render_label(c, p, net, "local")
+
+    def _wire_cluster(self, members):
+        """Orthogonally wire a compact set of member pins."""
+        stubs = []
+        for c, p in members:
+            x, y, ex, ey, _ = self._stub(c, p)
+            self.wire(x, y, ex, ey)
+            stubs.append((ex, ey))
+        if len(stubs) == 2:
+            (x1, y1), (x2, y2) = stubs
+            if x1 == x2 or y1 == y2:
+                self.wire(x1, y1, x2, y2)
+            else:
+                self.wire(x1, y1, x1, y2)
+                self.wire(x1, y2, x2, y2)
+            return
+        xs = sorted(s[0] for s in stubs)
+        ys = [s[1] for s in stubs]
+        tx = xs[len(xs) // 2]
+        self.wire(tx, min(ys), tx, max(ys))
+        for sx, sy in stubs:
+            if sx != tx:
+                self.wire(sx, sy, tx, sy)
+            self.junction(tx, sy)
+
+    def finalize(self, global_nets):
+        from collections import defaultdict
+        bynet = defaultdict(list)
+        for c, p, net in self.nodes:
+            bynet[net].append((c, p))
+        for net, members in bynet.items():
+            if net in self.POWER_NETS:
+                for c, p in members:
+                    self._render_power(c, p, net)
+            elif net in global_nets:
+                self._render_global(net, members)
+            else:
+                self._route_local(net, members)
 
     def add_sheet(self, name, filename, x, y, w=40, h=20):
         su = uid(f"sheet:{name}")
@@ -269,13 +390,16 @@ class Schematic:
         in_bom = "no" if c.is_power else "yes"
         n = A("symbol",
               A("lib_id", QStr(c.lib_id)),
-              A("at", c.x, c.y, c.rot),
+              A("at", c.x, c.y, c.rot))
+        if c.mirror in ("x", "y"):
+            n.append(A("mirror", Atom(c.mirror)))
+        n.extend([
               A("unit", c.unit),
               A("exclude_from_sim", Atom("no")),
               A("in_bom", Atom(in_bom)),
               A("on_board", Atom("yes")),
               A("dnp", Atom("no")),
-              A("uuid", QStr(c.uuid)))
+              A("uuid", QStr(c.uuid))])
         if c.is_power:
             # reference hidden; value = net name shown
             n.append(prop("Reference", c.ref, c.x + 2.54, c.y, hide=True))

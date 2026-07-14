@@ -34,6 +34,32 @@ VBAT = '''\t(symbol "VBAT"
 '''
 
 
+def rail_symbol(name, desc):
+    """A simple up-pointing power-rail flag symbol (like +5V), net = name."""
+    return f'''\t(symbol "{name}"
+\t\t(power)
+\t\t(pin_names (offset 0))
+\t\t(exclude_from_sim no)(in_bom no)(on_board yes)
+\t\t(property "Reference" "#PWR" (at 0 -3.81 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(property "Value" "{name}" (at 0 3.556 0)(show_name no)(effects (font (size 1.27 1.27))))
+\t\t(property "Footprint" "" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(property "Datasheet" "" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(property "Description" "{desc}" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(symbol "{name}_0_1"
+\t\t\t(polyline (pts (xy -0.762 1.27)(xy 0 2.54)) (stroke (width 0)(type default))(fill (type none)))
+\t\t\t(polyline (pts (xy 0 0)(xy 0 2.54)) (stroke (width 0)(type default))(fill (type none)))
+\t\t\t(polyline (pts (xy 0 2.54)(xy 0.762 1.27)) (stroke (width 0)(type default))(fill (type none)))
+\t\t)
+\t\t(symbol "{name}_1_1"
+\t\t\t(pin power_in line (at 0 0 90)(length 0)
+\t\t\t\t(name "{name}" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "1" (effects (font (size 1.27 1.27)))))
+\t\t)
+\t\t(embedded_fonts no)
+\t)
+'''
+
+
 def ic_symbol(name, footprint, datasheet, pins, description="",
               width=15.24, pin_len=3.81, grid=2.54):
     """pins: list of dicts {num, name, side(L/R/T/B), etype, order}.
@@ -148,60 +174,45 @@ def build():
         description="Dual N-MOSFET, 30V, cell- protection FET pair", width=15.24)
     parts.append(aos)
 
-    # ---- TAS5760M Class-D amp (DCA 48-pin TSSOP, per repo datasheet SLOS772) ----
-    # NOTE: BOM specifies TAS5760MDAPR (DAP 32-pin); the datasheet in /datasheet
-    # is the DCA 48-pin. Built to the datasheet in hand. Connections are by pin
-    # NAME (identical across packages) -> a DAP swap only renumbers pins+footprint.
+    # ---- TAS5760M Class-D amp (DAP 32-pin HTSSOP/PowerPAD, datasheet p.6) ----
     tas_pins = []
-    # left: digital/control
-    L = ["15", "14", "16", "13", "7", "8", "10", "11", "12", "6", "5"]
-    Lname = {"15": "SDIN", "14": "SCLK", "16": "LRCK", "13": "MCLK",
-             "7": "FREQ/SDA", "8": "PBTL/SCL", "10": "SPK_GAIN0",
-             "11": "SPK_GAIN1", "12": "SPK_SLEEP/ADR", "6": "SPK_SD", "5": "SPK_FAULT"}
-    # left lower: analog / reg / power-in
-    L2 = ["9", "46", "48", "2", "4", "3", "1"]
-    L2name = {"9": "DVDD", "46": "AVDD", "48": "GVDD_REG", "2": "ANA_REG",
-              "4": "ANA_REF", "3": "VCOM", "1": "SFT_CLIP"}
-    L2etype = {"9": "power_in", "46": "power_in", "48": "passive", "2": "passive",
-               "4": "passive", "3": "passive", "1": "input"}
-    # right: outputs / bootstrap / PVDD
-    R = ["42", "40", "35", "37", "43", "39", "34", "38", "32", "33", "44", "45"]
-    Rname = {"42": "SPK_OUTA+", "40": "SPK_OUTA-", "35": "SPK_OUTB+",
-             "37": "SPK_OUTB-", "43": "BSTRPA+", "39": "BSTRPA-",
-             "34": "BSTRPB+", "38": "BSTRPB-", "32": "PVDD", "33": "PVDD",
-             "44": "PVDD", "45": "PVDD"}
-    # SPK_OUT pins are 'passive' (they are paralleled in PBTL -> avoids ERC
-    # output-output conflict) ; PVDD are power_in ; bootstraps passive
-    Retype = {p: ("power_in" if Rname[p] == "PVDD" else "passive") for p in R}
-    # bottom: grounds + pad
-    B = ["17", "36", "41", "47", "49"]
-    Bname = {"17": "DGND", "36": "PGND", "41": "PGND", "47": "GGND", "49": "PAD"}
-    # top: NC (18..31) tied to GND on the sheet
-    T = [str(n) for n in range(18, 32)]
-
-    order = 0
-    for i, p in enumerate(L):
-        tas_pins.append(P(p, Lname[p], "L", i, "input"))
-    for i, p in enumerate(L2):
-        tas_pins.append(P(p, L2name[p], "L", len(L) + i, L2etype[p]))
-    for i, p in enumerate(R):
-        tas_pins.append(P(p, Rname[p], "R", i, Retype[p]))
-    for i, p in enumerate(B):
-        tas_pins.append(P(p, Bname[p], "B", i, "power_in"))
-    for i, p in enumerate(T):
-        tas_pins.append(P(p, "NC", "T", i, "passive"))
+    L = [("16", "SDIN", "input"), ("15", "SCLK", "input"), ("17", "LRCK", "input"),
+         ("14", "MCLK", "input"), ("8", "FREQ/SDA", "input"), ("9", "PBTL/SCL", "input"),
+         ("11", "SPK_GAIN0", "input"), ("12", "SPK_GAIN1", "input"),
+         ("13", "SPK_SLEEP/ADR", "input"), ("7", "SPK_SD", "input"),
+         ("6", "SPK_FAULT", "output")]
+    L2 = [("10", "DVDD", "power_in"), ("1", "AVDD", "power_in"),
+          ("32", "GVDD_REG", "passive"), ("3", "ANA_REG", "passive"),
+          ("5", "ANA_REF", "passive"), ("4", "VCOM", "passive"),
+          ("2", "SFT_CLIP", "input")]
+    R = [("29", "SPK_OUTA+", "passive"), ("26", "SPK_OUTA-", "passive"),
+         ("20", "SPK_OUTB+", "passive"), ("23", "SPK_OUTB-", "passive"),
+         ("30", "BSTRPA+", "passive"), ("25", "BSTRPA-", "passive"),
+         ("19", "BSTRPB+", "passive"), ("24", "BSTRPB-", "passive"),
+         ("21", "PVDD", "power_in"), ("28", "PVDD", "power_in")]
+    B = [("18", "DGND"), ("22", "PGND"), ("27", "PGND"), ("31", "GGND"), ("33", "PAD")]
+    for i, (num, name, et) in enumerate(L):
+        tas_pins.append(P(num, name, "L", i, et))
+    for i, (num, name, et) in enumerate(L2):
+        tas_pins.append(P(num, name, "L", len(L) + i, et))
+    for i, (num, name, et) in enumerate(R):
+        tas_pins.append(P(num, name, "R", i, et))
+    for i, (num, name) in enumerate(B):
+        tas_pins.append(P(num, name, "B", i, "power_in"))
 
     tas = ic_symbol(
-        "TAS5760M", "Package_SO:TSSOP-48_6.1x12.5mm_P0.5mm",
+        "TAS5760M",
+        "Package_SO:HTSSOP-32-1EP_6.1x11mm_P0.65mm_EP5.2x11mm_Mask4.11x4.36mm",
         "https://www.ti.com/lit/ds/symlink/tas5760m.pdf",
         tas_pins,
-        description="Class-D amp, I2S+I2C, PBTL mono (DCA-48; verify vs DAP-32)",
-        width=45.72)
+        description="TAS5760MDAPR Class-D amp, I2S+I2C, PBTL mono (DAP 32-pin)",
+        width=40.64)
     parts.append(tas)
 
     with open("clock_custom.kicad_sym", "w") as f:
         f.write(HEADER)
         f.write(VBAT)
+        f.write(rail_symbol("PVDD", "Amp PVDD rail (LTC4412 mux: 12V/5V)"))
         for p in parts:
             f.write(p)
         f.write(")\n")

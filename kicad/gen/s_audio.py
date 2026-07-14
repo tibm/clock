@@ -1,118 +1,96 @@
-"""Sheet: Audio — TAS5760M Class-D amp (PBTL mono into DMA58-4) + LTC4412 PVDD
-rail-mux (12 V plugged / 5 V battery) + output LC filter.  Values: power_values.md §8/§10.
-
-DISCREPANCY FLAG: BOM says TAS5760MDAPR (DAP 32-pin); /datasheet has the DCA
-48-pin (SLOS772). Symbol/footprint built to the datasheet in hand; connections
-are by pin NAME and identical either way. Reconcile the package before fab.
+"""Sheet: Audio — TAS5760M DAP-32 Class-D amp (PBTL mono into DMA58-4) +
+LTC4412 PVDD rail-mux (12 V plugged / 5 V battery) + output LC filter.
+The amp is a dense 32-pin part: its pin nets use labels (standard); discrete
+support (mux, LC filter, bulk) is wired.  Values: power_values.md §8/§10.
 """
 from collections import defaultdict
 from sch import FP
 
 
 def build(sch):
-    sch.text("AUDIO — TAS5760M PBTL mono + LTC4412 PVDD mux (12V<->5V) + LC filter",
-             30, 20, size=2.0)
+    sch.text("AUDIO  —  TAS5760M (DAP-32) PBTL mono + LTC4412 PVDD mux (12V<->5V) + LC filter",
+             30, 18, size=2.0)
 
-    U9 = sch.comp("U9", "clock:TAS5760M", 200, 150, value="TAS5760M (DCA-48)",
-                  footprint="Package_SO:TSSOP-48_6.1x12.5mm_P0.5mm")
-    # name -> [pin numbers]
+    U9 = sch.comp("U9", "clock:TAS5760M", 180, 150, value="TAS5760MDAPR",
+                  footprint="Package_SO:HTSSOP-32-1EP_6.1x11mm_P0.65mm_EP5.2x11mm_Mask4.11x4.36mm")
     nm = defaultdict(list)
     for n, d in sch.cache.pins("clock:TAS5760M").items():
         nm[d["name"]].append(n)
 
-    def pin(name):  # single-pin by name
+    def pin(name):
         return nm[name][0]
 
-    # --- I2S ---
-    sch.net(U9, pin("MCLK"), "I2S_MCLK")
-    sch.net(U9, pin("SCLK"), "I2S_BCLK")
-    sch.net(U9, pin("SDIN"), "I2S_DOUT")
-    sch.net(U9, pin("LRCK"), "I2S_LRCLK")
-    # --- I2C (shared) ---
-    sch.net(U9, pin("FREQ/SDA"), "I2C_SDA")
-    sch.net(U9, pin("PBTL/SCL"), "I2C_SCL")
-    # --- control-mode straps: GAIN0+GAIN1 HIGH to DVDD via one 10k ---
-    sch.net(U9, pin("SPK_GAIN0"), "AMP_GAIN")
-    sch.net(U9, pin("SPK_GAIN1"), "AMP_GAIN")
-    Rg = sch.R("R60", 130, 95, "10k"); sch.power(Rg, "1", "+3V3"); sch.net(Rg, "2", "AMP_GAIN")
-    # --- I2C address 0x6C: SPK_SLEEP/ADR -> GND via 0R ---
-    Radr = sch.R("R61", 130, 120, "0R"); sch.net(Radr, "1", "AMP_ADR"); sch.power(Radr, "2", "GND")
-    sch.net(U9, pin("SPK_SLEEP/ADR"), "AMP_ADR")
-    # --- SPK_SD (from expander), SPK_FAULT (10k PU) ---
-    sch.net(U9, pin("SPK_SD"), "SPK_SD")
-    sch.net(U9, pin("SPK_FAULT"), "SPK_FAULT")
-    Rf = sch.R("R62", 130, 135, "10k"); sch.power(Rf, "1", "+3V3"); sch.net(Rf, "2", "SPK_FAULT")
-    # --- SFT_CLIP tied to GVDD_REG (soft-clip off) ---
-    sch.net(U9, pin("SFT_CLIP"), "AMP_GVDD")
-    sch.net(U9, pin("GVDD_REG"), "AMP_GVDD")
-    Cgv = sch.C("C160", 150, 210, "1uF"); sch.net(Cgv, "1", "AMP_GVDD"); sch.power(Cgv, "2", "GND")
-    # --- DVDD / AVDD = 3V3 + decoupling ---
-    sch.power(U9, pin("DVDD"), "+3V3")
-    sch.power(U9, pin("AVDD"), "+3V3")
-    for i, (nname, v) in enumerate([("DVDD", "100nF"), ("DVDD", "10uF"),
-                                    ("AVDD", "100nF")]):
-        c = sch.C(f"C16{i+1}", 120 + i * 8, 200, v, fp="C0805" if "uF" in v else "C0603")
-        sch.power(c, "1", "+3V3"); sch.power(c, "2", "GND")
-    # --- reg-pin bypass caps (do not load) ---
-    Car = sch.C("C164", 120, 165, "100nF"); sch.net(Car, "1", "AMP_ANAREG"); sch.power(Car, "2", "GND")
-    Car2 = sch.C("C165", 128, 165, "1uF"); sch.net(Car2, "1", "AMP_ANAREG"); sch.power(Car2, "2", "GND")
-    sch.net(U9, pin("ANA_REG"), "AMP_ANAREG")
-    Cref = sch.C("C166", 138, 165, "100nF"); sch.net(Cref, "1", "AMP_ANAREF"); sch.power(Cref, "2", "GND")
-    sch.net(U9, pin("ANA_REF"), "AMP_ANAREF")
-    Cvcom = sch.C("C167", 148, 165, "1uF"); sch.net(Cvcom, "1", "AMP_VCOM"); sch.power(Cvcom, "2", "GND")
-    sch.net(U9, pin("VCOM"), "AMP_VCOM")
-    # --- PVDD (4 pins) + bulk ---
-    for p in nm["PVDD"]:
-        sch.net(U9, p, "PVDD")
-    for i, (v, fp) in enumerate([("100nF", "C0603"), ("1uF", "C0603"),
-                                 ("220uF", "CP_bulk")]):
-        c = (sch.CP(f"C17{i}", 250 + i * 8, 210, v) if fp == "CP_bulk"
-             else sch.C(f"C17{i}", 250 + i * 8, 210, v, fp=fp))
-        sch.net(c, "1", "PVDD"); sch.power(c, "2", "GND")
-    # --- grounds ---
-    for gname in ("DGND", "PGND", "GGND", "PAD"):
-        for p in nm[gname]:
-            sch.power(U9, p, "GND")
-    for p in nm["NC"]:               # datasheet: tie NC to GND for thermal
-        sch.power(U9, p, "GND")
-    # --- PBTL: OUTA+ || OUTB+ = OUTP, OUTA- || OUTB- = OUTN, then LC ---
-    sch.net(U9, pin("SPK_OUTA+"), "AMP_OUTP"); sch.net(U9, pin("SPK_OUTB+"), "AMP_OUTP")
-    sch.net(U9, pin("SPK_OUTA-"), "AMP_OUTN"); sch.net(U9, pin("SPK_OUTB-"), "AMP_OUTN")
+    # left digital pins -> cross-sheet buses (labels)
+    sch.node(U9, pin("MCLK"), "I2S_MCLK"); sch.node(U9, pin("SCLK"), "I2S_BCLK")
+    sch.node(U9, pin("SDIN"), "I2S_DOUT"); sch.node(U9, pin("LRCK"), "I2S_LRCLK")
+    sch.node(U9, pin("FREQ/SDA"), "I2C_SDA"); sch.node(U9, pin("PBTL/SCL"), "I2C_SCL")
+    sch.node(U9, pin("SPK_SD"), "SPK_SD"); sch.node(U9, pin("SPK_FAULT"), "SPK_FAULT")
+    sch.node(U9, pin("SPK_GAIN0"), "AMP_GAIN"); sch.node(U9, pin("SPK_GAIN1"), "AMP_GAIN")
+    sch.node(U9, pin("SPK_SLEEP/ADR"), "AMP_ADR")
 
-    # --- bootstrap caps: BSTRPx <-> its (paralleled) output node ---
+    # control strap resistors (spaced column, left) -> connect by AMP_* labels
+    Rf = sch.R("R62", 110, 120, "10k"); sch.node(Rf, "1", "+3V3"); sch.node(Rf, "2", "SPK_FAULT")
+    Rg = sch.R("R60", 110, 138, "10k"); sch.node(Rg, "1", "+3V3"); sch.node(Rg, "2", "AMP_GAIN")
+    Radr = sch.R("R61", 110, 156, "0R"); sch.node(Radr, "1", "AMP_ADR"); sch.node(Radr, "2", "GND")
+
+    # analog/reg bypass caps (spaced column, far left) -> AMP_* labels
+    sch.node(U9, pin("DVDD"), "+3V3"); sch.node(U9, pin("AVDD"), "+3V3")
+    sch.node(U9, pin("GVDD_REG"), "AMP_GVDD"); sch.node(U9, pin("SFT_CLIP"), "AMP_GVDD")
+    sch.node(U9, pin("ANA_REG"), "AMP_ANAREG"); sch.node(U9, pin("ANA_REF"), "AMP_ANAREF")
+    sch.node(U9, pin("VCOM"), "AMP_VCOM")
+    for i, v in enumerate(["100nF", "10uF"]):     # DVDD/AVDD decoupling
+        c = sch.C(f"C16{i+1}", 60 + i * 12, 118, v, fp="C0805" if "uF" in v else "C0603")
+        sch.node(c, "1", "+3V3"); sch.node(c, "2", "GND")
+    Cgv = sch.C("C160", 60, 138, "1uF"); sch.node(Cgv, "1", "AMP_GVDD"); sch.node(Cgv, "2", "GND")
+    Car = sch.C("C164", 78, 138, "100nF"); sch.node(Car, "1", "AMP_ANAREG"); sch.node(Car, "2", "GND")
+    Car2 = sch.C("C165", 60, 156, "1uF"); sch.node(Car2, "1", "AMP_ANAREG"); sch.node(Car2, "2", "GND")
+    Cref = sch.C("C166", 78, 156, "100nF"); sch.node(Cref, "1", "AMP_ANAREF"); sch.node(Cref, "2", "GND")
+    Cvcom = sch.C("C167", 96, 156, "1uF"); sch.node(Cvcom, "1", "AMP_VCOM"); sch.node(Cvcom, "2", "GND")
+
+    # grounds (bottom of amp)
+    for gnm in ("DGND", "PGND", "GGND", "PAD"):
+        for p in nm[gnm]:
+            sch.node(U9, p, "GND")
+
+    # right: outputs / bootstrap / PVDD (labels off the dense pins)
+    sch.node(U9, pin("SPK_OUTA+"), "AMP_OUTP"); sch.node(U9, pin("SPK_OUTB+"), "AMP_OUTP")
+    sch.node(U9, pin("SPK_OUTA-"), "AMP_OUTN"); sch.node(U9, pin("SPK_OUTB-"), "AMP_OUTN")
+    for p in nm["PVDD"]:
+        sch.node(U9, p, "PVDD")
     boots = [("BSTRPA+", "AMP_OUTP"), ("BSTRPA-", "AMP_OUTN"),
              ("BSTRPB+", "AMP_OUTP"), ("BSTRPB-", "AMP_OUTN")]
     for i, (b, onet) in enumerate(boots):
-        cb = sch.C(f"C18{i}", 250 + i * 16, 110, "33nF")   # spread horizontally
-        sch.net(cb, "1", f"AMP_{b}"); sch.net(cb, "2", onet)
-        sch.net(U9, pin(b), f"AMP_{b}")
-    sch.text("Bootstrap caps 33nF: VERIFY value vs TAS5760M datasheet.", 245, 100, size=1.1)
-    La = sch.L("L5", 285, 150, "10uH", fp="L4030"); sch.net(La, "1", "AMP_OUTP"); sch.net(La, "2", "SPK_P")
-    Lb = sch.L("L6", 285, 170, "10uH", fp="L4030"); sch.net(Lb, "1", "AMP_OUTN"); sch.net(Lb, "2", "SPK_N")
-    Cfp = sch.C("C184", 305, 155, "0.68uF", fp="C0805"); sch.net(Cfp, "1", "SPK_P"); sch.power(Cfp, "2", "GND")
-    Cfn = sch.C("C185", 305, 175, "0.68uF", fp="C0805"); sch.net(Cfn, "1", "SPK_N"); sch.power(Cfn, "2", "GND")
-    JS = sch.comp("J3", "Connector_Generic:Conn_01x02", 330, 165,
-                  value="DMA58-4 (4 ohm)",
-                  footprint="Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical")
-    sch.net(JS, "1", "SPK_P"); sch.net(JS, "2", "SPK_N")
+        sch.node(U9, pin(b), f"AMP_{b}")
+        cb = sch.C(f"C18{i}", 236 + (i % 2) * 14, 118 + (i // 2) * 16, "33nF")
+        sch.node(cb, "1", f"AMP_{b}"); sch.node(cb, "2", onet)
 
-    # ================= LTC4412 PVDD mux (12V priority / 5V backup) =================
-    U10 = sch.comp("U10", "Power_Management:LTC4412xS6", 90, 165,
-                   value="LTC4412ES6", footprint=FP["SOT23-6"])
-    sch.net(U10, "1", "+5V")                 # VIN
-    Cmux = sch.C("C186", 65, 185, "100nF"); sch.power(Cmux, "1", "+5V"); sch.power(Cmux, "2", "GND")
-    sch.net(U10, "6", "PVDD")                # SENSE
-    Csn = sch.C("C187", 115, 150, "100nF"); sch.net(Csn, "1", "PVDD"); sch.power(Csn, "2", "GND")
-    sch.net(U10, "5", "MUX_GATE")            # GATE
-    sch.power(U10, "3", "GND")               # CTL = GND (auto)
-    sch.nc(U10, "4")                         # STAT (open-drain) unused
-    sch.power(U10, "2", "GND")
-    # Q_5V ideal-diode P-FET: S=+5V, D=PVDD, G=GATE
-    Q5 = sch.comp("Q4", "Transistor_FET:AO3401A", 90, 200, value="AO3401A",
-                  footprint=FP["SOT23-3"])
-    sch.power(Q5, "2", "+5V"); sch.net(Q5, "3", "PVDD"); sch.net(Q5, "1", "MUX_GATE")
-    # 12V leg Schottky: +12V -> PVDD
-    Dm = sch.D_schottky("D30", 120, 200, "SS34", fp="SMA")
-    sch.net(Dm, "2", "+12V"); sch.net(Dm, "1", "PVDD")  # A=12V, K=PVDD
-    sch.text("PVDD = 12V (plugged, via Schottky) OR 5V (battery, via LTC4412 FET) -> quieter alarm.",
-             30, 240, size=1.2)
+    # PVDD bulk (spaced)
+    for i, (v, fp) in enumerate([("100nF", "C0603"), ("1uF", "C0603"), ("220uF", "CP_bulk")]):
+        c = (sch.CP(f"C17{i}", 236 + i * 14, 200, v) if fp == "CP_bulk"
+             else sch.C(f"C17{i}", 236 + i * 14, 200, v, fp=fp))
+        sch.node(c, "1", "PVDD"); sch.node(c, "2", "GND")
+
+    # output LC filter + speaker (wired cluster, right)
+    La = sch.L("L5", 260, 150, "10uH", fp="L4030"); La.rot = 90
+    sch.node(La, "1", "AMP_OUTP"); sch.node(La, "2", "SPK_P")
+    Lb = sch.L("L6", 260, 165, "10uH", fp="L4030"); Lb.rot = 90
+    sch.node(Lb, "1", "AMP_OUTN"); sch.node(Lb, "2", "SPK_N")
+    Cfp = sch.C("C184", 278, 150, "0.68uF", fp="C0805"); sch.node(Cfp, "1", "SPK_P"); sch.node(Cfp, "2", "GND")
+    Cfn = sch.C("C185", 292, 165, "0.68uF", fp="C0805"); sch.node(Cfn, "1", "SPK_N"); sch.node(Cfn, "2", "GND")
+    JS = sch.comp("J3", "Connector_Generic:Conn_01x02", 300, 156, value="DMA58-4 (4 ohm)",
+                  footprint="Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical")
+    sch.node(JS, "1", "SPK_P"); sch.node(JS, "2", "SPK_N")
+
+    # LTC4412 PVDD mux (wired cluster, bottom-right)
+    U10 = sch.comp("U10", "Power_Management:LTC4412xS6", 210, 205, value="LTC4412ES6", footprint=FP["SOT23-6"])
+    sch.node(U10, "1", "+5V"); sch.node(U10, "6", "PVDD")
+    sch.node(U10, "5", "MUX_GATE"); sch.node(U10, "3", "GND"); sch.node(U10, "2", "GND")
+    sch.nc(U10, "4")
+    Cmux = sch.C("C186", 192, 213, "100nF"); sch.node(Cmux, "1", "+5V"); sch.node(Cmux, "2", "GND")
+    Q5 = sch.comp("Q4", "Transistor_FET:AO3401A", 234, 205, value="AO3401A", footprint=FP["SOT23-3"])
+    sch.node(Q5, "2", "+5V"); sch.node(Q5, "3", "PVDD"); sch.node(Q5, "1", "MUX_GATE")
+    Dm = sch.D_schottky("D30", 252, 205, "SS34", fp="SMA"); Dm.rot = 90
+    sch.node(Dm, "2", "+12V"); sch.node(Dm, "1", "PVDD")
+
+    sch.text("Bootstrap caps 33nF: VERIFY vs TAS5760M datasheet.  PVDD = 12V(plugged)/5V(batt).",
+             30, 232, size=1.3)

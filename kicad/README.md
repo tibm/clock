@@ -16,29 +16,27 @@ KiCad 10 hierarchical schematic generated from the project spec (`../README.md`,
 | 8 | `display_sd.kicad_sch` | LS032B7DD02 FPC + microSD (shared SPI2) |
 | 9 | `io.kicad_sch` | MCP23017 + sensors (STEMMA-QT) + QRE1113 homing + encoder + buttons + 3× AO3400A LED drivers |
 
-**Connectivity is label-driven**: rails and cross-sheet signals are global
-labels/power symbols that connect across the whole hierarchy by name (no sheet
-pins). 171 components; nets verified via `kicad-cli sch export netlist`.
+**Connectivity**: on-page nets are drawn as **wires** where parts are clustered
+(chargers, converters, discrete circuits); dense-IC pins and spread/cross-sheet
+nets use **labels** (local within a sheet, global across sheets) — power rails
+are power-port symbols. ~169 components; nets verified via `kicad-cli sch export
+netlist` (no unintended merges) and `kicad-cli sch erc`.
 
 ## Custom symbols (`gen/clock_custom.kicad_sym`)
 Parts with no stock KiCad symbol: `TPS61023`, `TPS55340`, `AOSD32334C`,
 `TAS5760M`, plus a `VBAT` power flag. Registered via `sym-lib-table`.
 
-## Known ERC items (7 total — all benign, documented)
-- **6 × lib_symbol_mismatch** — cosmetic. `AO3400A`, `2N7002`, `DM3AT` use
-  `extends` in the KiCad library; the embedded (flattened) copy isn't byte-
-  identical. Geometry/nets are correct. Clear with **Tools → Update Symbols
-  From Library**.
-- **1 × pin_to_pin** — `QRE1113` phototransistor emitter (open-emitter) tied to
-  GND, which also carries a `PWR_FLAG` (power-output). A KiCad pin-matrix false
-  positive; the connection (emitter→GND) is correct.
+## Known ERC items (2 — both benign, documented)
+- **pin_to_pin (U2 BAT ↔ PWR_FLAG)** — the VBAT rail flag (power-output) shares
+  the net with the LT3652 BAT pin (typed *output*); KiCad flags output↔power-
+  output. The connection is correct (BAT node = VBAT).
+- **pin_to_pin (U14 QRE emitter ↔ PWR_FLAG)** — QRE1113 phototransistor emitter
+  (open-emitter) tied to a GND that carries a PWR_FLAG. Pin-matrix false
+  positive; emitter→GND is correct.
 
 ## ⚠ Flags to reconcile before fab
-1. **TAS5760M package.** BOM specifies `TAS5760MDAPR` (DAP, 32-pin); the
-   datasheet in `../datasheet/` is the **DCA 48-pin** (SLOS772). The symbol is
-   built to the datasheet in hand (48-pin, `TSSOP-48_6.1x12.5mm`). Connections
-   are by pin **name** and identical either way — a DAP swap only renumbers
-   pins + changes the footprint. Confirm the package and provide SLOS736 if DAP.
+1. **TAS5760M = DAP 32-pin** (`TAS5760MDAPR`, `HTSSOP-32-1EP`), per datasheet p.6
+   pin config — matches the BOM. (Resolved.)
 2. **Footprints TBD** (no stock KiCad land pattern): `QRE1113` (U14) and the
    one-shot **TCO** (F1, SDF-DF077S) have empty footprints — add custom land
    patterns.
