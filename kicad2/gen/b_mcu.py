@@ -42,11 +42,10 @@ def build(s):
                  footprint="Button_Switch_SMD:SW_SPST_CK_RS282G05A3")
     s.pw(SW1, "2", ("y", 106.68))
     s.gnd(SW1, "1", via=-2.54)
-    # ---- IO0 strap: 10k PU + BOOT button ----
-    s.pw(U8, "27", ("x", 444.50))                    # IO0 row wire
-    R51 = s.R("R51", 474.98, 105.41, "10k")
+    # ---- IO0 strap: 10k PU + BOOT button (PU left of the EN row) ----
+    s.pw(U8, "27", ("x", 435.61))                    # IO0 row wire
+    R51 = s.R("R51", 435.61, 105.41, "10k")
     s.rail(R51, "1", "+3V3", rise=0)
-    s.jpin(R51, "2")
     SW2 = s.comp("SW2", "Switch:SW_Push", 463.55, 119.38, value="BOOT",
                  footprint="Button_Switch_SMD:SW_SPST_CK_RS282G05A3")
     s.pw(SW2, "2", ("x", 468.63), ("y", 109.22))

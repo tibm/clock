@@ -313,27 +313,30 @@ class Sch:
                 "+12V": "power:+12V", "VBUS": "power:VBUS", "VBAT": "clock:VBAT",
                 "PVDD": "clock:PVDD"}
 
-    def power_at(self, x, y, net, rot=0):
+    def power_at(self, x, y, net, rot=0, show_value=True):
         assert ongrid(x) and ongrid(y), f"power {net} off-grid ({x},{y})"
         self._pwr += 1
         vp = None
         if net == "GND":
             vp = (x, y + 3.81, None)  # centred under the glyph
+        elif rot == 180:
+            vp = (x, y + 3.81, None)  # inverted rail: text under the glyph
         return self.comp(f"#PWR{self._pwr:03d}", self._PWR_LIB[net], x, y,
-                         value=net, rot=rot, is_power=True, valpos=vp)
+                         value=net, rot=rot, is_power=True, valpos=vp,
+                         show_value=show_value)
 
-    def gnd(self, c, p, drop=2.54, via=None):
+    def gnd(self, c, p, drop=2.54, via=None, show_value=True):
         """Pin -> GND symbol below. Pin may face any direction; `via` gives an
         optional intermediate bend (dx) sideways before dropping."""
         x, y, o = c.pin_xy(p)
         if o == 90 and via is None:      # facing down: straight drop
             self.w((x, y), (x, y + drop))
-            self.power_at(x, y + drop, "GND")
+            self.power_at(x, y + drop, "GND", show_value=show_value)
             return
         dx = via if via is not None else (2.54 if o == 0 else -2.54 if o == 180 else 0)
         ex = round(x + dx, 4)
         self.w((x, y), (ex, y), (ex, y + drop))
-        self.power_at(ex, y + drop, "GND")
+        self.power_at(ex, y + drop, "GND", show_value=show_value)
 
     def rail(self, c, p, net, rise=2.54, via=None):
         """Pin -> rail symbol above."""
@@ -517,7 +520,8 @@ class Sch:
             else:
                 vx, vy, vj = c.x, c.y - 3.81, None
             n.append(prop("Value", c.value, vx, vy, rot=prot,
-                          hide=(c.value == "PWR_FLAG"), justify=vj))
+                          hide=(c.value == "PWR_FLAG") or not c.show_value,
+                          justify=vj))
             n.append(prop("Footprint", "", c.x, c.y, hide=True))
             n.append(prop("Datasheet", "~", c.x, c.y, hide=True))
         else:
