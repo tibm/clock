@@ -96,7 +96,7 @@ def build(s):
                           ("C128", 212.09, "100nF", "C0603")]:
         c = s.CP(ref, x, 323.85, v) if v == "100uF" else s.C(ref, x, 323.85, v, fp=fp)
         s.pw(c, "1", ("y", 317.50))
-        s.gnd(c, "2", drop=0)
+        s.gnd(c, "2", drop=0, show_value=False)
     # inductor VBAT -> SW (both SW pins tied at x=269.24)
     L4 = s.L("L4", 220.98, 309.88, "4.7uH", rot=90)
     s.pw(L4, "1", ("x", 186.69), ("y", 317.50))
@@ -118,14 +118,14 @@ def build(s):
         c = s.C(ref, x, 320.04, "22uF", fp="C1210")
         s.gnd(c, "2", drop=0)
     # EN: BOOST12_EN (expander GPA2) + 100k pulldown (off at boot)
-    s.pw(U7, "4", ("x", 224.79), ("y", 336.55), ("x", 198.12))
-    s.glabel_at("BOOST12_EN", 198.12, 336.55, 180)
-    R44 = s.R("R44", 205.74, 340.36, "100k")
+    s.pw(U7, "4", ("x", 224.79), ("y", 346.71), ("x", 198.12))
+    s.glabel_at("BOOST12_EN", 198.12, 346.71, 180)
+    R44 = s.R("R44", 205.74, 350.52, "100k")
     s.gnd(R44, "2", drop=0)
     # SS cap
-    C133 = s.C("C133", 219.71, 327.66, "47nF",
-               refpos=(218.67, 326.26, "right"), valpos=(218.67, 329.06, "right"))
-    s.pw(U7, "5", ("x", 219.71), ("pin", C133, "1"))
+    C133 = s.C("C133", 231.14, 335.28, "47nF",
+               refpos=(230.10, 333.88, "right"), valpos=(230.10, 336.68, "right"))
+    s.pw(U7, "5", ("x", 231.14), ("pin", C133, "1"))
     s.gnd(C133, "2", drop=0)
     # SYNC -> GND (not used)
     s.pw(U7, "6", ("x", 190.50), ("dy", 2.54))

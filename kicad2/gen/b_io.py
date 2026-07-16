@@ -15,7 +15,8 @@ def build(s):
     # sensor-board connector (STEMMA-QT chain: BME688 + TSL2591 + LIS3DH)
     J7 = s.comp("J7", "Connector_Generic:Conn_01x05", 533.40, 254.00,
                 value="Sensor board (BME688+TSL2591+LIS3DH)",
-                footprint="Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal")
+                footprint="Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal",
+                refpos=(533.40, 262.89, None), valpos=(535.94, 241.30, None))
     s.pw(J7, "1", ("x", 505.46), ("dy", 2.54))
     s.power_at(505.46, 251.46, "GND")
     s.pw(J7, "2", ("x", 510.54), ("y", 246.38))
@@ -44,8 +45,8 @@ def build(s):
     s.gnd(C241, "2", drop=0)
     s.glabel_at("HOME_OPTO", 466.09, 254.00, 0)
     s.gnd(U14, "4", via=2.54)                         # emitter
-    s.text("QRE1113 faces reflective tabs on the hand hubs (no magnets).", 410, 297, size=1.3)
-    s.text("Sensor breakouts carry their own I2C pull-ups.", 410, 301.5, size=1.3)
+    s.text("QRE1113 faces reflective tabs on the hand hubs (no magnets).", 486.41, 297, size=1.3)
+    s.text("Sensor breakouts carry their own I2C pull-ups.", 486.41, 301.5, size=1.3)
 
     # ================= IO EXPANDER + UI =================
     s.frame(405, 415, 595, 585, "IO EXPANDER (MCP23017 @0x20) + ENCODER + BUTTONS")
@@ -99,12 +100,12 @@ def build(s):
     s.glabel(U13, "22", "STEP_STBY")
     s.glabel(U13, "23", "BOOST12_EN")
     # buttons on GPA3..GPA5 (internal pull-ups + IOC in firmware),
-    # fanned out to a 5.08 pitch
-    gcol = 543.56
-    for pin, ref, name, row, bend in [("24", "SW4", "BTN1", 454.66, 518.16),
+    # fanned out to a 5.08 pitch right of the GPA2 label text
+    gcol = 553.72
+    for pin, ref, name, row, bend in [("24", "SW4", "BTN1", 454.66, 533.40),
                                       ("25", "SW5", "BTN2", 459.74, None),
-                                      ("26", "SW6", "BTN3", 464.82, 520.70)]:
-        sw = s.comp(ref, "Switch:SW_Push", 535.94, row, value=name,
+                                      ("26", "SW6", "BTN3", 464.82, 535.94)]:
+        sw = s.comp(ref, "Switch:SW_Push", 546.10, row, value=name,
                     footprint="Button_Switch_SMD:SW_SPST_CK_RS282G05A3")
         if bend is None:
             s.route(U13, pin, sw, "1", "H")
@@ -121,7 +122,8 @@ def build(s):
         s.glabel(U13, pin, name)
     # SPK_FAULT open-drain pull-up (amp fault line)
     R62 = s.R("R62", 513.08, 491.49, "10k")
-    s.power_at(513.08, 495.30, "+3V3", rot=180)
+    s.power_at(513.08, 495.30, "+3V3", rot=180, show_value=False)
+    s.text("+3V3", 509.27, 500.38, size=1.27)
 
     # rotary encoder: A/B wired to the MCU (PCNT), switch on GPA6
     SW3 = s.comp("SW3", "Device:RotaryEncoder_Switch", 533.40, 508.00,
@@ -137,7 +139,7 @@ def build(s):
     s.gnd(SW3, "C", via=-2.54, drop=5.08)
     s.gnd(SW3, "S2", via=2.54)
     # ENC_SW -> GPA6
-    s.pw(U13, "27", ("x", 516.89), ("y", 469.90), ("x", 548.64), ("y", 505.46),
+    s.pw(U13, "27", ("x", 516.89), ("y", 469.90), ("x", 556.26), ("y", 505.46),
          ("px", SW3, "S1"))
 
     s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Buttons/encoder-switch", 410, 575, size=1.3)

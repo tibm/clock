@@ -8,7 +8,9 @@ U = 2.54
 
 def _driver(s, ref, y0, cbase):
     u = s.comp(ref, "Driver_Motor:TB6612FNG", 693.42, y0, value="TB6612FNG",
-               footprint="Package_SO:SSOP-24_5.3x8.2mm_P0.65mm")
+               footprint="Package_SO:SSOP-24_5.3x8.2mm_P0.65mm",
+               refpos=(664.21, y0 - 25.40, "right"),
+               valpos=(664.21, y0 - 22.86, "right"))
     # STBY (shared expander line, idle-low at boot)
     s.pw(u, "19", ("x", 668.02))
     s.glabel_at("STEP_STBY", 668.02, y0 - 10.16, 180)

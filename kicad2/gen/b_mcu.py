@@ -24,7 +24,7 @@ def build(s):
                           ("C142", 461.01, "100nF", "C0603"),
                           ("C143", 468.63, "100nF", "C0603")]:
         c = s.C(ref, x, 96.52, v, fp=fp)
-        s.gnd(c, "2", drop=0)
+        s.gnd(c, "2", drop=0, show_value=False)
     # ---- GND pins ----
     s.w((523.24, 179.07), (528.32, 179.07))
     s.w((525.78, 179.07), (525.78, 181.61))
@@ -32,7 +32,7 @@ def build(s):
 
     # ---- EN strap: 10k PU + 1uF + RESET button + PROG header ----
     s.pw(U8, "3", ("x", 441.96))                     # EN row wire
-    R50 = s.R("R50", 467.36, 102.87, "10k")
+    R50 = s.R("R50", 490.22, 102.87, "10k")
     s.rail(R50, "1", "+3V3", rise=0)
     s.jpin(R50, "2")
     C144 = s.C("C144", 478.79, 110.49, "1uF")
@@ -53,7 +53,8 @@ def build(s):
     # PROG header: 3V3 / GND / EN / IO0
     J2 = s.comp("J2", "Connector_Generic:Conn_01x04", 429.26, 116.84,
                 mirror="y", value="PROG",
-                footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
+                footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+                refpos=(429.26, 109.22, None), valpos=(429.26, 127.00, None))
     s.rail(J2, "1", "+3V3", rise=2.54)
     s.gnd(J2, "2", via=2.54, drop=7.62)
     s.pw(J2, "3", ("x", 441.96), ("y", 106.68))      # EN
@@ -62,7 +63,7 @@ def build(s):
     # ---- 32.768 kHz crystal ----
     Y1 = s.comp("Y1", "Device:Crystal", 490.22, 123.19, rot=90, value="32.768kHz",
                 footprint="Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm",
-                refpos=(490.22, 114.30, None), valpos=(490.22, 116.84, None))
+                refpos=(492.76, 123.19, "left"), valpos=(488.19, 123.19, "right"))
     s.pw(U8, "8", ("x", 494.03), ("y", 119.38), ("px", Y1, "2"))
     s.pw(U8, "9", ("x", 494.03), ("y", 127.00), ("px", Y1, "1"))
     C145 = s.C("C145", 481.33, 119.38, "18pF", rot=90)
@@ -88,5 +89,5 @@ def build(s):
     s.glabel(U8, "26", "WAKE_WARM_PWM")
     s.glabel(U8, "16", "WAKE_COOL_PWM")
 
-    s.text("IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high, IO46 low (R52,", 410, 205, size=1.3)
-    s.text("at the LED block), IO3/45 internal.  Flash + console + JTAG = USB-CDC (IO19/20).", 410, 210, size=1.3)
+    s.text("IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high, IO46 low (R52,", 410, 48, size=1.3)
+    s.text("at the LED block), IO3/45 internal.  Flash + console + JTAG = USB-CDC (IO19/20).", 410, 53, size=1.3)

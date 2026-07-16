@@ -32,8 +32,8 @@ def build(s):
     # panel power: VDDA + VDD -> +5V
     s.pw(J5, "6", ("x", 707.39))
     s.pw(J5, "7", ("x", 707.39))
-    s.w((707.39, 71.12), (707.39, 49.53))
-    s.power_at(707.39, 49.53, "+5V")
+    s.w((707.39, 71.12), (707.39, 52.07))
+    s.power_at(707.39, 52.07, "+5V")
     C220 = s.C("C220", 698.50, 80.01, "1uF")
     s.rail(C220, "1", "+5V", rise=0)
     s.gnd(C220, "2", drop=0)
@@ -71,11 +71,11 @@ def build(s):
     s.nc(J6, "9")
     s.nc(J6, "10")
     # 3V3 decoupling at the card
-    C222 = s.C("C222", 703.58, 127.00, "10uF", fp="C0805")
+    C222 = s.C("C222", 695.96, 124.46, "10uF", fp="C0805")
     s.rail(C222, "1", "+3V3", rise=0)
-    s.gnd(C222, "2", drop=0)
-    C223 = s.C("C223", 711.20, 127.00, "100nF")
+    s.gnd(C222, "2", drop=0, show_value=False)
+    C223 = s.C("C223", 703.58, 124.46, "100nF")
     s.rail(C223, "1", "+3V3", rise=0)
-    s.gnd(C223, "2", drop=0)
+    s.gnd(C223, "2", drop=0, show_value=False)
     s.text("SPI mode: MSB-first, CS active-low, ~25 MHz. No card-detect (no spare GPIO).",
            688.34, 174, size=1.3)

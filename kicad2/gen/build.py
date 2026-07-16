@@ -34,6 +34,15 @@ def main():
             continue
         mod.build(s)
 
+    # reading guide (bottom-left, under the battery block)
+    s.frame(15, 318, 170, 357, "HOW TO READ THIS SHEET")
+    s.text("One page, laid out like block_diagram.drawio: power flows left,", 20, 329, size=1.3)
+    s.text("MCU centre, peripherals right.  Power paths and MCU buses (SPI,", 20, 334, size=1.3)
+    s.text("I2S, MCPWM, encoder) are drawn as wires; GND / +3V3 / +5V taps", 20, 339, size=1.3)
+    s.text("and named labels connect by name (same name = same net).", 20, 344, size=1.3)
+    s.text("Off-board parts (display, SD, sensors, speaker, motor, LED", 20, 348.5, size=1.3)
+    s.text("strips, cell) enter through connectors J1..J9 / BT1.", 20, 353, size=1.3)
+
     added = s.auto_junctions()
     issues = s.lint()
     project2.write_sym_lib_table()
