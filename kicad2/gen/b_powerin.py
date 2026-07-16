@@ -28,10 +28,10 @@ def build(s):
     s.pw(J1, "SH", ("dy", 2.54), ("px", J1, "A1"))  # shield -> same GND drop
     s.text("USB 2.0 16-pin; D+/D- = native USB-JTAG (IO19/20)", 20, 146, size=1.3)
 
-    # --- VBUS TVS clamp (pin 2 = top after rot 90) ---
-    D1 = s.D_tvs("D1", 63.5, 63.5, "SMAJ22A", rot=90)
-    s.pw(D1, "2", ("y", 55.88))
-    s.gnd(D1, "1", drop=2.54, via=0)
+    # --- VBUS TVS clamp (pin 1 = top after rot 270; pad 1 = cathode) ---
+    D1 = s.D_tvs("D1", 63.5, 63.5, "SMAJ22A", rot=270)
+    s.pw(D1, "1", ("y", 55.88))
+    s.gnd(D1, "2", drop=2.54, via=0)
 
     # --- CH224K ---
     U1 = s.comp("U1", "Interface_USB:CH224K", 106.68, 81.28, value="CH224K",
@@ -53,6 +53,7 @@ def build(s):
     C1 = s.C("C1", 127.0, 71.12, "1uF")
     s.pw(C1, "1", ("y", 67.31), ("px", R1, "2"))
     s.gnd(C1, "2", drop=0)
+    s.pwr_flag(121.92, 67.31)                        # R1-fed VDD (ERC)
     # PG -> label + 10k pull-up to 3V3
     s.pw(U1, "10", ("dx", 2.54), ("y", 93.98), ("x", 134.62))
     s.glabel_at("PD_PG", 134.62, 93.98, 0)

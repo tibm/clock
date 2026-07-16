@@ -31,7 +31,7 @@ def build(s):
     s.power_at(525.78, 181.61, "GND")
 
     # ---- EN strap: 10k PU + 1uF + RESET button + PROG header ----
-    s.pw(U8, "3", ("x", 438.15))                     # EN row wire
+    s.pw(U8, "3", ("x", 441.96))                     # EN row wire
     R50 = s.R("R50", 467.36, 102.87, "10k")
     s.rail(R50, "1", "+3V3", rise=0)
     s.jpin(R50, "2")

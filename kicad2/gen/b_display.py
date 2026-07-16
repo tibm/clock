@@ -12,7 +12,7 @@ def build(s):
     # ---- display FPC connector ----
     J5 = s.comp("J5", "Connector_Generic:Conn_01x10", 740.41, 66.04,
                 value="LS032B7DD02 (FH34SRJ-10S)",
-                footprint="Connector_FFC-FPC:Hirose_FH34SRJ-10S-0.5SH_1x10-1MP_P0.50mm_Horizontal")
+                footprint="Connector_FFC-FPC:Hirose_FH12-10S-0.5SH_1x10-1MP_P0.50mm_Horizontal")
     # SPI wires from the MCU (branching to the microSD below)
     s.pw(U8, "21", ("x", 668.02), ("y", 55.88), ("px", J5, "1"))    # SCLK
     s.w((668.02, 106.68), (668.02, 152.40))                         # branch down
@@ -55,12 +55,12 @@ def build(s):
     R70 = s.R("R70", 690.88, 138.43, "10k")
     s.rail(R70, "1", "+3V3", rise=0)
     s.pw(R70, "2", ("y", 144.78))
-    R71 = s.R("R71", 709.93, 138.43, "10k")
-    s.rail(R71, "1", "+3V3", rise=0)
-    s.pw(J6, "1", ("px", R71, "2"))                                 # DAT2
-    R72 = s.R("R72", 664.21, 134.62, "10k")
+    R72 = s.R("R72", 709.93, 138.43, "10k")
     s.rail(R72, "1", "+3V3", rise=0)
-    s.pw(J6, "8", ("x", 664.21), ("pin", R72, "2"))                 # DAT1
+    s.pw(J6, "1", ("px", R72, "2"))                                 # DAT2
+    R71 = s.R("R71", 664.21, 134.62, "10k")
+    s.rail(R71, "1", "+3V3", rise=0)
+    s.pw(J6, "8", ("x", 664.21), ("pin", R71, "2"))                 # DAT1
     # VDD -> +3V3 (through the row gap, up left of the corridors)
     s.pw(J6, "4", ("x", 656.59), ("y", 137.16))
     s.power_at(656.59, 137.16, "+3V3")

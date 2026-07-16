@@ -62,14 +62,14 @@ def build(s):
     J4 = s.comp("J4", "Connector_Generic:Conn_01x08", 777.24, 502.92,
                 value="X40.879 stepper (1e-4e, 1i-4i)",
                 footprint="Connector_JST:JST_PH_B8B-PH-K_1x08_P2.00mm_Vertical")
-    s.pw(U11, "1", ("x", 736.60), ("y", 492.76), ("px", J4, "1"))    # AO1 -> 1e
-    s.pw(U11, "5", ("x", 739.14), ("y", 495.30), ("px", J4, "2"))    # AO2 -> 2e
-    s.pw(U11, "7", ("x", 741.68), ("y", 497.84), ("px", J4, "3"))    # BO2 -> 3e
-    s.pw(U11, "11", ("x", 744.22), ("y", 500.38), ("px", J4, "4"))   # BO1 -> 4e
-    s.pw(U12, "1", ("x", 746.76), ("y", 502.92), ("px", J4, "5"))    # AO1 -> 1i
-    s.pw(U12, "5", ("x", 749.30), ("y", 505.46), ("px", J4, "6"))    # AO2 -> 2i
-    s.pw(U12, "7", ("x", 751.84), ("y", 508.00), ("px", J4, "7"))    # BO2 -> 3i
-    s.pw(U12, "11", ("x", 754.38), ("y", 510.54), ("px", J4, "8"))   # BO1 -> 4i
+    s.pw(U11, "1", ("x", 736.60), ("py", J4, "1"), ("pin", J4, "1"))    # AO1 -> 1e
+    s.pw(U11, "5", ("x", 739.14), ("py", J4, "2"), ("pin", J4, "2"))    # AO2 -> 2e
+    s.pw(U11, "7", ("x", 741.68), ("py", J4, "3"), ("pin", J4, "3"))    # BO2 -> 3e
+    s.pw(U11, "11", ("x", 744.22), ("py", J4, "4"), ("pin", J4, "4"))   # BO1 -> 4e
+    s.pw(U12, "1", ("x", 746.76), ("py", J4, "5"), ("pin", J4, "5"))    # AO1 -> 1i
+    s.pw(U12, "5", ("x", 749.30), ("py", J4, "6"), ("pin", J4, "6"))    # AO2 -> 2i
+    s.pw(U12, "7", ("x", 751.84), ("py", J4, "7"), ("pin", J4, "7"))    # BO2 -> 3i
+    s.pw(U12, "11", ("x", 754.38), ("py", J4, "8"), ("pin", J4, "8"))   # BO1 -> 4i
 
     s.text("PWM-on-IN microstepping: MCPWM waveforms on AIN/BIN, PWMA/B tied high.", 615, 575, size=1.3)
     s.text("STEP_STBY (expander GPA1) low at boot -> drivers off. Coil map: esp32.md.", 615, 579.5, size=1.3)

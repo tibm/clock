@@ -103,9 +103,9 @@ def build(s):
     C107 = s.CP("C107", 372.11, 110.49, "100uF")
     s.route(C107, "1", C106, "1", "H")
     s.gnd(C107, "2", drop=0)
-    D12 = s.D_tvs("D12", 379.73, 110.49, "SMAJ5.0A", rot=90)
-    s.route(D12, "2", C107, "1", "H")
-    s.gnd(D12, "1", drop=0)
+    D12 = s.D_tvs("D12", 379.73, 110.49, "SMAJ5.0A", rot=270)
+    s.route(D12, "1", C107, "1", "H")
+    s.gnd(D12, "2", drop=0)
 
     s.text("Float 4.05 V (R14/R15); FULLCHG_EN -> 4.20 V full-charge mode", 250, 145, size=1.3)
     s.text("I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  ~3 h timer", 250, 150, size=1.3)
@@ -130,9 +130,10 @@ def build(s):
     s.gnd(R19, "2", drop=0)
     # VBAT out -> joins the charger staircase at (170.18, 212.09)
     s.pw(Q2, "3", ("x", 170.18), ("y", 212.09))
-    # Vbat ADC divider + disconnect FET
+    # Vbat ADC divider + disconnect FET (taps the CELL side of the P-FET)
     R22 = s.R("R22", 91.44, 209.55, "100k")
-    s.pw(R22, "1", ("y", 203.20))
+    s.pw(R22, "1", ("x", 66.04), ("y", 203.20))
+    s.junction(66.04, 203.20)
     R23 = s.R("R23", 91.44, 219.71, "100k")
     s.route(R22, "2", R23, "1", "V")
     C110 = s.C("C110", 99.06, 217.17, "100nF")
@@ -155,6 +156,8 @@ def build(s):
     s.pw(U4, "1", ("x", 60.96), ("y", 257.81), ("px", F1, "1"))
     s.pw(F1, "2", ("x", 111.76), ("dy", 2.54))
     s.power_at(111.76, 260.35, "GND")
+    s.w((111.76, 257.81), (114.30, 257.81))
+    s.pwr_flag(114.30, 257.81)                       # PACK- drives the GND net
 
     # AP9101C protector IC
     U3 = s.comp("U3", "Battery_Management:AP9101CK6", 80.01, 276.86,
@@ -169,6 +172,8 @@ def build(s):
     C109 = s.C("C109", 46.99, 276.86, "100nF")
     s.pw(C109, "1", ("y", 269.24), ("x", 58.42))
     s.pw(C109, "2", ("y", 292.10), ("x", 55.88))
+    s.pwr_flag(52.07, 269.24)                        # R20-fed VDD (ERC)
+    s.pwr_flag(50.80, 292.10)                        # cell- node (ERC)
     # VSS -> cell- ; branch from the cell- wire
     s.w((55.88, 245.11), (55.88, 292.10))
     s.junction(55.88, 245.11)
