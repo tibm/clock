@@ -73,5 +73,6 @@ def build(s):
     s.pw(U12, "7", ("x", 751.84), ("py", J4, "7"), ("pin", J4, "7"))    # BO2 -> 3i
     s.pw(U12, "11", ("x", 754.38), ("py", J4, "8"), ("pin", J4, "8"))   # BO1 -> 4i
 
+    s.text("Layout: each driver's 10uF+100nF go at its VM pins, the 100nF at its VCC pin.", 615, 415, size=1.3)
     s.text("PWM-on-IN microstepping: MCPWM waveforms on AIN/BIN, PWMA/B tied high.", 615, 575, size=1.3)
     s.text("STEP_STBY (expander GPA1) low at boot -> drivers off. Coil map: esp32.md.", 615, 579.5, size=1.3)

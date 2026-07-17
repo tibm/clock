@@ -1,7 +1,8 @@
 """Blocks: RAILS — TPS61023 (+5V, always-on), TLV62569 (+3V3 from 5V),
 TPS55340 (+12V from VBAT, plugged-only). Values per power_values.md §3/§4/§5.
 
-The VBAT feed column (x=170.18) comes down from the charger staircase.
+The VBAT feed column (x=175.26, in the gutter between the battery and rails
+frames) comes down from the charger staircase.
 The +12V output is WIRED: down the x=281.94 column, branching at
 (281.94,393.70) into a long horizontal run to the audio PVDD mux
 (picked up by b_audio at (800.10,393.70)) and continuing down to the
@@ -19,10 +20,10 @@ def build(s):
                 footprint="Package_TO_SOT_SMD:SOT-563",
                 refpos=(217.17, 231.75, "left"), valpos=(217.17, 234.29, "left"))
     # VBAT feed (column from the charger staircase)
-    s.w((170.18, 212.09), (170.18, 317.50))
-    s.w((170.18, 243.84), (213.36, 243.84))          # -> VIN
-    s.power_at(175.26, 241.30, "VBAT")
-    s.w((175.26, 241.30), (175.26, 243.84))
+    s.w((175.26, 212.09), (175.26, 317.50))
+    s.w((175.26, 243.84), (213.36, 243.84))          # -> VIN
+    s.power_at(185.42, 241.30, "VBAT")
+    s.w((185.42, 241.30), (185.42, 243.84))
     s.pw(U5, "2", ("x", 205.74), ("y", 243.84))      # EN tied to VBAT
     C120 = s.C("C120", 200.66, 251.46, "10uF", fp="C0805")
     s.pw(C120, "1", ("y", 243.84))
@@ -90,7 +91,7 @@ def build(s):
     U7 = s.comp("U7", "clock:TPS55340", 250.19, 325.12, value="TPS55340PWPR",
                 footprint="Package_SO:Texas_HTSSOP-14-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask3.155x3.255mm")
     # VIN row from the VBAT column + input caps
-    s.w((170.18, 317.50), (237.49, 317.50))
+    s.w((175.26, 317.50), (237.49, 317.50))
     for ref, x, v, fp in [("C129", 194.31, "100uF", None),
                           ("C127", 203.20, "10uF", "C0805"),
                           ("C128", 212.09, "100nF", "C0603")]:

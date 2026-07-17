@@ -3,7 +3,8 @@ AP9101C + AOSD32334C, TCO). Values per power_values.md §1/§6.
 
 Wire topology (all drawn, no labels except expander control lines):
   VBUS rail (y=55.88) -> LT3652 VIN;  SW -> L1 -> [M] -> R18 -> VBAT bus (x=340.36)
-  VBAT bus -> down (y=212.09) -> left (x=170.18) -> down into the RAILS block.
+  VBAT bus -> down (y=212.09) -> left (x=175.26, in the frame gutter) -> down
+  into the RAILS block.
   Battery: holder+ -> Q2 (reverse P-FET) -> VBAT wire joining the bus staircase.
   Cell-: holder- -> AOSD32334C S1; S2 -> F1 (TCO 77C) -> GND (PACK-).
 """
@@ -111,8 +112,9 @@ def build(s):
     s.text("I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  ~3 h timer", 250, 150, size=1.3)
     s.text("Charges only on the 15 V contract (UVLO 11.2 V); runs with no cell.", 250, 155, size=1.3)
 
-    # VBAT staircase down to the RAILS block (joined by the battery below)
-    s.w((358.14, 212.09), (170.18, 212.09))
+    # VBAT staircase down to the RAILS block (joined by the battery below);
+    # the column sits at 175.26, clear of the battery frame edge (x=170)
+    s.w((358.14, 212.09), (175.26, 212.09))
 
     # ================= BATTERY + PROTECTION =================
     BT1 = s.comp("BT1", "Connector_Generic:Conn_01x02", 48.26, 203.20,
@@ -128,8 +130,8 @@ def build(s):
     R19 = s.R("R19", 99.06, 194.31, "100k")
     s.pw(Q2, "1", ("y", 190.50), ("px", R19, "1"))
     s.gnd(R19, "2", drop=0)
-    # VBAT out -> joins the charger staircase at (170.18, 212.09)
-    s.pw(Q2, "3", ("x", 170.18), ("y", 212.09))
+    # VBAT out -> joins the charger staircase at (175.26, 212.09)
+    s.pw(Q2, "3", ("x", 175.26), ("y", 212.09))
     # Vbat ADC divider + disconnect FET (taps the CELL side of the P-FET)
     R22 = s.R("R22", 91.44, 209.55, "100k")
     s.pw(R22, "1", ("x", 66.04), ("y", 203.20))

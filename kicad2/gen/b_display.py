@@ -42,6 +42,7 @@ def build(s):
     s.gnd(C221, "2", drop=0)
     s.text("EXTMODE=L -> software VCOM (frame-inversion bit, >=1 Hz).", 688.34, 92, size=1.3)
     s.text("SCS active-HIGH, LSB-first, <=2 MHz; write-only (no MISO).", 688.34, 96.5, size=1.3)
+    s.text("Layout: C220/C221 at the J5 VDDA/VDD pins; C222/C223 at the J6 VDD pin.", 688.34, 101, size=1.3)
 
     # ---- microSD ----
     J6 = s.comp("J6", "clock:Micro_SD_Card_Det_Hirose_DM3AT", 762.00, 152.40,

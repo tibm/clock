@@ -40,9 +40,11 @@ flags, plus flattened clones of stock `extends` symbols (AO3400A, AO3401A,
 - `kicad-cli sch erc` → **2 known-benign items** (same two as v1):
   LT3652 BAT output ↔ VBAT PWR_FLAG, QRE1113 open-emitter ↔ GND flag.
 - `gen/netdiff.py` → connectivity **identical to `../kicad/`** as a
-  (ref,pin) partition, modulo the intended changes below.
+  (ref,pin) partition, modulo the intended changes below (historical: the
+  old `../kicad/` project has since been deleted, 2026-07-15).
 - `gen/build.py` lint: no dangling wires, no body overlaps, no wires through
-  symbols; junctions auto-placed at T-points.
+  symbols; junctions auto-placed with eeschema's own rules (T-points,
+  pin-joins; wires broken at crossing-joins) so a GUI re-save is a no-op.
 
 ### Intended differences vs `../kicad/`
 1. **R_SENSE topology fixed**: v1 ran L1 straight to BAT and left R18
@@ -66,10 +68,17 @@ flags, plus flattened clones of stock `extends` symbols (AO3400A, AO3401A,
 
 ## Regenerating
 ```
-cd gen && python3 mksym.py && python3 build.py && python3 netdiff.py
+cd gen && python3 mksym.py && python3 build.py
 ```
-`sch2.py` — manual-placement builder (explicit wires; auto-junctions; lint) ·
-`b_*.py` — one file per block (all coordinates hand-chosen, 1.27 mm grid) ·
-`mksym.py` — custom symbols · `netdiff.py` — connectivity diff vs `../kicad/`.
+`build.py` finishes by normalizing the sheet through **`kicad-cli sch
+upgrade`** (needs KiCad 10 installed), so the file on disk is in the current
+KiCad format with canonical ordering and **stable per-pin uuids** — opening
+and saving in eeschema produces **zero diff**, and rebuilds are
+byte-reproducible.
+`sch2.py` — manual-placement builder (explicit wires; eeschema-rule
+junctions; collinear-wire merge; lint) · `b_*.py` — one file per block (all
+coordinates hand-chosen, 1.27 mm grid) · `mksym.py` — custom symbols ·
+`netdiff.py` — connectivity diff vs `../kicad/` (defunct: old project
+deleted).
 Validate: `kicad-cli sch erc clock.kicad_sch`
 (`/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli`).

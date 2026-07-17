@@ -388,37 +388,129 @@ class Sch:
         self.text(title, x1 + 2.5, y1 + 4.2, size=2.6, bold=True)
 
     # ---------------- finalize ----------------
-    def auto_junctions(self):
-        """Add a junction wherever >=3 connection ends meet, or a wire endpoint
-        lies in the interior of another wire (T-point)."""
+    @staticmethod
+    def _interior(pt, seg):
+        (x, y), (x1, y1, x2, y2) = pt, seg
+        if abs(x1 - x2) < 0.02:  # vertical
+            return abs(x - x1) < 0.02 and min(y1, y2) + 0.02 < y < max(y1, y2) - 0.02
+        return abs(y - y1) < 0.02 and min(x1, x2) + 0.02 < x < max(x1, x2) - 0.02
+
+    def _pin_points(self):
+        """Point -> number of DISTINCT components with a pin there (stacked
+        same-symbol pins, e.g. TB6612 AO1 = pins 1+2, count once — that is
+        how eeschema weighs them for junction placement)."""
+        from collections import defaultdict
+        comps_at = defaultdict(set)
+        for c in self.comps:
+            for num in c.pins():
+                x, y, _ = c.pin_xy(num)
+                comps_at[(x, y)].add(id(c))
+        return {pt: len(s) for pt, s in comps_at.items()}
+
+    def _end_counts(self):
         from collections import defaultdict
         endcnt = defaultdict(int)
         for (x1, y1, x2, y2) in self.wires:
             endcnt[(x1, y1)] += 1
             endcnt[(x2, y2)] += 1
-        from collections import Counter
-        pinpts = Counter()
-        for c in self.comps:
-            for num in c.pins():
-                x, y, _ = c.pin_xy(num)
-                pinpts[(x, y)] += 1
+        return endcnt
 
-        def interior(pt, seg):
-            (x, y), (x1, y1, x2, y2) = pt, seg
-            if abs(x1 - x2) < 0.02:  # vertical
-                return abs(x - x1) < 0.02 and min(y1, y2) + 0.02 < y < max(y1, y2) - 0.02
-            return abs(y - y1) < 0.02 and min(x1, x2) + 0.02 < x < max(x1, x2) - 0.02
+    def _break_wires_at(self, pt):
+        """Split every wire whose interior passes through pt into two segments."""
+        out = []
+        for seg in self.wires:
+            if self._interior(pt, seg):
+                (x1, y1, x2, y2) = seg
+                out.append((x1, y1, pt[0], pt[1]))
+                out.append((pt[0], pt[1], x2, y2))
+            else:
+                out.append(seg)
+        self.wires = out
+
+    def merge_collinear(self):
+        """Merge abutting collinear segments whose shared endpoint carries
+        nothing else (no 3rd wire, pin, junction or label) — mirrors the
+        cleanup eeschema runs on save, so a GUI re-save is a no-op."""
+        pinpts = self._pin_points()
+        keep = set(pinpts)
+        keep |= {(round(x, 4), round(y, 4)) for x, y in self.juncs}
+        keep |= {(x, y) for (_, _, x, y, _, _) in self.labels}
+        merged = 0
+        changed = True
+        while changed:
+            changed = False
+            endmap = {}
+            for i, s in enumerate(self.wires):
+                for pt in ((s[0], s[1]), (s[2], s[3])):
+                    endmap.setdefault(pt, []).append(i)
+            for pt, idxs in endmap.items():
+                if pt in keep or len(idxs) != 2:
+                    continue
+                a, b = self.wires[idxs[0]], self.wires[idxs[1]]
+                if idxs[0] == idxs[1]:
+                    continue
+                av = abs(a[0] - a[2]) < 0.02
+                bv = abs(b[0] - b[2]) < 0.02
+                if av != bv:
+                    continue                      # perpendicular corner
+                if any(self._interior(pt, s) for s in self.wires):
+                    continue
+                ends = [(a[0], a[1]), (a[2], a[3]), (b[0], b[1]), (b[2], b[3])]
+                far = [e for e in ends if e != pt]
+                if len(far) != 2:
+                    continue
+                (fx1, fy1), (fx2, fy2) = far
+                hi, lo = sorted(idxs, reverse=True)
+                del self.wires[hi]
+                del self.wires[lo]
+                self.wires.append((fx1, fy1, fx2, fy2))
+                merged += 1
+                changed = True
+                break
+        return merged
+
+    def auto_junctions(self):
+        """Junction placement matching eeschema's IsJunctionNeeded, so a GUI
+        re-save neither adds nor deletes any:
+          - a wire interior passes through AND >=1 wire end / pin on it, OR
+          - >=3 items (wire ends + distinct components' pins) meet, with at
+            least one wire end.
+        A single wire end landing on one component's pin(s) never gets a
+        junction.  Manual junctions at pure wire crossings (no endpoint/pin)
+        are made canonical by BREAKING both wires there — otherwise
+        eeschema's save-cleanup deletes the junction and SPLITS the net."""
+        pinpts = self._pin_points()
+
+        # canonicalize manual crossing-joins first
+        for (jx, jy) in list(self.juncs):
+            pt = (round(jx, 4), round(jy, 4))
+            endcnt = self._end_counts()
+            if endcnt.get(pt, 0) + pinpts.get(pt, 0) == 0 and \
+               any(self._interior(pt, s) for s in self.wires):
+                self._break_wires_at(pt)
+
+        endcnt = self._end_counts()
+
+        def needed(pt):
+            ends = endcnt.get(pt, 0)
+            pins = pinpts.get(pt, 0)
+            through = any(self._interior(pt, s) for s in self.wires)
+            return (through and (ends + pins) >= 1) \
+                or (ends >= 1 and (ends + pins) >= 3)
 
         pts = set(endcnt) | set(pinpts)
         have = {(round(x, 4), round(y, 4)) for x, y in self.juncs}
-        added = []
+        added, dropped = [], []
+        for pt in sorted(have):
+            if not needed(pt):
+                dropped.append(pt)
+                self.juncs = [j for j in self.juncs
+                              if (round(j[0], 4), round(j[1], 4)) != pt]
         for pt in pts:
-            n = endcnt[pt] + pinpts.get(pt, 0)
-            through = any(interior(pt, s) for s in self.wires)
-            if (n >= 3 or (through and n >= 1)) and pt not in have:
+            if needed(pt) and pt not in have:
                 self.juncs.append(pt)
                 added.append(pt)
-        return added
+        return added, dropped
 
     # ---------------- lint ----------------
     def lint(self):
@@ -539,6 +631,11 @@ class Sch:
                           hide=not c.show_value, justify=vj))
             n.append(prop("Footprint", c.footprint, c.x, c.y, hide=True))
             n.append(prop("Datasheet", "~", c.x, c.y, hide=True))
+        # stable per-pin uuids: eeschema assigns random ones on load if absent,
+        # which would churn the file on every open/save and every rebuild
+        for num in sorted(c.pins()):
+            n.append(A("pin", QStr(num),
+                       A("uuid", QStr(uid(f"pin:{c.uuid}:{num}")))))
         n.append(A("instances",
                    A("project", QStr(self.project),
                      A("path", QStr("/" + self.uuid),
