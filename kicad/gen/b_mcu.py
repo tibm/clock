@@ -35,7 +35,7 @@ def build(s):
     R50 = s.R("R50", 490.22, 102.87, "10k")
     s.rail(R50, "1", "+3V3", rise=0)
     s.jpin(R50, "2")
-    C144 = s.C("C144", 478.79, 110.49, "1uF")
+    C144 = s.C("C144", 474.98, 110.49, "1uF")
     s.pw(C144, "1", ("y", 106.68))
     s.gnd(C144, "2", drop=0)
     SW1 = s.comp("SW1", "Switch:SW_Push", 461.01, 114.30, value="RESET",
@@ -46,12 +46,12 @@ def build(s):
     s.pw(U8, "27", ("x", 435.61))                    # IO0 row wire
     R51 = s.R("R51", 435.61, 105.41, "10k")
     s.rail(R51, "1", "+3V3", rise=0)
-    SW2 = s.comp("SW2", "Switch:SW_Push", 463.55, 119.38, value="BOOT",
+    SW2 = s.comp("SW2", "Switch:SW_Push", 463.55, 125.73, value="BOOT",
                  footprint="Button_Switch_SMD:SW_SPST_CK_RS282G05A3")
     s.pw(SW2, "2", ("x", 468.63), ("y", 109.22))
-    s.gnd(SW2, "1", via=0)
+    s.gnd(SW2, "1", via=0, drop=3.81)
     # PROG header: 3V3 / GND / EN / IO0
-    J2 = s.comp("J2", "Connector_Generic:Conn_01x04", 429.26, 116.84,
+    J2 = s.comp("J2", "Connector_Generic:Conn_01x04", 421.64, 116.84,
                 mirror="y", value="PROG",
                 footprint="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
                 refpos=(429.26, 109.22, None), valpos=(429.26, 127.00, None))
@@ -66,12 +66,12 @@ def build(s):
                 refpos=(492.76, 123.19, "left"), valpos=(488.19, 123.19, "right"))
     s.pw(U8, "8", ("x", 494.03), ("y", 119.38), ("px", Y1, "2"))
     s.pw(U8, "9", ("x", 494.03), ("y", 127.00), ("px", Y1, "1"))
-    C145 = s.C("C145", 481.33, 119.38, "18pF", rot=90)
+    C145 = s.C("C145", 480.06, 119.38, "18pF", rot=90)
     s.route(C145, "2", Y1, "2", "H")
-    s.gnd(C145, "1")
-    C146 = s.C("C146", 481.33, 127.00, "18pF", rot=90)
+    s.gnd(C145, "1", drop=1.27)
+    C146 = s.C("C146", 477.52, 127.00, "18pF", rot=90)
     s.route(C146, "2", Y1, "1", "H")
-    s.gnd(C146, "1")
+    s.gnd(C146, "1", via=0, drop=3.81)
 
     # ---- left-side nets (labels) ----
     s.glabel(U8, "13", "USB_DM")

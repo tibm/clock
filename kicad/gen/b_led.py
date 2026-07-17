@@ -15,7 +15,7 @@ def build(s):
                 footprint="Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical")
     s.power_at(327.66, 412.75, "+5V")
     s.w((327.66, 412.75), (327.66, 415.29), (335.28, 415.29))
-    Q5 = s.comp("Q5", "clock:AO3400A", 313.69, 427.99, value="AO3400A",
+    Q5 = s.comp("Q5", "clock:AO3400A", 320.04, 427.99, value="AO3400A",
                 footprint="Package_TO_SOT_SMD:SOT-23",
                 refpos=(318.52, 426.59, "left"), valpos=(326.39, 431.80, "left"))
     s.pw(Q5, "3", ("y", 417.83), ("px", J8, "2"))    # drain -> PANEL_K
@@ -49,7 +49,8 @@ def build(s):
     Q7 = s.comp("Q7", "clock:AO3400A", 321.31, 486.41, value="AO3400A",
                 footprint="Package_TO_SOT_SMD:SOT-23",
                 refpos=(326.14, 485.01, "left"), valpos=(329.18, 490.22, "left"))
-    s.pw(Q7, "3", ("y", 452.12), ("px", J9, "3"))    # drain -> COOL_K
+    s.pw(Q7, "3", ("y", 472.44), ("x", 331.47), ("y", 452.12),
+         ("px", J9, "3"))                            # drain -> COOL_K
     s.gnd(Q7, "2", drop=0)
     R106 = s.R("R106", 312.42, 486.41, "100R", rot=90)
     s.route(R106, "2", Q7, "1", "H")

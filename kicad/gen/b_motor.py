@@ -6,19 +6,24 @@ Driver #1 = minute (external shaft), #2 = hour (internal shaft).
 U = 2.54
 
 
-def _driver(s, ref, y0, cbase):
+def _driver(s, ref, y0, cbase, stby_up=False, rail_rise=17.78):
     u = s.comp(ref, "Driver_Motor:TB6612FNG", 693.42, y0, value="TB6612FNG",
                footprint="Package_SO:SSOP-24_5.3x8.2mm_P0.65mm",
                refpos=(664.21, y0 - 25.40, "right"),
                valpos=(664.21, y0 - 22.86, "right"))
-    # STBY (shared expander line, idle-low at boot)
-    s.pw(u, "19", ("x", 668.02))
-    s.glabel_at("STEP_STBY", 668.02, y0 - 10.16, 180)
+    # STBY (shared expander line, idle-low at boot); U12's label jogs up a
+    # row so it clears the +3V3 strap glyph
+    if stby_up:
+        s.pw(u, "19", ("x", 676.91), ("y", y0 - 17.78), ("x", 668.02))
+        s.glabel_at("STEP_STBY", 668.02, y0 - 17.78, 180)
+    else:
+        s.pw(u, "19", ("x", 668.02))
+        s.glabel_at("STEP_STBY", 668.02, y0 - 10.16, 180)
     # PWMA/PWMB tied high to VCC (3V3): PWM rides the IN pins
     s.pw(u, "23", ("x", 673.10))
     s.pw(u, "15", ("x", 673.10), ("y", y0 - 5.08))
-    s.w((673.10, y0 - 5.08), (673.10, y0 - 17.78))
-    s.power_at(673.10, y0 - 17.78, "+3V3")
+    s.w((673.10, y0 - 5.08), (673.10, y0 - rail_rise))
+    s.power_at(673.10, y0 - rail_rise, "+3V3")
     # supplies
     s.rail(u, "20", "+3V3", rise=2.54)               # VCC
     for p in ("13", "14"):                            # VM1..VM3 tie -> +5V
@@ -48,7 +53,8 @@ def build(s):
     s.frame(610, 405, 835, 585, "MOTOR — 2x TB6612FNG -> X40.879 dual-shaft stepper")
 
     U11 = _driver(s, "U11", 467.36, "C20")            # minute / external shaft
-    U12 = _driver(s, "U12", 543.56, "C21")            # hour / internal shaft
+    U12 = _driver(s, "U12", 543.56, "C21",            # hour / internal shaft
+                  stby_up=True, rail_rise=7.62)
 
     # 8 MCPWM lines, MCU -> drivers (order-preserving corridor)
     s.pw(U8, "4", ("x", 600.71), ("y", 469.90), ("px", U11, "21"))   # M_AIN1

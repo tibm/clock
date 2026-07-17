@@ -68,6 +68,10 @@ def write_project(name):
         "text_variables": {},
     }
     path = os.path.join(OUT_DIR, f"{name}.kicad_pro")
+    if os.path.exists(path):
+        # never clobber the project file once KiCad has saved its own
+        # settings into it (ERC config, board setup, ...)
+        return path
     with open(path, "w") as f:
         json.dump(pro, f, indent=2)
     return path

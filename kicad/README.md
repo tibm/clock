@@ -70,6 +70,12 @@ flags, plus flattened clones of stock `extends` symbols (AO3400A, AO3401A,
 ```
 cd gen && python3 mksym.py && python3 build.py
 ```
+**GUI tuning workflow:** hand-tune symbol/text positions in eeschema, save,
+then `python3 harvest.py` — it re-extracts every symbol's position and
+ref/value text placement into `cosmetics.py`, which `build.py` applies on
+top of the block code (wires are still drawn by `b_*.py`, so if you MOVE a
+symbol far enough to need rewiring, fix the block file — lint flags it).
+`clock.kicad_pro` is only written if missing (eeschema owns it after that).
 `build.py` finishes by normalizing the sheet through **`kicad-cli sch
 upgrade`** (needs KiCad 10 installed), so the file on disk is in the current
 KiCad format with canonical ordering and **stable per-pin uuids** — opening

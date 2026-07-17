@@ -59,9 +59,9 @@ def build(s):
     R72 = s.R("R72", 709.93, 138.43, "10k")
     s.rail(R72, "1", "+3V3", rise=0)
     s.pw(J6, "1", ("px", R72, "2"))                                 # DAT2
-    R71 = s.R("R71", 664.21, 134.62, "10k")
-    s.rail(R71, "1", "+3V3", rise=0)
-    s.pw(J6, "8", ("x", 664.21), ("pin", R71, "2"))                 # DAT1
+    R71 = s.R("R71", 661.67, 134.62, "10k")
+    s.rail(R71, "1", "+3V3", rise=1.27)
+    s.pw(J6, "8", ("pin", R71, "2"))                                # DAT1
     # VDD -> +3V3 (through the row gap, up left of the corridors)
     s.pw(J6, "4", ("x", 656.59), ("y", 137.16))
     s.power_at(656.59, 137.16, "+3V3")
@@ -72,11 +72,11 @@ def build(s):
     s.nc(J6, "9")
     s.nc(J6, "10")
     # 3V3 decoupling at the card
-    C222 = s.C("C222", 695.96, 124.46, "10uF", fp="C0805")
+    C222 = s.C("C222", 695.96, 120.65, "10uF", fp="C0805")
     s.rail(C222, "1", "+3V3", rise=0)
-    s.gnd(C222, "2", drop=0, show_value=False)
-    C223 = s.C("C223", 703.58, 124.46, "100nF")
+    s.gnd(C222, "2", drop=1.27, show_value=False)
+    C223 = s.C("C223", 703.58, 120.65, "100nF")
     s.rail(C223, "1", "+3V3", rise=0)
-    s.gnd(C223, "2", drop=0, show_value=False)
+    s.gnd(C223, "2", drop=1.27, show_value=False)
     s.text("SPI mode: MSB-first, CS active-low, ~25 MHz. No card-detect (no spare GPIO).",
            688.34, 174, size=1.3)

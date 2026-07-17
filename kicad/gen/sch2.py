@@ -81,7 +81,12 @@ _DIR = {0: (1, 0), 90: (0, 1), 180: (-1, 0), 270: (0, -1)}  # sch coords, y down
 class Comp:
     def __init__(self, ref, lib_id, x, y, value, footprint, unit, rot, mirror,
                  cache, is_power=False, refpos=None, valpos=None,
-                 show_value=True, show_ref=True):
+                 show_value=True, show_ref=True,
+                 refabs=None, valabs=None):
+        # refabs/valabs: GUI-harvested absolute (x, y, rot, justify) — win
+        # over refpos/valpos and the computed defaults
+        self.refabs = refabs
+        self.valabs = valabs
         self.ref = ref
         self.lib_id = lib_id
         self.x = x
@@ -149,7 +154,8 @@ class Comp:
 
 class Sch:
     def __init__(self, cache: SymbolCache, name: str, project: str,
-                 paper="A1", title="", date="", rev="", company=""):
+                 paper="A1", title="", date="", rev="", company="",
+                 cosmetics=None):
         self.cache = cache
         self.name = name
         self.project = project
@@ -169,11 +175,19 @@ class Sch:
         self._pwr = 0
         self._refs = set()
         self.parts = {}       # cross-block component handles (e.g. "U8")
+        self.cosmetics = cosmetics or {}   # ref -> GUI-harvested placement
 
     # ---------------- placement ----------------
     def comp(self, ref, lib_id, x, y, value=None, footprint="", unit=1,
              rot=0, mirror=None, is_power=False, refpos=None, valpos=None,
              show_value=True, show_ref=True):
+        refabs = valabs = None
+        cos = None if is_power else self.cosmetics.get(ref)
+        if cos:
+            x, y, rot, mirror = cos["at"]
+            assert ongrid(x) and ongrid(y), \
+                f"{ref} cosmetic origin off-grid: ({x},{y})"
+            refabs, valabs = cos["ref"], cos["val"]
         assert ongrid(x) and ongrid(y), f"{ref} origin off-grid: ({x},{y})"
         if not is_power:
             assert ref not in self._refs, f"duplicate ref {ref}"
@@ -181,7 +195,7 @@ class Sch:
         c = Comp(ref, lib_id, round(x, 4), round(y, 4),
                  value if value is not None else lib_id.split(":", 1)[1],
                  footprint, unit, rot, mirror, self.cache, is_power,
-                 refpos, valpos, show_value, show_ref)
+                 refpos, valpos, show_value, show_ref, refabs, valabs)
         self.comps.append(c)
         return c
 
@@ -530,14 +544,8 @@ class Sch:
             anchors.add((x, y))
 
         def on_any_interior(pt):
-            for (x1, y1, x2, y2) in self.wires:
-                if abs(x1 - x2) < 0.02:
-                    if abs(pt[0] - x1) < 0.02 and min(y1, y2) - 0.02 <= pt[1] <= max(y1, y2) + 0.02:
-                        return True
-                else:
-                    if abs(pt[1] - y1) < 0.02 and min(x1, x2) - 0.02 <= pt[0] <= max(x1, x2) + 0.02:
-                        return True
-            return False
+            # STRICT interior — an endpoint must not match its own segment
+            return any(self._interior(pt, s) for s in self.wires)
 
         for pt, n in endcnt.items():
             if n >= 2 or pt in anchors:
@@ -617,17 +625,23 @@ class Sch:
             n.append(prop("Footprint", "", c.x, c.y, hide=True))
             n.append(prop("Datasheet", "~", c.x, c.y, hide=True))
         else:
-            if c.refpos:
+            if c.refabs:
+                rx, ry, rrot, rj = c.refabs
+            elif c.refpos:
                 rx, ry, rj = c.refpos
+                rrot = prot
             else:
-                rx, ry, rj = self._default_refpos(c)
-            n.append(prop("Reference", c.ref, rx, ry, rot=prot,
+                (rx, ry, rj), rrot = self._default_refpos(c), prot
+            n.append(prop("Reference", c.ref, rx, ry, rot=rrot,
                           hide=not c.show_ref, justify=rj))
-            if c.valpos:
+            if c.valabs:
+                vx, vy, vrot, vj = c.valabs
+            elif c.valpos:
                 vx, vy, vj = c.valpos
+                vrot = prot
             else:
-                vx, vy, vj = self._default_valpos(c)
-            n.append(prop("Value", c.value, vx, vy, rot=prot,
+                (vx, vy, vj), vrot = self._default_valpos(c), prot
+            n.append(prop("Value", c.value, vx, vy, rot=vrot,
                           hide=not c.show_value, justify=vj))
             n.append(prop("Footprint", c.footprint, c.x, c.y, hide=True))
             n.append(prop("Datasheet", "~", c.x, c.y, hide=True))

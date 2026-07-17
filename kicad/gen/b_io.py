@@ -56,36 +56,36 @@ def build(s):
     s.parts["U13"] = U13
     s.rail(U13, "9", "+3V3", rise=2.54)               # VDD
     s.gnd(U13, "10", drop=2.54)                       # VSS
-    C240 = s.C("C240", 505.46, 441.96, "100nF")
+    C240 = s.C("C240", 505.46, 434.34, "100nF")
     s.rail(C240, "1", "+3V3", rise=0)
-    s.gnd(C240, "2", drop=0)
+    s.gnd(C240, "2", drop=1.27)
     s.nc(U13, "11")
     s.nc(U13, "14")
     s.nc(U13, "28")                                    # GPA7 spare
     s.nc(U13, "8")                                     # GPB7 spare
 
     # I2C bus stubs + main-board pull-ups
-    s.pw(U13, "12", ("x", 464.82))
-    s.glabel_at("I2C_SCL", 464.82, 449.58, 180)
-    s.pw(U13, "13", ("x", 462.28))
-    s.glabel_at("I2C_SDA", 462.28, 452.12, 180)
-    R96 = s.R("R96", 476.25, 443.23, "4.7k")
+    s.pw(U13, "12", ("x", 450.85))
+    s.glabel_at("I2C_SCL", 450.85, 449.58, 180)
+    s.pw(U13, "13", ("x", 440.69))
+    s.glabel_at("I2C_SDA", 440.69, 452.12, 180)
+    R96 = s.R("R96", 469.90, 443.23, "4.7k")
     s.rail(R96, "1", "+3V3", rise=0)
     s.pw(R96, "2", ("y", 449.58))
-    R95 = s.R("R95", 467.36, 443.23, "4.7k")
+    R95 = s.R("R95", 458.47, 443.23, "4.7k")
     s.rail(R95, "1", "+3V3", rise=0)
     s.pw(R95, "2", ("y", 452.12))
 
     # INTA+INTB mirrored -> one line to the MCU (IO44), + pull-up
-    s.pw(U13, "20", ("x", 473.71))                    # INTA row
+    R94 = s.R("R94", 468.63, 461.01, "10k")
+    s.rail(R94, "1", "+3V3", rise=0)
+    s.pw(U13, "20", ("px", R94, "2"))                 # INTA row
     s.w((478.79, 467.36), (478.79, 147.32))           # corridor up to the MCU
     s.junction(478.79, 464.82)                        # INTA row -> corridor
     s.pw(U8, "36", ("x", 478.79))                     # IO44 EXP_INT
     s.pw(U13, "19", ("x", 478.79))                    # INTB joins the column
-    R94 = s.R("R94", 473.71, 461.01, "10k")
-    s.rail(R94, "1", "+3V3", rise=0)
     # RESET tied high
-    R93 = s.R("R93", 469.90, 468.63, "10k")
+    R93 = s.R("R93", 462.28, 468.63, "10k")
     s.pw(U13, "18", ("px", R93, "2"))
     s.rail(R93, "1", "+3V3", rise=0)
     # address straps 0x20: A0/A1/A2 -> 0R -> GND
@@ -102,28 +102,29 @@ def build(s):
     # buttons on GPA3..GPA5 (internal pull-ups + IOC in firmware),
     # fanned out to a 5.08 pitch right of the GPA2 label text
     gcol = 553.72
-    for pin, ref, name, row, bend in [("24", "SW4", "BTN1", 454.66, 533.40),
-                                      ("25", "SW5", "BTN2", 459.74, None),
+    for pin, ref, name, row, bend in [("24", "SW4", "BTN1", 441.96, 533.40),
+                                      ("25", "SW5", "BTN2", 453.39, 539.75),
                                       ("26", "SW6", "BTN3", 464.82, 535.94)]:
         sw = s.comp(ref, "Switch:SW_Push", 546.10, row, value=name,
                     footprint="Button_Switch_SMD:SW_SPST_CK_RS282G05A3")
-        if bend is None:
-            s.route(U13, pin, sw, "1", "H")
-        else:
-            s.pw(U13, pin, ("x", bend), ("y", row), ("px", sw, "1"))
+        s.pw(U13, pin, ("x", bend), ("y", row), ("px", sw, "1"))
         s.pw(sw, "2", ("x", gcol))
-    s.w((gcol, 454.66), (gcol, 464.82))
+    s.w((gcol, 441.96), (gcol, 464.82))
     s.power_at(gcol, 464.82, "GND")
 
     # GPB fan-out labels
     for pin, name in [("1", "PD_PG"), ("2", "CHRG"), ("3", "FAULT"),
                       ("4", "LCD_DISP"), ("5", "FULLCHG_EN"),
-                      ("6", "VBAT_DIV_EN"), ("7", "SPK_FAULT")]:
+                      ("6", "VBAT_DIV_EN")]:
         s.glabel(U13, pin, name)
-    # SPK_FAULT open-drain pull-up (amp fault line)
-    R62 = s.R("R62", 513.08, 491.49, "10k")
-    s.power_at(513.08, 495.30, "+3V3", rot=180, show_value=False)
-    s.text("+3V3", 509.27, 500.38, size=1.27)
+    # SPK_FAULT (GPB6): run right, open-drain pull-up R62 hangs on it
+    s.pw(U13, "7", ("x", 535.94), ("dx", 2.54))
+    s.glabel_at("SPK_FAULT", 538.48, 487.68, 0)
+    R62 = s.R("R62", 535.94, 480.06, "10k")
+    s.pw(R62, "2", ("y", 487.68))
+    s.pw(R62, "1", ("dy", -1.27))
+    s.power_at(535.94, 474.98, "+3V3", show_value=False)
+    s.text("+3V3", 536.702, 472.694, size=1.27)
 
     # rotary encoder: A/B wired to the MCU (PCNT), switch on GPA6
     SW3 = s.comp("SW3", "Device:RotaryEncoder_Switch", 533.40, 508.00,
@@ -131,10 +132,10 @@ def build(s):
                  footprint="Rotary_Encoder:RotaryEncoder_Alps_EC11E-Switch_Vertical_H20mm")
     s.pw(U8, "24", ("x", 424.18), ("y", 505.46), ("px", SW3, "A"))   # ENC_A
     s.pw(U8, "25", ("x", 426.72), ("y", 510.54), ("px", SW3, "B"))   # ENC_B
-    R100 = s.R("R100", 452.12, 501.65, "10k")
+    R100 = s.R("R100", 439.42, 501.65, "10k")
     s.rail(R100, "1", "+3V3", rise=0)
-    R101 = s.R("R101", 459.74, 499.11, "10k")
-    s.rail(R101, "1", "+3V3", rise=0)
+    R101 = s.R("R101", 453.39, 500.38, "10k")
+    s.rail(R101, "1", "+3V3", rise=1.27)
     s.pw(R101, "2", ("y", 510.54))
     s.gnd(SW3, "C", via=-2.54, drop=5.08)
     s.gnd(SW3, "S2", via=2.54)
