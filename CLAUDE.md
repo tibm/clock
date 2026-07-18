@@ -16,7 +16,7 @@ Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel
 |---|---|---|---|
 | MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
 | Display | Sharp LS032B7DD02 | 5 V panel / 3 V logic | 3-wire SPI, reflective MIP; software VCOM (EXTMODE=L) |
-| Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets) |
+| Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets); solders to PCB, shafts through-board (custom footprint) |
 | IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines, net −7 GPIO |
 | Motor driver | 2× TB6612FNG | VM 5 V / VCC 3.3 V | SSOP-24; PWM-on-IN microstep, 8 GPIO |
 | Amp | TI TAS5760M | PVDD 12 V / DVDD 3.3 V | HTSSOP-32; I²S+I²C, PBTL mono (firmware DSP) |
@@ -27,7 +27,7 @@ Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel
 
 ## Safety (NON-NEGOTIABLE)
 Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be **safe for ANY 18650** ("if it fits, it must be safe") — assume unprotected/reversed/wrong-SoC/hot cell; do **not** rely on the cell's PCM.
-- **Double-redundant** OV/OD/OC/SC = charger **LT3652** (CV 4.05 V via FB divider, NTC temp-qual, safety timer) **+ independent protector AP9101C (SOT-23-6) + AOSD32334C dual-FET (SO-8)** (OV 4.28 V). Industry-standard for 1S — simple, not over-built.
+- **Double-redundant** OV/OD/OC/SC = charger **LT3652** (CV 4.05 V via FB divider, NTC temp-qual, safety timer) **+ independent protector HY2111-GB (SOT-23-6, LCSC — AP9101C family went NRND 2026-07-17) + AOSD32334C dual-FET (SO-8)** (OV 4.28 V). Industry-standard for 1S — simple, not over-built.
 - **Reverse-polarity P-FET** on BAT+ (bare cell can't be keyed).
 - **NTC temp-qualified charge** (LT3652 NTC pin: no charge <0/>45 °C — single hot/cold window, not multi-zone JEITA); cell voltage-qualified on insert (ADC).
 - **Charge-cap ~80 % (4.05 V)** — fixed in HW by the LT3652 float divider (no I²C; SoC/faults via ADC + CHRG/FAULT); **runs with no cell** on USB (BAT node feeds rails).

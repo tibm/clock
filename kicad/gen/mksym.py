@@ -57,7 +57,7 @@ def rail_symbol(name, desc):
 
 
 def ic_symbol(name, footprint, datasheet, pins, description="",
-              width=15.24, pin_len=3.81, grid=2.54, value=None):
+              width=15.24, pin_len=3.81, grid=2.54, value=None, refdes="U"):
     """pins: list of dicts {num, name, side(L/R/T/B), order, etype}.
     `order` is the ROW SLOT along that side (0 = topmost for L/R, 0 = leftmost
     for T/B); slots may be skipped to leave visual gaps between pin groups."""
@@ -103,7 +103,7 @@ def ic_symbol(name, footprint, datasheet, pins, description="",
     out = [f'\t(symbol "{name}"',
            '\t\t(pin_names (offset 1.016))',
            '\t\t(exclude_from_sim no)(in_bom yes)(on_board yes)',
-           f'\t\t(property "Reference" "U" (at {-hw:g} {top + 2.54:g} 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))',
+           f'\t\t(property "Reference" "{refdes}" (at {-hw:g} {top + 2.54:g} 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))',
            f'\t\t(property "Value" "{val}" (at {-hw:g} {top + 5.08:g} 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))',
            f'\t\t(property "Footprint" "{footprint}" (at 0 {bot - 7.62:g} 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))',
            f'\t\t(property "Datasheet" "{datasheet}" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))',
@@ -121,6 +121,48 @@ def ic_symbol(name, footprint, datasheet, pins, description="",
 
 def P(num, name, side, order, etype="passive"):
     return dict(num=str(num), name=name, side=side, order=order, etype=etype)
+
+
+# ---------------------------------------------------------------- HY2111
+def hy2111():
+    """HYCON HY2111 1-cell protector. Same body/pin geometry as the stock
+    Battery_Management:AP9101CK6 symbol it replaces (2026-07-17, AP9101C
+    NRND) so the hand-drawn wires in b_charger.py stay valid; pin names per
+    the HYCON datasheet (OD/CS/OC), same SOT-23-6 pad map."""
+    return '''\t(symbol "HY2111"
+\t\t(pin_names (offset 1.016))
+\t\t(exclude_from_sim no)(in_bom yes)(on_board yes)
+\t\t(property "Reference" "U" (at -7.62 6.35 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))
+\t\t(property "Value" "HY2111-GB" (at 7.62 6.35 0)(show_name no)(effects (font (size 1.27 1.27))))
+\t\t(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(property "Datasheet" "https://www.hycontek.com/hy_battery/DS-HY2111_EN.pdf" (at 0 1.27 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(property "Description" "HYCON 1-cell Li+ protection IC, external dual-N FET, SOT-23-6" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+\t\t(symbol "HY2111_0_1"
+\t\t\t(rectangle (start -7.62 5.08)(end 7.62 -5.08)(stroke (width 0.254)(type default))(fill (type background)))
+\t\t)
+\t\t(symbol "HY2111_1_1"
+\t\t\t(pin output line (at 10.16 -2.54 180)(length 2.54)
+\t\t\t\t(name "OD" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "1" (effects (font (size 1.27 1.27)))))
+\t\t\t(pin passive line (at -10.16 0 0)(length 2.54)
+\t\t\t\t(name "CS" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "2" (effects (font (size 1.27 1.27)))))
+\t\t\t(pin output line (at 10.16 2.54 180)(length 2.54)
+\t\t\t\t(name "OC" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "3" (effects (font (size 1.27 1.27)))))
+\t\t\t(pin no_connect line (at -7.62 -2.54 0)(length 2.54)(hide yes)
+\t\t\t\t(name "NC" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "4" (effects (font (size 1.27 1.27)))))
+\t\t\t(pin power_in line (at 0 7.62 270)(length 2.54)
+\t\t\t\t(name "VDD" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "5" (effects (font (size 1.27 1.27)))))
+\t\t\t(pin power_in line (at 0 -7.62 90)(length 2.54)
+\t\t\t\t(name "VSS" (effects (font (size 1.27 1.27))))
+\t\t\t\t(number "6" (effects (font (size 1.27 1.27)))))
+\t\t)
+\t\t(embedded_fonts no)
+\t)
+'''
 
 
 # ---------------------------------------------------------------- ESP32-S3
@@ -217,6 +259,22 @@ def build():
          P(5, "D1", "R", 0, "passive"), P(6, "D1", "R", 1, "passive"),
          P(7, "D2", "R", 2, "passive"), P(8, "D2", "R", 3, "passive")],
         description="Dual N-MOSFET, 30V, cell- protection FET pair", width=15.24))
+
+    parts.append(hy2111())
+
+    # X40.879 dual-shaft stepper, direct PCB mount (replaced connector J4
+    # 2026-07-17). Pin numbers/names per SP-X40-e-A-Pinout: 1-4 = external
+    # shaft coils (1e+ 2e- / 4e+ 3e-), 5-8 = internal (1i+ 2i- / 4i+ 3i-).
+    parts.append(ic_symbol(
+        "X40_879", "clock:Juken_X40-879_DualShaft",
+        "https://www.jukenswisstech.com/wp-content/uploads/SP-X40-e-A-Pinout.pdf",
+        [P(1, "1e", "L", 0), P(2, "2e", "L", 1),
+         P(3, "3e", "L", 2), P(4, "4e", "L", 3),
+         P(5, "1i", "L", 5), P(6, "2i", "L", 6),
+         P(7, "3i", "L", 7), P(8, "4i", "L", 8)],
+        description="Juken X40.879 dual-shaft stepper, PCB-mounted, "
+                    "shafts through-board (custom footprint)",
+        width=15.24, value="X40.879", refdes="M"))
 
     # TAS5760M (DAP 32-pin HTSSOP/PowerPAD, datasheet p.6)
     tas_pins = []

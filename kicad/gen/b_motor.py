@@ -1,6 +1,7 @@
 """Block: MOTOR — 2x TB6612FNG (PWM-on-IN microstep) -> Juken X40.879
-dual-shaft stepper. All 8 MCPWM lines are WIRED from the MCU down the
-x=600..621 corridor (order-preserving, no crossings within each group).
+dual-shaft stepper (M1, soldered directly on the PCB; shafts pass through
+the board). All 8 MCPWM lines are WIRED from the MCU down the x=600..621
+corridor (order-preserving, no crossings within each group).
 Driver #1 = minute (external shaft), #2 = hour (internal shaft).
 """
 U = 2.54
@@ -66,18 +67,20 @@ def build(s):
     s.pw(U8, "33", ("x", 618.49), ("y", 551.18), ("px", U12, "17"))  # H_BIN1
     s.pw(U8, "34", ("x", 621.03), ("y", 553.72), ("px", U12, "16"))  # H_BIN2
 
-    # stepper connector: 1e..4e (external coil pair), 1i..4i (internal)
-    J4 = s.comp("J4", "Connector_Generic:Conn_01x08", 777.24, 502.92,
-                value="X40.879 stepper (1e-4e, 1i-4i)",
-                footprint="Connector_JST:JST_PH_B8B-PH-K_1x08_P2.00mm_Vertical")
-    s.pw(U11, "1", ("x", 736.60), ("py", J4, "1"), ("pin", J4, "1"))    # AO1 -> 1e
-    s.pw(U11, "5", ("x", 739.14), ("py", J4, "2"), ("pin", J4, "2"))    # AO2 -> 2e
-    s.pw(U11, "7", ("x", 741.68), ("py", J4, "3"), ("pin", J4, "3"))    # BO2 -> 3e
-    s.pw(U11, "11", ("x", 744.22), ("py", J4, "4"), ("pin", J4, "4"))   # BO1 -> 4e
-    s.pw(U12, "1", ("x", 746.76), ("py", J4, "5"), ("pin", J4, "5"))    # AO1 -> 1i
-    s.pw(U12, "5", ("x", 749.30), ("py", J4, "6"), ("pin", J4, "6"))    # AO2 -> 2i
-    s.pw(U12, "7", ("x", 751.84), ("py", J4, "7"), ("pin", J4, "7"))    # BO2 -> 3i
-    s.pw(U12, "11", ("x", 754.38), ("py", J4, "8"), ("pin", J4, "8"))   # BO1 -> 4i
+    # stepper, soldered on-board (J4 connector dropped 2026-07-17): pins
+    # 1-4 = 1e..4e (external coil pair), 5-8 = 1i..4i (internal); custom
+    # footprint = through-board shafts + 3 snap-peg NPTH
+    M1 = s.comp("M1", "clock:X40_879", 777.24, 502.92,
+                value="X40.879",
+                footprint="clock:Juken_X40-879_DualShaft")
+    s.pw(U11, "1", ("x", 736.60), ("py", M1, "1"), ("pin", M1, "1"))    # AO1 -> 1e
+    s.pw(U11, "5", ("x", 739.14), ("py", M1, "2"), ("pin", M1, "2"))    # AO2 -> 2e
+    s.pw(U11, "7", ("x", 741.68), ("py", M1, "3"), ("pin", M1, "3"))    # BO2 -> 3e
+    s.pw(U11, "11", ("x", 744.22), ("py", M1, "4"), ("pin", M1, "4"))   # BO1 -> 4e
+    s.pw(U12, "1", ("x", 746.76), ("py", M1, "5"), ("pin", M1, "5"))    # AO1 -> 1i
+    s.pw(U12, "5", ("x", 749.30), ("py", M1, "6"), ("pin", M1, "6"))    # AO2 -> 2i
+    s.pw(U12, "7", ("x", 751.84), ("py", M1, "7"), ("pin", M1, "7"))    # BO2 -> 3i
+    s.pw(U12, "11", ("x", 754.38), ("py", M1, "8"), ("pin", M1, "8"))   # BO1 -> 4i
 
     s.text("Layout: each driver's 10uF+100nF go at its VM pins, the 100nF at its VCC pin.", 615, 415, size=1.3)
     s.text("PWM-on-IN microstepping: MCPWM waveforms on AIN/BIN, PWMA/B tied high.", 615, 575, size=1.3)

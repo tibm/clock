@@ -1,5 +1,5 @@
 """Blocks: CHARGER (LT3652) and BATTERY + PROTECTION (18650, reverse P-FET,
-AP9101C + AOSD32334C, TCO). Values per power_values.md §1/§6.
+HY2111 + AOSD32334C, TCO). Values per power_values.md §1/§6.
 
 Wire topology (all drawn, no labels except expander control lines):
   VBUS rail (y=55.88) -> LT3652 VIN;  SW -> L1 -> [M] -> R18 -> VBAT bus (x=340.36)
@@ -164,12 +164,13 @@ def build(s):
     s.w((111.76, 257.81), (114.30, 257.81))
     s.pwr_flag(114.30, 257.81)                       # PACK- drives the GND net
 
-    # AP9101C protector IC
-    U3 = s.comp("U3", "Battery_Management:AP9101CK6", 80.01, 276.86,
-                value="AP9101CK6-BX",
+    # HY2111 protector IC (replaced NRND AP9101CK6-BX 2026-07-17; same
+    # pinout, R1/R2/C1 values per HYCON datasheet §10)
+    U3 = s.comp("U3", "clock:HY2111", 80.01, 276.86,
+                value="HY2111-GB",
                 footprint="Package_TO_SOT_SMD:SOT-23-6")
     # VDD via R20 from cell+ (junction on the holder+ wire)
-    R20 = s.R("R20", 58.42, 265.43, "330R")
+    R20 = s.R("R20", 58.42, 265.43, "100R")
     s.w((58.42, 203.20), (58.42, 261.62))
     s.junction(58.42, 203.20)
     s.pw(R20, "2", ("y", 269.24), ("px", U3, "5"))
@@ -183,16 +184,16 @@ def build(s):
     s.w((55.88, 245.11), (55.88, 292.10))
     s.junction(55.88, 245.11)
     s.pw(U3, "6", ("y", 292.10), ("x", 55.88))
-    # VM via R21 -> GND (pack-)
-    R21 = s.R("R21", 62.23, 280.67, "2.7k")
+    # CS via R21 -> GND (pack-)
+    R21 = s.R("R21", 62.23, 280.67, "2k")
     s.route(U3, "2", R21, "1", "H")
     s.gnd(R21, "2", drop=0)
-    # DO -> G1 (discharge FET), CO -> G2 (charge FET)
+    # OD -> G1 (discharge FET), OC -> G2 (charge FET)
     s.pw(U3, "1", ("x", 95.25), ("y", 238.76), ("x", 63.50), ("y", 242.57),
          ("px", U4, "4"))
     s.pw(U3, "3", ("x", 97.79), ("y", 253.99), ("x", 64.77), ("y", 247.65),
          ("px", U4, "2"))
     s.nc(U3, "4")
 
-    s.text("cell- -> AOSD32334C (DO/CO gated) -> TCO 77 C -> PACK- (GND)", 20, 298, size=1.3)
-    s.text("OV 4.28 V / OD 2.80 V fixed (-BX). Independent of the charger.", 20, 303, size=1.3)
+    s.text("cell- -> AOSD32334C (OD/OC gated) -> TCO 77 C -> PACK- (GND)", 20, 298, size=1.3)
+    s.text("OV 4.28 V / OD 2.90 V fixed (-GB). Independent of the charger.", 20, 303, size=1.3)

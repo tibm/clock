@@ -115,7 +115,7 @@ Weak pull-ups + interrupt-on-change on the inputs; `IOCON.MIRROR=1` ORs INTA+INT
 | GPB5 | `VBAT_DIV_EN` | OUT | — | Vbat-divider disconnect FET gate |
 | GPB6–7 | *free* | — | — | 2 spare expander IO |
 
-Hard-safety (OV/OC/SC) is autonomous in the LT3652 + AP9101C — nothing time-critical rides the expander.
+Hard-safety (OV/OC/SC) is autonomous in the LT3652 + HY2111 — nothing time-critical rides the expander.
 
 ## TB6612FNG stepper-driver pinout (×2, SSOP-24) + X40.879 coil map
 PWM-on-IN microstepping: **PWMA (23) + PWMB (15) tied HIGH to Vcc** (direct 0 Ω / 10 k pull-up); the four

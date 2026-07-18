@@ -10,214 +10,6 @@
 		(rev "A")
 	)
 	(lib_symbols
-		(symbol "Battery_Management:AP9101CK6"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "U"
-				(at -7.62 6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "AP9101CK6"
-				(at 7.62 6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://www.diodes.com/assets/Datasheets/AP9101C.pdf"
-				(at 0 1.27 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Li+ Battery Protection IC for Single Cell Pack, SOT-23-6"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "battery protection li-ion li-po"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "SOT?23*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "AP9101CK6_0_1"
-				(rectangle
-					(start -7.62 5.08)
-					(end 7.62 -5.08)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "AP9101CK6_1_1"
-				(pin output line
-					(at 10.16 -2.54 180)
-					(length 2.54)
-					(name "DO"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -10.16 0 0)
-					(length 2.54)
-					(name "VM"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin output line
-					(at 10.16 2.54 180)
-					(length 2.54)
-					(name "CO"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin no_connect line
-					(at -7.62 -2.54 0)
-					(length 2.54)
-					(hide yes)
-					(name "NC"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 7.62 270)
-					(length 2.54)
-					(name "VDD"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 -7.62 90)
-					(length 2.54)
-					(name "VSS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Battery_Management:LT3652EMSE"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -8445,6 +8237,195 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "clock:HY2111"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at -7.62 6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "HY2111-GB"
+				(at 7.62 6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://www.hycontek.com/hy_battery/DS-HY2111_EN.pdf"
+				(at 0 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "HYCON 1-cell Li+ protection IC, external dual-N FET, SOT-23-6"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "HY2111_0_1"
+				(rectangle
+					(start -7.62 5.08)
+					(end 7.62 -5.08)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "HY2111_1_1"
+				(pin output line
+					(at 10.16 -2.54 180)
+					(length 2.54)
+					(name "OD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -10.16 0 0)
+					(length 2.54)
+					(name "CS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 10.16 2.54 180)
+					(length 2.54)
+					(name "OC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin no_connect line
+					(at -7.62 -2.54 0)
+					(length 2.54)
+					(hide yes)
+					(name "NC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 7.62 270)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -7.62 90)
+					(length 2.54)
+					(name "VSS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "clock:MCP23017x-x-SS"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -10921,6 +10902,231 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "clock:X40_879"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "M"
+				(at -7.62 15.24 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "X40.879"
+				(at -7.62 17.78 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "clock:Juken_X40-879_DualShaft"
+				(at 0 -20.32 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://www.jukenswisstech.com/wp-content/uploads/SP-X40-e-A-Pinout.pdf"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Juken X40.879 dual-shaft stepper, PCB-mounted, shafts through-board (custom footprint)"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "X40_879_0_1"
+				(rectangle
+					(start -7.62 12.7)
+					(end 7.62 -12.7)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "X40_879_1_1"
+				(pin passive line
+					(at -11.43 10.16 0)
+					(length 3.81)
+					(name "1e"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 7.62 0)
+					(length 3.81)
+					(name "2e"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 5.08 0)
+					(length 3.81)
+					(name "3e"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 2.54 0)
+					(length 3.81)
+					(name "4e"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 -2.54 0)
+					(length 3.81)
+					(name "1i"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 -5.08 0)
+					(length 3.81)
+					(name "2i"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 -7.62 0)
+					(length 3.81)
+					(name "3i"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -11.43 -10.16 0)
+					(length 3.81)
+					(name "4i"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "power:+12V"
 			(power global)
 			(pin_numbers
@@ -12057,7 +12263,7 @@
 		)
 		(uuid "65bcbf1e-95c3-5335-b503-0f8a2c4866a7")
 	)
-	(text "cell- -> AOSD32334C (DO/CO gated) -> TCO 77 C -> PACK- (GND)"
+	(text "cell- -> AOSD32334C (OD/OC gated) -> TCO 77 C -> PACK- (GND)"
 		(exclude_from_sim no)
 		(at 20 298 0)
 		(effects
@@ -12319,7 +12525,7 @@
 		)
 		(uuid "caf5d6ff-c71d-5c2d-a27f-6396e78ca9fa")
 	)
-	(text "OV 4.28 V / OD 2.80 V fixed (-BX). Independent of the charger."
+	(text "OV 4.28 V / OD 2.90 V fixed (-GB). Independent of the charger."
 		(exclude_from_sim no)
 		(at 20 303 0)
 		(effects
@@ -13768,6 +13974,16 @@
 	)
 	(wire
 		(pts
+			(xy 739.14 495.3) (xy 765.81 495.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0ee00ebc-dafa-51a1-b685-63f4adb52ace")
+	)
+	(wire
+		(pts
 			(xy 608.33 160.02) (xy 608.33 477.52)
 		)
 		(stroke
@@ -13835,6 +14051,16 @@
 			(type default)
 		)
 		(uuid "1030200a-e440-55fa-8b6c-bae263dcc504")
+	)
+	(wire
+		(pts
+			(xy 741.68 474.98) (xy 741.68 497.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1058a75a-4eee-5b9e-86aa-8f47e49f31f3")
 	)
 	(wire
 		(pts
@@ -14188,16 +14414,6 @@
 	)
 	(wire
 		(pts
-			(xy 739.14 497.84) (xy 772.16 497.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1e5b314a-5f9c-5868-b9a2-1ddd152df768")
-	)
-	(wire
-		(pts
 			(xy 106.68 59.69) (xy 106.68 55.88)
 		)
 		(stroke
@@ -14305,6 +14521,16 @@
 			(type default)
 		)
 		(uuid "21d90955-3808-5b80-aa9d-0d93eed70f61")
+	)
+	(wire
+		(pts
+			(xy 744.22 500.38) (xy 765.81 500.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "22d59834-f601-5769-93a2-bd2931a6cb72")
 	)
 	(wire
 		(pts
@@ -15468,16 +15694,6 @@
 	)
 	(wire
 		(pts
-			(xy 741.68 474.98) (xy 741.68 500.38)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "536dc46c-fd7e-5238-92be-b3b8f00db638")
-	)
-	(wire
-		(pts
 			(xy 175.26 212.09) (xy 175.26 317.5)
 		)
 		(stroke
@@ -15708,6 +15924,16 @@
 	)
 	(wire
 		(pts
+			(xy 749.3 508) (xy 765.81 508)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5dbb687b-4c58-541f-8b06-b1a919838a3a")
+	)
+	(wire
+		(pts
 			(xy 430.53 251.46) (xy 430.53 254)
 		)
 		(stroke
@@ -15928,6 +16154,16 @@
 	)
 	(wire
 		(pts
+			(xy 751.84 510.54) (xy 765.81 510.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "689d1a17-5aba-5f68-b0fc-715f24be980c")
+	)
+	(wire
+		(pts
 			(xy 91.44 213.36) (xy 91.44 215.9)
 		)
 		(stroke
@@ -15998,16 +16234,6 @@
 	)
 	(wire
 		(pts
-			(xy 754.38 513.08) (xy 772.16 513.08)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6c202c3f-1c22-5819-8ff5-1c2e3061643f")
-	)
-	(wire
-		(pts
 			(xy 707.39 71.12) (xy 707.39 52.07)
 		)
 		(stroke
@@ -16068,16 +16294,6 @@
 	)
 	(wire
 		(pts
-			(xy 746.76 505.46) (xy 772.16 505.46)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6e48635e-a3ae-524c-9414-3561ec983092")
-	)
-	(wire
-		(pts
 			(xy 236.22 93.98) (xy 274.32 93.98)
 		)
 		(stroke
@@ -16125,6 +16341,16 @@
 			(type default)
 		)
 		(uuid "70df9ed0-1df4-5c66-a234-0f892e9167b0")
+	)
+	(wire
+		(pts
+			(xy 754.38 513.08) (xy 765.81 513.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "712a0899-05d3-5761-b820-0504717c5d53")
 	)
 	(wire
 		(pts
@@ -16235,6 +16461,16 @@
 			(type default)
 		)
 		(uuid "78751e69-d915-5f67-bf26-174d80351662")
+	)
+	(wire
+		(pts
+			(xy 746.76 505.46) (xy 765.81 505.46)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "790789dc-2b65-5010-86e0-ce1e152c97b4")
 	)
 	(wire
 		(pts
@@ -16548,6 +16784,16 @@
 	)
 	(wire
 		(pts
+			(xy 739.14 462.28) (xy 739.14 495.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "895ae911-81b8-5070-9847-28756daf7300")
+	)
+	(wire
+		(pts
 			(xy 695.96 568.96) (xy 695.96 571.5)
 		)
 		(stroke
@@ -16705,16 +16951,6 @@
 			(type default)
 		)
 		(uuid "930b1960-37c1-559e-a856-c0379401b17a")
-	)
-	(wire
-		(pts
-			(xy 749.3 508) (xy 772.16 508)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "93b35995-da0a-5b7f-bd2a-793729f510fb")
 	)
 	(wire
 		(pts
@@ -16898,16 +17134,6 @@
 	)
 	(wire
 		(pts
-			(xy 739.14 462.28) (xy 739.14 497.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9b0535f6-7ef2-58d6-9b45-de652d75d498")
-	)
-	(wire
-		(pts
 			(xy 734.06 237.49) (xy 734.06 250.19)
 		)
 		(stroke
@@ -16915,6 +17141,16 @@
 			(type default)
 		)
 		(uuid "9b7bc4ad-2b79-5329-a9c3-2f98057332d7")
+	)
+	(wire
+		(pts
+			(xy 744.22 469.9) (xy 744.22 500.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9bb78ed9-5303-5bc1-9150-c565f17a2f5a")
 	)
 	(wire
 		(pts
@@ -17005,16 +17241,6 @@
 			(type default)
 		)
 		(uuid "a0799cd9-e356-58cf-92e4-f3863205ea72")
-	)
-	(wire
-		(pts
-			(xy 736.6 495.3) (xy 772.16 495.3)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a0812044-9a60-508f-8c2d-19efa8460633")
 	)
 	(wire
 		(pts
@@ -17498,16 +17724,6 @@
 	)
 	(wire
 		(pts
-			(xy 741.68 500.38) (xy 772.16 500.38)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b84241a2-af23-5903-978f-2ae64e301ea5")
-	)
-	(wire
-		(pts
 			(xy 254 99.06) (xy 254 116.84)
 		)
 		(stroke
@@ -17788,16 +18004,6 @@
 	)
 	(wire
 		(pts
-			(xy 736.6 457.2) (xy 736.6 495.3)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c825bd89-70fd-50d0-a070-dceea669a8d5")
-	)
-	(wire
-		(pts
 			(xy 304.8 241.3) (xy 308.61 241.3)
 		)
 		(stroke
@@ -17925,16 +18131,6 @@
 			(type default)
 		)
 		(uuid "cdb29aa3-e2fa-56b1-b443-8bf63699aa1c")
-	)
-	(wire
-		(pts
-			(xy 751.84 510.54) (xy 772.16 510.54)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "cdcddd55-f8a4-59c3-af59-b9e0e8c2ead0")
 	)
 	(wire
 		(pts
@@ -18085,6 +18281,16 @@
 			(type default)
 		)
 		(uuid "d563c676-0f87-5910-90b3-bee4a44df39f")
+	)
+	(wire
+		(pts
+			(xy 736.6 492.76) (xy 765.81 492.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d596ebcb-cfd2-541e-bea5-ba8e8b8aab90")
 	)
 	(wire
 		(pts
@@ -18348,6 +18554,16 @@
 	)
 	(wire
 		(pts
+			(xy 741.68 497.84) (xy 765.81 497.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e158317c-ff31-5d26-bfaf-1148eaa981cd")
+	)
+	(wire
+		(pts
 			(xy 671.83 240.03) (xy 652.78 240.03)
 		)
 		(stroke
@@ -18455,6 +18671,16 @@
 			(type default)
 		)
 		(uuid "e984f666-abb5-543d-a796-687dbfbd3540")
+	)
+	(wire
+		(pts
+			(xy 736.6 457.2) (xy 736.6 492.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e9e575de-3994-57f4-97a5-fac3c1e4de86")
 	)
 	(wire
 		(pts
@@ -18585,16 +18811,6 @@
 			(type default)
 		)
 		(uuid "f05c52a3-6df6-561a-8409-0b9f040fd2ce")
-	)
-	(wire
-		(pts
-			(xy 744.22 502.92) (xy 772.16 502.92)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f0a967f2-ff8d-5949-8d6b-36bcf57c7d0f")
 	)
 	(wire
 		(pts
@@ -18845,16 +19061,6 @@
 			(type default)
 		)
 		(uuid "f985f5c2-5b5e-5b84-a659-69d8a1b56316")
-	)
-	(wire
-		(pts
-			(xy 744.22 469.9) (xy 744.22 502.92)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f9f519e8-47cf-5c97-bdb9-ec1578bdda34")
 	)
 	(wire
 		(pts
@@ -20564,104 +20770,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR123")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector_Generic:Conn_01x08")
-		(at 777.24 502.92 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "07d8db87-57c6-53bc-aaa2-6f644d5038b1")
-		(property "Reference" "J4"
-			(at 779.21 501.52 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "X40.879 stepper (1e-4e, 1i-4i)"
-			(at 779.21 504.32 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Connector_JST:JST_PH_B8B-PH-K_1x08_P2.00mm_Vertical"
-			(at 777.24 502.92 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 777.24 502.92 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 777.24 502.92 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "5149846b-f395-5d36-8526-b4f5aea7d1b2")
-		)
-		(pin "2"
-			(uuid "2244e3a6-3ffb-5c09-9f5d-038d529d170d")
-		)
-		(pin "3"
-			(uuid "eddac8fc-f9de-5563-a130-e3d8e643e41a")
-		)
-		(pin "4"
-			(uuid "1dba5dcd-aef1-5b37-939e-ca1ae6e0ba84")
-		)
-		(pin "5"
-			(uuid "0d0e2a5f-3b88-5f2f-8f02-5705a7bf12d3")
-		)
-		(pin "6"
-			(uuid "f280ed2f-a06e-541c-b7ee-ba1e4c469e7c")
-		)
-		(pin "7"
-			(uuid "58c33f01-f507-57aa-9bb1-df22b38b5b6e")
-		)
-		(pin "8"
-			(uuid "c0178eb9-b12b-5170-b956-d910b2482804")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "J4")
 					(unit 1)
 				)
 			)
@@ -28841,6 +28949,104 @@
 		)
 	)
 	(symbol
+		(lib_id "clock:X40_879")
+		(at 777.24 502.92 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4e762097-fd4e-535f-a88f-4c1b28eacf19")
+		(property "Reference" "M1"
+			(at 769.62 487.02 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "X40.879"
+			(at 769.62 489.37 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "clock:Juken_X40-879_DualShaft"
+			(at 777.24 502.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 777.24 502.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 777.24 502.92 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ba1a9a17-5e83-5497-ab43-ad571908e54b")
+		)
+		(pin "2"
+			(uuid "8fea2638-c878-5964-8ce9-45d9d232a32d")
+		)
+		(pin "3"
+			(uuid "f121fee6-fc04-52f3-9792-45c694d356a4")
+		)
+		(pin "4"
+			(uuid "80b436f2-712b-5cd8-a82a-8018f2f54d72")
+		)
+		(pin "5"
+			(uuid "35de0ce9-8dae-5189-8193-dc69893245ae")
+		)
+		(pin "6"
+			(uuid "3678df5d-f8c3-50ff-a396-e7098b632b52")
+		)
+		(pin "7"
+			(uuid "b1c0a4d3-9601-558c-8504-57e1e022f505")
+		)
+		(pin "8"
+			(uuid "93552476-34e1-5b86-8817-1acaf48b5ceb")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "M1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "clock:AOSD32334C")
 		(at 80.01 246.38 0)
 		(unit 1)
@@ -33566,7 +33772,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "2.7k"
+		(property "Value" "2k"
 			(at 63.946 282.07 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -40029,7 +40235,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "330R"
+		(property "Value" "100R"
 			(at 60.136 266.83 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -43239,98 +43445,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Battery_Management:AP9101CK6")
-		(at 80.01 276.86 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "ddfe7ef5-6eeb-57a2-9130-92fd07a6dc90")
-		(property "Reference" "U3"
-			(at 72.39 268.58 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "AP9101CK6-BX"
-			(at 72.39 270.93 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
-			(at 80.01 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 80.01 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 80.01 276.86 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "452701d7-007b-5cce-85bd-eb54cb17b6d4")
-		)
-		(pin "2"
-			(uuid "246262e5-2dae-5807-8d9f-08b96b5c8ea3")
-		)
-		(pin "3"
-			(uuid "8ae9fd26-d9dd-5160-b395-0ee63b22c241")
-		)
-		(pin "4"
-			(uuid "a41ed03c-1c0c-5ed0-855f-610405406046")
-		)
-		(pin "5"
-			(uuid "678f80d7-4058-5201-81b2-9b2491042458")
-		)
-		(pin "6"
-			(uuid "2c5b202f-22fe-5f4a-b434-92c411fd0ff4")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "U3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:L")
 		(at 222.25 232.41 90)
 		(unit 1)
@@ -45570,6 +45684,98 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR165")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "clock:HY2111")
+		(at 80.01 276.86 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f3a3bffe-2fc1-521c-b8f8-62f76ba828e2")
+		(property "Reference" "U3"
+			(at 72.39 268.58 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "HY2111-GB"
+			(at 72.39 270.93 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
+			(at 80.01 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 80.01 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 80.01 276.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "76cf7167-95cc-5634-a51e-93c27ca3f13d")
+		)
+		(pin "2"
+			(uuid "ee0acf65-9ba3-56f0-bce8-0cebfa56e694")
+		)
+		(pin "3"
+			(uuid "8dec0add-3103-5f2a-9a02-0b9c169cadb9")
+		)
+		(pin "4"
+			(uuid "cec68d4e-c2aa-591c-b3ed-a5b10fdbfe14")
+		)
+		(pin "5"
+			(uuid "9810a177-39b2-55ed-b15d-3c80ee184c16")
+		)
+		(pin "6"
+			(uuid "91a85626-2eb2-5df9-ad61-d3d3d8b83308")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "U3")
 					(unit 1)
 				)
 			)
