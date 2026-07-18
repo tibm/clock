@@ -90,6 +90,19 @@ def write_sym_lib_table():
     return path
 
 
+def write_fp_lib_table():
+    txt = (
+        "(fp_lib_table\n"
+        "\t(version 7)\n"
+        '\t(lib (name "clock")(type "KiCad")(uri "${KIPRJMOD}/clock.pretty")(options "")(descr "Clock project custom footprints"))\n'
+        ")\n"
+    )
+    path = os.path.join(OUT_DIR, "fp-lib-table")
+    with open(path, "w") as f:
+        f.write(txt)
+    return path
+
+
 def write_sheet(sch, filename):
     path = os.path.join(OUT_DIR, filename)
     with open(path, "w") as f:

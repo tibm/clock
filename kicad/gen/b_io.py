@@ -30,9 +30,9 @@ def build(s):
     s.pw(R97, "2", ("dy", 2.54))
     s.glabel_at("SENSOR_INT", 541.02, 260.35, 270)
 
-    # QRE1113 reflective homing -> HOME_OPTO (MCU ADC IO2)
+    # QRE1113GR (SMD) reflective homing -> HOME_OPTO (MCU ADC IO2)
     U14 = s.comp("U14", "Sensor_Proximity:QRE1113", 443.23, 256.54,
-                 value="QRE1113", footprint="")
+                 value="QRE1113GR", footprint="clock:OnSemi_QRE1113GR")
     R98 = s.R("R98", 430.53, 247.65, "150R")
     s.rail(R98, "1", "+3V3", rise=0)
     s.pw(R98, "2", ("y", 254.00), ("px", U14, "1"))   # LED anode
@@ -45,7 +45,7 @@ def build(s):
     s.gnd(C241, "2", drop=0)
     s.glabel_at("HOME_OPTO", 466.09, 254.00, 0)
     s.gnd(U14, "4", via=2.54)                         # emitter
-    s.text("QRE1113 faces reflective tabs on the hand hubs (no magnets).", 486.41, 297, size=1.3)
+    s.text("QRE1113GR faces reflective tabs on the hand hubs (no magnets).", 486.41, 297, size=1.3)
     s.text("Sensor breakouts carry their own I2C pull-ups.", 486.41, 301.5, size=1.3)
 
     # ================= IO EXPANDER + UI =================
@@ -99,18 +99,26 @@ def build(s):
     s.glabel(U13, "21", "SPK_SD")
     s.glabel(U13, "22", "STEP_STBY")
     s.glabel(U13, "23", "BOOST12_EN")
-    # buttons on GPA3..GPA5 (internal pull-ups + IOC in firmware),
-    # fanned out to a 5.08 pitch right of the GPA2 label text
-    gcol = 553.72
-    for pin, ref, name, row, bend in [("24", "SW4", "BTN1", 441.96, 533.40),
-                                      ("25", "SW5", "BTN2", 453.39, 539.75),
-                                      ("26", "SW6", "BTN3", 464.82, 535.94)]:
-        sw = s.comp(ref, "Switch:SW_Push", 546.10, row, value=name,
-                    footprint="Button_Switch_SMD:SW_SPST_CK_RS282G05A3")
-        s.pw(U13, pin, ("x", bend), ("y", row), ("px", sw, "1"))
-        s.pw(sw, "2", ("x", gcol))
-    s.w((gcol, 441.96), (gcol, 464.82))
-    s.power_at(gcol, 464.82, "GND")
+
+    # UI connector: EC11 encoder + 3 buttons are OFF-BOARD (panel-mounted),
+    # entering on J10 (JST SH 1x08, same family as J7 -> cheap pre-crimped
+    # cables). GPA3..GPA6 rows align 1:1 with pins 4..7.
+    J10 = s.comp("J10", "Connector_Generic:Conn_01x08", 551.18, 457.20,
+                 value="UI: EC11 + 3 buttons (off-board)",
+                 footprint="Connector_JST:JST_SH_SM08B-SRSS-TB_1x08-1MP_P1.00mm_Horizontal",
+                 refpos=(551.18, 471.17, None), valpos=(551.18, 443.23, None))
+    # pins 4..6 = BTN1..BTN3 (GPA3..GPA5, MCP internal pull-ups + IOC),
+    # pin 7 = ENC_SW (GPA6) — straight horizontal runs from the expander
+    s.pw(U13, "24", ("px", J10, "4"))
+    s.pw(U13, "25", ("px", J10, "5"))
+    s.pw(U13, "26", ("px", J10, "6"))
+    s.pw(U13, "27", ("px", J10, "7"))
+    # pin 1 = GND (encoder common C + switch return)
+    s.pw(J10, "1", ("x", 528.32), ("dy", 2.54))
+    s.power_at(528.32, 452.12, "GND")
+    # pin 8 = GND (button return)
+    s.pw(J10, "8", ("x", 541.02), ("dy", 5.08))
+    s.power_at(541.02, 472.44, "GND")
 
     # GPB fan-out labels
     for pin, name in [("1", "PD_PG"), ("2", "CHRG"), ("3", "FAULT"),
@@ -126,22 +134,18 @@ def build(s):
     s.power_at(535.94, 474.98, "+3V3", show_value=False)
     s.text("+3V3", 536.702, 472.694, size=1.27)
 
-    # rotary encoder: A/B wired to the MCU (PCNT), switch on GPA6
-    SW3 = s.comp("SW3", "Device:RotaryEncoder_Switch", 533.40, 508.00,
-                 value="EC11 encoder",
-                 footprint="Rotary_Encoder:RotaryEncoder_Alps_EC11E-Switch_Vertical_H20mm")
-    s.pw(U8, "24", ("x", 424.18), ("y", 505.46), ("px", SW3, "A"))   # ENC_A
-    s.pw(U8, "25", ("x", 426.72), ("y", 510.54), ("px", SW3, "B"))   # ENC_B
+    # encoder A/B: wired from the MCU (PCNT) up the right side into J10
+    # pins 2/3; on-board 10k pull-ups R100/R101 stay on the rows
+    s.pw(U8, "24", ("x", 424.18), ("y", 505.46), ("x", 530.86),
+         ("y", 452.12), ("px", J10, "2"))                          # ENC_A
+    s.pw(U8, "25", ("x", 426.72), ("y", 510.54), ("x", 533.40),
+         ("y", 454.66), ("px", J10, "3"))                          # ENC_B
     R100 = s.R("R100", 439.42, 501.65, "10k")
     s.rail(R100, "1", "+3V3", rise=0)
     R101 = s.R("R101", 453.39, 500.38, "10k")
     s.rail(R101, "1", "+3V3", rise=1.27)
     s.pw(R101, "2", ("y", 510.54))
-    s.gnd(SW3, "C", via=-2.54, drop=5.08)
-    s.gnd(SW3, "S2", via=2.54)
-    # ENC_SW -> GPA6
-    s.pw(U13, "27", ("x", 516.89), ("y", 469.90), ("x", 556.26), ("y", 505.46),
-         ("px", SW3, "S1"))
 
-    s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Buttons/encoder-switch", 410, 575, size=1.3)
-    s.text("use MCP internal pull-ups.  Encoder A/B -> hardware PCNT (IO47/48).", 410, 579.5, size=1.3)
+    s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  EC11 + buttons mount on the", 410, 571, size=1.3)
+    s.text("enclosure -> JST SH cable to J10 (1 GND, 2 ENC_A, 3 ENC_B, 4-6 BTN1-3, 7 ENC_SW, 8 GND).", 410, 575.5, size=1.3)
+    s.text("Switch lines: MCP internal pull-ups + IOC.  Encoder A/B -> PCNT (IO47/48), R100/R101 PU.", 410, 580, size=1.3)

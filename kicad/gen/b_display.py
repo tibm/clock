@@ -12,7 +12,7 @@ def build(s):
     # ---- display FPC connector ----
     J5 = s.comp("J5", "Connector_Generic:Conn_01x10", 740.41, 66.04,
                 value="LS032B7DD02 (FH34SRJ-10S)",
-                footprint="Connector_FFC-FPC:Hirose_FH12-10S-0.5SH_1x10-1MP_P0.50mm_Horizontal")
+                footprint="clock:Hirose_FH34SRJ-10S-0.5SH_1x10-1MP_P0.50mm_Horizontal")
     # SPI wires from the MCU (branching to the microSD below)
     s.pw(U8, "21", ("x", 668.02), ("y", 55.88), ("px", J5, "1"))    # SCLK
     s.w((668.02, 106.68), (668.02, 152.40))                         # branch down

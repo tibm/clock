@@ -74,12 +74,13 @@ def main():
     s.text("I2S, MCPWM, encoder) are drawn as wires; GND / +3V3 / +5V taps", 20, 339, size=1.3)
     s.text("and named labels connect by name (same name = same net).", 20, 344, size=1.3)
     s.text("Off-board parts (display, SD, sensors, speaker, motor, LED", 20, 348.5, size=1.3)
-    s.text("strips, cell) enter through connectors J1..J9 / BT1.", 20, 353, size=1.3)
+    s.text("strips, encoder+buttons, cell) enter via connectors J1..J10 / BT1.", 20, 353, size=1.3)
 
     merged = s.merge_collinear()
     added, dropped = s.auto_junctions()
     issues = s.lint()
     project2.write_sym_lib_table()
+    project2.write_fp_lib_table()
     project2.write_project("clock")
     sheet = project2.write_sheet(s, "clock.kicad_sch")
     print(f"wrote clock.kicad_sch: {len(s.comps)} symbols, {len(s.wires)} wires "

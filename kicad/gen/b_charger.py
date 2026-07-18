@@ -155,7 +155,9 @@ def build(s):
                 footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
     s.pw(BT1, "2", ("y", 245.11), ("px", U4, "3"))
     s.w((91.44, 242.57), (91.44, 250.19))                # D1//D1//D2//D2 tie
-    F1 = s.fuse("F1", 102.87, 257.81, "TCO 77C", rot=90)
+    F1 = s.fuse("F1", 102.87, 257.81, "TCO 77C",
+                fp="clock:Fuse_TCO_Cantherm_SDF_L10.5mm_D4.0mm_P20.32mm_Horizontal",
+                rot=90)
     s.pw(U4, "1", ("x", 60.96), ("y", 257.81), ("px", F1, "1"))
     s.pw(F1, "2", ("x", 111.76), ("dy", 2.54))
     s.power_at(111.76, 260.35, "GND")

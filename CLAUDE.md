@@ -16,7 +16,7 @@ Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel
 |---|---|---|---|
 | MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
 | Display | Sharp LS032B7DD02 | 5 V panel / 3 V logic | 3-wire SPI, reflective MIP; software VCOM (EXTMODE=L) |
-| Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113, no magnets) |
+| Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets) |
 | IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines, net −7 GPIO |
 | Motor driver | 2× TB6612FNG | VM 5 V / VCC 3.3 V | SSOP-24; PWM-on-IN microstep, 8 GPIO |
 | Amp | TI TAS5760M | PVDD 12 V / DVDD 3.3 V | HTSSOP-32; I²S+I²C, PBTL mono (firmware DSP) |
