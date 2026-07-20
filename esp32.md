@@ -59,7 +59,7 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `IO14` | 14 | `SD_MOSI` | SPI2 | OUT / AF | 3.3 V | microSD · DI | MSB-first |
 | `IO15` | 15 | `XTAL32K_P` | RTC | ANA / AF | — | ABS07 32.768 kHz · RTC ref | **dedicated** — no other use |
 | `IO16` | 16 | `XTAL32K_N` | RTC | ANA / AF | — | ABS07 32.768 kHz · RTC ref | **dedicated** |
-| `IO17` | 17 | `ENC_SW` | GPIO IRQ | IN, PU (ext 10k) | 3.3 V | knob push switch (EM14, via J10) | falling-edge; 100 nF + ~5 ms FW debounce; was `LCD_CS` |
+| `IO17` | 17 | `ENC_SW` | GPIO IRQ | IN, PU (ext 10k) | 3.3 V | knob push switch (EM14, via J10 ZH 1×06) | falling-edge; 100 nF + ~5 ms FW debounce; was `LCD_CS` |
 | `IO18` | 18 | `SD_CS` | SPI2 CS | OUT, PU | 3.3 V | microSD · chip select | active-low; ext PU keeps card idle at boot |
 | `IO19` | 19 | `USB_D−` | USB-Serial-JTAG | AF (USB) | 3.3 V | USB-C · D− | flash + CDC console + **JTAG debug** |
 | `IO20` | 20 | `USB_D+` | USB-Serial-JTAG | AF (USB) | 3.3 V | USB-C · D+ | |

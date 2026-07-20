@@ -13,11 +13,13 @@ def build(s):
     # ================= SENSORS & HOMING =================
     s.frame(405, 225, 595, 305, "SENSORS (I2C off-board) + HAND-HOMING (QRE1113)")
 
-    # sensor-board connector (STEMMA-QT chain: BME688 + TSL2591 + LIS3DH)
-    J7 = s.comp("J7", "Connector_Generic:Conn_01x05", 533.40, 254.00,
+    # sensor-board connector (STEMMA-QT chain: BME688 + TSL2591 + LIS3DH).
+    # JST ZH 1x06 (B6B-ZR, TH top-entry) so the cheap pre-crimped
+    # A06ZR06ZR28H102B ZH<->ZH cable plugs straight in; pin 6 spare.
+    J7 = s.comp("J7", "Connector_Generic:Conn_01x06", 533.40, 254.00,
                 value="Sensor board (BME688+TSL2591+LIS3DH)",
-                footprint="Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal",
-                refpos=(533.40, 262.89, None), valpos=(535.94, 241.30, None))
+                footprint="Connector_JST:JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical",
+                refpos=(533.40, 265.43, None), valpos=(535.94, 241.30, None))
     s.pw(J7, "1", ("x", 505.46), ("dy", 2.54))
     s.power_at(505.46, 251.46, "GND")
     s.pw(J7, "2", ("x", 510.54), ("y", 246.38))
@@ -25,6 +27,7 @@ def build(s):
     s.glabel(J7, "3", "I2C_SDA")
     s.glabel(J7, "4", "I2C_SCL")
     s.glabel(J7, "5", "SENSOR_INT")
+    s.nc(J7, "6")                                     # spare wire in the cable
     # SENSOR_INT pull-up (INT lines are open-drain)
     R97 = s.R("R97", 541.02, 254.00, "10k")
     s.rail(R97, "1", "+3V3", rise=0)
@@ -106,7 +109,7 @@ def build(s):
     # slow/static, so the expander is fine). GPA4..6 spare.
     J11 = s.comp("J11", "Connector_Generic:Conn_01x02", 546.10, 457.20,
                  value="Radio-off toggle (rear)",
-                 footprint="Connector_JST:JST_SH_SM02B-SRSS-TB_1x02-1MP_P1.00mm_Horizontal",
+                 footprint="Connector_JST:JST_ZH_B2B-ZR_1x02_P1.50mm_Vertical",
                  refpos=(546.10, 450.85, None), valpos=(551.18, 464.82, None))
     s.pw(U13, "24", ("px", J11, "1"))                  # GPA3 = RADIO_OFF
     s.pw(J11, "2", ("x", 535.94), ("dy", 2.54))
@@ -129,11 +132,12 @@ def build(s):
     s.text("+3V3", 536.702, 472.694, size=1.27)
 
     # ---- knob connector: Bourns EM14A0D-C24-L064S optical encoder (5 V,
-    # 64 CPR, no detent) + push switch, off-board on the cube's top face,
-    # JST SH cable to J10. Pinout: 1 GND, 2 +5V, 3 A, 4 B, 5 SW, 6 GND.
+    # 64 CPR, no detent) + push switch, off-board on the cube's top face.
+    # JST ZH 1x06 (B6B-ZR) -> same pre-crimped A06ZR06ZR28H102B cable as
+    # J7. Pinout: 1 GND, 2 +5V, 3 A, 4 B, 5 SW, 6 GND.
     J10 = s.comp("J10", "Connector_Generic:Conn_01x06", 560.07, 530.86,
                  value="Knob: EM14 enc+SW (top face)",
-                 footprint="Connector_JST:JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal",
+                 footprint="Connector_JST:JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical",
                  refpos=(560.07, 520.70, None), valpos=(560.07, 544.83, None))
     # GND pins 1+6 tied on a left lane (rows 525.78 / 538.48)
     s.pw(J10, "1", ("x", 537.21))
@@ -171,5 +175,5 @@ def build(s):
     s.gnd(C239, "2", drop=0)
 
     s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Knob = EM14A0D-C24-L064S", 410, 571, size=1.3)
-    s.text("(optical, 64 CPR, no detent, push) on the top face -> J10 SH cable.  A/B are 5 V", 410, 575.5, size=1.3)
-    s.text("push-pull -> 100k/200k dividers -> PCNT IO47/48; SW -> 10k PU + 100n -> IO17 IRQ.", 410, 580, size=1.3)
+    s.text("(optical, 64 CPR, no detent, push) on the top face.  J7/J10 = JST ZH 1x06, J11 = ZH", 410, 575.5, size=1.3)
+    s.text("1x02 (pre-crimped AxxZR cables).  A/B 5 V -> 100k/200k div -> PCNT; SW -> IO17 IRQ.", 410, 580, size=1.3)

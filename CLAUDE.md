@@ -16,15 +16,15 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 |---|---|---|---|
 | MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
 | Status/dial LEDs | 7× SK6812 RGBW 5050 (Adafruit 2758) | 5 V | 5 status + 2 dial pixels on-PCB; ONE data GPIO (IO7→RMT) via SN74AHCT1G125 3V3→5V buffer |
-| Knob | Bourns EM14A0D-C24-L064S + Kilo OEJNI-90-1-5 alu knob | 5 V (~30 mA) | optical, no detent, 64 CPR, push; A/B 5 V out → 100k/200k dividers → IO47/48 PCNT; SW → IO17 IRQ; J10 SH 1×06 |
+| Knob | Bourns EM14A0D-C24-L064S + Kilo OEJNI-90-1-5 alu knob | 5 V (~30 mA) | optical, no detent, 64 CPR, push; A/B 5 V out → 100k/200k dividers → IO47/48 PCNT; SW → IO17 IRQ; J10 = JST ZH 1×06 (A06ZR pre-crimped cables, same as sensor J7) |
 | Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets); solders to PCB, shafts through-board (custom footprint) |
 | IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines incl. RADIO_OFF toggle (GPA3, J11) |
 | Motor driver | 2× TB6612FNG | VM 5 V / VCC 3.3 V | SSOP-24; PWM-on-IN microstep, 8 GPIO |
 | Amp | TI TAS5760M | PVDD 12 V / DVDD 3.3 V | HTSSOP-32; I²S+I²C, PBTL mono (firmware DSP) |
 | Speaker | Dayton DMA58-4 (2″, 4 Ω) | — | off amp; ~100–250 cc sealed |
-| USB-C | Same Sky UJ20-C-V-C-2-SMT-TR (vertical, TH) | — | 16-pin USB 2.0 (D±+CC), port straight out the back; in-stock SMT alt = GCT USB4145-03-0170-C |
+| USB-C | GCT USB4160-03-0230-C (vertical, SMT) | — | 24-pin USB 3.2 vertical, USB 2.0 subset wired (D±+CC), port straight out the back; $1.22, in stock |
 
-*Dropped v0.19 (2026-07-19):* Sharp LS032B7DD02 display + FH34 FPC (datasheets kept in `datasheet/` for future reuse — that folder + its README intentionally still describe the display-era design), Cree panel-LED string, rear buttons, USB4105 + Adafruit 6069 extension.
+*Dropped v0.19 (2026-07-19):* Sharp LS032B7DD02 display + FH34 FPC, Cree panel-LED string, rear buttons, USB4105 + Adafruit 6069 extension — their datasheets stay in `datasheet/` marked "not in current build" (never delete datasheet files/references). v0.19 part datasheets filed as rows 30–34.
 
 ## Rails
 - **3.3 V** logic (from 5 V) · **5 V** stepper + **7× SK6812 NeoPixels** + knob encoder + amp-PVDD mux aux · **12 V** boost = audio PVDD + **wake LEDs** (gated, **plugged-only**) · **15 V VBUS** = **LT3652 charger VIN** (plugged). USB-PD in (15 V, **CH224K**) → **LT3652** 1-cell buck charger (BAT-node power-path); amp PVDD auto-muxes 12 V↔5 V (**LTC4412**) → quieter alarm on battery. All converters leaded. See `power.md`.

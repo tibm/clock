@@ -33,13 +33,15 @@ Open **`clock.kicad_pro`**. The sheet is **generated** by the Python code in
   2026-07-17 — soldered to the PCB, shafts through a board hole (J4
   dropped). *(J5 display FPC + J8 panel string removed 2026-07-19 with the
   display; the 7 status/dial NeoPixels are on-board D40–D46.)*
-- **J10 knob connector** (reworked 2026-07-19 for the EM14 optical encoder):
-  JST SH 1×06 **SM06B-SRSS-TB** — same family as J7, cheap pre-crimped SH
-  jumpers. Pinout `1 GND · 2 +5V · 3 A · 4 B · 5 SW · 6 GND`. A/B are 5 V
+- **J10 knob connector** (reworked 2026-07-19/20 for the EM14 optical
+  encoder): JST **ZH** 1×06 **B6B-ZR** — same family as J7, so ONE cheap
+  pre-crimped ZH↔ZH cable type (A06ZR06ZR28H102B-style) serves both.
+  Pinout `1 GND · 2 +5V · 3 A · 4 B · 5 SW · 6 GND`. A/B are 5 V
   outputs → on-board **100k/200k dividers** (R111/R114, R112/R115) →
   IO47/48; SW → 10 k PU (R113) + 100 nF (C239) → IO17.
-  **J11** = JST SH 1×02 **SM02B-SRSS-TB** → expander GPA3 (`RADIO_OFF`,
-  MCP internal PU + IOC).
+  **J11** = JST ZH 1×02 **B2B-ZR** → expander GPA3 (`RADIO_OFF`,
+  MCP internal PU + IOC). J7 sensor = ZH 1×06 (pin 6 spare).
+  J3 speaker / J9 wake strips stay JST PH (power).
 
 ## Custom symbols (`gen/clock_custom.kicad_sym`)
 `ESP32S3_CLOCK` — WROOM-1 with **functionally grouped pins** (same pad
@@ -59,7 +61,8 @@ symbol (standalone, RGBW-compatible pinout).
 | `OnSemi_QRE1113GR` | U14 homing sensor (SMD) | land pattern from datasheet p.8 (Case 100CY): 1.66×0.79 pads, 5.66 span, 2.59 row pitch |
 | `Fuse_TCO_Cantherm_SDF_L10.5mm_D4.0mm_P20.32mm_Horizontal` | F1 TCO 77 °C | Cantherm SDF drawing: Ø4×10.5 body, AWG18 leads, 1.3 mm drills, ≥3 mm bend clearance |
 | `Juken_X40-879_DualShaft` | M1 stepper (direct PCB mount) | factory STEP (`X40 v5`) cross-checked vs X27 base-spec Fig. 6: 4× Ø0.8 pin drills on 22.86×7.62 grid (pads 1-4 = 1e-4e), 4× Ø1.8 rim-tail drills at (±13.96, ±6.36) (pads 5-8 = 1i-4i), 3× Ø3.0 NPTH snap pegs, Ø4.6 NPTH shaft hole at (0, −6); body Ø31.5 on the far side (flip to back in layout, shafts through-board); 3D STEP in `3d/X40_879.step` (rotation/offset eyeballed — cosmetic) |
-| `SameSky_UJ20-C-V-C-2_USB_C_Vertical_TH` | J1 vertical USB-C (TH) | Same Sky UJ20-C-V-C-2 datasheet p.3 layout: 16 TH pins Ø0.40 drill (pads grown 0.60→0.70), rows ±0.53, x ±0.45/1.35/2.30/3.25; 4 stake slots 1.40×0.50 (pad 1.80×0.90) at ±1.93, spans 4.00/4.60. ⚠ **row-gap read as 1.06 mm from the 1.40/3.86 dims — verify vs the Same Sky DXF before fab** |
+| `GCT_USB4160-03-0230-C_USB_C_Vertical` | J1 vertical USB-C | user-supplied vendor CAD footprint (`~/Downloads/KiCADv6/`), cleaned: 24 SMT pads kept verbatim; the 4 stake slots made **plated, pad `SH`** (GCT drawing 2/4 marks them Solder Area; 1.10×0.61 drill / 1.60×1.10 pad at ±4.00/±1.43 — matches the drawing exactly); pegs → NPTH Ø0.71 (right one slotted); stray Edge.Cuts/S_3 artifacts removed. Only the USB 2.0 subset is wired (16P symbol) → SS pads unconnected. ⚠ cross-check vs the GCT drawing before fab |
+| *(unused, kept)* `SameSky_UJ20-C-V-C-2_USB_C_Vertical_TH` | ex-J1 candidate (TH) | drawn 2026-07-19 while the UJ20-C-V-C-2 was primary (superseded by the in-stock USB4160); kept in case the TH option returns |
 | *(removed 2026-07-19)* | ~~`Hirose_FH34SRJ-10S-0.5SH…`~~ J5 display FPC | file kept in `clock.pretty` for a future display variant; no longer referenced |
 
 ## Validation (all automated in `gen/`)
@@ -68,9 +71,11 @@ symbol (standalone, RGBW-compatible pinout).
 - `gen/build.py` lint: no dangling wires, no body overlaps, no wires through
   symbols; junctions auto-placed with eeschema's own rules (T-points,
   pin-joins; wires broken at crossing-joins) so a GUI re-save is a no-op.
-- Every symbol has a footprint; the four parts without stock land patterns
-  use `clock.pretty` (table above). Headless `kicad-cli` may warn
-  `footprint_link_issues` for exactly these four (it skips the project
+- Every symbol has a footprint (audited 2026-07-20 — including the 7
+  SK6812 pixels on the stock `LED_SK6812_PLCC4` pattern and the QRE1113GR
+  homing sensor); the parts without stock land patterns use `clock.pretty`
+  (table above: QRE1113GR, TCO, X40.879, USB4160). Headless `kicad-cli` may
+  warn `footprint_link_issues` for exactly those (it skips the project
   fp-lib-table) — eeschema resolves them fine.
 
 ### Desk-verified 2026-07-17 (was "reconcile before fab")
@@ -102,10 +107,12 @@ rationale in the root README decision log).
 ### v0.19 cube redesign (2026-07-19)
 Display (J5 + FH34), panel LED string (J8 + Q5) and BTN1–3 removed;
 added the **7× SK6812 RGBW chain** (D40–D46, U15 74AHCT1G125 buffer,
-R110 330 Ω, C230–C237), the **EM14 knob** on J10 (1×06, +5 V; dividers
+R110 330 Ω, C230–C237), the **EM14 knob** on J10 (ZH 1×06, +5 V; dividers
 R111/R112 + R114/R115, ENC_SW RC R113/C239 → IO17), **J11 radio toggle**
-(GPA3), and the **vertical TH USB-C** (UJ20-C-V-C-2, custom footprint).
-ERC still returns only the 2 known-benign items.
+(ZH 1×02, GPA3), and the **vertical USB-C** (GCT USB4160-03-0230-C,
+adapted vendor footprint; J7/J10/J11 standardized on JST ZH 2026-07-20).
+ERC still returns only the 2 known-benign items. Every symbol resolves to
+a footprint (stock KiCad or `clock.pretty`) — audited 2026-07-20.
 
 ## Regenerating
 ```

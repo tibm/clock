@@ -1617,251 +1617,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Connector_Generic:Conn_01x05"
-			(pin_names
-				(offset 1.016)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "J"
-				(at 0 7.62 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "Conn_01x05"
-				(at 0 -7.62 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "connector"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "Connector*:*_1x??_*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "Conn_01x05_1_1"
-				(rectangle
-					(start -1.27 6.35)
-					(end 1.27 -6.35)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(rectangle
-					(start -1.27 5.207)
-					(end 0 4.953)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 2.667)
-					(end 0 2.413)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 0.127)
-					(end 0 -0.127)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -2.413)
-					(end 0 -2.667)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -4.953)
-					(end 0 -5.207)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(pin passive line
-					(at -5.08 5.08 0)
-					(length 3.81)
-					(name "Pin_1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 2.54 0)
-					(length 3.81)
-					(name "Pin_2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 0 0)
-					(length 3.81)
-					(name "Pin_3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -2.54 0)
-					(length 3.81)
-					(name "Pin_4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -5.08 0)
-					(length 3.81)
-					(name "Pin_5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Connector_Generic:Conn_01x06"
 			(pin_names
 				(offset 1.016)
@@ -12141,17 +11896,6 @@
 		)
 		(uuid "0b6fa46c-34fb-5a9f-b687-3949fb085a39")
 	)
-	(text "USB 2.0 16-pin; D+/D- = native USB-JTAG (IO19/20)"
-		(exclude_from_sim no)
-		(at 20 146 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "11152498-e9af-545f-b212-c9a20c5418aa")
-	)
 	(text "STORAGE — microSD (DM3AT), SPI2 dedicated"
 		(exclude_from_sim no)
 		(at 612.5 114.2 0)
@@ -12278,17 +12022,6 @@
 		)
 		(uuid "527e4b87-d9f4-5c87-93ba-8ebdb2a1a22e")
 	)
-	(text "push-pull -> 100k/200k dividers -> PCNT IO47/48; SW -> 10k PU + 100n -> IO17 IRQ."
-		(exclude_from_sim no)
-		(at 410 580 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "5ab94f80-42a7-54b5-b4c2-60e740bc29ca")
-	)
 	(text "IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high, IO46 low (R52,"
 		(exclude_from_sim no)
 		(at 410 48 0)
@@ -12310,6 +12043,17 @@
 			(justify left)
 		)
 		(uuid "63141715-df0b-52c5-b61c-609cfc7f819e")
+	)
+	(text "D+/D- = native USB-JTAG (IO19/20). Vertical - port out the back wall."
+		(exclude_from_sim no)
+		(at 20 150.5 0)
+		(effects
+			(font
+				(size 1.3 1.3)
+			)
+			(justify left)
+		)
+		(uuid "65936b31-940d-50b3-b265-dfee902421e6")
 	)
 	(text "Li-ion 18650 ONLY - 2.5-4.2 V"
 		(exclude_from_sim no)
@@ -12389,17 +12133,6 @@
 			(justify left)
 		)
 		(uuid "81b69b9e-b6d5-5a02-8c5c-2235d140939f")
-	)
-	(text "Vertical receptacle (TH pins) - port straight out the back wall."
-		(exclude_from_sim no)
-		(at 20 150.5 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "82cc526e-40e1-59b9-868c-69634dec15ce")
 	)
 	(text "SPI mode: MSB-first, CS active-low, ~25 MHz. No card-detect (no spare GPIO)."
 		(exclude_from_sim no)
@@ -12535,6 +12268,17 @@
 			(justify left)
 		)
 		(uuid "b3fe3c21-8efa-5add-873a-3ee0a4d31479")
+	)
+	(text "1x02 (pre-crimped AxxZR cables).  A/B 5 V -> 100k/200k div -> PCNT; SW -> IO17 IRQ."
+		(exclude_from_sim no)
+		(at 410 580 0)
+		(effects
+			(font
+				(size 1.3 1.3)
+			)
+			(justify left)
+		)
+		(uuid "b43d3101-5d5f-5ebb-8ace-3c8f6f4ac8c4")
 	)
 	(text "Pixels 1-5 = status row behind the face holes (red/white semantics),"
 		(exclude_from_sim no)
@@ -12705,7 +12449,18 @@
 		)
 		(uuid "d839fbcd-70db-572c-b572-20cd09dc2fa5")
 	)
-	(text "(optical, 64 CPR, no detent, push) on the top face -> J10 SH cable.  A/B are 5 V"
+	(text "USB 2.0 subset of the 24-pin USB4160 (SS pads unconnected);"
+		(exclude_from_sim no)
+		(at 20 146 0)
+		(effects
+			(font
+				(size 1.3 1.3)
+			)
+			(justify left)
+		)
+		(uuid "dff56095-a4af-5cd8-be9c-0c21410a88b5")
+	)
+	(text "(optical, 64 CPR, no detent, push) on the top face.  J7/J10 = JST ZH 1x06, J11 = ZH"
 		(exclude_from_sim no)
 		(at 410 575.5 0)
 		(effects
@@ -13769,6 +13524,10 @@
 	(no_connect
 		(at 501.65 154.94)
 		(uuid "807d1447-b48e-5a13-a3ee-88e88f141887")
+	)
+	(no_connect
+		(at 528.32 261.62)
+		(uuid "87ad535f-cf49-519c-9779-0eb52b8b323b")
 	)
 	(no_connect
 		(at 510.54 467.36)
@@ -24673,7 +24432,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_SH_SM02B-SRSS-TB_1x02-1MP_P1.00mm_Horizontal"
+		(property "Footprint" "Connector_JST:JST_ZH_B2B-ZR_1x02_P1.50mm_Vertical"
 			(at 546.1 457.2 0)
 			(hide yes)
 			(show_name no)
@@ -28224,6 +27983,96 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector_Generic:Conn_01x06")
+		(at 533.4 254 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "43498e59-fad1-56f1-ad71-475b78b93e8e")
+		(property "Reference" "J7"
+			(at 533.4 262.89 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Sensor board (BME688+TSL2591+LIS3DH)"
+			(at 535.94 241.3 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical"
+			(at 533.4 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 533.4 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 533.4 254 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "36a2faf2-7c70-562b-bbe9-66fe250a2724")
+		)
+		(pin "2"
+			(uuid "998878cb-20a5-5662-8eff-788d1fa803d2")
+		)
+		(pin "3"
+			(uuid "dc174e91-735f-5c2c-b2c4-208143d8f44f")
+		)
+		(pin "4"
+			(uuid "cee58530-d325-552a-bb21-f647274ed5ce")
+		)
+		(pin "5"
+			(uuid "a2558fa9-c391-5d29-ac42-c3f69af19b1b")
+		)
+		(pin "6"
+			(uuid "236ff8eb-e17d-5cfa-94ec-8129a92888bd")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "J7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector_Generic:Conn_01x03")
 		(at 340.36 449.58 0)
 		(unit 1)
@@ -30197,93 +30046,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR164")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector_Generic:Conn_01x05")
-		(at 533.4 254 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "52890ba1-14ca-56d8-b980-3f8d9f8df264")
-		(property "Reference" "J7"
-			(at 533.4 262.89 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "Sensor board (BME688+TSL2591+LIS3DH)"
-			(at 535.94 241.3 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal"
-			(at 533.4 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 533.4 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 533.4 254 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "753d34de-ccfc-55d4-872b-26504afa3edd")
-		)
-		(pin "2"
-			(uuid "eba5119f-5e89-54ef-a4da-addb8cc76f85")
-		)
-		(pin "3"
-			(uuid "bed9f214-1b49-5149-a2a9-6184fb6c0e10")
-		)
-		(pin "4"
-			(uuid "92b7249f-faf0-595c-b9df-bcf39f3d65b8")
-		)
-		(pin "5"
-			(uuid "34bd3e4a-21bb-5db7-bb5e-089a8a7c33dc")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "J7")
 					(unit 1)
 				)
 			)
@@ -40044,7 +39806,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "UJ20-C-V-C-2-SMT-TR"
+		(property "Value" "USB4160-03-0230-C"
 			(at 30.48 67.73 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -40055,7 +39817,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "clock:SameSky_UJ20-C-V-C-2_USB_C_Vertical_TH"
+		(property "Footprint" "clock:GCT_USB4160-03-0230-C_USB_C_Vertical"
 			(at 40.64 86.36 0)
 			(hide yes)
 			(show_name no)
@@ -46882,7 +46644,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal"
+		(property "Footprint" "Connector_JST:JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical"
 			(at 560.07 530.86 0)
 			(hide yes)
 			(show_name no)
