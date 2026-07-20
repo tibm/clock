@@ -43,7 +43,7 @@ BLOCKS = [
     "b_led",
     "b_mcu",
     "b_io",
-    "b_display",
+    "b_sd",
     "b_audio",
     "b_motor",
 ]

@@ -120,11 +120,11 @@ def build(s):
     s.pw(J10, "8", ("x", 541.02), ("dy", 5.08))
     s.power_at(541.02, 472.44, "GND")
 
-    # GPB fan-out labels
+    # GPB fan-out labels (GPB3 freed 2026-07-19: LCD_DISP gone with the display)
     for pin, name in [("1", "PD_PG"), ("2", "CHRG"), ("3", "FAULT"),
-                      ("4", "LCD_DISP"), ("5", "FULLCHG_EN"),
-                      ("6", "VBAT_DIV_EN")]:
+                      ("5", "FULLCHG_EN"), ("6", "VBAT_DIV_EN")]:
         s.glabel(U13, pin, name)
+    s.nc(U13, "4")                                     # GPB3 spare
     # SPK_FAULT (GPB6): run right, open-drain pull-up R62 hangs on it
     s.pw(U13, "7", ("x", 535.94), ("dx", 2.54))
     s.glabel_at("SPK_FAULT", 538.48, 487.68, 0)

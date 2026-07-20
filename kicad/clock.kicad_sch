@@ -2194,396 +2194,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Connector_Generic:Conn_01x10"
-			(pin_names
-				(offset 1.016)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "J"
-				(at 0 12.7 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "Conn_01x10"
-				(at 0 -15.24 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Generic connector, single row, 01x10, script generated (kicad-library-utils/schlib/autogen/connector/)"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "connector"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "Connector*:*_1x??_*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "Conn_01x10_1_1"
-				(rectangle
-					(start -1.27 11.43)
-					(end 1.27 -13.97)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(rectangle
-					(start -1.27 10.287)
-					(end 0 10.033)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 7.747)
-					(end 0 7.493)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 5.207)
-					(end 0 4.953)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 2.667)
-					(end 0 2.413)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 0.127)
-					(end 0 -0.127)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -2.413)
-					(end 0 -2.667)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -4.953)
-					(end 0 -5.207)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -7.493)
-					(end 0 -7.747)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -10.033)
-					(end 0 -10.287)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -1.27 -12.573)
-					(end 0 -12.827)
-					(stroke
-						(width 0.1524)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(pin passive line
-					(at -5.08 10.16 0)
-					(length 3.81)
-					(name "Pin_1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 7.62 0)
-					(length 3.81)
-					(name "Pin_2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 5.08 0)
-					(length 3.81)
-					(name "Pin_3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 2.54 0)
-					(length 3.81)
-					(name "Pin_4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 0 0)
-					(length 3.81)
-					(name "Pin_5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -2.54 0)
-					(length 3.81)
-					(name "Pin_6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -5.08 0)
-					(length 3.81)
-					(name "Pin_7"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "7"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -7.62 0)
-					(length 3.81)
-					(name "Pin_8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -10.16 0)
-					(length 3.81)
-					(name "Pin_9"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "9"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -12.7 0)
-					(length 3.81)
-					(name "Pin_10"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "10"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Device:C"
 			(pin_numbers
 				(hide yes)
@@ -11967,7 +11577,7 @@
 		(uuid "28a751c6-6cfe-53b5-be6c-e13493c97450")
 	)
 	(rectangle
-		(start 610 40)
+		(start 610 110)
 		(end 835 180)
 		(stroke
 			(width 0.2)
@@ -11977,7 +11587,7 @@
 		(fill
 			(type none)
 		)
-		(uuid "359985fa-d367-5548-a7c3-05ff31fe478c")
+		(uuid "80d08778-cb9e-5fe3-ad07-6385058ce41d")
 	)
 	(rectangle
 		(start 180 40)
@@ -12116,6 +11726,18 @@
 		)
 		(uuid "11152498-e9af-545f-b212-c9a20c5418aa")
 	)
+	(text "STORAGE — microSD (DM3AT), SPI2 dedicated"
+		(exclude_from_sim no)
+		(at 612.5 114.2 0)
+		(effects
+			(font
+				(size 2.6 2.6)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "1267ae87-ceb0-5a5a-a043-74bc73b4a51e")
+	)
 	(text "One page, laid out like block_diagram.drawio: power flows left,"
 		(exclude_from_sim no)
 		(at 20 329 0)
@@ -12160,17 +11782,6 @@
 			(justify left)
 		)
 		(uuid "2f2fcc1e-c2f0-5b64-8d71-a8c8aa2439b2")
-	)
-	(text "Layout: C220/C221 at the J5 VDDA/VDD pins; C222/C223 at the J6 VDD pin."
-		(exclude_from_sim no)
-		(at 688.34 101 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "3699480a-30ec-5435-8d0a-f2fdc797be7a")
 	)
 	(text "CHARGER — LT3652 (1S buck, 4.05 V float, 1.0 A)"
 		(exclude_from_sim no)
@@ -12217,17 +11828,6 @@
 			(justify left)
 		)
 		(uuid "527e4b87-d9f4-5c87-93ba-8ebdb2a1a22e")
-	)
-	(text "EXTMODE=L -> software VCOM (frame-inversion bit, >=1 Hz)."
-		(exclude_from_sim no)
-		(at 688.34 92 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "56ef5d0e-9872-5327-a8f6-681155a44c15")
 	)
 	(text "IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high, IO46 low (R52,"
 		(exclude_from_sim no)
@@ -12342,29 +11942,6 @@
 		)
 		(uuid "83034877-9eda-551c-a703-83d30078f984")
 	)
-	(text "SCS active-HIGH, LSB-first, <=2 MHz; write-only (no MISO)."
-		(exclude_from_sim no)
-		(at 688.34 96.5 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "839e76a4-8c25-59a1-9e17-e2c79aeb6d2c")
-	)
-	(text "DISPLAY (LS032B7DD02, FPC) + microSD — shared SPI2"
-		(exclude_from_sim no)
-		(at 612.5 44.2 0)
-		(effects
-			(font
-				(size 2.6 2.6)
-				(bold yes)
-			)
-			(justify left)
-		)
-		(uuid "8769b7a5-2026-5aa4-8938-bd7d9f082eb9")
-	)
 	(text "the 5 V rail -> ~3 W quieter alarm.  Firmware: LEDs+audio <= ~12 W."
 		(exclude_from_sim no)
 		(at 640 360 0)
@@ -12443,6 +12020,17 @@
 			(justify left)
 		)
 		(uuid "ab9f2d73-ae91-584e-875a-83d2d6f19511")
+	)
+	(text "Layout: C222/C223 at the J6 VDD pin."
+		(exclude_from_sim no)
+		(at 688.34 130 0)
+		(effects
+			(font
+				(size 1.3 1.3)
+			)
+			(justify left)
+		)
+		(uuid "ae50e620-e9d9-55fa-af62-869744b7fd3d")
 	)
 	(text "at the LED block), IO3/45 internal.  Flash + console + JTAG = USB-CDC (IO19/20)."
 		(exclude_from_sim no)
@@ -12809,12 +12397,6 @@
 		(uuid "20cdaf3b-57d7-5202-86df-bb28eb8c8347")
 	)
 	(junction
-		(at 723.9 78.74)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "20ff8853-74a2-52b1-a044-b98c2d542e19")
-	)
-	(junction
 		(at 372.11 106.68)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -12873,12 +12455,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "365571c0-7636-5cea-b5e3-5ca2aa1d323e")
-	)
-	(junction
-		(at 673.1 109.22)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3a3300da-5102-5029-8cdb-b74edf1282ce")
 	)
 	(junction
 		(at 96.52 55.88)
@@ -13011,12 +12587,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "6b45b176-1bc4-5ac0-b968-f55b0809b0d4")
-	)
-	(junction
-		(at 668.02 106.68)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "6e375b95-689b-5a30-a5d2-40da133a043a")
 	)
 	(junction
 		(at 212.09 317.5)
@@ -13265,12 +12835,6 @@
 		(uuid "b4999759-b804-5350-a66b-005b064e983e")
 	)
 	(junction
-		(at 730.25 73.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "b6b45678-d1b2-5b95-87f2-fc00f760958f")
-	)
-	(junction
 		(at 358.14 111.76)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -13457,12 +13021,6 @@
 		(uuid "e71ffbab-faa3-5965-9e80-73ae26350190")
 	)
 	(junction
-		(at 723.9 76.2)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e75a4b9d-ee32-584c-b348-53b990dd8f32")
-	)
-	(junction
 		(at 525.78 179.07)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -13497,12 +13055,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "edae2c37-acd4-5eab-9b17-5d86183b0c09")
-	)
-	(junction
-		(at 707.39 68.58)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "eff77510-a448-56d9-94d8-5fe3db4228fd")
 	)
 	(junction
 		(at 259.08 246.38)
@@ -13545,6 +13097,10 @@
 		(uuid "4e5d5371-62af-5de5-b56c-cf6611e58d7e")
 	)
 	(no_connect
+		(at 549.91 114.3)
+		(uuid "65a2be15-ab8b-5f78-8fa4-948bb1bab9b3")
+	)
+	(no_connect
 		(at 72.39 279.4)
 		(uuid "73ec50c0-4b56-517b-8282-808eb99ebd2e")
 	)
@@ -13579,6 +13135,10 @@
 	(no_connect
 		(at 487.68 454.66)
 		(uuid "caf3061b-81f3-534b-8290-b7edebf4b2a0")
+	)
+	(no_connect
+		(at 510.54 480.06)
+		(uuid "cd9e3fba-2c25-5330-81e6-f3b5df9003dd")
 	)
 	(no_connect
 		(at 510.54 490.22)
@@ -13664,16 +13224,6 @@
 	)
 	(wire
 		(pts
-			(xy 723.9 78.74) (xy 723.9 81.28)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0377331b-c2db-5c66-87a0-037b05419d16")
-	)
-	(wire
-		(pts
 			(xy 320.04 88.9) (xy 325.12 88.9)
 		)
 		(stroke
@@ -13721,16 +13271,6 @@
 			(type default)
 		)
 		(uuid "04bec67d-0972-5ec6-9a5b-fda98ccf024f")
-	)
-	(wire
-		(pts
-			(xy 730.25 63.5) (xy 730.25 73.66)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0619e207-1ea3-5a80-9d2b-d3e678922b4f")
 	)
 	(wire
 		(pts
@@ -14574,16 +14114,6 @@
 	)
 	(wire
 		(pts
-			(xy 662.94 60.96) (xy 735.33 60.96)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "238f3b6d-3d43-53e2-b425-ac61e54e0389")
-	)
-	(wire
-		(pts
 			(xy 510.54 474.98) (xy 513.08 474.98)
 		)
 		(stroke
@@ -14724,16 +14254,6 @@
 	)
 	(wire
 		(pts
-			(xy 735.33 66.04) (xy 725.17 66.04)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2bc4ea75-5025-5781-92cf-30b428272550")
-	)
-	(wire
-		(pts
 			(xy 701.04 492.76) (xy 701.04 495.3)
 		)
 		(stroke
@@ -14781,16 +14301,6 @@
 			(type default)
 		)
 		(uuid "2e234400-423c-5134-a1db-8532b5f07d86")
-	)
-	(wire
-		(pts
-			(xy 735.33 68.58) (xy 707.39 68.58)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2e3d1a9e-23fb-591b-b9bd-1b504d396010")
 	)
 	(wire
 		(pts
@@ -15564,16 +15074,6 @@
 	)
 	(wire
 		(pts
-			(xy 735.33 71.12) (xy 707.39 71.12)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4f591495-4a09-5eb2-a7db-b115acc5cf32")
-	)
-	(wire
-		(pts
 			(xy 754.38 241.3) (xy 750.57 241.3)
 		)
 		(stroke
@@ -15591,16 +15091,6 @@
 			(type default)
 		)
 		(uuid "4fdb3ea3-eb73-5a95-b089-35b1fd7cb51f")
-	)
-	(wire
-		(pts
-			(xy 735.33 63.5) (xy 730.25 63.5)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "501d5af3-3f61-5065-8a72-d4ddeaa07597")
 	)
 	(wire
 		(pts
@@ -16104,16 +15594,6 @@
 	)
 	(wire
 		(pts
-			(xy 668.02 55.88) (xy 735.33 55.88)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6770e9ba-c8e5-5591-8f01-332babacc880")
-	)
-	(wire
-		(pts
 			(xy 671.83 234.95) (xy 669.29 234.95)
 		)
 		(stroke
@@ -16231,16 +15711,6 @@
 			(type default)
 		)
 		(uuid "6bf406f4-e0eb-5bef-bc72-51fcd1905642")
-	)
-	(wire
-		(pts
-			(xy 707.39 71.12) (xy 707.39 52.07)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6c2f28b9-6fe9-50a2-96da-3958a2344425")
 	)
 	(wire
 		(pts
@@ -16541,16 +16011,6 @@
 			(type default)
 		)
 		(uuid "7de4074f-9620-5d4d-ba4c-37a64843a2d9")
-	)
-	(wire
-		(pts
-			(xy 735.33 73.66) (xy 723.9 73.66)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7e1c915c-8949-5a0b-9061-0e7a52d80884")
 	)
 	(wire
 		(pts
@@ -17304,16 +16764,6 @@
 	)
 	(wire
 		(pts
-			(xy 673.1 109.22) (xy 673.1 58.42)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a4e6da35-66d7-5942-8428-e808ee9e87d8")
-	)
-	(wire
-		(pts
 			(xy 676.91 525.78) (xy 668.02 525.78)
 		)
 		(stroke
@@ -17474,16 +16924,6 @@
 	)
 	(wire
 		(pts
-			(xy 510.54 480.06) (xy 513.08 480.06)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "aa336ce5-a26c-5898-9f7e-7efbe473cc3d")
-	)
-	(wire
-		(pts
 			(xy 97.79 274.32) (xy 97.79 254)
 		)
 		(stroke
@@ -17511,16 +16951,6 @@
 			(type default)
 		)
 		(uuid "abe60dec-c092-587f-858d-a6cc5a60fba8")
-	)
-	(wire
-		(pts
-			(xy 735.33 76.2) (xy 723.9 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ac6640dd-d187-5f65-8e63-ad3a07cf1378")
 	)
 	(wire
 		(pts
@@ -17894,16 +17324,6 @@
 	)
 	(wire
 		(pts
-			(xy 723.9 73.66) (xy 723.9 78.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c224661b-cd1c-51b2-baf8-be879c342145")
-	)
-	(wire
-		(pts
 			(xy 708.66 533.4) (xy 746.76 533.4)
 		)
 		(stroke
@@ -17991,16 +17411,6 @@
 			(type default)
 		)
 		(uuid "c768b996-16d8-59e5-b9f9-0079e7ca0096")
-	)
-	(wire
-		(pts
-			(xy 735.33 78.74) (xy 723.9 78.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c804590a-9da8-59dc-9271-16c897978f12")
 	)
 	(wire
 		(pts
@@ -18094,16 +17504,6 @@
 	)
 	(wire
 		(pts
-			(xy 668.02 106.68) (xy 668.02 55.88)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ccadb5d8-8237-549c-b1a4-53dcaf8c9764")
-	)
-	(wire
-		(pts
 			(xy 750.57 227.33) (xy 750.57 232.41)
 		)
 		(stroke
@@ -18191,16 +17591,6 @@
 			(type default)
 		)
 		(uuid "d199e138-4f36-590d-884c-bba60f386678")
-	)
-	(wire
-		(pts
-			(xy 673.1 58.42) (xy 735.33 58.42)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d1a30ce6-6bfe-5de9-b191-2142d8e03578")
 	)
 	(wire
 		(pts
@@ -18361,16 +17751,6 @@
 			(type default)
 		)
 		(uuid "d9228401-9735-5da8-9e69-308ed5e46cba")
-	)
-	(wire
-		(pts
-			(xy 662.94 114.3) (xy 662.94 60.96)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d9dbd558-05c0-5f1c-88d3-2aff69a16694")
 	)
 	(wire
 		(pts
@@ -18951,16 +18331,6 @@
 			(type default)
 		)
 		(uuid "f479ddd7-99c2-5817-b491-8bbdb2022ded")
-	)
-	(wire
-		(pts
-			(xy 549.91 114.3) (xy 662.94 114.3)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f63d4cd8-d149-57a5-b47c-4903f9cad442")
 	)
 	(wire
 		(pts
@@ -19858,28 +19228,6 @@
 			)
 		)
 	)
-	(global_label "LCD_DISP"
-		(shape bidirectional)
-		(at 513.08 480.06 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "ba86630c-1590-50c3-8817-3d5362ec05a0")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 513.08 480.06 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-	)
 	(global_label "PANEL_PWM"
 		(shape bidirectional)
 		(at 298.45 427.99 180)
@@ -20078,28 +19426,6 @@
 			)
 		)
 	)
-	(global_label "LCD_DISP"
-		(shape bidirectional)
-		(at 725.17 66.04 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "ed232ea4-0bf7-56b6-bb98-14309ea8cdee")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 725.17 66.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-	)
 	(global_label "I2C_SCL"
 		(shape bidirectional)
 		(at 525.78 256.54 180)
@@ -20140,6 +19466,82 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 711.2 509.27 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00bd9d66-1f1e-5d09-8b58-7d53e370d801")
+		(property "Reference" "#PWR160"
+			(at 713.74 509.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 711.2 505.46 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 711.2 509.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 711.2 509.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 711.2 509.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e81bfd37-7261-5c97-a88d-28e600946043")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR160")
+					(unit 1)
 				)
 			)
 		)
@@ -20226,6 +19628,83 @@
 	)
 	(symbol
 		(lib_id "power:GND")
+		(at 648.97 292.1 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "01e0893d-4ac7-519a-ab8f-e6ac77f6252e")
+		(property "Reference" "#PWR126"
+			(at 651.51 292.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 648.97 295.91 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 648.97 292.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 648.97 292.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 648.97 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fdf90a1d-5a54-5da2-92e0-0f3f601d8be3")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR126")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
 		(at 473.71 499.11 0)
 		(unit 1)
 		(body_style 1)
@@ -20295,6 +19774,158 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR106")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 711.2 440.69 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "02a1ba89-c7f1-576f-9d7c-fbda92da6a58")
+		(property "Reference" "#PWR151"
+			(at 713.74 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 711.2 444.5 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 711.2 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 711.2 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 711.2 440.69 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "89a97163-03da-514a-9751-23c587e7cf1e")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR151")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 721.36 509.27 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "05a122f2-c630-5d9b-b1c0-93ae13f26a60")
+		(property "Reference" "#PWR162"
+			(at 723.9 509.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 721.36 505.46 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 721.36 509.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 721.36 509.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 721.36 509.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fd3073d3-80fb-58ed-ae2e-e6cc290038d2")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR162")
 					(unit 1)
 				)
 			)
@@ -20701,82 +20332,6 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 654.05 167.64 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "07d87bc4-c94d-5a97-a9ac-e944978578db")
-		(property "Reference" "#PWR123"
-			(at 656.59 167.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 654.05 171.45 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 654.05 167.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 654.05 167.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 654.05 167.64 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "351a6aab-b430-546e-a375-5fca3928c4e4")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR123")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
 		(at 481.33 499.11 0)
 		(unit 1)
 		(body_style 1)
@@ -21160,6 +20715,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR100")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 703.58 116.84 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0c0bf0f0-ba3d-5eea-ab54-28932b8b4137")
+		(property "Reference" "#PWR121"
+			(at 706.12 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 703.58 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 703.58 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 703.58 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 703.58 116.84 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "eca89e9b-2f64-53ca-986f-9515ed520b63")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR121")
 					(unit 1)
 				)
 			)
@@ -21632,160 +21263,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 723.9 81.28 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "10ff6549-3fc2-5b84-8db9-6927914df1a4")
-		(property "Reference" "#PWR113"
-			(at 726.44 81.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 723.9 85.09 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 723.9 81.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 723.9 81.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 723.9 81.28 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "fe72417d-bbd9-5bdc-8c78-4d6774f48dfd")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR113")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 698.5 80.01 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "110c6202-5a94-54cf-bb3d-3551fa12f7cc")
-		(property "Reference" "C220"
-			(at 701.294 77.216 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1uF"
-			(at 700.786 82.55 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 698.5 80.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 698.5 80.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 698.5 80.01 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "ef799410-9009-5e1b-8551-06234c8d64b9")
-		)
-		(pin "2"
-			(uuid "c0bb9e46-bbdf-5648-9c8e-e5907c03ad2b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "C220")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 340.36 247.65 0)
 		(unit 1)
@@ -21864,82 +21341,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 721.36 509.27 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "11d4110b-98a3-5563-920a-0f531c44581c")
-		(property "Reference" "#PWR168"
-			(at 723.9 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 721.36 505.46 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 721.36 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 721.36 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 721.36 509.27 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "b330d24a-4c5d-5b28-9ac6-d0e5db061f07")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR168")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 205.74 354.33 0)
 		(unit 1)
@@ -22010,6 +21411,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR057")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 735.33 440.69 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "12534135-66a8-50d0-80e5-196d06e3dbca")
+		(property "Reference" "#PWR155"
+			(at 737.87 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 735.33 444.5 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 735.33 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 735.33 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 735.33 440.69 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fde86066-3cfd-509b-8c66-28fb87316e22")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR155")
 					(unit 1)
 				)
 			)
@@ -22798,6 +22275,82 @@
 	)
 	(symbol
 		(lib_id "power:GND")
+		(at 722.63 440.69 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "1afd609e-acbc-5fcd-a732-e8fdb064fde5")
+		(property "Reference" "#PWR153"
+			(at 725.17 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 722.63 444.5 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 722.63 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 722.63 440.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 722.63 440.69 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4c7187bc-faf9-50e0-84b9-b7d6fa7f482b")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR153")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
 		(at 497.84 497.84 0)
 		(unit 1)
 		(body_style 1)
@@ -22947,82 +22500,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "R103")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 768.35 232.41 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "1b7a3637-a829-573d-9655-4ea5bbaf89cc")
-		(property "Reference" "#PWR140"
-			(at 770.89 232.41 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 768.35 236.22 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 768.35 232.41 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 768.35 232.41 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 768.35 232.41 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "539c4e82-7f4d-51d6-bfeb-750df9c1bd4c")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR140")
 					(unit 1)
 				)
 			)
@@ -23346,159 +22823,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 648.97 292.1 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "1ed6f836-f02e-5e32-b492-964677391928")
-		(property "Reference" "#PWR132"
-			(at 651.51 292.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 648.97 295.91 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 648.97 292.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 648.97 292.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 648.97 292.1 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "a4c7b8e3-a124-568f-b9d3-10377789cfec")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR132")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 652.78 212.09 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "1f3a2512-d196-55f4-999c-319577536cac")
-		(property "Reference" "#PWR129"
-			(at 655.32 212.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 652.78 208.28 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 652.78 212.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 652.78 212.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 652.78 212.09 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "baefc396-755e-5ada-a0bf-f55bf9723253")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR129")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 703.58 120.65 0)
 		(unit 1)
@@ -23571,82 +22895,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "C223")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 666.75 300.99 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "20e5af68-2f33-57bd-bc90-60c5330fddd1")
-		(property "Reference" "#PWR137"
-			(at 669.29 300.99 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 666.75 304.8 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 666.75 300.99 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 666.75 300.99 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 666.75 300.99 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "9160be86-04fa-5609-a228-69ac6bed9788")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR137")
 					(unit 1)
 				)
 			)
@@ -23733,82 +22981,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V3")
-		(at 633.73 280.67 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "21952047-e39f-5eea-ab52-959340ab0ad2")
-		(property "Reference" "#PWR138"
-			(at 636.27 280.67 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 633.73 276.86 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 633.73 280.67 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 633.73 280.67 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 633.73 280.67 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "df514f16-e046-51e4-bf94-f846677cd83b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR138")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 111.76 260.35 0)
 		(unit 1)
@@ -23879,82 +23051,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR030")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 695.96 276.86 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "2292dfc8-d6e9-5a89-9fca-12c108187479")
-		(property "Reference" "#PWR139"
-			(at 698.5 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 695.96 280.67 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 695.96 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 695.96 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 695.96 276.86 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "bf466a1a-736e-5990-8303-053504e01e02")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR139")
 					(unit 1)
 				)
 			)
@@ -24341,82 +23437,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR107")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 685.8 439.42 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "266b10d6-2c56-5286-930a-12128c7bc984")
-		(property "Reference" "#PWR153"
-			(at 688.34 439.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 685.8 435.61 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 685.8 439.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 685.8 439.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 685.8 439.42 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "97b145bf-7402-51bd-bcc4-f0c9537ccdd5")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR153")
 					(unit 1)
 				)
 			)
@@ -24890,82 +23910,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 707.39 52.07 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "2a349905-b3ec-5263-943b-6a0d70ad4d53")
-		(property "Reference" "#PWR114"
-			(at 709.93 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 707.39 48.26 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 707.39 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 707.39 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 707.39 52.07 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "4ef1c149-042c-5243-8736-af2f894bac3e")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR114")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
 		(at 490.22 102.87 0)
 		(unit 1)
@@ -25040,82 +23984,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "R50")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 643.89 311.15 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "2c0d1c03-e2ae-547c-b764-2414cd61e45e")
-		(property "Reference" "#PWR133"
-			(at 646.43 311.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 643.89 314.96 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 643.89 311.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 643.89 311.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 643.89 311.15 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "e59448ff-ccfe-5a37-bf26-6e66a26b622b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR133")
 					(unit 1)
 				)
 			)
@@ -25370,6 +24238,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 721.36 516.89 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2d7bb2bd-edea-534f-913a-d23f4b005458")
+		(property "Reference" "#PWR163"
+			(at 723.9 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 721.36 520.7 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 721.36 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 721.36 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 721.36 516.89 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "59e0dd4e-d4f9-5a6e-bdd5-5b55b313c553")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR163")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "clock:VBAT")
 		(at 185.42 241.3 0)
 		(unit 1)
@@ -25529,6 +24473,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3V3")
+		(at 656.59 137.16 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2fa3c1f8-9495-5bb2-a6c3-a383007cdd9c")
+		(property "Reference" "#PWR116"
+			(at 659.13 137.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 656.59 133.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 656.59 137.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 656.59 137.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 656.59 137.16 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "03a2eaba-b7af-5d9c-9825-3e7fe48ee8cd")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR116")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 243.84 113.03 0)
 		(unit 1)
@@ -25609,8 +24629,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 701.04 302.26 0)
+		(lib_id "power:GND")
+		(at 751.84 297.18 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -25618,9 +24638,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "3052f64c-46a4-5380-b95c-5e722971acf5")
-		(property "Reference" "#PWR151"
-			(at 703.58 302.26 0)
+		(uuid "30276ab9-a751-5766-9ea5-8bbb397bacba")
+		(property "Reference" "#PWR140"
+			(at 754.38 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25630,8 +24650,8 @@
 				)
 			)
 		)
-		(property "Value" "+5V"
-			(at 701.04 298.45 0)
+		(property "Value" "GND"
+			(at 751.84 300.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -25641,7 +24661,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 701.04 302.26 0)
+			(at 751.84 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25652,7 +24672,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 701.04 302.26 0)
+			(at 751.84 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25663,7 +24683,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 701.04 302.26 0)
+			(at 751.84 297.18 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -25673,12 +24693,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "bb483e96-7232-5fb8-aa49-ee10cce2094a")
+			(uuid "12ac57f5-6f35-5b6d-8086-152fa6c4286c")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR151")
+					(reference "#PWR140")
 					(unit 1)
 				)
 			)
@@ -25918,158 +24938,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 662.94 284.48 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "32be105e-c57a-5cb7-8349-477ffd508746")
-		(property "Reference" "#PWR136"
-			(at 665.48 284.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 662.94 288.29 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 662.94 284.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 662.94 284.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 662.94 284.48 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "1fea8466-2ffb-59f5-8948-54b5a02f0a6a")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR136")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 690.88 134.62 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "331e025e-4f42-5108-ab35-1df2aad6621c")
-		(property "Reference" "#PWR119"
-			(at 693.42 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 690.88 130.81 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 690.88 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 690.88 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 690.88 134.62 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "76346c6a-cef9-580b-acff-5f2b4cb910cc")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR119")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
 		(at 453.39 500.38 0)
 		(unit 1)
@@ -26229,7 +25097,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 773.43 248.92 0)
+		(at 666.75 300.99 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -26237,9 +25105,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "35f69442-46bd-57dd-9161-1f3893eadc21")
-		(property "Reference" "#PWR141"
-			(at 775.97 248.92 0)
+		(uuid "36ef2c2a-fed9-52bb-95b1-f1166c412dc1")
+		(property "Reference" "#PWR131"
+			(at 669.29 300.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26250,7 +25118,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 773.43 252.73 0)
+			(at 666.75 304.8 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -26260,7 +25128,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 773.43 248.92 0)
+			(at 666.75 300.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26271,7 +25139,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 773.43 248.92 0)
+			(at 666.75 300.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26282,7 +25150,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 773.43 248.92 0)
+			(at 666.75 300.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -26292,12 +25160,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "2207ade6-8d0c-5994-acc0-2bd5e86f8568")
+			(uuid "0103942f-9fcd-5cfd-ad9d-71db589e5191")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR141")
+					(reference "#PWR131")
 					(unit 1)
 				)
 			)
@@ -26456,82 +25324,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "L4")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 711.2 509.27 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "39134d36-b407-5648-bce5-e98f089aa17c")
-		(property "Reference" "#PWR166"
-			(at 713.74 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 711.2 505.46 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 711.2 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 711.2 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 711.2 509.27 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "faf41f9e-cb31-58b1-b720-5e05adb278b6")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR166")
 					(unit 1)
 				)
 			)
@@ -27051,82 +25843,6 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 703.58 116.84 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "3d139c11-be4d-5442-935c-bf781d336427")
-		(property "Reference" "#PWR127"
-			(at 706.12 116.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 703.58 113.03 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 703.58 116.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 703.58 116.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 703.58 116.84 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "7229815b-0aa5-569b-934a-289b470e2c17")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR127")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
 		(at 243.84 109.22 0)
 		(unit 1)
 		(body_style 1)
@@ -27196,82 +25912,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR014")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 782.32 167.64 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "3da2ffca-64ac-57e3-81d5-127fc4d8eb4c")
-		(property "Reference" "#PWR124"
-			(at 784.86 167.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 782.32 171.45 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 782.32 167.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 782.32 167.64 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 782.32 167.64 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "2190c05c-5367-52b0-bf66-b7c2330d16a2")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR124")
 					(unit 1)
 				)
 			)
@@ -27434,8 +26074,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 651.51 318.77 0)
+		(lib_id "power:+3V3")
+		(at 731.52 509.27 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -27443,9 +26083,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "3ed14094-77a1-5774-afdc-6f2b4ca4445b")
-		(property "Reference" "#PWR135"
-			(at 654.05 318.77 0)
+		(uuid "3ff6f10b-a855-5925-81e1-7f9091e1ac47")
+		(property "Reference" "#PWR164"
+			(at 734.06 509.27 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27455,8 +26095,8 @@
 				)
 			)
 		)
-		(property "Value" "GND"
-			(at 651.51 322.58 0)
+		(property "Value" "+3V3"
+			(at 731.52 505.46 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27466,7 +26106,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 651.51 318.77 0)
+			(at 731.52 509.27 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27477,7 +26117,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 651.51 318.77 0)
+			(at 731.52 509.27 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27488,7 +26128,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 651.51 318.77 0)
+			(at 731.52 509.27 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27498,12 +26138,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "bb239e5e-d170-5fec-ae66-37e2ba004da9")
+			(uuid "3eb82a6a-e0a8-53e7-aa18-ee90bf38b492")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR135")
+					(reference "#PWR164")
 					(unit 1)
 				)
 			)
@@ -27588,6 +26228,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+5V")
+		(at 701.04 302.26 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "411752a7-b7f8-5e5a-a5b5-9b94670ce9e1")
+		(property "Reference" "#PWR145"
+			(at 703.58 302.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 701.04 298.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 701.04 302.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 701.04 302.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 701.04 302.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "528d66c4-60c1-59ce-afc5-13634ba026a0")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR145")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 461.01 100.33 0)
 		(unit 1)
@@ -27666,7 +26382,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 695.96 116.84 0)
+		(at 685.8 439.42 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -27674,9 +26390,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "4286ff2e-0e5d-5963-ada0-773264388d42")
-		(property "Reference" "#PWR125"
-			(at 698.5 116.84 0)
+		(uuid "41818cbe-67f6-5206-9b27-68d56ffa0eca")
+		(property "Reference" "#PWR147"
+			(at 688.34 439.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27687,7 +26403,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 695.96 113.03 0)
+			(at 685.8 435.61 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27697,7 +26413,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 695.96 116.84 0)
+			(at 685.8 439.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27708,7 +26424,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 695.96 116.84 0)
+			(at 685.8 439.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27719,7 +26435,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 695.96 116.84 0)
+			(at 685.8 439.42 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27729,12 +26445,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "9f270be3-e921-5fb3-8620-d4841029de68")
+			(uuid "c6364db3-3bf2-50a9-add6-e01ad7e30643")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR125")
+					(reference "#PWR147")
 					(unit 1)
 				)
 			)
@@ -27937,82 +26653,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "J9")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 695.96 497.84 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "44eedd2a-5725-59f9-bb2c-59163ba27318")
-		(property "Reference" "#PWR155"
-			(at 698.5 497.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 695.96 501.65 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 695.96 497.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 695.96 497.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 695.96 497.84 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "46a16473-22fb-5b2a-8188-156a01d0cf4a")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR155")
 					(unit 1)
 				)
 			)
@@ -28481,82 +27121,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 698.5 436.88 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "4b3ec419-d15e-55a6-b08c-99e4f34be7e0")
-		(property "Reference" "#PWR154"
-			(at 701.04 436.88 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 698.5 433.07 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 698.5 436.88 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 698.5 436.88 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 698.5 436.88 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "0972ced5-c5b0-57c8-ace9-49027089d55d")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR154")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 735.33 436.88 0)
 		(unit 1)
@@ -28790,159 +27354,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "R51")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 695.96 125.73 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "4da40ce2-11f8-51b5-9b40-c894c6c7ee3e")
-		(property "Reference" "#PWR126"
-			(at 698.5 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 695.96 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 695.96 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 695.96 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 695.96 125.73 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "1534f063-be0a-56d7-8946-3732a15cec3b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR126")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 698.5 83.82 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "4e35765d-ca68-559b-a124-73bb50041895")
-		(property "Reference" "#PWR116"
-			(at 701.04 83.82 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 698.5 87.63 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 698.5 83.82 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 698.5 83.82 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 698.5 83.82 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "2540d51b-81ca-56e9-ad06-da2078cdf5d2")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR116")
 					(unit 1)
 				)
 			)
@@ -29225,8 +27636,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 698.5 513.08 0)
+		(lib_id "power:GND")
+		(at 731.52 297.18 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -29234,9 +27645,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "50141c8c-1af3-5ba4-9881-ebdea829d668")
-		(property "Reference" "#PWR164"
-			(at 701.04 513.08 0)
+		(uuid "518f3570-0246-5a2e-8470-0e8912edd39f")
+		(property "Reference" "#PWR138"
+			(at 734.06 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -29246,8 +27657,8 @@
 				)
 			)
 		)
-		(property "Value" "+5V"
-			(at 698.5 509.27 0)
+		(property "Value" "GND"
+			(at 731.52 300.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -29257,7 +27668,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 698.5 513.08 0)
+			(at 731.52 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -29268,7 +27679,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 698.5 513.08 0)
+			(at 731.52 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -29279,7 +27690,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 698.5 513.08 0)
+			(at 731.52 297.18 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -29289,12 +27700,88 @@
 			)
 		)
 		(pin "1"
-			(uuid "0bb1fabc-fe67-54db-bde6-220ed15914e3")
+			(uuid "8659dbd9-8a5d-5930-a66e-08aad0e1627b")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR164")
+					(reference "#PWR138")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 652.78 212.09 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "51a0473d-1335-5390-915a-213dfcb13ae4")
+		(property "Reference" "#PWR123"
+			(at 655.32 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 652.78 208.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 652.78 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 652.78 212.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 652.78 212.09 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a807394a-4fba-5a8a-912e-66eec57c6895")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR123")
 					(unit 1)
 				)
 			)
@@ -29460,6 +27947,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "C201")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 685.8 320.04 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "53e7312a-4526-5860-bded-8f39da46756c")
+		(property "Reference" "#PWR143"
+			(at 688.34 320.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 685.8 323.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 685.8 320.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 685.8 320.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 685.8 320.04 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "af2cb631-12c6-517c-bf24-df3974a8f52c")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR143")
 					(unit 1)
 				)
 			)
@@ -29701,6 +28264,82 @@
 	)
 	(symbol
 		(lib_id "power:GND")
+		(at 731.52 516.89 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "56f81662-eed6-5a72-9a5d-7e29f8db42f8")
+		(property "Reference" "#PWR165"
+			(at 734.06 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 731.52 520.7 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 731.52 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 731.52 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 731.52 516.89 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b88e2bc3-2646-5782-b4ab-d72253cc52dd")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR165")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
 		(at 91.44 233.68 0)
 		(unit 1)
 		(body_style 1)
@@ -29770,6 +28409,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR029")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 711.2 433.07 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "57a5e13b-87c8-5c7a-835a-698a88bca9cd")
+		(property "Reference" "#PWR150"
+			(at 713.74 433.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 711.2 429.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 711.2 433.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 711.2 433.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 711.2 433.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e765da47-81ef-5498-97c1-8da56e15730d")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR150")
 					(unit 1)
 				)
 			)
@@ -29923,82 +28638,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR062")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 722.63 440.69 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "58d17941-2000-5f4f-8ce7-78910cf54c7c")
-		(property "Reference" "#PWR159"
-			(at 725.17 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 722.63 444.5 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 722.63 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 722.63 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 722.63 440.69 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "848da595-e29f-5a70-a170-e453af55d2a0")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR159")
 					(unit 1)
 				)
 			)
@@ -30471,6 +29110,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 643.89 311.15 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5bc92f4d-a2d6-54b6-a4ab-dffe9edc4d52")
+		(property "Reference" "#PWR127"
+			(at 646.43 311.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 643.89 314.96 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 643.89 311.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 643.89 311.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 643.89 311.15 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f32c649b-0ef2-52b1-84f4-0dc4fb72c9da")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR127")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C")
 		(at 245.11 353.06 0)
 		(unit 1)
@@ -30549,8 +29264,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 676.91 308.61 0)
+		(lib_id "power:GND")
+		(at 739.14 297.18 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -30558,9 +29273,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "5c8f4c31-9d3a-57d7-9f6f-9468cfaf1ba9")
-		(property "Reference" "#PWR147"
-			(at 679.45 308.61 0)
+		(uuid "5c34e57b-00f1-59b2-82ea-67770b48bb86")
+		(property "Reference" "#PWR139"
+			(at 741.68 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -30570,8 +29285,8 @@
 				)
 			)
 		)
-		(property "Value" "+5V"
-			(at 676.91 304.8 0)
+		(property "Value" "GND"
+			(at 739.14 300.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -30581,7 +29296,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 676.91 308.61 0)
+			(at 739.14 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -30592,7 +29307,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 676.91 308.61 0)
+			(at 739.14 297.18 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -30603,7 +29318,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 676.91 308.61 0)
+			(at 739.14 297.18 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -30613,12 +29328,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "63e525d4-0600-5604-a07a-ecc3915bfddf")
+			(uuid "ba7b38a6-43f7-5229-abd2-77a52caf0208")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR147")
+					(reference "#PWR139")
 					(unit 1)
 				)
 			)
@@ -30775,82 +29490,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "C130")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 751.84 297.18 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "5edbe2b1-3a6e-5599-8161-4ca1ee8162cf")
-		(property "Reference" "#PWR146"
-			(at 754.38 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 751.84 300.99 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 751.84 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 751.84 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 751.84 297.18 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "1012ba18-9218-5aba-a89d-0d791479a5c0")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR146")
 					(unit 1)
 				)
 			)
@@ -31716,82 +30355,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V3")
-		(at 685.8 515.62 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "69bb1b61-06a6-5b2e-a71c-622a56f64086")
-		(property "Reference" "#PWR163"
-			(at 688.34 515.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 685.8 511.81 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 685.8 515.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 685.8 515.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 685.8 515.62 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "24af4ca5-8d5d-5d60-8309-23751af710c4")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR163")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 461.01 96.52 0)
 		(unit 1)
@@ -31864,82 +30427,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "C142")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "clock:PVDD")
-		(at 713.74 283.21 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "6ae4a677-9304-50ee-987f-bf48a66e9aa9")
-		(property "Reference" "#PWR142"
-			(at 716.28 283.21 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "PVDD"
-			(at 713.74 279.4 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 713.74 283.21 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 713.74 283.21 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 713.74 283.21 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "b9d775ae-92e4-50e5-a790-81d51c8b660b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR142")
 					(unit 1)
 				)
 			)
@@ -32020,82 +30507,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "D30")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 673.1 535.94 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "6e01a094-e3a0-58d7-8e17-f919b38dcfdf")
-		(property "Reference" "#PWR162"
-			(at 675.64 535.94 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 673.1 532.13 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 673.1 535.94 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 673.1 535.94 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 673.1 535.94 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "6539cd0c-aebd-5755-a771-244699947310")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR162")
 					(unit 1)
 				)
 			)
@@ -32443,6 +30854,83 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 695.96 125.73 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6fb8bbf7-d143-5ec5-b855-9c29ba058200")
+		(property "Reference" "#PWR120"
+			(at 698.5 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 695.96 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 695.96 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 695.96 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 695.96 125.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9d65c1cf-d2ea-53b7-8ad1-ee90e23b04f5")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR120")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C")
 		(at 297.18 320.04 0)
 		(unit 1)
@@ -32667,82 +31155,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR044")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 721.36 516.89 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "7222049a-1b6c-5f00-89d9-b19db8659759")
-		(property "Reference" "#PWR169"
-			(at 723.9 516.89 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 721.36 520.7 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 721.36 516.89 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 721.36 516.89 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 721.36 516.89 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "c3f7c98c-e5ac-5f63-8a04-3361fb0d264c")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR169")
 					(unit 1)
 				)
 			)
@@ -32981,82 +31393,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 685.8 320.04 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "7716abb8-12d3-5181-bc8e-7ba3a2a5a3ad")
-		(property "Reference" "#PWR149"
-			(at 688.34 320.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 685.8 323.85 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 685.8 320.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 685.8 320.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 685.8 320.04 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "fbab8f10-56bb-5cec-ad30-8d135f1925af")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR149")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:+5V")
 		(at 327.66 412.75 0)
 		(unit 1)
@@ -33127,6 +31463,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR066")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 695.96 497.84 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "78e24bef-b1f8-5943-b497-6416b7235442")
+		(property "Reference" "#PWR149"
+			(at 698.5 497.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 695.96 501.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 695.96 497.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 695.96 497.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 695.96 497.84 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bdd209a1-9923-565e-a687-e0fda6a3000d")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR149")
 					(unit 1)
 				)
 			)
@@ -33831,82 +32243,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 688.34 83.82 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "7caca3bf-a788-5eb0-8911-b503faa14c4a")
-		(property "Reference" "#PWR118"
-			(at 690.88 83.82 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 688.34 87.63 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 688.34 83.82 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 688.34 83.82 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 688.34 83.82 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "b16e83cf-9e53-575e-b561-f957f832edd7")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR118")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:+3V3")
 		(at 462.28 464.82 0)
 		(unit 1)
@@ -33977,6 +32313,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR104")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 638.81 292.1 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "7dc6dbca-ef72-555b-90a9-835776331283")
+		(property "Reference" "#PWR125"
+			(at 641.35 292.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 638.81 295.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 638.81 292.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 638.81 292.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 638.81 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "735834f7-5415-505d-be44-74ad34151d5f")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR125")
 					(unit 1)
 				)
 			)
@@ -34408,83 +32820,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 703.58 125.73 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "81c86f7a-8f11-577a-9265-05a4683b820d")
-		(property "Reference" "#PWR128"
-			(at 706.12 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 703.58 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 703.58 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 703.58 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 703.58 125.73 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "7c2d297c-fa68-5248-a1a5-83d99e27752c")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR128")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "clock:AO3400A")
 		(at 320.04 427.99 0)
 		(unit 1)
@@ -34642,6 +32977,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "J8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 685.8 515.62 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "836b748c-27e2-508b-bdbe-ae0a78db06e1")
+		(property "Reference" "#PWR157"
+			(at 688.34 515.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 685.8 511.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 685.8 515.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 685.8 515.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 685.8 515.62 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "71a1d204-be37-5110-b636-fe1fe75e236e")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR157")
 					(unit 1)
 				)
 			)
@@ -35503,83 +33914,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:PWR_FLAG")
-		(at 721.36 283.21 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "8c6ee65b-b768-5005-987f-0855200b77a3")
-		(property "Reference" "#FLG143"
-			(at 723.9 283.21 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "PWR_FLAG"
-			(at 721.36 279.4 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 721.36 283.21 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 721.36 283.21 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 721.36 283.21 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d9dd9cb7-c27c-5865-8107-323be4bbf807")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#FLG143")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 453.39 261.62 0)
 		(unit 1)
@@ -36126,6 +34460,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+5V")
+		(at 698.5 436.88 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "94f79800-604f-5f78-b0c6-eae2a2347cd2")
+		(property "Reference" "#PWR148"
+			(at 701.04 436.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 698.5 433.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 698.5 436.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 698.5 436.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 698.5 436.88 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6853ace4-473f-5d35-9486-1adcb218450f")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR148")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:D")
 		(at 321.31 81.28 0)
 		(unit 1)
@@ -36446,6 +34856,83 @@
 		)
 	)
 	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 721.36 283.21 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "983e723d-1c9f-53d1-9174-502be4269292")
+		(property "Reference" "#FLG137"
+			(at 723.9 283.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 721.36 279.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 721.36 283.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 721.36 283.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 721.36 283.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fd35968d-c092-5009-aca3-45006f5e4c87")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#FLG137")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3V3")
 		(at 541.02 250.19 0)
 		(unit 1)
@@ -36516,82 +35003,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR091")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 698.5 76.2 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "9b8089f9-8b3f-56b1-bc08-e38126261707")
-		(property "Reference" "#PWR115"
-			(at 701.04 76.2 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 698.5 72.39 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 698.5 76.2 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 698.5 76.2 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 698.5 76.2 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d628ab7b-3893-5cb1-b72b-9922c61f1020")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR115")
 					(unit 1)
 				)
 			)
@@ -36750,6 +35161,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "R23")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 782.32 167.64 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "9d371833-9819-53bd-9366-862d6f33a7b0")
+		(property "Reference" "#PWR118"
+			(at 784.86 167.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 782.32 171.45 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 782.32 167.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 782.32 167.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 782.32 167.64 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "83fab7ca-7d46-5ce6-8df5-77bf604aa27d")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR118")
 					(unit 1)
 				)
 			)
@@ -36990,7 +35477,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 688.34 76.2 0)
+		(at 722.63 433.07 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -36998,9 +35485,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "a4463e84-a9eb-5818-a23f-ed1e4fbf8b8c")
-		(property "Reference" "#PWR117"
-			(at 690.88 76.2 0)
+		(uuid "a3bc3942-b641-5ed4-93c5-df66b39c1776")
+		(property "Reference" "#PWR152"
+			(at 725.17 433.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -37011,7 +35498,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 688.34 72.39 0)
+			(at 722.63 429.26 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -37021,7 +35508,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 688.34 76.2 0)
+			(at 722.63 433.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -37032,7 +35519,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 688.34 76.2 0)
+			(at 722.63 433.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -37043,7 +35530,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 688.34 76.2 0)
+			(at 722.63 433.07 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -37053,88 +35540,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "abeeac94-3486-52f1-a713-83004e35ee31")
+			(uuid "c5ec1fe6-046d-5616-8342-b8e545fa37d0")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR117")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 661.67 129.54 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "a577a5f9-61f0-5eea-b83b-41992fe510df")
-		(property "Reference" "#PWR121"
-			(at 664.21 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 661.67 125.73 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 661.67 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 661.67 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 661.67 129.54 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "16bb65c7-44d7-50a1-8a58-b4a883eccbca")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR121")
+					(reference "#PWR152")
 					(unit 1)
 				)
 			)
@@ -37291,6 +35702,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR084")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 656.59 326.39 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "aa81dadf-09c5-5a7d-bfaa-29a3a226f3e7")
+		(property "Reference" "#PWR128"
+			(at 659.13 326.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 656.59 330.2 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 656.59 326.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 656.59 326.39 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 656.59 326.39 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "47c3eb92-5f1f-56c1-9268-adcf31a2e11b")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR128")
 					(unit 1)
 				)
 			)
@@ -37542,82 +36029,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "U9")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 656.59 137.16 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "ad486949-581b-5dc0-b4d5-5f48a1db2808")
-		(property "Reference" "#PWR122"
-			(at 659.13 137.16 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 656.59 133.35 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 656.59 137.16 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 656.59 137.16 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 656.59 137.16 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "67f6c492-8445-5f26-919e-c28180e052f3")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR122")
 					(unit 1)
 				)
 			)
@@ -38208,158 +36619,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 735.33 440.69 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "af741af6-b6ca-57a7-8a5d-a7e52c747d00")
-		(property "Reference" "#PWR161"
-			(at 737.87 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 735.33 444.5 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 735.33 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 735.33 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 735.33 440.69 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "1d020ca4-74e2-5098-a3a6-6f6f7841d7c8")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR161")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 731.52 509.27 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "af8582fd-d710-5da2-937a-5c636d58659d")
-		(property "Reference" "#PWR170"
-			(at 734.06 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 731.52 505.46 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 731.52 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 731.52 509.27 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 731.52 509.27 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "13327ed3-b434-5e79-854a-31c11b8e2e0b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR170")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 269.24 115.57 0)
 		(unit 1)
@@ -38439,7 +36698,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 711.2 516.89 0)
+		(at 654.05 167.64 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -38447,9 +36706,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "b07adb4b-6462-55ce-9148-3f3e3e3fafbe")
-		(property "Reference" "#PWR167"
-			(at 713.74 516.89 0)
+		(uuid "b01a91c9-a7b7-5ed9-9dd7-51a496e64605")
+		(property "Reference" "#PWR117"
+			(at 656.59 167.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -38460,7 +36719,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 711.2 520.7 0)
+			(at 654.05 171.45 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -38470,7 +36729,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 711.2 516.89 0)
+			(at 654.05 167.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -38481,7 +36740,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 711.2 516.89 0)
+			(at 654.05 167.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -38492,7 +36751,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 711.2 516.89 0)
+			(at 654.05 167.64 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -38502,12 +36761,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "85ae6e6a-2a1e-5757-8a1e-4d76b53df593")
+			(uuid "abbbffee-a410-51d3-be87-dee046a5fbc4")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR167")
+					(reference "#PWR117")
 					(unit 1)
 				)
 			)
@@ -38664,82 +36923,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "RT1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 711.2 440.69 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "b1bdb137-696e-50f5-90f5-33d3367d2594")
-		(property "Reference" "#PWR157"
-			(at 713.74 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 711.2 444.5 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 711.2 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 711.2 440.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 711.2 440.69 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d0ac386f-ff00-5a25-932e-2f412b3d457c")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR157")
 					(unit 1)
 				)
 			)
@@ -38978,82 +37161,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 731.52 297.18 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "b3accd74-c160-5fae-b51d-de121ebca513")
-		(property "Reference" "#PWR144"
-			(at 734.06 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 731.52 300.99 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 731.52 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 731.52 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 731.52 297.18 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "f1489588-6911-5ff0-8535-3684586922a7")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR144")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 739.14 293.37 0)
 		(unit 1)
@@ -39282,236 +37389,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR058")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 688.34 80.01 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "b5e74574-eee7-5517-bb74-a9d8f14cc3ca")
-		(property "Reference" "C221"
-			(at 685.546 77.47 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1uF"
-			(at 686.054 82.55 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 688.34 80.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 688.34 80.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 688.34 80.01 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "fde7bc47-c73c-5e80-86d7-d86b47c738b5")
-		)
-		(pin "2"
-			(uuid "d2d57447-ada4-535f-9e80-31b366a207e6")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "C221")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 739.14 297.18 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "b62e56d8-013b-5ce1-b9f4-18adc99cc49e")
-		(property "Reference" "#PWR145"
-			(at 741.68 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 739.14 300.99 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 739.14 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 739.14 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 739.14 297.18 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "e52e25fc-a121-51b1-b2c2-9d9b8a5d9344")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR145")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 631.19 256.54 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "b648a9ea-9622-5240-a3bb-d33576ee7ccc")
-		(property "Reference" "#PWR130"
-			(at 633.73 256.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 631.19 260.35 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 631.19 256.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 631.19 256.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 631.19 256.54 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "4a013972-7932-54a7-ad6d-b0aaa9465a9e")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR130")
 					(unit 1)
 				)
 			)
@@ -39984,7 +37861,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 676.91 322.58 0)
+		(at 768.35 232.41 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -39992,9 +37869,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "bf5ecbd3-7311-5ebf-afaa-47f7c6820c1c")
-		(property "Reference" "#PWR148"
-			(at 679.45 322.58 0)
+		(uuid "bd303be3-7933-533d-94ce-88be8ed5525e")
+		(property "Reference" "#PWR134"
+			(at 770.89 232.41 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -40005,7 +37882,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 676.91 326.39 0)
+			(at 768.35 236.22 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -40015,7 +37892,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 676.91 322.58 0)
+			(at 768.35 232.41 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -40026,7 +37903,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 676.91 322.58 0)
+			(at 768.35 232.41 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -40037,7 +37914,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 676.91 322.58 0)
+			(at 768.35 232.41 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -40047,12 +37924,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "3fdf8c12-6f57-5c4f-bc73-fd797b52dd1e")
+			(uuid "ec6ea1f5-1187-590e-b3ce-0264dacace9e")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR148")
+					(reference "#PWR134")
 					(unit 1)
 				)
 			)
@@ -40602,82 +38479,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 638.81 292.1 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "c3b14320-10d0-5689-812b-5b24e7651771")
-		(property "Reference" "#PWR131"
-			(at 641.35 292.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 638.81 295.91 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 638.81 292.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 638.81 292.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 638.81 292.1 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "36c07429-b903-5ed5-aad2-c50bcd5e825b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR131")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:R")
 		(at 473.71 495.3 0)
 		(unit 1)
@@ -41144,40 +38945,39 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector_Generic:Conn_01x10")
-		(at 740.41 66.04 0)
+		(lib_id "power:+3V3")
+		(at 673.1 449.58 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "c870d004-6868-519a-9983-980d585db8f1")
-		(property "Reference" "J5"
-			(at 742.38 64.64 0)
+		(uuid "c8d4657f-35b7-57d3-8cab-429d4c62c0a5")
+		(property "Reference" "#PWR146"
+			(at 675.64 449.58 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
-		(property "Value" "LS032B7DD02 (FH34SRJ-10S)"
-			(at 742.38 67.44 0)
+		(property "Value" "+3V3"
+			(at 673.1 445.77 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
-		(property "Footprint" "clock:Hirose_FH34SRJ-10S-0.5SH_1x10-1MP_P0.50mm_Horizontal"
-			(at 740.41 66.04 0)
+		(property "Footprint" ""
+			(at 673.1 449.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -41188,7 +38988,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 740.41 66.04 0)
+			(at 673.1 449.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -41199,7 +38999,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 740.41 66.04 0)
+			(at 673.1 449.58 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -41209,39 +39009,89 @@
 			)
 		)
 		(pin "1"
-			(uuid "a792690d-8968-5087-ba96-50b1d53f0d3c")
-		)
-		(pin "10"
-			(uuid "d6d5b406-4d7b-5e13-9dd7-8ad2c6f6e35a")
-		)
-		(pin "2"
-			(uuid "a9989f1b-e6a7-5eb6-a198-672406a04ecf")
-		)
-		(pin "3"
-			(uuid "b0e39c22-8991-553c-8867-0b191c558ddb")
-		)
-		(pin "4"
-			(uuid "6d8ded11-a63b-5325-8b39-51f20feac6e6")
-		)
-		(pin "5"
-			(uuid "aaf81ade-90d4-5e65-82b6-ce0fa11d0a0f")
-		)
-		(pin "6"
-			(uuid "cb849000-445c-5010-a497-f4e1f107edcf")
-		)
-		(pin "7"
-			(uuid "d1515036-3ee7-5def-92c9-e600284375a8")
-		)
-		(pin "8"
-			(uuid "9240f984-53e2-5d73-92c6-3b9552a49726")
-		)
-		(pin "9"
-			(uuid "af264db0-4c32-5305-b6c3-95663fc16e0f")
+			(uuid "d580606c-1a83-513f-a513-368f96120b72")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "J5")
+					(reference "#PWR146")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 703.58 125.73 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c93c2027-1ca3-57a4-88ce-f545ec0cf247")
+		(property "Reference" "#PWR122"
+			(at 706.12 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 703.58 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 703.58 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 703.58 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 703.58 125.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "578a75db-ae76-5eff-8feb-67fffe5233ba")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR122")
 					(unit 1)
 				)
 			)
@@ -41790,82 +39640,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V3")
-		(at 709.93 134.62 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "cb2491cc-1644-5b9b-80a6-4d91b7a51f0c")
-		(property "Reference" "#PWR120"
-			(at 712.47 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 709.93 130.81 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 709.93 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 709.93 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 709.93 134.62 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "9146278d-d1e7-563b-bb01-d5ce22f74573")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR120")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C")
 		(at 474.98 110.49 0)
 		(unit 1)
@@ -41938,6 +39712,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "C144")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 662.94 284.48 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "cc3135cb-1c97-585c-9d74-21fe4cfa57fc")
+		(property "Reference" "#PWR130"
+			(at 665.48 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 662.94 288.29 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 662.94 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 662.94 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 662.94 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "831d622a-3338-566d-b6b9-b4f1d4cdd07d")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR130")
 					(unit 1)
 				)
 			)
@@ -42098,6 +39948,158 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "C133")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 735.33 433.07 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "cfa7ff81-a41d-54fe-9876-1daeed1016f6")
+		(property "Reference" "#PWR154"
+			(at 737.87 433.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 735.33 429.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 735.33 433.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 735.33 433.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 735.33 433.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "53c6dda1-4cca-5f84-a49a-3a04ec627d9e")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR154")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 676.91 322.58 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d0013ef4-56bc-5164-95da-82d1d975ae7a")
+		(property "Reference" "#PWR142"
+			(at 679.45 322.58 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 676.91 326.39 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 676.91 322.58 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 676.91 322.58 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 676.91 322.58 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c738e8b6-b99b-5901-97d9-62fcbbd5b0f0")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR142")
 					(unit 1)
 				)
 			)
@@ -42352,6 +40354,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3V3")
+		(at 690.88 134.62 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d407b6e4-a453-58f3-8c71-557f8b3ddb10")
+		(property "Reference" "#PWR113"
+			(at 693.42 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 690.88 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 690.88 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 690.88 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 690.88 134.62 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bdfc23d0-823e-5cb3-b76f-0357636ee97b")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR113")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C")
 		(at 648.97 288.29 0)
 		(unit 1)
@@ -42500,6 +40578,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR069")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 673.1 535.94 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d61d5728-04c8-597b-9b70-2a5f6b3ac1d1")
+		(property "Reference" "#PWR156"
+			(at 675.64 535.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 673.1 532.13 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 673.1 535.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 673.1 535.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 673.1 535.94 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ab3a4eee-49a2-59c2-b447-3efe96e17d8a")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR156")
 					(unit 1)
 				)
 			)
@@ -43059,6 +41213,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 711.2 516.89 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d982d261-bfd3-5253-9cfb-ed917864ddc9")
+		(property "Reference" "#PWR161"
+			(at 713.74 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 711.2 520.7 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 711.2 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 711.2 516.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 711.2 516.89 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "577f966c-f5b2-5495-b712-a4d245b0dfa2")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR161")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 259.08 259.08 0)
 		(unit 1)
@@ -43133,6 +41363,158 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "R41")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 695.96 574.04 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "da72a702-a159-5c65-b7dd-230e7a76442a")
+		(property "Reference" "#PWR159"
+			(at 698.5 574.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 695.96 577.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 695.96 574.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 695.96 574.04 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 695.96 574.04 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3c1757b2-dd27-52bf-8896-b0b23ebe2a7e")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR159")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 698.5 513.08 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "daec7f3d-449f-5d95-8fee-0288b0a0786e")
+		(property "Reference" "#PWR158"
+			(at 701.04 513.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 698.5 509.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 698.5 513.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 698.5 513.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 698.5 513.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7aeb2a9d-be83-5346-bf5e-c54562565db0")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR158")
 					(unit 1)
 				)
 			)
@@ -43445,6 +41827,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3V3")
+		(at 661.67 129.54 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ddf0a92b-a973-5287-9a06-1086d9dd2858")
+		(property "Reference" "#PWR115"
+			(at 664.21 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 661.67 125.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 661.67 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 661.67 129.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 661.67 129.54 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ba1a1fd3-8045-5fba-990c-f9293c55ee82")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR115")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:L")
 		(at 222.25 232.41 90)
 		(unit 1)
@@ -43675,8 +42133,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 722.63 433.07 0)
+		(lib_id "power:+3V3")
+		(at 633.73 280.67 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -43684,9 +42142,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "e0c76c07-3787-5c24-adee-bca71e90d2c1")
-		(property "Reference" "#PWR158"
-			(at 725.17 433.07 0)
+		(uuid "e17c07db-f4c1-5156-8834-d44f6daa6a10")
+		(property "Reference" "#PWR132"
+			(at 636.27 280.67 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -43696,8 +42154,8 @@
 				)
 			)
 		)
-		(property "Value" "+5V"
-			(at 722.63 429.26 0)
+		(property "Value" "+3V3"
+			(at 633.73 276.86 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -43707,7 +42165,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 722.63 433.07 0)
+			(at 633.73 280.67 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -43718,7 +42176,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 722.63 433.07 0)
+			(at 633.73 280.67 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -43729,7 +42187,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 722.63 433.07 0)
+			(at 633.73 280.67 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -43739,12 +42197,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "07a2402d-80b8-5716-9f53-79f51cc458f9")
+			(uuid "b51ded22-0fc2-53e4-a1cc-5aae347d8096")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR158")
+					(reference "#PWR132")
 					(unit 1)
 				)
 			)
@@ -43828,82 +42286,6 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 656.59 326.39 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "e1caa397-a618-5b95-91e8-f314d01ee91b")
-		(property "Reference" "#PWR134"
-			(at 659.13 326.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 656.59 330.2 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 656.59 326.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 656.59 326.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 656.59 326.39 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "82f68e34-4e1d-526a-822a-3684a52ea7de")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR134")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
 		(at 297.18 323.85 0)
 		(unit 1)
 		(body_style 1)
@@ -43973,6 +42355,310 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR055")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 695.96 276.86 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e2971c67-c61f-5c3d-9c7a-ee018c77e0aa")
+		(property "Reference" "#PWR133"
+			(at 698.5 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 695.96 280.67 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 695.96 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 695.96 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 695.96 276.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5d7430ca-f263-5d92-9355-8a4cf1a9c5b1")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR133")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 695.96 327.66 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e323ebfd-82e2-5403-b9eb-b01322a3cd87")
+		(property "Reference" "#PWR144"
+			(at 698.5 327.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 695.96 331.47 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 695.96 327.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 695.96 327.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 695.96 327.66 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "777d7059-360f-559c-b1cc-8f06f2ac7148")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR144")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3V3")
+		(at 709.93 134.62 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e36ba1c1-f2f7-5fbf-99a2-14e244114123")
+		(property "Reference" "#PWR114"
+			(at 712.47 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 709.93 130.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 709.93 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 709.93 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 709.93 134.62 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "320a4306-50e4-54b1-956d-2993989aad17")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR114")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 651.51 318.77 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e4485a50-a119-59be-a87f-e5d570ebfe1f")
+		(property "Reference" "#PWR129"
+			(at 654.05 318.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 651.51 322.58 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 651.51 318.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 651.51 318.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 651.51 318.77 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "38efa8ea-eada-55e8-b5c3-d7ffa9914407")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR129")
 					(unit 1)
 				)
 			)
@@ -44133,7 +42819,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 731.52 516.89 0)
+		(at 631.19 256.54 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -44141,9 +42827,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "e620bd1e-a0ce-5b19-99ed-faf30f5c1713")
-		(property "Reference" "#PWR171"
-			(at 734.06 516.89 0)
+		(uuid "e801bc61-4963-5c34-87d6-105995e0f79d")
+		(property "Reference" "#PWR124"
+			(at 633.73 256.54 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -44154,7 +42840,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 731.52 520.7 0)
+			(at 631.19 260.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -44164,7 +42850,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 731.52 516.89 0)
+			(at 631.19 256.54 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -44175,7 +42861,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 731.52 516.89 0)
+			(at 631.19 256.54 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -44186,7 +42872,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 731.52 516.89 0)
+			(at 631.19 256.54 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -44196,12 +42882,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "a84453a4-4ef9-540a-b65a-9584c6ad43a6")
+			(uuid "e1a83398-c5c5-51db-b635-e1bb8e11fb13")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR171")
+					(reference "#PWR124")
 					(unit 1)
 				)
 			)
@@ -44445,6 +43131,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "R22")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "clock:PVDD")
+		(at 713.74 283.21 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ea1694e9-fab5-52ae-9e09-d98a690ccc3b")
+		(property "Reference" "#PWR136"
+			(at 716.28 283.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PVDD"
+			(at 713.74 279.4 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 713.74 283.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 713.74 283.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 713.74 283.21 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b2efd17d-872f-53f8-9e88-018854988072")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR136")
 					(unit 1)
 				)
 			)
@@ -45078,82 +43840,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V3")
-		(at 673.1 449.58 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "ef143d10-df1a-5e10-a347-8524bfffaed1")
-		(property "Reference" "#PWR152"
-			(at 675.64 449.58 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 673.1 445.77 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 673.1 449.58 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 673.1 449.58 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 673.1 449.58 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d9c2119f-c865-55dd-8f49-223415b17512")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR152")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 223.52 257.81 0)
 		(unit 1)
@@ -45230,8 +43916,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 711.2 433.07 0)
+		(lib_id "power:GND")
+		(at 773.43 248.92 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -45239,9 +43925,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "f1463ad7-4045-5152-a883-639b0ba18f73")
-		(property "Reference" "#PWR156"
-			(at 713.74 433.07 0)
+		(uuid "f11d6fd3-ee81-5685-9046-10f2e542ea2e")
+		(property "Reference" "#PWR135"
+			(at 775.97 248.92 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -45251,8 +43937,8 @@
 				)
 			)
 		)
-		(property "Value" "+5V"
-			(at 711.2 429.26 0)
+		(property "Value" "GND"
+			(at 773.43 252.73 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -45262,7 +43948,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 711.2 433.07 0)
+			(at 773.43 248.92 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -45273,7 +43959,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 711.2 433.07 0)
+			(at 773.43 248.92 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -45284,7 +43970,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 711.2 433.07 0)
+			(at 773.43 248.92 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -45294,12 +43980,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "c49df0c0-0062-55d1-b8cf-0e89f63904ea")
+			(uuid "c1231aac-b422-59da-a413-2a9a67900c46")
 		)
 		(instances
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR156")
+					(reference "#PWR135")
 					(unit 1)
 				)
 			)
@@ -45614,82 +44300,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 695.96 574.04 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "f34c319f-0076-5f84-baee-ebb6cd1d83f3")
-		(property "Reference" "#PWR165"
-			(at 698.5 574.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 695.96 577.85 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 695.96 574.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 695.96 574.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 695.96 574.04 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "4afed087-ff7d-5270-a125-0c9b7da949d1")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR165")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "clock:HY2111")
 		(at 80.01 276.86 0)
 		(unit 1)
@@ -45776,6 +44386,82 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "U3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 676.91 308.61 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f5818e95-d3e4-543d-8919-e785211edfe2")
+		(property "Reference" "#PWR141"
+			(at 679.45 308.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+5V"
+			(at 676.91 304.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 676.91 308.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 676.91 308.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 676.91 308.61 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7bc5fd46-ad9d-568c-aec2-3ca71fab823f")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR141")
 					(unit 1)
 				)
 			)
@@ -46009,82 +44695,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR059")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 695.96 327.66 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "f9f881ef-ce33-58f6-804b-4340880689a8")
-		(property "Reference" "#PWR150"
-			(at 698.5 327.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 695.96 331.47 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 695.96 327.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 695.96 327.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 695.96 327.66 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "4124d070-5833-5285-956b-8ec829869d03")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR150")
 					(unit 1)
 				)
 			)
@@ -46678,6 +45288,82 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3V3")
+		(at 695.96 116.84 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "fe2bc229-ae8d-5160-a0b5-a6755ed23d87")
+		(property "Reference" "#PWR119"
+			(at 698.5 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 695.96 113.03 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 695.96 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 695.96 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 695.96 116.84 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5842aa57-35b0-5311-b0d2-96502a8f6570")
+		)
+		(instances
+			(project "clock"
+				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
+					(reference "#PWR119")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Driver_Motor:TB6612FNG")
 		(at 693.42 467.36 0)
 		(unit 1)
@@ -46970,82 +45656,6 @@
 			(project "clock"
 				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
 					(reference "#PWR008")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 735.33 433.07 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "ffc148ad-a7df-5323-ab3e-31785350757d")
-		(property "Reference" "#PWR160"
-			(at 737.87 433.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 735.33 429.26 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 735.33 433.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 735.33 433.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 735.33 433.07 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "a3299e4d-94d4-534e-9a67-bdda2e89d59b")
-		)
-		(instances
-			(project "clock"
-				(path "/1adcbb43-c9c1-5e32-ae8f-acc3574b9320"
-					(reference "#PWR160")
 					(unit 1)
 				)
 			)

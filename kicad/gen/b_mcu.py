@@ -81,6 +81,7 @@ def build(s):
     s.glabel(U8, "35", "SENSOR_INT")
     for p in ("28", "29", "30"):                     # PSRAM-reserved pads
         s.nc(U8, p)
+    s.nc(U8, "10")             # IO17 freed by the display (ENC_SW candidate)
 
     # ---- right-side nets (labels; buses are wired by peripheral blocks) ----
     s.glabel(U8, "12", "I2C_SDA")
