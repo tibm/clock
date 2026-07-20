@@ -1,0 +1,110 @@
+(footprint "BatteryHolder_Keystone_1043_1x18650"
+	(version 20240108)
+	(generator "clock_gen")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Keystone 1043 THM holder for one 18650 Li-ion cell (leaf springs, PC pins). Body 77.1x20.7mm shared with the SMT 1042: identical diagonal Ø3.45 pegs at (±27.6, ∓8) and Ø2.39 index post at (-36.13, -8) — taken from the stock KiCad 1042 footprint. PC pins Ø1.19 on the battery axis at the ends: catalog THM mounting detail span 2.822in/71.6mm → ±35.8 (the stalled KiCad MR !2043 used ±36.11); drill enlarged to Ø2.6 (pad Ø4.2) so the pin fits under either reading. Pad 1 = same end as the 1042's pad 1 (left). VERIFY vs the Keystone 1043 drawing before fab.")
+	(tags "battery holder 18650 Keystone 1043 through hole leaf spring")
+	(property "Reference" "REF**"
+		(at 0 -12 0)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "BatteryHolder_Keystone_1043_1x18650"
+		(at 0 12 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_rect
+		(start -38.53 -10.325)
+		(end 38.53 10.325)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill none)
+		(layer "F.Fab")
+	)
+	(fp_rect
+		(start -38.65 -10.45)
+		(end 38.65 10.45)
+		(stroke
+			(width 0.12)
+			(type default)
+		)
+		(fill none)
+		(layer "F.SilkS")
+	)
+	(fp_rect
+		(start -39.03 -10.825)
+		(end 39.03 10.825)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill none)
+		(layer "F.CrtYd")
+	)
+	(fp_text user "Li-ion 18650 only 2.5-4.2V"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.2)
+			)
+		)
+	)
+	(fp_text user "1"
+		(at -35.8 -3.5 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" thru_hole circle
+		(at -35.8 0)
+		(size 4.2 4.2)
+		(drill 2.6)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "2" thru_hole circle
+		(at 35.8 0)
+		(size 4.2 4.2)
+		(drill 2.6)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "" np_thru_hole circle
+		(at -27.6 8)
+		(size 3.45 3.45)
+		(drill 3.45)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "" np_thru_hole circle
+		(at 27.6 -8)
+		(size 3.45 3.45)
+		(drill 3.45)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "" np_thru_hole circle
+		(at -36.13 -8)
+		(size 2.39 2.39)
+		(drill 2.39)
+		(layers "*.Cu" "*.Mask")
+	)
+	(embedded_fonts no)
+)

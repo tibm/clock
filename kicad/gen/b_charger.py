@@ -120,7 +120,7 @@ def build(s):
     # ================= BATTERY + PROTECTION =================
     BT1 = s.comp("BT1", "Connector_Generic:Conn_01x02", 48.26, 203.20,
                  mirror="y", value="18650 (Keystone 1043)",
-                 footprint="Battery:BatteryHolder_Keystone_1042_1x18650",
+                 footprint="clock:BatteryHolder_Keystone_1043_1x18650",
                  refpos=(48.26, 197.49, None), valpos=(38.10, 210.82, None))
     s.text("Li-ion 18650 ONLY - 2.5-4.2 V", 25, 190, size=1.3, bold=True)
     # reverse P-FET: S=holder+, D=VBAT, G->100k->GND

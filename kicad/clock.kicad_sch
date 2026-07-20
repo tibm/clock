@@ -48615,7 +48615,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Battery:BatteryHolder_Keystone_1042_1x18650"
+		(property "Footprint" "clock:BatteryHolder_Keystone_1043_1x18650"
 			(at 48.26 203.2 0)
 			(hide yes)
 			(show_name no)
