@@ -2,29 +2,44 @@
 
 ## Overview
 
-Two independent lighting modes, **3 PWM channels**, on **two different rails**:
+Two independent lighting subsystems (v0.19 — the 5 V discrete panel string was
+dropped with the display):
 
-| Mode | What it lights | Emitter | Rail | PWM |
+| Subsystem | What it lights | Emitter | Rail | Drive |
 |------|----------------|---------|------|-----|
-| **Wake-up light** | 100–120 mm sunrise diffuser | **12 V** COB, warm **3000K** + neutral **4000K** (tunable-white pair) | **12 V (plugged-only)** | **2** (warm + cool) |
-| **Panel light** | Sharp display front-light **+** 75 mm analog dial (one shared channel) | **5 V** discrete warm LEDs (Cree CLM3C-MKW ×≤12) | **5 V (always, incl. battery)** | **1** |
+| **Wake-up light** | 100–120 mm sunrise diffuser (rear aperture) | **12 V** COB, warm **3000K** + neutral **4000K** (tunable-white pair) | **12 V (plugged-only)** | **2× LEDC PWM** (warm IO45 / cool IO46) via AO3400A |
+| **Status + dial NeoPixels** | 5 status holes in the aluminum face **+** dial wash behind the glass | **7× SK6812 RGBW** 5050 (Adafruit 2758), on the main PCB | **5 V (always, incl. battery)** | **1 data GPIO** (IO7 → RMT), daisy-chained |
 
-Total PWM outputs: **3**
+PWM outputs: **2** (LEDC) + **1 RMT data line**.
 
 > **Two rails by design.** The **wake light is bright** → needs the **12 V** rail, which is
 > **plugged-only** (the TPS55340 boost runs only on the USB-PD contract; on battery it's off, so
-> firmware gates the wake PWM off too). The **panel light is faint** → a cheap string of **5 V
-> discrete LEDs**, so the reading/panel light (and the clock) still work on **battery**. See
-> [`power.md`](power.md) §LED for the resolved 12 V-source decision (no barrel jack).
+> firmware gates the wake PWM off too). The **NeoPixels are faint** and ride the always-on **5 V**
+> rail → status LEDs and dial illumination work on **battery**. See
+> [`power.md`](power.md) §LED for the 12 V-source decision (no barrel jack).
 
-> **Panel light = one channel.** The display front-light and the dial ring are always driven at the
-> **same intensity and enabled together**, so they share a single PWM / MOSFET. The ≤12 LEDs sit in
-> **parallel** (each with its own series resistor — can't series two @ 5 V, Vf 3.2 V), all switched
-> by one low-side AO3400A.
+## NeoPixel chain (7× SK6812 RGBW, one wire)
+
+- **Pixels 1–5 = status LEDs** behind the face-plate holes + icons
+  (`bell` · `alarm-clock` · `clock` · `volume-1` · `battery`, §12 of the README):
+  red = alarm armed, white = disarmed, etc. **Pixel pitch on the PCB must equal the
+  face-plate hole pitch** — fix both in the same drawing.
+- **Pixels 6–7 = dial illumination**: warm white (use the dedicated W channel) washing the
+  walnut dial behind the glass; ALS-gated night dim, **hard-off by default** → 0 emission.
+- **One data line is plenty**: a full 7-pixel refresh is 7 × 32 bit @ 800 kHz ≈ **0.3 ms**.
+  Brightness control and slow ramps are firmware (Espressif `led_strip`, RMT backend,
+  gamma-corrected); no fancy animation needed or planned.
+- **Level shift is required**: SK6812 V<sub>IH</sub> = 0.7 × VDD = **3.5 V at a 5 V supply** — a
+  3.3 V GPIO is out of spec. One **SN74AHCT1G125** (SOT-23-5, TTL-input buffer powered at 5 V,
+  [DigiKey 376028](https://www.digikey.com/en/products/detail/texas-instruments/SN74AHCT1G125DBVR/376028))
+  re-drives the data line; **~330 Ω** series into the first DIN; **100 nF at every pixel** +
+  **100 µF bulk** at the chain head.
+- **Power**: worst-case all-white ≈ 7 × 80 mA ≈ **0.6 A on 5 V** — inside the TPS61023 budget;
+  status/dial duty in practice is a few tens of mA.
 
 ## Suppliers (2 total)
 
-1.  **DigiKey** — LEDs, MOSFETs, resistors, connectors (all parts below are DK-stocked).
+1.  **DigiKey** — LEDs, MOSFETs, buffer, resistors, connectors (all parts below are DK-stocked).
 2.  TAP Plastics (or McMaster-Carr) — diffusers / acrylic.
 
 ## Bill of Materials
@@ -33,39 +48,29 @@ Total PWM outputs: **3**
 |---|---|---|---|---|
 | Wake COB — **warm 3000K** | Inspired LED **`12V-COB-3000K-12M`** | 16714316 | **$0.64** /0.98″ seg ($215/12 m reel) | 12 V, 3.6 W/ft, 8 mm, cut @ 0.98″, UL. Wake-warm (IO45). ~1 ft ≈ 12 seg ≈ $7.7. |
 | Wake COB — **neutral 4000K** | Inspired LED **`12V-COB-4000K-12M`** | 16714317 | **$0.64** /0.98″ seg | same reel spec; Wake-cool (IO46). *(4000K = neutral; 24 V variant exists if a longer run wants less current.)* |
-| Panel LED (×**≤12**) | Cree/Wolfspeed **`CLM3C-MKW-CWAXB233`** | 1987465 | **$0.31** ea | PLCC-2, warm **3200K**, **Vf 3.2 V @ 20 mA**, diffused. 4–6 display + 4–6 dial face. |
-| Panel LED series R (×≤12) | ~**180 Ω** 0603 (1 per LED) | — | ~$0.01 | (5 V − 3.2 V)/10 mA = 180 Ω → ~10 mA "faint". Drop to 90 Ω for ~20 mA if brighter needed. |
-| Logic MOSFET (×3) | **AO3400A** | — | ~$0.1 ea | one low-side FET per PWM channel; 100 Ω gate + 10 kΩ pulldown. |
-| **Amp PVDD rail-mux** | **LTC4412** (SOT-23-6) + P-FET | — | ~$2 | auto priority-OR: **12 V** boost when plugged, **5 V** rail on battery (quieter alarm). ⚠ finalize at schematic. See [`power_values.md`](power_values.md) §8. |
-| JST connectors | JST-PH series | — | — | per strip / LED string. |
-| Opal diffuser | 3 mm White Opal Acrylic (TAP Plastics) | — | — | wake mixing chamber + dial/frontlight. |
+| NeoPixels ×7 (status 5 + dial 2) | **SK6812 RGBW 5050** — Adafruit **2758** (10-pack) | 6134706 | **$5.95**/10 | on the main PCB (KiCad `LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm`); 3 spares |
+| NeoPixel data buffer | **SN74AHCT1G125DBVR** | 376028 | **$0.14** | SOT-23-5, VCC = 5 V, TTL V_IH 2 V ← 3.3 V GPIO OK |
+| Data series R | **330 Ω** 0603 | — | ~$0.01 | at the first DIN |
+| Pixel decoupling | **100 nF** 0603 ×7 + **100 µF** bulk | — | ~$0.5 | one 100 nF at each pixel VDD |
+| Logic MOSFET (×2) | **AO3400A** | — | ~$0.1 ea | one low-side FET per wake PWM channel; 100 Ω gate + 10 kΩ pulldown. *(3rd FET recovered v0.19.)* |
+| **Amp PVDD rail-mux** | **LTC4412** (SOT-23-6) + P-FET | — | ~$2 | auto priority-OR: **12 V** boost when plugged, **5 V** rail on battery (quieter alarm). See [`power_values.md`](power_values.md) §8. |
+| JST connector | JST-PH 1×03 (J9, wake strips) | — | — | NeoPixels are on-board → no connector. |
+| Opal diffuser | 3 mm White Opal Acrylic (TAP Plastics) | — | — | wake mixing chamber. |
 | Aluminum tape | Reflective tape | — | — | line the mixing chamber. |
 
 > **No constant-current driver.** The wake strips are **self-ballasted 12 V COB** (integrated series
-> resistors) — no TPS92200 / no CC IC. The panel LEDs are **discrete**, ballasted by **one series
-> resistor each** off 5 V. Every PWM channel is a single **AO3400A** low-side MOSFET (the MCU never
-> sources LED current directly).
+> resistors) — no TPS92200 / no CC IC. The SK6812s integrate their own drivers — no series R per
+> LED, no ballast. The two wake PWM channels are each a single **AO3400A** low-side MOSFET
+> (the MCU never sources LED current directly).
 
 > **No 12 V barrel jack.** Dropped — the wake strips run off the shared **TPS55340 12 V boost**
 > (plugged-only). See [`power.md`](power.md) §LED.
-
-## Panel Light (display front-light + analog dial — shared channel, 5 V)
-
--   Reflective LCD requires **front lighting**, never backlighting.
--   **Discrete warm-white LEDs** (Cree CLM3C-MKW), not a strip — faint, low-power, cheap.
-    -   **4–6** around the display opening (front-light), 3--5 mm behind a frosted diffuser.
-    -   **4–6** around the **75 mm** dial perimeter, frosted acrylic ring, 8--12 mm cavity painted matte white.
-    -   **≤12 total.** All in **parallel** off the **5 V** rail, **one ~180 Ω series R per LED**
-        (Vf 3.2 V; two-in-series won't fit under 5 V). ~10 mA each ≈ 0.6 W total worst case.
--   **One PWM (IO7) drives all** via a single AO3400A low-side FET — display + dial track intensity
-    and turn on/off together (ambient-gated reading light).
--   Runs off **5 V**, so the panel/reading light is available on **battery** too.
 
 ## Wake Light (12 V, plugged-only)
 
 Recommended geometry:
 
--   Diffuser diameter: 100--120 mm
+-   Diffuser diameter: 100--120 mm (rear/bottom aperture of the cube)
 -   Mixing chamber depth: 20--30 mm
 -   **12 V COB strip** (warm 3000K + neutral 4000K) around the inside perimeter
 -   Matte white interior
@@ -78,22 +83,17 @@ Drive warm and cool channels independently with PWM (2 channels).
 
 ## Wiring
 
-MCU PWM -\> 100 Ω -\> AO3400A gate
+**Wake channels:** MCU PWM -> 100 Ω -> AO3400A gate, 10 kΩ gate pulldown; strip+ to **12 V**,
+strip− to FET drain (**low-side** switching). Pins: warm = **IO45**, cool = **IO46**
+(see [`esp32.md`](esp32.md)).
 
-10 kΩ gate pulldown.
+**NeoPixels:** IO7 -> SN74AHCT1G125 (VCC 5 V) -> 330 Ω -> DIN(1); DOUT(n) -> DIN(n+1);
+all VDD to **5 V**, all VSS to GND. On-board — no wiring harness.
 
-Emitter+ to rail, emitter− to FET drain; MOSFET performs **low-side** switching.
+## PWM / data
 
--   **Wake** warm/cool COB strips → **12 V** (plugged-only).
--   **Panel** LED string (≤12, each + own series R) → **5 V** (always).
-
-Pin map (see [`esp32.md`](esp32.md)): wake-warm = **IO45**, wake-cool = **IO46**, panel = **IO7**.
-
-## PWM
-
--   =1 kHz
-
--   Gamma correction recommended
+-   Wake: ≈1 kHz LEDC, gamma correction recommended.
+-   NeoPixels: `led_strip` (RMT, 800 kHz); apply gamma + slow ramp curves in firmware.
 
 -   Wake sequence:
     -   0--10 min: warm only
@@ -102,20 +102,19 @@ Pin map (see [`esp32.md`](esp32.md)): wake-warm = **IO45**, wake-cool = **IO46**
 
 ## Assembly
 
-1.  Build wooden enclosure.
-2.  Paint lighting cavities matte white.
-3.  Install acrylic diffusers.
-4.  Install COB strips.
-5.  Wire MOSFET boards.
-6.  Tune PWM curves.
-7.  Verify hotspot-free illumination before final glue-up.
+1.  Build wooden cube + aluminum face (status-hole pitch = PCB pixel pitch!).
+2.  Paint the wake cavity matte white; install acrylic diffuser; install COB strips.
+3.  Solder the 7 SK6812 + buffer on the main PCB (hand-solderable PLCC-4 pads).
+4.  Tune PWM/ramp curves; verify hotspot-free dial wash through the glass.
 
 ## Notes
 
--   Prefer CRI \>90 LEDs.
--   COB strips greatly reduce hotspots.
+-   Prefer CRI \>90 for the wake COB.
 -   Spend effort on diffuser geometry rather than higher LED power.
+-   Dial-wash pixels: use the **W** channel for warm white (better CRI than R+G+B white).
 -   **12 V source — RESOLVED (2026-07-12):** **no barrel jack.** Wake strips run off the shared
     **TPS55340 12 V boost**, gated **plugged-only** (USB-PD contract). On battery: wake light off; the
-    amp auto-drops to the 5 V rail (quieter alarm) via the PVDD mux; panel light stays on 5 V. See
+    amp auto-drops to the 5 V rail (quieter alarm) via the PVDD mux; the NeoPixels stay on 5 V. See
     [`power.md`](power.md) §LED / [`power_values.md`](power_values.md) §8.
+-   **Panel string — DROPPED (2026-07-19):** the ≤12-LED Cree CLM3C 5 V string + its AO3400A +
+    LEDC channel went away with the display; dial lighting moved to NeoPixels 6–7.

@@ -86,7 +86,7 @@ def build(s):
     # ---- right-side nets (labels; buses are wired by peripheral blocks) ----
     s.glabel(U8, "12", "I2C_SDA")
     s.glabel(U8, "17", "I2C_SCL")
-    s.glabel(U8, "7", "PANEL_PWM")
+    s.glabel(U8, "7", "NEOPIX_DATA")
     s.glabel(U8, "26", "WAKE_WARM_PWM")
     s.glabel(U8, "16", "WAKE_COOL_PWM")
 

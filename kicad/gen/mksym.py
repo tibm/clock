@@ -198,7 +198,7 @@ def esp32s3():
         (9, 20, "IO12 DOUT", "bidirectional"),
         (11, 12, "IO8 SDA", "bidirectional"),
         (12, 17, "IO9 SCL", "bidirectional"),
-        (14, 7, "IO7 PWM_PANEL", "bidirectional"),
+        (14, 7, "IO7 NEOPIX", "bidirectional"),
         (15, 26, "IO45 PWM_WARM", "bidirectional"),
         (16, 16, "IO46 PWM_COOL", "bidirectional"),
         (18, 4, "IO4 M_AIN1", "bidirectional"),
@@ -315,7 +315,8 @@ def build():
     clones = ["Transistor_FET:AO3400A", "Transistor_FET:AO3401A",
               "Transistor_FET:2N7002",
               "Connector:Micro_SD_Card_Det_Hirose_DM3AT",
-              "Interface_Expansion:MCP23017x-x-SS"]
+              "Interface_Expansion:MCP23017x-x-SS",
+              "74xGxx:74AHCT1G125"]
     clone_txt = []
     for lib_id in clones:
         nick, name = lib_id.split(":", 1)
