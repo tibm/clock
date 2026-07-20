@@ -1,7 +1,8 @@
 """Blocks: SENSORS & HOMING (sensor-board connector + QRE1113) and
-IO EXPANDER + UI (MCP23017, buttons, rotary encoder, I2C pull-ups).
-Encoder A/B and the expander INT are WIRED to the MCU down the x~425 corridor;
-slow expander fan-out lines use labels (per the block-diagram style).
+IO EXPANDER + KNOB (MCP23017, EM14 optical encoder connector, I2C pull-ups).
+Knob A/B (5 V outputs -> 100k/200k dividers) and the expander INT are WIRED
+to the MCU down the x~425 corridor; ENC_SW + slow expander fan-out lines use
+labels (per the block-diagram style). BTN1-3 + the EC11 dropped 2026-07-19.
 """
 U = 2.54
 
@@ -48,8 +49,8 @@ def build(s):
     s.text("QRE1113GR faces reflective tabs on the hand hubs (no magnets).", 486.41, 297, size=1.3)
     s.text("Sensor breakouts carry their own I2C pull-ups.", 486.41, 301.5, size=1.3)
 
-    # ================= IO EXPANDER + UI =================
-    s.frame(405, 415, 595, 585, "IO EXPANDER (MCP23017 @0x20) + ENCODER + BUTTONS")
+    # ================= IO EXPANDER + KNOB =================
+    s.frame(405, 415, 595, 585, "IO EXPANDER (MCP23017 @0x20) + KNOB (EM14)")
 
     U13 = s.comp("U13", "clock:MCP23017x-x-SS", 497.84, 469.90, value="MCP23017",
                  footprint="Package_SO:SSOP-28_5.3x10.2mm_P0.65mm")
@@ -100,25 +101,10 @@ def build(s):
     s.glabel(U13, "22", "STEP_STBY")
     s.glabel(U13, "23", "BOOST12_EN")
 
-    # UI connector: EC11 encoder + 3 buttons are OFF-BOARD (panel-mounted),
-    # entering on J10 (JST SH 1x08, same family as J7 -> cheap pre-crimped
-    # cables). GPA3..GPA6 rows align 1:1 with pins 4..7.
-    J10 = s.comp("J10", "Connector_Generic:Conn_01x08", 551.18, 457.20,
-                 value="UI: EC11 + 3 buttons (off-board)",
-                 footprint="Connector_JST:JST_SH_SM08B-SRSS-TB_1x08-1MP_P1.00mm_Horizontal",
-                 refpos=(551.18, 471.17, None), valpos=(551.18, 443.23, None))
-    # pins 4..6 = BTN1..BTN3 (GPA3..GPA5, MCP internal pull-ups + IOC),
-    # pin 7 = ENC_SW (GPA6) — straight horizontal runs from the expander
-    s.pw(U13, "24", ("px", J10, "4"))
-    s.pw(U13, "25", ("px", J10, "5"))
-    s.pw(U13, "26", ("px", J10, "6"))
-    s.pw(U13, "27", ("px", J10, "7"))
-    # pin 1 = GND (encoder common C + switch return)
-    s.pw(J10, "1", ("x", 528.32), ("dy", 2.54))
-    s.power_at(528.32, 452.12, "GND")
-    # pin 8 = GND (button return)
-    s.pw(J10, "8", ("x", 541.02), ("dy", 5.08))
-    s.power_at(541.02, 472.44, "GND")
+    # GPA3..GPA6 freed 2026-07-19 (BTN1-3 dropped, ENC_SW moved to the host
+    # IO17); GPA3 is reserved for the rear radio-disable toggle (J11).
+    for p in ("24", "25", "26", "27"):
+        s.nc(U13, p)
 
     # GPB fan-out labels (GPB3 freed 2026-07-19: LCD_DISP gone with the display)
     for pin, name in [("1", "PD_PG"), ("2", "CHRG"), ("3", "FAULT"),
@@ -134,18 +120,48 @@ def build(s):
     s.power_at(535.94, 474.98, "+3V3", show_value=False)
     s.text("+3V3", 536.702, 472.694, size=1.27)
 
-    # encoder A/B: wired from the MCU (PCNT) up the right side into J10
-    # pins 2/3; on-board 10k pull-ups R100/R101 stay on the rows
-    s.pw(U8, "24", ("x", 424.18), ("y", 505.46), ("x", 530.86),
-         ("y", 452.12), ("px", J10, "2"))                          # ENC_A
-    s.pw(U8, "25", ("x", 426.72), ("y", 510.54), ("x", 533.40),
-         ("y", 454.66), ("px", J10, "3"))                          # ENC_B
-    R100 = s.R("R100", 439.42, 501.65, "10k")
-    s.rail(R100, "1", "+3V3", rise=0)
-    R101 = s.R("R101", 453.39, 500.38, "10k")
-    s.rail(R101, "1", "+3V3", rise=1.27)
-    s.pw(R101, "2", ("y", 510.54))
+    # ---- knob connector: Bourns EM14A0D-C24-L064S optical encoder (5 V,
+    # 64 CPR, no detent) + push switch, off-board on the cube's top face,
+    # JST SH cable to J10. Pinout: 1 GND, 2 +5V, 3 A, 4 B, 5 SW, 6 GND.
+    J10 = s.comp("J10", "Connector_Generic:Conn_01x06", 560.07, 530.86,
+                 value="Knob: EM14 enc+SW (top face)",
+                 footprint="Connector_JST:JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal",
+                 refpos=(560.07, 520.70, None), valpos=(560.07, 544.83, None))
+    # GND pins 1+6 tied on a left lane (rows 525.78 / 538.48)
+    s.pw(J10, "1", ("x", 537.21))
+    s.pw(J10, "6", ("x", 537.21))
+    s.w((537.21, 525.78), (537.21, 542.29))
+    s.power_at(537.21, 542.29, "GND")
+    # +5V (the EM14 opto-ASIC runs on 5 V, ~30 mA)
+    s.pw(J10, "2", ("x", 546.10), ("dy", -5.08))
+    s.power_at(546.10, 523.24, "+5V")
+    # A/B: 5 V outputs -> 100k/200k dividers (~3.2 V) -> PCNT (IO47/48),
+    # wired down the x=424/427 corridor to the MCU
+    R111 = s.R("R111", 528.32, 530.86, "100k", rot=90,
+               refpos=(526.03, 527.05, None), valpos=(532.13, 527.05, None))
+    s.pw(J10, "3", ("px", R111, "2"))
+    s.pw(R111, "1", ("x", 424.18))
+    s.pw(U8, "24", ("x", 424.18), ("y", 530.86))                   # ENC_A
+    R112 = s.R("R112", 518.16, 533.40, "100k", rot=90,
+               refpos=(514.35, 529.72, None), valpos=(520.70, 529.72, None))
+    s.pw(J10, "4", ("px", R112, "2"))
+    s.pw(R112, "1", ("x", 426.72))
+    s.pw(U8, "25", ("x", 426.72), ("y", 533.40))                   # ENC_B
+    R114 = s.R("R114", 523.24, 535.94, "200k")
+    s.pw(R114, "1", ("y", 530.86))
+    s.gnd(R114, "2", drop=0)
+    R115 = s.R("R115", 444.50, 538.48, "200k")
+    s.pw(R115, "1", ("y", 533.40))
+    s.gnd(R115, "2", drop=0)
+    # SW: dry contact to GND -> 10k pull-up + 100n debounce -> IO17 (IRQ)
+    s.pw(J10, "5", ("x", 541.02), ("y", 547.37), ("x", 528.32))
+    s.glabel_at("ENC_SW", 528.32, 547.37, 180)
+    R113 = s.R("R113", 533.40, 541.02, "10k")
+    s.rail(R113, "1", "+3V3", rise=0)
+    s.pw(R113, "2", ("dy", 2.54))
+    C239 = s.C("C239", 538.48, 551.18, "100nF")   # pin 1 lands on the SW row
+    s.gnd(C239, "2", drop=0)
 
-    s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  EC11 + buttons mount on the", 410, 571, size=1.3)
-    s.text("enclosure -> JST SH cable to J10 (1 GND, 2 ENC_A, 3 ENC_B, 4-6 BTN1-3, 7 ENC_SW, 8 GND).", 410, 575.5, size=1.3)
-    s.text("Switch lines: MCP internal pull-ups + IOC.  Encoder A/B -> PCNT (IO47/48), R100/R101 PU.", 410, 580, size=1.3)
+    s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Knob = EM14A0D-C24-L064S", 410, 571, size=1.3)
+    s.text("(optical, 64 CPR, no detent, push) on the top face -> J10 SH cable.  A/B are 5 V", 410, 575.5, size=1.3)
+    s.text("push-pull -> 100k/200k dividers -> PCNT IO47/48; SW -> 10k PU + 100n -> IO17 IRQ.", 410, 580, size=1.3)

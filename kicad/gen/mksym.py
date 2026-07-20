@@ -190,7 +190,7 @@ def esp32s3():
         (0, 21, "IO13 SCLK", "bidirectional"),
         (1, 22, "IO14 MOSI", "bidirectional"),
         (2, 23, "IO21 MISO", "bidirectional"),
-        (3, 10, "IO17 LCD_CS", "bidirectional"),
+        (3, 10, "IO17 ENC_SW", "bidirectional"),
         (4, 11, "IO18 SD_CS", "bidirectional"),
         (6, 37, "IO43 MCLK", "bidirectional"),
         (7, 18, "IO10 BCLK", "bidirectional"),
