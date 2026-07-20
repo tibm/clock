@@ -1,6 +1,7 @@
 # Wooden Smart Clock — KiCad schematic (single sheet)
 
-KiCad 10 schematic on **one A1 page**, organised like `../block_diagram.drawio`:
+KiCad 10 schematic on **one A1 page**, organised like `../block_diagram.drawio`
+(⚠ the drawio still shows the pre-v0.19 display-era design):
 power flows along the left, MCU in the centre, peripherals on the right.
 Open **`clock.kicad_pro`**. The sheet is **generated** by the Python code in
 `gen/` (see *Regenerating* below) — edit the block files, not the `.kicad_sch`.
@@ -9,30 +10,36 @@ Open **`clock.kicad_pro`**. The sheet is **generated** by the Python code in
 
 | Region | Blocks |
 |---|---|
-| left | POWER IN (USB-C + CH224K) → CHARGER (LT3652) → BATTERY (18650 + HY2111/AOSD32334C + TCO) |
-| mid-left | RAILS 5 V→3V3 · 12 V boost (plugged-only) · LED DRIVERS |
-| centre | MCU (ESP32-S3) · SENSORS + QRE1113GR homing · IO EXPANDER + UI connector |
-| right | DISPLAY + microSD (shared SPI2) · AUDIO (TAS5760M + PVDD mux) · MOTOR (2× TB6612) |
+| left | POWER IN (vertical USB-C + CH224K) → CHARGER (LT3652) → BATTERY (18650 + HY2111/AOSD32334C + TCO) |
+| mid-left | RAILS 5 V→3V3 · 12 V boost (plugged-only) · LED (wake drivers) · NEOPIXELS (7× SK6812) |
+| centre | MCU (ESP32-S3) · SENSORS + QRE1113GR homing · IO EXPANDER + KNOB (EM14) + J11 toggle |
+| right | STORAGE (microSD, SPI2) · AUDIO (TAS5760M + PVDD mux) · MOTOR (2× TB6612) |
 
 ## Wire / label conventions
 - **Wired:** all block-internal circuitry; the power chain
   (VBUS → LT3652 → VBAT → both boosts); the **+12 V run** to the wake-LED
-  connector and the audio PVDD mux; all MCU buses — SPI (display+SD),
-  I2S (amp), 8× MCPWM (motor drivers), encoder A/B, expander INT.
+  connector and the audio PVDD mux; all MCU buses — SPI (microSD),
+  I2S (amp), 8× MCPWM (motor drivers), knob A/B, expander INT; the
+  SK6812 daisy-chain.
 - **By name:** GND / +3V3 / +5V / VBAT / PVDD power taps, the multi-drop I²C
-  bus, the MCP23017 slow fan-out (`PD_PG`, `CHRG`, `FAULT`, `LCD_DISP`,
-  `SPK_SD`, `STEP_STBY`, `BOOST12_EN`, …) and the 3 LED PWM lines.
-- Off-board parts enter via connectors: J1 USB-C (port panel-remoted with
-  an Adafruit 6069 extension — J1 itself unchanged), J2 PROG, J3 speaker,
-  J5 display FPC, J6 microSD, J7 **sensor board** (I²C + INT),
-  J8/J9 LED strings, J10 **UI board** (EC11 encoder + 3 buttons), BT1 cell
-  holder. The **X40.879 stepper is on-board (M1)** since 2026-07-17 —
-  soldered to the PCB, shafts through a board hole (J4 dropped).
-- **J10 UI connector** (added 2026-07-17, replaces on-board SW3/SW4–SW6):
-  JST SH 1×08 **SM08B-SRSS-TB** — same family as J7, so the cables are cheap
-  pre-crimped SH jumpers. Pinout `1 GND · 2 ENC_A · 3 ENC_B · 4-6 BTN1-3 ·
-  7 ENC_SW · 8 GND`. Encoder A/B keep the on-board 10 k pull-ups
-  (R100/R101); switch lines use the MCP23017 internal pull-ups.
+  bus, the MCP23017 slow fan-out (`PD_PG`, `CHRG`, `FAULT`, `SPK_SD`,
+  `STEP_STBY`, `BOOST12_EN`, …), the 2 wake PWM lines, `NEOPIX_DATA` and
+  `ENC_SW`.
+- Off-board parts enter via connectors: J1 USB-C (**vertical** since
+  2026-07-19 — port exits the back wall, no extension), J2 PROG, J3 speaker,
+  J6 microSD, J7 **sensor board** (I²C + INT), J9 wake-LED strips,
+  J10 **knob** (EM14 encoder + switch, top face), J11 **radio-off toggle**
+  (rear), BT1 cell holder. The **X40.879 stepper is on-board (M1)** since
+  2026-07-17 — soldered to the PCB, shafts through a board hole (J4
+  dropped). *(J5 display FPC + J8 panel string removed 2026-07-19 with the
+  display; the 7 status/dial NeoPixels are on-board D40–D46.)*
+- **J10 knob connector** (reworked 2026-07-19 for the EM14 optical encoder):
+  JST SH 1×06 **SM06B-SRSS-TB** — same family as J7, cheap pre-crimped SH
+  jumpers. Pinout `1 GND · 2 +5V · 3 A · 4 B · 5 SW · 6 GND`. A/B are 5 V
+  outputs → on-board **100k/200k dividers** (R111/R114, R112/R115) →
+  IO47/48; SW → 10 k PU (R113) + 100 nF (C239) → IO17.
+  **J11** = JST SH 1×02 **SM02B-SRSS-TB** → expander GPA3 (`RADIO_OFF`,
+  MCP internal PU + IOC).
 
 ## Custom symbols (`gen/clock_custom.kicad_sym`)
 `ESP32S3_CLOCK` — WROOM-1 with **functionally grouped pins** (same pad
@@ -42,15 +49,18 @@ numbers as the stock symbol/footprint) so buses leave toward their blocks;
 replaced 2026-07-17, HYCON pin names OD/CS/OC), **`X40_879`** (M1 stepper,
 pins 1-4 = 1e-4e external shaft, 5-8 = 1i-4i internal), `VBAT`/`PVDD`
 flags, plus flattened clones of stock `extends` symbols (AO3400A, AO3401A,
-2N7002, DM3AT, MCP23017) so ERC never reports lib_symbol_mismatch.
+2N7002, DM3AT, MCP23017, **74AHCT1G125** — U15 NeoPixel buffer) so ERC
+never reports lib_symbol_mismatch. NeoPixels use the stock `LED:SK6812`
+symbol (standalone, RGBW-compatible pinout).
 
 ## Custom footprints (`clock.pretty`, fp-lib-table nickname `clock`)
 | Footprint | Part | Source |
 |---|---|---|
 | `OnSemi_QRE1113GR` | U14 homing sensor (SMD) | land pattern from datasheet p.8 (Case 100CY): 1.66×0.79 pads, 5.66 span, 2.59 row pitch |
-| `Hirose_FH34SRJ-10S-0.5SH_1x10-1MP_P0.50mm_Horizontal` | J5 display FPC | Hirose FH34(S) catalog p.4, 10-pos: 0.3×0.8 pads @0.5 mm, B=4.5/E=6.1/F=6.9; 3D STEP in `3d/` (offset unverified — cosmetic) |
 | `Fuse_TCO_Cantherm_SDF_L10.5mm_D4.0mm_P20.32mm_Horizontal` | F1 TCO 77 °C | Cantherm SDF drawing: Ø4×10.5 body, AWG18 leads, 1.3 mm drills, ≥3 mm bend clearance |
 | `Juken_X40-879_DualShaft` | M1 stepper (direct PCB mount) | factory STEP (`X40 v5`) cross-checked vs X27 base-spec Fig. 6: 4× Ø0.8 pin drills on 22.86×7.62 grid (pads 1-4 = 1e-4e), 4× Ø1.8 rim-tail drills at (±13.96, ±6.36) (pads 5-8 = 1i-4i), 3× Ø3.0 NPTH snap pegs, Ø4.6 NPTH shaft hole at (0, −6); body Ø31.5 on the far side (flip to back in layout, shafts through-board); 3D STEP in `3d/X40_879.step` (rotation/offset eyeballed — cosmetic) |
+| `SameSky_UJ20-C-V-C-2_USB_C_Vertical_TH` | J1 vertical USB-C (TH) | Same Sky UJ20-C-V-C-2 datasheet p.3 layout: 16 TH pins Ø0.40 drill (pads grown 0.60→0.70), rows ±0.53, x ±0.45/1.35/2.30/3.25; 4 stake slots 1.40×0.50 (pad 1.80×0.90) at ±1.93, spans 4.00/4.60. ⚠ **row-gap read as 1.06 mm from the 1.40/3.86 dims — verify vs the Same Sky DXF before fab** |
+| *(removed 2026-07-19)* | ~~`Hirose_FH34SRJ-10S-0.5SH…`~~ J5 display FPC | file kept in `clock.pretty` for a future display variant; no longer referenced |
 
 ## Validation (all automated in `gen/`)
 - `kicad-cli sch erc` → **2 known-benign items**:
@@ -85,8 +95,17 @@ flags, plus flattened clones of stock `extends` symbols (AO3400A, AO3401A,
 
 Remaining bench work is bring-up tuning, not schematic risk: QRE1113GR
 threshold (10 k load), LT3652 NTC window, TPS55340 loop response, speaker
-EQ. Protector is **HY2111-GB** since 2026-07-17 (AP9101C went
-NRND/obsolete; sourcing rationale in the root README decision log).
+EQ, EM14 divider levels (100k/200k → ~3.2 V) on a scope. Protector is
+**HY2111-GB** since 2026-07-17 (AP9101C went NRND/obsolete; sourcing
+rationale in the root README decision log).
+
+### v0.19 cube redesign (2026-07-19)
+Display (J5 + FH34), panel LED string (J8 + Q5) and BTN1–3 removed;
+added the **7× SK6812 RGBW chain** (D40–D46, U15 74AHCT1G125 buffer,
+R110 330 Ω, C230–C237), the **EM14 knob** on J10 (1×06, +5 V; dividers
+R111/R112 + R114/R115, ENC_SW RC R113/C239 → IO17), **J11 radio toggle**
+(GPA3), and the **vertical TH USB-C** (UJ20-C-V-C-2, custom footprint).
+ERC still returns only the 2 known-benign items.
 
 ## Regenerating
 ```

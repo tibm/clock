@@ -8,10 +8,12 @@ U = 2.54
 def build(s):
     s.frame(15, 40, 170, 152, "POWER IN — USB-C PD sink (15 V)")
 
-    # --- USB-C receptacle ---
+    # --- USB-C receptacle (VERTICAL since 2026-07-19: stands on the PCB,
+    # port exits the back wall; Same Sky UJ20-C-V-C-2 = 16 TH pins for the
+    # 1.6 mm board. In-stock SMT alt: GCT USB4145-03-0170-C) ---
     J1 = s.comp("J1", "Connector:USB_C_Receptacle_USB2.0_16P", 40.64, 86.36,
-                value="USB4105-GF-A",
-                footprint="Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal")
+                value="UJ20-C-V-C-2-SMT-TR",
+                footprint="clock:SameSky_UJ20-C-V-C-2_USB_C_Vertical_TH")
     # VBUS pins -> up to the VBUS rail at y 55.88
     s.pw(J1, "A4", ("y", 55.88))
     # CC1/CC2 straight across to CH224K
@@ -27,6 +29,7 @@ def build(s):
     s.gnd(J1, "A1", via=0)                  # GND pins (stacked)
     s.pw(J1, "SH", ("dy", 2.54), ("px", J1, "A1"))  # shield -> same GND drop
     s.text("USB 2.0 16-pin; D+/D- = native USB-JTAG (IO19/20)", 20, 146, size=1.3)
+    s.text("Vertical receptacle (TH pins) - port straight out the back wall.", 20, 150.5, size=1.3)
 
     # --- VBUS TVS clamp (pin 1 = top after rot 270; pad 1 = cathode) ---
     D1 = s.D_tvs("D1", 63.5, 63.5, "SMAJ22A", rot=270)

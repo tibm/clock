@@ -13,20 +13,19 @@ S3 **GPIO matrix**, so most assignments below are movable — the *fixed* ones a
    Logging is **USB-CDC only** (`RXD0`/IO44 is the expander IRQ → no UART RX; USB-CDC carries console
    in+out). The former aux UART-log pad **`TXD0` (IO43) is repurposed to `I2S_MCLK`** — the TAS5760M
    **requires** an MCLK (128–512 × f_S) that BCLK/LRCLK (≤64 f_S) can't supply (see Debug & programming).
-2. **Display + microSD share one SPI host (SPI2).** Forced by the pin budget once native USB
-   is in. Works because the Sharp panel is **write-only** (no MISO) and each `spi_device` gets
-   its own clock / bit-order / CS-polarity: LCD = ≤2 MHz, **LSB-first, CS active-HIGH**; SD =
-   ~25 MHz, MSB-first, CS active-low. The host serializes transactions; **8 MB PSRAM buffers
-   audio** so SD reads don't glitch during display writes.
-   *Alt:* give SD its own SPI3 (no contention) — costs the 2 spare pins below.
-3. **Software VCOM** on the Sharp panel: `EXTMODE` tied **LOW**, VCOM toggled by the frame-inversion
-   bit in the SPI write (≥1 Hz). → no `EXTCOMIN` GPIO (README recovery lever (b), now applied).
+2. **SPI2 = microSD only** (v0.19: the Sharp display + its shared-bus arrangement are gone).
+   SD runs MSB-first, CS active-low, ~25 MHz; **IO17 (ex `LCD_CS`) now carries `ENC_SW`**, the
+   knob push-switch interrupt.
+3. **Knob on the host, not the expander:** A/B quadrature → **PCNT** (IO47/48, through 100k/200k
+   dividers — the EM14 optical encoder is a 5 V part), press → **IO17 GPIO IRQ** (10 k PU + 100 nF
+   + ~5 ms firmware debounce). The 7-pixel **SK6812 chain rides one RMT pin (IO7)**.
 4. **Slow/static lines live on the MCP23017** (I²C), not the host — see the expander map.
 
-**Result: 28 signals (incl. 3 LED PWM + I²S MCLK) + 2 XTAL + 2 USB = 32 pads; IO0 (boot strap) is the
-only uncommitted pad.** The N16R8 module exposes 36 GPIO pads; 3 are eaten by octal PSRAM →
-**33 usable**, so this design sits at **32/33** — fully allocated. A genuine spare GPIO now needs a
-lever: push a static line onto the expander, or share the display/SD... (SD already shared).
+**Result: 30 signals (incl. USB D±, 2 wake PWM, NeoPixel data, I²S MCLK) + 2 XTAL = 32 pads;
+IO0 (boot strap) is the only uncommitted pad.** The N16R8 module exposes 36 GPIO pads; 3 are eaten
+by octal PSRAM → **33 usable**, so this design sits at **32/33** — fully allocated. A genuine spare
+GPIO now needs a lever: push a static line onto the expander, or free ENC_SW to the expander
+(costs press latency).
 
 ## Legend
 Dir/config: **IN**/**OUT** · **OD** open-drain · **PU/PD** pull-up/down (ext = external R) ·
@@ -50,21 +49,21 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `IO4` | 4 | `STEP_M_AIN1` | MCPWM0_0A | OUT / AF | 3.3 V | TB6612 #1 · minute coil A+ | |
 | `IO5` | 5 | `STEP_M_AIN2` | MCPWM0_0B | OUT / AF | 3.3 V | TB6612 #1 · minute coil A− | |
 | `IO6` | 6 | `STEP_M_BIN1` | MCPWM0_1A | OUT / AF | 3.3 V | TB6612 #1 · minute coil B+ | |
-| `IO7` | 7 | `PANEL_PWM` | LEDC | OUT / AF (PWM) | 3.3 V | panel AO3400A gate · dim | dial **+** frontlight (shared, always equal); warm-white LEDs (CLM3C-MKW), **5 V**, low-side; `LCD_DISP` on expander |
+| `IO7` | 7 | `NEOPIX_DATA` | RMT | OUT / AF | 3.3 V | SN74AHCT1G125 → 7× SK6812 RGBW · status+dial pixels | one data line for the whole chain (5 status + 2 dial); buffer lifts 3V3→5 V (V_IH 3.5 V @ 5 V) |
 | `IO8` | 8 | `I2C_SDA` | I2C0 | OD, PU (ext 4.7k) | 3.3 V | shared bus · data | sensors + amp + MCP23017 |
 | `IO9` | 9 | `I2C_SCL` | I2C0 | OD, PU (ext 4.7k) | 3.3 V | shared bus · clock | |
 | `IO10` | 10 | `I2S_BCLK` | I2S0 | OUT / AF | 3.3 V | TAS5760M · bit clock | |
 | `IO11` | 11 | `I2S_LRCLK` | I2S0 | OUT / AF | 3.3 V | TAS5760M · word select | |
 | `IO12` | 12 | `I2S_DOUT` | I2S0 | OUT / AF | 3.3 V | TAS5760M · SDIN (audio) | **TAS5760M also needs MCLK (128–512 f_S)** → on **IO43** (see the I²S MCLK note below the table) |
-| `IO13` | 13 | `SPI_SCLK` | SPI2 | OUT / AF | 3.3 V | LS032 + microSD · shared clock | per-device clk (LCD ≤2 MHz / SD ~25 MHz) |
-| `IO14` | 14 | `SPI_MOSI` | SPI2 | OUT / AF | 3.3 V | LS032 (SI) + microSD (DI) · shared | per-device bit order (LCD LSB / SD MSB) |
+| `IO13` | 13 | `SD_SCLK` | SPI2 | OUT / AF | 3.3 V | microSD · clock | ~25 MHz (SPI2 is SD-only since v0.19) |
+| `IO14` | 14 | `SD_MOSI` | SPI2 | OUT / AF | 3.3 V | microSD · DI | MSB-first |
 | `IO15` | 15 | `XTAL32K_P` | RTC | ANA / AF | — | ABS07 32.768 kHz · RTC ref | **dedicated** — no other use |
 | `IO16` | 16 | `XTAL32K_N` | RTC | ANA / AF | — | ABS07 32.768 kHz · RTC ref | **dedicated** |
-| `IO17` | 17 | `LCD_CS` | SPI2 CS | OUT (active-HIGH) | 3.3 V | LS032 · chip select | **Sharp CS is active-HIGH**; GPIO-driven CS |
+| `IO17` | 17 | `ENC_SW` | GPIO IRQ | IN, PU (ext 10k) | 3.3 V | knob push switch (EM14, via J10) | falling-edge; 100 nF + ~5 ms FW debounce; was `LCD_CS` |
 | `IO18` | 18 | `SD_CS` | SPI2 CS | OUT, PU | 3.3 V | microSD · chip select | active-low; ext PU keeps card idle at boot |
 | `IO19` | 19 | `USB_D−` | USB-Serial-JTAG | AF (USB) | 3.3 V | USB-C · D− | flash + CDC console + **JTAG debug** |
 | `IO20` | 20 | `USB_D+` | USB-Serial-JTAG | AF (USB) | 3.3 V | USB-C · D+ | |
-| `IO21` | 21 | `SPI_MISO` | SPI2 | IN / AF | 3.3 V | microSD · DO | display is write-only → MISO = SD only |
+| `IO21` | 21 | `SD_MISO` | SPI2 | IN / AF | 3.3 V | microSD · DO | |
 | `IO35` | 35 | *reserved* | — | — | — | **octal PSRAM (N16R8)** | not available on this module SKU |
 | `IO36` | 36 | *reserved* | — | — | — | **octal PSRAM (N16R8)** | not available |
 | `IO37` | 37 | *reserved* | — | — | — | **octal PSRAM (N16R8)** | not available |
@@ -77,8 +76,8 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `RXD0` | 44 | `EXPANDER_INT` | GPIO IRQ | IN, PU | 3.3 V | MCP23017 · INTA/B (mirrored) | any-IO change → read INTF/INTCAP; UART RX not free |
 | `IO45` | 45 | `WAKE_WARM_PWM` | LEDC | OUT / AF (PWM) | 3.3 V | wake-warm AO3400A gate · dim | 3000K COB, **12 V (plugged-only)**; strap VDD_SPI: LOW at boot ✓ |
 | `IO46` | 46 | `WAKE_COOL_PWM` | LEDC | OUT / AF (PWM) | 3.3 V | wake-cool AO3400A gate · dim | 4000K COB, **12 V (plugged-only)**, low-side; strap: LOW at boot ✓ |
-| `IO47` | 47 | `ENC_A` | PCNT | IN, PU | 3.3 V | rotary encoder · phase A | hardware quadrature — **plain GPIO, not IRQ** |
-| `IO48` | 48 | `ENC_B` | PCNT | IN, PU | 3.3 V | rotary encoder · phase B | |
+| `IO47` | 47 | `ENC_A` | PCNT | IN | 3.3 V | EM14 optical encoder · phase A | hardware quadrature — **plain GPIO, not IRQ**; 5 V output → **100k/200k divider (~3.2 V)** |
+| `IO48` | 48 | `ENC_B` | PCNT | IN | 3.3 V | EM14 optical encoder · phase B | same divider |
 
 **Not exposed on WROOM-1:** GPIO26–34 (internal SPI0/1 to in-package flash + PSRAM).
 
@@ -103,17 +102,16 @@ Weak pull-ups + interrupt-on-change on the inputs; `IOCON.MIRROR=1` ORs INTA+INT
 | GPA0 | `SPK_SD` | OUT | — | TAS5760M mute/shutdown |
 | GPA1 | `STEP_STBY` | OUT | — | both TB6612 STBY (idle-low at boot → motors off) |
 | GPA2 | `BOOST12_EN` | OUT | — | TPS55340 12 V gate (**plugged-only**: enable gated by `PD_PG`; feeds amp PVDD + wake LEDs) |
-| GPA3 | `BTN1` | IN, PU | ✔ | rear tactile |
-| GPA4 | `BTN2` | IN, PU | ✔ | rear tactile |
-| GPA5 | `BTN3` | IN, PU | ✔ | rear tactile |
-| GPA6 | `ENC_SW` | IN, PU | ✔ | encoder push-switch |
+| GPA3 | `RADIO_OFF` | IN, PU | ✔ | rear radio-disable toggle (J11) — firmware hard-kills Wi-Fi/BLE |
+| GPA4–6 | *free* | — | — | 3 spare (BTN1–3 dropped v0.19; ENC_SW moved to host IO17) |
 | GPB0 | `PD_PG` | IN, PU | ✔ | CH224K power-good (OD) |
 | GPB1 | `CHRG` | IN, PU | ✔ | LT3652 charge status (OD) |
 | GPB2 | `FAULT` | IN, PU | ✔ | LT3652 fault status (OD) |
-| GPB3 | `LCD_DISP` | OUT | — | LS032 display on/off (moved off IO7) |
+| GPB3 | *free* | — | — | spare (`LCD_DISP` gone with the display, v0.19) |
 | GPB4 | `FULLCHG_EN` | OUT | — | LT3652 4.2 V full-charge FET gate |
 | GPB5 | `VBAT_DIV_EN` | OUT | — | Vbat-divider disconnect FET gate |
-| GPB6–7 | *free* | — | — | 2 spare expander IO |
+| GPB6 | `SPK_FAULT` | IN, PU | ✔ | TAS5760M fault (OD, 10 k PU) |
+| GPB7 | *free* | — | — | spare |
 
 Hard-safety (OV/OC/SC) is autonomous in the LT3652 + HY2111 — nothing time-critical rides the expander.
 
@@ -165,36 +163,39 @@ breakouts carry ~10 k pull-ups in ∥ with the 4.7 k — lift their jumpers if t
 | Peripheral | Capacity | Used | Assigned |
 |---|---|---|---|
 | **MCPWM** | 2 units × 6 = 12 out | 8 | steppers (unit0 = minute, unit1 = hour) |
-| **LEDC** | 8 ch | 3 | wake-warm + wake-cool + panel (dial+frontlight) PWM dimming |
-| **PCNT** | 4 units | 1 | encoder A/B (hardware quadrature, glitch-filtered) |
-| **RMT** | 4 TX | 0 | (SK6812 halo dropped — single-colour COB strips) |
+| **LEDC** | 8 ch | 2 | wake-warm + wake-cool PWM dimming (panel ch recovered v0.19) |
+| **PCNT** | 4 units | 1 | knob A/B (hardware quadrature, glitch-filtered) |
+| **RMT** | 4 TX | 1 | **IO7 → 7× SK6812 RGBW** (status + dial NeoPixels, `led_strip`) |
 | **I²C** | 2 | 1 | shared bus (sensors + amp + expander) |
 | **I²S** | 2 | 1 | I²S0 → amp: BCLK/LRCLK/DOUT **+ MCLK (IO43)** |
-| **SPI (GP)** | 2 (SPI2/3) | 1 | SPI2 shared: display + microSD |
+| **SPI (GP)** | 2 (SPI2/3) | 1 | SPI2: microSD (display gone → sole device) |
 | **ADC1** | 10 ch (GPIO1–10) | 2 | VBAT, homing opto (**ADC2 unusable w/ Wi-Fi**) |
 | **XTAL32K** | 1 | 1 | 32.768 kHz crystal |
-| **GPIO IRQ** | any GPIO | 2 | SENSOR_INT, EXPANDER_INT |
+| **GPIO IRQ** | any GPIO | 3 | SENSOR_INT, EXPANDER_INT, ENC_SW |
 | **UART** | 3 | 0 | USB-CDC is the console; IO43 reassigned to I²S MCLK → UART0 free |
 | **USB-Serial-JTAG** | 1 | 1 | flash + CDC console + JTAG debug (IO19/20) |
 
 ## Notes
-- **Encoder A/B → PCNT, plain GPIO (not interrupt pins).** Hardware quadrature counts with zero
-  CPU / no ISR and won't drop steps on fast spins; add the PCNT glitch filter. Interrupt-capable
-  pins would only matter for a software decoder, which we don't use.
+- **Knob A/B → PCNT, plain GPIO (not interrupt pins).** Hardware quadrature counts with zero
+  CPU / no ISR and won't drop steps on fast spins (64 CPR ×4 = 256 counts/rev); add the PCNT glitch
+  filter. The EM14 is optical → no contact bounce on A/B at all. Interrupt-capable pins would only
+  matter for a software decoder, which we don't use.
 - **Every S3 GPIO is interrupt-capable** — no dedicated "interrupt pins," so INT count is never the
-  limiter. Only 2 IRQ lines are needed (sensor + expander), and the expander funnels all its 16
-  slow inputs (buttons, PG, CHRG, FAULT, …) into that single line.
+  limiter. 3 IRQ lines are used (sensor + expander + knob press), and the expander funnels its
+  slow inputs (radio toggle, PG, CHRG, FAULT, …) into its single line.
 - **Strapping pins** (0, 3, 45, 46) carry only signals whose boot state matches the required strap
   level (0 = free/high, 3 = motor-idle, 45/46 = idle-low). Do not repurpose without re-checking.
-- **LED channels (3×, per `led.md`)**, all PWM-dimmed via **AO3400A low-side MOSFETs** (100 Ω gate +
+- **Wake channels (2×, per `led.md`)** PWM-dimmed via **AO3400A low-side MOSFETs** (100 Ω gate +
   10 k pulldown, ~1 kHz): wake-**warm** (IO45, 3000K) + wake-**cool** (IO46, 4000K) are **12 V COB
   strips** (tunable-white pair, **plugged-only** — firmware gates their PWM off on battery, since the
-  12 V boost is plugged-only and bright LED + audio would exceed its ~12 W ceiling); **panel** (IO7 —
-  dial + frontlight on one shared channel, always equal) is a string of **5 V discrete LEDs** (CLM3C-MKW,
-  each with a series R), so the reading/panel light **works on battery**. The logic-level FET gates take
-  3.3 V PWM directly, **no level shifter**, **no SK6812/TPS92200**.
-- All logic is 3.3 V-native (Sharp panel accepts 3.0 V-min highs at 5 V panel rail; TB6612
-  VCC, TAS5760M DVDD, microSD, I²C devices all 3.3 V) → **no other level shifting**.
+  12 V boost is plugged-only and bright LED + audio would exceed its ~12 W ceiling). The logic-level
+  FET gates take 3.3 V PWM directly.
+- **NeoPixels (IO7, RMT):** 7× SK6812 RGBW on the 5 V rail — 5 status + 2 dial pixels, `led_strip`
+  driver. The chain's V_IH is 0.7·VDD = 3.5 V → **one SN74AHCT1G125** (VCC 5 V, TTL input) lifts the
+  3.3 V data line; ~330 Ω into DIN(1), 100 nF per pixel + 100 µF bulk.
+- **5 V → 3.3 V inputs:** the EM14 encoder outputs (5 V ASIC) come in through **100k/200k dividers**
+  (IO47/48). Everything else is 3.3 V-native (TB6612 VCC, TAS5760M DVDD, microSD, I²C devices)
+  → no other level shifting.
 
 ## Debug & programming
 - **The S3 debug port is JTAG, not SWD** (Xtensa LX7 — SWD is ARM-only). Two ways in:
@@ -213,8 +214,8 @@ breakouts carry ~10 k pull-ups in ∥ with the 4.7 k — lift their jumpers if t
   reset/boot and as strap test points.
 
 ## Reconciliation with `datasheet/README.md` §IO
-That table estimates **~30** host-direct GPIO. This pin-level map realizes **27** by applying the two
-documented recovery levers — **(a)** shared display/SD SPI bus and **(b)** software VCOM — and adds
-**native USB** (19/20) + **3 LED PWM** + **I²S MCLK** (IO43), landing at **32/33 pads** (IO0/boot is the last one).
-PG/CHRG/FAULT already moved to the expander in the prior pass; `LCD_EXTCOMIN` is dropped here
-(software VCOM).
+⚠ That table still describes the **pre-v0.19** (display-era) design — `datasheet/` was deliberately
+left untouched in the 2026-07-19 cube redesign (kept for future reuse). The current allocation is
+this file: display SPI/CS/DISP gone (SPI2 = SD only), `PANEL_PWM` → `NEOPIX_DATA` (IO7, RMT),
+`LCD_CS` → `ENC_SW` (IO17), knob A/B on IO47/48 through 5 V dividers, BTN1–3 dropped, `RADIO_OFF`
+on expander GPA3 — still **32/33 pads** (IO0/boot is the only spare).

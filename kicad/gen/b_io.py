@@ -102,8 +102,16 @@ def build(s):
     s.glabel(U13, "23", "BOOST12_EN")
 
     # GPA3..GPA6 freed 2026-07-19 (BTN1-3 dropped, ENC_SW moved to the host
-    # IO17); GPA3 is reserved for the rear radio-disable toggle (J11).
-    for p in ("24", "25", "26", "27"):
+    # IO17). GPA3 -> J11: rear radio-disable toggle (MCP internal PU + IOC;
+    # slow/static, so the expander is fine). GPA4..6 spare.
+    J11 = s.comp("J11", "Connector_Generic:Conn_01x02", 546.10, 457.20,
+                 value="Radio-off toggle (rear)",
+                 footprint="Connector_JST:JST_SH_SM02B-SRSS-TB_1x02-1MP_P1.00mm_Horizontal",
+                 refpos=(546.10, 450.85, None), valpos=(551.18, 464.82, None))
+    s.pw(U13, "24", ("px", J11, "1"))                  # GPA3 = RADIO_OFF
+    s.pw(J11, "2", ("x", 535.94), ("dy", 2.54))
+    s.power_at(535.94, 462.28, "GND")
+    for p in ("25", "26", "27"):
         s.nc(U13, p)
 
     # GPB fan-out labels (GPB3 freed 2026-07-19: LCD_DISP gone with the display)

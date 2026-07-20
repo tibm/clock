@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel. Single ESP32-S3. USB-C powered, Li-ion backup. Alarm w/ quality audio + sunrise LED.
+Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, centered Ø~90 mm MCU-driven analog dial behind glass (aluminum hands, 12 dots, no screen), 5 RGBW status LEDs under the dial, one aluminum knob (rotate+press) on top. Single ESP32-S3. USB-C powered, Li-ion backup. Alarm w/ quality audio + sunrise LED.
 
 ## Docs map
 - `README.md` — full hardware spec (source of truth). Verbose; skim the tables/§ headers.
@@ -15,15 +15,19 @@ Wooden smart clock: circular MCU-driven analog dial + reflective mono info panel
 | Block | Part | Rail | Notes |
 |---|---|---|---|
 | MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
-| Display | Sharp LS032B7DD02 | 5 V panel / 3 V logic | 3-wire SPI, reflective MIP; software VCOM (EXTMODE=L) |
+| Status/dial LEDs | 7× SK6812 RGBW 5050 (Adafruit 2758) | 5 V | 5 status + 2 dial pixels on-PCB; ONE data GPIO (IO7→RMT) via SN74AHCT1G125 3V3→5V buffer |
+| Knob | Bourns EM14A0D-C24-L064S + Kilo OEJNI-90-1-5 alu knob | 5 V (~30 mA) | optical, no detent, 64 CPR, push; A/B 5 V out → 100k/200k dividers → IO47/48 PCNT; SW → IO17 IRQ; J10 SH 1×06 |
 | Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets); solders to PCB, shafts through-board (custom footprint) |
-| IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines, net −7 GPIO |
+| IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines incl. RADIO_OFF toggle (GPA3, J11) |
 | Motor driver | 2× TB6612FNG | VM 5 V / VCC 3.3 V | SSOP-24; PWM-on-IN microstep, 8 GPIO |
 | Amp | TI TAS5760M | PVDD 12 V / DVDD 3.3 V | HTSSOP-32; I²S+I²C, PBTL mono (firmware DSP) |
 | Speaker | Dayton DMA58-4 (2″, 4 Ω) | — | off amp; ~100–250 cc sealed |
+| USB-C | Same Sky UJ20-C-V-C-2-SMT-TR (vertical, TH) | — | 16-pin USB 2.0 (D±+CC), port straight out the back; in-stock SMT alt = GCT USB4145-03-0170-C |
+
+*Dropped v0.19 (2026-07-19):* Sharp LS032B7DD02 display + FH34 FPC (datasheets kept in `datasheet/` for future reuse — that folder + its README intentionally still describe the display-era design), Cree panel-LED string, rear buttons, USB4105 + Adafruit 6069 extension.
 
 ## Rails
-- **3.3 V** logic (from 5 V) · **5 V** panel + stepper + **panel LEDs** + amp-PVDD mux aux · **12 V** boost = audio PVDD + **wake LEDs** (gated, **plugged-only**) · **15 V VBUS** = **LT3652 charger VIN** (plugged). USB-PD in (15 V, **CH224K**) → **LT3652** 1-cell buck charger (BAT-node power-path); amp PVDD auto-muxes 12 V↔5 V (**LTC4412**) → quieter alarm on battery. All converters leaded. See `power.md`.
+- **3.3 V** logic (from 5 V) · **5 V** stepper + **7× SK6812 NeoPixels** + knob encoder + amp-PVDD mux aux · **12 V** boost = audio PVDD + **wake LEDs** (gated, **plugged-only**) · **15 V VBUS** = **LT3652 charger VIN** (plugged). USB-PD in (15 V, **CH224K**) → **LT3652** 1-cell buck charger (BAT-node power-path); amp PVDD auto-muxes 12 V↔5 V (**LTC4412**) → quieter alarm on battery. All converters leaded. See `power.md`.
 
 ## Safety (NON-NEGOTIABLE)
 Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be **safe for ANY 18650** ("if it fits, it must be safe") — assume unprotected/reversed/wrong-SoC/hot cell; do **not** rely on the cell's PCM.

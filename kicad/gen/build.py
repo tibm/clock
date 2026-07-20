@@ -73,8 +73,8 @@ def main():
     s.text("MCU centre, peripherals right.  Power paths and MCU buses (SPI,", 20, 334, size=1.3)
     s.text("I2S, MCPWM, encoder) are drawn as wires; GND / +3V3 / +5V taps", 20, 339, size=1.3)
     s.text("and named labels connect by name (same name = same net).", 20, 344, size=1.3)
-    s.text("Off-board parts (display, SD, sensors, speaker, motor, LED", 20, 348.5, size=1.3)
-    s.text("strips, encoder+buttons, cell) enter via connectors J1..J10 / BT1.", 20, 353, size=1.3)
+    s.text("Off-board parts (SD card, sensors, speaker, wake-LED strips,", 20, 348.5, size=1.3)
+    s.text("knob, radio toggle, cell) enter via connectors J1..J11 / BT1.", 20, 353, size=1.3)
 
     merged = s.merge_collinear()
     added, dropped = s.auto_junctions()

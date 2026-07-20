@@ -47,7 +47,7 @@ Datasheet `pd_sink_ch224k.pdf` §5.2.1 / §6.1. Single-resistor mode.
 ---
 
 ## 3. TPS61023 — 5 V boost (from BAT, always-on)
-Datasheet `boost_5v_tps61023.pdf`. V_REF (FB) ≈ **0.6 V**. Load ≈ 0.4–0.5 A (feeds 3V3 buck + stepper VM + panel).
+Datasheet `boost_5v_tps61023.pdf`. V_REF (FB) ≈ **0.6 V**. Load ≈ 0.5–1.0 A worst case (feeds 3V3 buck + stepper VM + 7× SK6812 ≤0.6 A all-white + EM14 encoder ~30 mA) — well inside the 3.7 A valley limit.
 
 | Item | Value |
 |---|---|
@@ -108,6 +108,7 @@ Datasheet `boost_12v_audio_tps55340.pdf`. V_REF = **1.229 V**. Datasheet worked 
 | **QRE1113GR homing** | IR-LED ballast **150 Ω** (V_F 1.2 V → I_F ≈ 14 mA @ 3V3); phototransistor collector→3V3 via **10 k**, output→ADC (IO2) + **100 nF**. Tune 10 k for distance/reflectivity |
 | **Reverse P-FET** (AO3401A) | source=holder+, drain=system BAT+; gate→GND **100 k**; optional 8–10 V Zener gate-source clamp |
 | **Protector** (HY2111 + AOSD32334C) | **R1** (batt+→VDD, supply stabilize/ESD) **100 Ω** + **C1** (VDD–VSS) **0.1 µF** (datasheet §10: R1 100–200 Ω — too large degrades detect accuracy and risks VDD abs-max on a reversed charger; C1 ≥ 0.01 µF); **R2** (CS→P−, charger/current sense) **2 kΩ** (§10: 1–2 kΩ — larger can prevent cutting charge current with a high-voltage charger); AOSD32334C dual-N in cell− path, gates from **OD** (discharge FET) / **OC** (charge FET). **No external delay caps** — HY2111 delays are internal. Thresholds fixed by suffix **-GB = OV 4.28 V (rel 4.08) / OD 2.90 V / OC 150 mV**. SOT-23-6 pinout: OD1·CS2·OC3·NC4·VDD5·VSS6 *(same arrangement as the replaced AP9101C — nets unchanged)* |
+| **Knob (EM14A0D-C24-L064S, 5 V)** | A/B outputs are 5 V logic → **divider 100 k series + 200 k → GND** per channel (node ≈ 3.2 V → IO47/48 PCNT; ~67 k source Z is fine at ≤ a few hundred Hz quadrature); **ENC_SW** dry contact → **10 k PU to 3V3 + 100 nF** at IO17 (+ ~5 ms FW debounce) |
 | **I²C pull-ups** | main board **4.7 kΩ ×2** (SDA/SCL) @ 3V3. Sensor breakouts add 10 k each in ∥ — lift their jumpers if the bus gets too strong |
 | **ESP32 EN** | **10 kΩ** PU + **1 µF** to GND (+ optional reset button) |
 | **ESP32 straps** | IO0: **10 kΩ** PU (+ boot button); IO46: **10 kΩ** PD (ensure low at boot); IO3/IO45 use internal straps |
@@ -122,32 +123,29 @@ Datasheet `boost_12v_audio_tps55340.pdf`. V_REF = **1.229 V**. Datasheet worked 
 | TAS5760M | PVDD **0.1 µF + 1 µF + 220 µF** bulk; DVDD/AVDD **0.1 µF + 10 µF**; bootstrap + output filter per datasheet |
 | TB6612FNG ×2 | VM **0.1 µF + 10 µF**; VCC **0.1 µF** |
 | MCP23017 | **0.1 µF** |
-| Display (LS032) | VDD **1 µF** + VDDA **1 µF** + panel bypass per Sharp spec; **EXTMODE = GND** (software VCOM) |
+| SK6812 chain (7×) | **100 nF at every pixel VDD** + **100 µF bulk** at the chain head; SN74AHCT1G125 **100 nF** |
 | Each regulator | in/out caps per §1–5 + 0.1 µF at each VIN pin |
 
 ---
 
 ## 8. LED subsystem (two rails — see [`led.md`](led.md) + [`power.md`](power.md) §LED)
-**3 channels**, all low-side switched by an **AO3400A** logic-level NMOS, gate driven from an MCU LEDC
-PWM through **100 Ω** with a **10 kΩ gate→GND pulldown**, **~1 kHz**, gamma-corrected. No CC driver, no
-level shifter. **Two rails:** wake = **12 V** (plugged-only, self-ballasted COB); panel = **5 V**
-(always, discrete LEDs).
+**2 wake PWM channels + 1 NeoPixel data line** (v0.19 — the 5 V discrete panel string + its 3rd
+AO3400A were dropped with the display).
 
-| Channel | Emitter (per `led.md`) | Rail | Dim pin |
+| Channel | Emitter (per `led.md`) | Rail | Pin |
 |---|---|---|---|
-| **Wake warm** | Inspired LED `12V-COB-3000K-12M` (warm 3000K COB) | **12 V** (plugged-only) | **IO45** |
-| **Wake cool** | Inspired LED `12V-COB-4000K-12M` (neutral 4000K COB) | **12 V** (plugged-only) | **IO46** |
-| **Panel** (dial + frontlight, shared) | Cree `CLM3C-MKW-CWAXB233` ×≤12 (warm 3200K, Vf 3.2 V) | **5 V** (always) | **IO7** |
+| **Wake warm** | Inspired LED `12V-COB-3000K-12M` (warm 3000K COB) | **12 V** (plugged-only) | **IO45** (LEDC) |
+| **Wake cool** | Inspired LED `12V-COB-4000K-12M` (neutral 4000K COB) | **12 V** (plugged-only) | **IO46** (LEDC) |
+| **Status + dial NeoPixels** | **7× SK6812 RGBW 5050** (Adafruit 2758): 5 status + 2 dial | **5 V** (always) | **IO7** (RMT data) |
 
 - **Wake (12 V COB):** `MCU PWM → 100 Ω → AO3400A gate`; `10 kΩ` gate→GND; strip− to FET drain, strip+
   to **12 V**. Self-ballasted (integrated series R) → no external ballast. Keep combined wattage so
-  **LED + audio ≤ ~12 W** (TPS55340 ceiling from 1S).
-- **Panel (5 V discrete):** ≤12 LEDs in **parallel**, **one series R per LED**: R = (5 − 3.2 V)/I_F →
-  **180 Ω** (0603) at ~10 mA ("faint"), or **90 Ω** at ~20 mA. Common cathode bus → **one AO3400A**
-  (100 Ω gate + 10 kΩ pulldown, PWM IO7). ~0.6 W max on the 5 V rail (within the TPS61023 budget).
+  **LED + audio ≤ ~12 W** (TPS55340 ceiling from 1S). ~1 kHz, gamma-corrected.
+- **NeoPixels (5 V):** IO7 → **SN74AHCT1G125** (VCC = 5 V; TTL V_IH 2 V ← 3.3 V GPIO OK; the SK6812
+  V_IH = 0.7·VDD = 3.5 V is why the buffer exists) → **330 Ω** series → DIN(1); DOUT(n)→DIN(n+1);
+  **100 nF per pixel + 100 µF bulk**. `led_strip` (RMT, 800 kHz); ≤~0.6 A all-white worst case.
 
-**SK6812 halo + TPS92200 dropped.** Panel = dial + frontlight on **one shared channel** (same intensity,
-enabled together); merging them freed IO43 (now the I²S **MCLK** pin — §10). MOSFET **AO3400A** (DigiKey) ×3.
+**Panel string (Cree CLM3C ×≤12 + 180 Ω each + 3rd AO3400A) dropped 2026-07-19.** MOSFET **AO3400A** ×2.
 
 ### Amp PVDD rail-mux (12 V ↔ 5 V) — enables the battery alarm
 The 12 V boost is **plugged-only**, so on battery the TAS5760M PVDD falls back to the **5 V rail**
