@@ -1,10 +1,17 @@
-# Wooden Smart Clock — KiCad schematic (single sheet)
+# Wooden Smart Clock — KiCad schematic + PCB
 
 KiCad 10 schematic on **one A1 page**, organised like `../block_diagram.drawio`
 (⚠ the drawio still shows the pre-v0.19 display-era design):
 power flows along the left, MCU in the centre, peripherals on the right.
 Open **`clock.kicad_pro`**. The sheet is **generated** by the Python code in
 `gen/` (see *Regenerating* below) — edit the block files, not the `.kicad_sch`.
+
+**`clock.kicad_pcb`** (110×110mm, 4-layer) is likewise generated —
+by `gen/pcb_build.py`, run under KiCad's own bundled Python (`pcbnew`
+scripting), not by hand in the PCB editor. Full placement + stackup +
+zones + keepouts + net assignment; routing is not done. See
+[`PCB_NOTES.md`](PCB_NOTES.md) for the placement rationale, constraint
+checklist, and verification results.
 
 ## Page map
 
