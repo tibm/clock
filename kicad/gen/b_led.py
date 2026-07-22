@@ -85,10 +85,14 @@ def build(s):
     s.glabel_at("NEOPIX_DATA", 195.58, 524.51, 180)
     s.rail(U15, "5", "+5V", rise=2.54)               # VCC = 5 V
     s.gnd(U15, "3", drop=2.54)
-    # /OE tied low (always enabled): inverted GND flag right at the pin
+    # /OE tied low (always enabled): GND flag right at the pin. rot=0 (the
+    # default) -- a GND glyph always hangs below its own connection point
+    # regardless of which way the incoming wire runs; rot=180 (the
+    # previous value here) draws it upside down. Flagged by inspection
+    # 2026-07-22: every other GND flag in this codebase uses rot=0.
     s.pw(U15, "1", ("dy", -2.54))
-    s.power_at(275.59, 511.81, "GND", rot=180)
-    C238 = s.C("C238", 219.71, 529.59, "100nF")
+    s.power_at(275.59, 511.81, "GND")
+    C238 = s.C("C238", 233.68, 543.56, "100nF")
     s.rail(C238, "1", "+5V", rise=0)
     s.gnd(C238, "2", drop=0, show_value=False)
     # series R into the first DIN (edge damping)
