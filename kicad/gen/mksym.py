@@ -319,7 +319,8 @@ def build():
               "Transistor_FET:2N7002",
               "Connector:Micro_SD_Card_Det_Hirose_DM3AT",
               "Interface_Expansion:MCP23017x-x-SS",
-              "74xGxx:74AHCT1G125"]
+              "74xGxx:74AHCT1G125",
+              "Power_Protection:USBLC6-2SC6"]  # U16 USB D+/D- ESD array
     clone_txt = []
     for lib_id in clones:
         nick, name = lib_id.split(":", 1)

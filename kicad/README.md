@@ -61,7 +61,8 @@ numbers as the stock symbol/footprint) so buses leave toward their blocks;
 replaced 2026-07-17, HYCON pin names OD/CS/OC), **`X40_879`** (M1 stepper,
 pins 1-4 = 1e-4e external shaft, 5-8 = 1i-4i internal), `VBAT`/`PVDD`
 flags, plus flattened clones of stock `extends` symbols (AO3400A, AO3401A,
-2N7002, DM3AT, MCP23017, **74AHCT1G125** — U15 NeoPixel buffer) so ERC
+2N7002, DM3AT, MCP23017, **74AHCT1G125** — U15 NeoPixel buffer,
+**USBLC6-2SC6** — U16 USB ESD array, 2026-07-21) so ERC
 never reports lib_symbol_mismatch. NeoPixels use the stock `LED:SK6812`
 symbol (standalone, RGBW-compatible pinout).
 
@@ -148,6 +149,24 @@ a footprint (stock KiCad or `clock.pretty`) — audited 2026-07-20.
    TLV62569 (DBV), LTC4412 (S6), AOSD32334C (SO-8), TAS5760M (DAP-32),
    CH224K (ESSOP-10), ESP32-S3-WROOM-1 pad map, MCP23017 (SSOP), TB6612 —
    all correct; TPS55340 was the only mismatch (item 1).
+
+### Hardening additions (2026-07-21, follow-up to the review)
+1. **TVS → bidirectional**: D1/D12 values changed SMAJ22A/SMAJ5.0A →
+   **SMAJ22CA/SMAJ5.0CA** — the `D_TVS` symbol is bidirectional, so the
+   uni parts had no cathode orientation on the SMA land; the CA parts make
+   orientation moot (DigiKey 762287/762251, verified in stock).
+2. **U16 = USBLC6-2SC6** ESD array on USB D± at J1, flow-through
+   (J1 → pins 1/3, MCU labels off the internally-tied twins 6/4 — netlist
+   keeps the segments distinct so routing must pass the pads). **VBUS
+   pin 5 NC on purpose**: 15 V PD contract vs its 5.25 V rating; internal
+   zener still clamps. Added to the mksym flattened-clone list (`extends`).
+3. **D13 = BAT42W (SOD-123)** clamp on the `VBAT_SENSE` divider node —
+   bounds the reversed-cell excursion (~−2 V through 100 k) to ~−0.2 V.
+4. **CELL_TEST** (expander GPB7, was spare): Q8 2N7002 + Q9 AO3401A +
+   R26/R27 100 k lift Q2's gate to holder+ on demand → Q2 off → ADC
+   distinguishes a full cell (no step) from an empty back-fed holder
+   (~0.3–0.4 V body-diode step). POR-safe defaults; plugged-only use.
+   Docs: `esp32.md` (IO1 + GPB7 rows), `power.md`, `power_values.md` §6.
 
 ### PCB layout v2 + off-board status pixels (2026-07-21)
 The 5 status NeoPixels (ex-D40–D44) moved off-board onto a new 3-pin

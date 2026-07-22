@@ -29,7 +29,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 16 | `xtal_32k_abs07.pdf` | **ABS07-32.768KHZ-T** (32.768 kHz, CL 12.5 pF, ±20 ppm) | Abracon | **3.2×1.5 mm 2-SMD** | ✅ | ~$0.3 | RTC clock (S3 XTAL32K) |
 | 17 | `reverse_pfet_ao3401a.pdf` | **AO3401A** (−30 V, −4 A P-ch) | Alpha & Omega | **SOT-23-3** | ✅ | ~$0.24 | reverse-polarity FET |
 | 18 | `ntc_10k_ncp18xh103.pdf` | **NCP18XH103F03RB** 10 k NTC (B25/50 = 3380 K, ±1 %) | Murata | **0603** | ✅ | ~$0.10 | analog → LT3652 NTC |
-| 19 | `tvs_smaj.pdf` | **SMAJ22A** (VBUS) + **SMAJ5.0A** (BAT), 400 W uni | Littelfuse | **DO-214AC (SMA)** | ✅ | ~$0.4 ea | TVS clamp |
+| 19 | `tvs_smaj.pdf` | **SMAJ22CA** (VBUS) + **SMAJ5.0CA** (BAT), 400 W **bidir** (CA suffix since 2026-07-21; same series datasheet) | Littelfuse | **DO-214AC (SMA)** | ✅ | ~$0.5 ea | TVS clamp |
 | 20 | `boost_12v_audio_tps55340.pdf` | **TPS55340PWPR** (5 A/40 V boost) | Texas Instruments | **HTSSOP-14 (PWP, PowerPAD)** | ✅ | ~$2.5 | amp 12 V rail (gated) |
 | 21 | `boost_5v_tps61023.pdf` | **TPS61023DRLR** (3.7 A boost, 0.5–5.5 V in) | Texas Instruments | **SOT-563** | ✅ | ~$1.2 | 5 V rail |
 | 22 | `buck_3v3_tlv62569.pdf` | **TLV62569DBVR** (2 A buck, 2.5–5.5 V in) | Texas Instruments | **SOT-23-6** | ✅ | ~$0.25 | 3.3 V rail |

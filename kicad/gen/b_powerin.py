@@ -19,13 +19,27 @@ def build(s):
     # VBUS pins -> up to the VBUS rail at y 55.88
     s.pw(J1, "A4", ("y", 55.88))
     # CC1/CC2 straight across to CH224K
-    # D+/D- pin pairs joined, then global labels to the MCU
+    # D+/D- pin pairs joined, then through the USBLC6-2SC6 ESD array to the
+    # MCU labels. Flow-through wiring (J1 side on pins 1/3, MCU side on the
+    # internally-tied twins 6/4): the two net segments join INSIDE the part,
+    # so the netlist keeps them distinct and routing must pass its pads.
     s.w((55.88, 83.82), (55.88, 86.36))     # A7-B7 (D-)
     s.w((55.88, 88.90), (55.88, 91.44))     # A6-B6 (D+)
-    s.w((55.88, 83.82), (60.96, 83.82))
-    s.glabel_at("USB_DM", 60.96, 83.82, 0)
-    s.w((55.88, 88.90), (60.96, 88.90))
-    s.glabel_at("USB_DP", 60.96, 88.90, 0)
+    U16 = s.comp("U16", "clock:USBLC6-2SC6", 73.66, 99.06, value="USBLC6-2SC6",
+                 footprint="Package_TO_SOT_SMD:SOT-23-6",
+                 refpos=(78.74, 95.25, "left"), valpos=(78.74, 106.68, "left"))
+    s.w((55.88, 83.82), (60.96, 83.82), (60.96, 99.06), (68.58, 99.06))    # D- -> I/O1
+    s.w((55.88, 88.90), (58.42, 88.90), (58.42, 101.60), (68.58, 101.60))  # D+ -> I/O2
+    s.pw(U16, "6", ("x", 83.82))
+    s.glabel_at("USB_DM", 83.82, 99.06, 0)
+    s.pw(U16, "4", ("x", 83.82))
+    s.glabel_at("USB_DP", 83.82, 101.60, 0)
+    s.gnd(U16, "2", drop=0)
+    # VBUS pin NC ON PURPOSE: our VBUS is the 15 V PD contract, far above
+    # this pin's 5.25 V rating. Floating, the array still clamps D+/D-
+    # through its internal zener, and a cable VBUS-to-D± fault burns the
+    # (sacrificial) array instead of pumping a system rail.
+    s.nc(U16, "5")
     s.nc(J1, "A8")
     s.nc(J1, "B8")
     s.gnd(J1, "A1", via=0)                  # GND pins (stacked)
@@ -33,8 +47,11 @@ def build(s):
     s.text("USB 2.0 subset of the 24-pin USB4160 (SS pads unconnected);", 20, 146, size=1.3)
     s.text("D+/D- = native USB-JTAG (IO19/20). Vertical - port out the back wall.", 20, 150.5, size=1.3)
 
-    # --- VBUS TVS clamp (pin 1 = top after rot 270; pad 1 = cathode) ---
-    D1 = s.D_tvs("D1", 63.5, 63.5, "SMAJ22A", rot=270)
+    # --- VBUS TVS clamp. SMAJ22CA = BIDIRECTIONAL (2026-07-21: the D_TVS
+    # symbol is bidirectional and the SMA footprint is then orientation-free;
+    # the unidirectional SMAJ22A drawn with this symbol had no cathode
+    # marking for assembly) ---
+    D1 = s.D_tvs("D1", 63.5, 63.5, "SMAJ22CA", rot=270)
     s.pw(D1, "1", ("y", 55.88))
     s.gnd(D1, "2", drop=2.54, via=0)
 

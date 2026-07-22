@@ -212,10 +212,11 @@ FILL_ZONES = {
         # reaches to within 21mm of centre (55,55), i.e. x<34 at y=55.
         "rect": (2.0, 38.0, 33.0, 83.0),
         "refs": (
-            ["J1", "U1", "C1", "R1", "R2", "R3", "R4", "D1"]
+            ["J1", "U1", "U16", "C1", "R1", "R2", "R3", "R4", "D1"]
             + ["U2", "U3", "U4", "F1", "L1", "Q1", "Q2", "Q3", "D10", "D11", "D12", "RT1"]
+            + ["D13", "Q8", "Q9"]  # VBAT_SENSE clamp + CELL_TEST pair (2026-07-21)
             + [f"C{n}" for n in (100, 101, 102, 104, 105, 106, 107, 108, 109, 110)]
-            + [f"R{n}" for n in range(10, 26)]  # incl. R24/R25 gate pulldowns (2026-07-21)
+            + [f"R{n}" for n in range(10, 28)]  # incl. R24-R27 pulldowns/pull-up (2026-07-21)
         ),
         "gap": 1.2,
     },

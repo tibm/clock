@@ -1,3 +1,4 @@
 __pycache__
 *.FCBak
 kicad/gen/_netlist.net
+kicad/.history

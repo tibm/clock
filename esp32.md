@@ -43,7 +43,7 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `GND` | — | `GND` | — | — | 0 V | ground (+ EPAD belly pad) | tie EPAD to GND plane |
 | `EN` | — | `EN` (reset) | — | IN, PU (ext 10k) | 3.3 V | reset · prog header | +1 µF to GND; DTR-toggled for UART download |
 | `IO0` | 0 | `BOOT` | — (strap) | IN, PU (ext 10k) | 3.3 V | boot/download strap · **only spare pad** | must be HIGH at boot; on prog header |
-| `IO1` | 1 | `VBAT_SENSE` | ADC1_CH0 | ANA IN | 3.3 V | LT3652 BAT node · SoC/voltage | ADC1 (Wi-Fi-safe); ÷2 divider + RC |
+| `IO1` | 1 | `VBAT_SENSE` | ADC1_CH0 | ANA IN | 3.3 V | **cell/holder node (pre-Q2)** · SoC/voltage | ADC1 (Wi-Fi-safe); ÷2 divider + RC + **BAT42W clamp to GND** (reversed-cell negative bound); holder-side tap is what makes `CELL_TEST` work |
 | `IO2` | 2 | `HOME_OPTO` | ADC1_CH1 | ANA IN | 3.3 V | QRE1113GR · hand-home reflect | ADC1; phototransistor load (or comparator) |
 | `IO3` | 3 | `STEP_M_BIN2` | MCPWM0 | OUT / AF | 3.3 V | TB6612 #1 · minute coil B− | strap (JTAG) floating-OK; motor idle at boot (STBY low) |
 | `IO4` | 4 | `STEP_M_AIN1` | MCPWM0_0A | OUT / AF | 3.3 V | TB6612 #1 · minute coil A+ | |
@@ -111,7 +111,7 @@ Weak pull-ups + interrupt-on-change on the inputs; `IOCON.MIRROR=1` ORs INTA+INT
 | GPB4 | `FULLCHG_EN` | OUT | — | LT3652 4.2 V full-charge FET gate |
 | GPB5 | `VBAT_DIV_EN` | OUT | — | Vbat-divider disconnect FET gate |
 | GPB6 | `SPK_FAULT` | IN, PU | ✔ | TAS5760M fault (OD, 10 k PU) |
-| GPB7 | *free* | — | — | spare |
+| GPB7 | `CELL_TEST` | OUT | — | full-cell vs no-cell discriminator (2026-07-21): high → Q8 (2N7002) pulls Q9's (AO3401A) gate low → Q9 lifts reverse-FET Q2's gate to holder+ → Q2 **off**. ADC then reads V_cell (cell present, no step) vs a ~0.3–0.4 V drop (empty holder = Q2 body-diode back-feed). **Plugged-only, brief**; defaults safe (R26/R27 hold both FETs off at POR) |
 
 Hard-safety (OV/OC/SC) is autonomous in the LT3652 + HY2111 — nothing time-critical rides the expander.
 

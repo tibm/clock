@@ -83,6 +83,7 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 **Reverse P-FET** — P-ch MOSFET (e.g. AO3401A / DMP3013), source = holder +, drain = system +, gate → GND via resistor (+ small zener clamp). Correct polarity → on; reversed cell → blocked.
 
 **Cell gauging (ESP32 ADC)** — no gauge IC (none is hand-solderable). A 100 k/100 k divider off the cell (+ 100 nF, and a **2N7002 in the bottom leg — gate `VBAT_DIV_EN` on the IO expander — to disconnect it in deep-sleep**) feeds an **ADC pin** (IO1 `VBAT_SENSE`, ADC1); firmware maps voltage → SoC% for UI + **low-battery shutdown (~3.2 V / ~10 %)**. The **80 % health cap is enforced in hardware** by the LT3652 float divider, not firmware.
+Two hardening additions (2026-07-21): **D13 (BAT42W, SOD-123)** clamps the divider node to ~−0.2 V — a **reversed cell** would otherwise pull the ESP32 pad to ~−2 V through the 100 k; and **`CELL_TEST` (expander GPB7 → Q8 2N7002 → Q9 AO3401A)** briefly lifts reverse-FET Q2's gate to holder+, opening its channel so firmware can tell a **full cell** (reading holds) from an **empty holder** (reading steps down one Q2-body-diode, ~0.3–0.4 V — without this, the charger back-feeds the empty holder to float voltage and both cases read ~4.05 V). Plugged-only; both FETs default off (100 k pulldown/pull-up) so normal operation is untouched at POR.
 
 **Bring-up sequence:** plug → CH224K requests 15 V → LT3652 charges at its resistor-set defaults → MCU boots from the BAT node → reads Vbat (ADC) + CHRG/FAULT → normal run; with `PD_PG` asserted, firmware may enable the 12 V boost (audio at full 12 V + wake sunrise). **Unplugged:** BAT node from cell (through the protector FETs); the **12 V boost stays off** → wake light disabled, and the amp PVDD auto-drops to the **5 V rail** (LTC4412 mux) for a **quieter but audible alarm**. NeoPixels (5 V status + dial light) and the clock run normally on battery.
 
@@ -96,7 +97,7 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ |
 | Cell temp | 10 k NTC (Murata NCP18XH103) | 0603 | ~$0.1 | ✅ |
 | **One-shot TCO (~77 °C)** | thermal fuse in cell − path (e.g. SEFUSE SF/Bourns bimetal ~77 °C) | radial/tab | ~$0.4 | ⚠ pick + file datasheet |
-| Transient | TVS SMAJ22A (VBUS) + SMAJ5.0A (BAT) | SMA | ~$0.4 | ✅ |
+| Transient | TVS SMAJ22CA (VBUS) + SMAJ5.0CA (BAT) — **bidirectional** since 2026-07-21 (schematic uses the bidirectional symbol; CA parts remove the assembly-orientation risk) | SMA | ~$0.4 | ✅ |
 | Audio+wake-LED boost BAT→12 V (plugged-only) | **TPS55340PWPR** | HTSSOP-14 | ~$2.5 | ✅ |
 | 5 V boost (from BAT) | **TPS61023DRLR** | SOT-563 | ~$1.2 | ✅ |
 | 3.3 V buck (from 5 V) | TLV62569 / AMS1117-3.3 | SOT-23-6 / SOT-223 | ~$0.6 | ✅ |

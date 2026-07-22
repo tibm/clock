@@ -112,7 +112,7 @@ def build(s):
     C107 = s.CP("C107", 372.11, 110.49, "100uF")
     s.route(C107, "1", C106, "1", "H")
     s.gnd(C107, "2", drop=0)
-    D12 = s.D_tvs("D12", 382.27, 110.49, "SMAJ5.0A", rot=270)
+    D12 = s.D_tvs("D12", 382.27, 110.49, "SMAJ5.0CA", rot=270)   # bidir, matches symbol
     s.route(D12, "1", C107, "1", "H")
     s.gnd(D12, "2", drop=0)
 
@@ -151,6 +151,13 @@ def build(s):
     s.gnd(C110, "2", drop=0)
     s.pw(R22, "2", ("x", 83.82))
     s.glabel_at("VBAT_SENSE", 83.82, 213.36, 180)
+    # D13: Schottky clamp, cathode on the ADC node -- a REVERSED cell drives
+    # the divider midpoint to ~-2 V; clamp at ~-0.2 V so the ESP32 pad stays
+    # inside abs-max (100 k limits the current either way). BAT42W =
+    # true 2-terminal SOD-123 (the classic BAT54 is SOT-23 -- wrong land)
+    D13 = s.D_schottky("D13", 110.49, 217.17, "BAT42W", fp="SOD123", rot=270)
+    s.pw(D13, "1", ("x", 102.87))                        # cathode -> ADC node
+    s.gnd(D13, "2", drop=0)
     Q3 = s.nmos("Q3", 88.90, 228.60, "2N7002")
     s.route(R23, "2", Q3, "3", "V")
     s.gnd(Q3, "2", drop=0)
@@ -161,6 +168,34 @@ def build(s):
               refpos=(66.29, 232.28, "right"), valpos=(66.29, 235.08, "right"))
     s.pw(R25, "1", ("y", 228.60), ("x", 73.66))
     s.gnd(R25, "2", drop=0)
+
+    # ---- CELL_TEST: full-cell vs no-cell discriminator (2026-07-21) ----
+    # With no cell, Q2's channel back-feeds the holder to VBAT (~4.05 V
+    # plugged), so the ADC reads "full cell" either way. CELL_TEST high
+    # (expander GPB7) -> Q8 pulls Q9's gate low -> Q9 lifts Q2's gate to
+    # holder+ -> Q2 OFF. The ADC (holder side!) then reads V_cell if a cell
+    # is present (unchanged), or drops one Q2-body-diode below VBAT
+    # (~0.3-0.4 V step) if the holder is empty. Firmware keys on the STEP at
+    # switch-off, plugged-only (on battery Q2's body diode keeps the system
+    # alive but drops ~0.4 V -- don't leave asserted). Defaults are safe:
+    # R26 holds Q8 off at POR, R27 holds Q9 off -> Q2 conducts normally.
+    s.w((71.12, 203.20), (71.12, 171.45), (142.24, 171.45))   # holder+ rail
+    Q9 = s.comp("Q9", "clock:AO3401A", 127.00, 177.80, rot=90, value="AO3401A",
+                footprint="Package_TO_SOT_SMD:SOT-23",
+                refpos=(133.35, 176.53, "left"), valpos=(120.65, 173.99, "right"))
+    s.pw(Q9, "2", ("y", 171.45))                              # source -> holder+ rail
+    R27 = s.R("R27", 142.24, 175.26, "100k")                  # Q9 G-S pull-up
+    s.pw(Q9, "1", ("dy", 1.27), ("x", 142.24))                # gate -> node A (below R27)
+    Q8 = s.nmos("Q8", 139.70, 190.50, "2N7002")
+    s.pw(Q8, "3", ("py", R27, "2"))                           # drain joins node A
+    s.gnd(Q8, "2", drop=0)
+    s.pw(Q8, "1", ("x", 121.92))                              # gate run left
+    s.glabel_at("CELL_TEST", 121.92, 190.50, 180)
+    R26 = s.R("R26", 127.00, 194.31, "100k",                  # Q8 gate pulldown
+              refpos=(125.73, 192.91, "right"), valpos=(125.73, 195.71, "right"))
+    s.gnd(R26, "2", drop=0)
+    # Q9 drain -> Q2 gate net (join the y=190.50 gate run at R19's pin)
+    s.pw(Q9, "3", ("x", 107.95), ("y", 190.50), ("px", R19, "1"))
 
     # cell- -> protector dual FET (S1) ; S2 -> TCO -> GND (PACK-)
     U4 = s.comp("U4", "clock:AOSD32334C", 80.01, 246.38, value="AOSD32334C",

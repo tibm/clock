@@ -66,7 +66,7 @@ def build(s):
     s.nc(U13, "11")
     s.nc(U13, "14")
     s.nc(U13, "28")                                    # GPA7 spare
-    s.nc(U13, "8")                                     # GPB7 spare
+    s.glabel(U13, "8", "CELL_TEST")                    # GPB7: cell-detect (b_charger)
 
     # I2C bus stubs + main-board pull-ups
     s.pw(U13, "12", ("x", 450.85))
