@@ -166,12 +166,28 @@ def build(s):
     s.pw(R115, "1", ("y", 533.40))
     s.gnd(R115, "2", drop=0)
     # SW: dry contact to GND -> 10k pull-up + 100n debounce -> IO17 (IRQ)
-    s.pw(J10, "5", ("x", 541.02), ("y", 547.37), ("x", 528.32))
-    s.glabel_at("ENC_SW", 528.32, 547.37, 180)
-    R113 = s.R("R113", 533.40, 541.02, "10k")
+    # R113 hand-moved 2026-07-21 (was (533.40,541.02)); route/tap points
+    # below are the real post-move pin coordinates (via Comp.pin_xy), not
+    # re-derived offsets -- R113 and C239 no longer share a Y, so they tap
+    # the J10-R113 wire at two different points instead of one shared row.
+    R113 = s.R("R113", 509.27, 546.10, "10k")
     s.rail(R113, "1", "+3V3", rise=0)
-    s.pw(R113, "2", ("dy", 2.54))
-    C239 = s.C("C239", 538.48, 551.18, "100nF")   # pin 1 lands on the SW row
+    # Manual HVH via a neutral x=548 -- not route()'s VH/HV, and not the
+    # obvious x=537.21 (C239's own column): J10's pins are a single column
+    # at x=554.99, R113's pin 1 (+3V3) sits directly above pin 2 in
+    # R113's own column (x=509.27), and x=537.21 is J10's GND bus for
+    # y<=542.29 -- a vertical leg down any of those three x's sweeps
+    # straight through another net (found via ERC, twice: shorted ENC_SW
+    # onto GND via J10 pin 6, then onto +3V3 via R113's own pin 1). x=548
+    # clears all three; the final horizontal leg still crosses x=537.21,
+    # but at y=549.91, below the GND bus's y<=542.29 span, so it just
+    # T-taps C239 without touching the bus.
+    j10_5 = s.pxy(J10, "5")
+    r113_2 = s.pxy(R113, "2")
+    s.w(j10_5, (548.64, j10_5[1]), (548.64, r113_2[1]), r113_2)
+    s.glabel_at("ENC_SW", r113_2[0], r113_2[1], 180)  # at R113 pin2 = the row's left end
+    C239 = s.C("C239", 537.21, 556.26, "100nF")   # pin 1 taps the row
+    s.pw(C239, "1", ("y", r113_2[1]))
     s.gnd(C239, "2", drop=0)
 
     s.text("INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Knob = EM14A0D-C24-L064S", 410, 571, size=1.3)
