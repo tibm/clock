@@ -8,7 +8,7 @@ dropped with the display):
 | Subsystem | What it lights | Emitter | Rail | Drive |
 |------|----------------|---------|------|-----|
 | **Wake-up light** | 100–120 mm sunrise diffuser (rear aperture) | **12 V** COB, warm **3000K** + neutral **4000K** (tunable-white pair) | **12 V (plugged-only)** | **2× LEDC PWM** (warm IO45 / cool IO46) via AO3400A |
-| **Status + dial NeoPixels** | 5 status holes in the aluminum face **+** dial wash behind the glass | **7× SK6812 RGBW** 5050 (Adafruit 2758), on the main PCB | **5 V (always, incl. battery)** | **1 data GPIO** (IO7 → RMT), daisy-chained |
+| **Status + dial NeoPixels** | 5 status holes in the aluminum face **+** dial wash behind the glass | **7× SK6812 RGBW** 5050 (Adafruit 2758): **2 on the main PCB** (dial wash) + **5 off-board** (status row) via a 3-pin JST-PH breakout, J12 (2026-07-21) | **5 V (always, incl. battery)** | **1 data GPIO** (IO7 → RMT), daisy-chained |
 
 PWM outputs: **2** (LEDC) + **1 RMT data line**.
 
@@ -20,12 +20,14 @@ PWM outputs: **2** (LEDC) + **1 RMT data line**.
 
 ## NeoPixel chain (7× SK6812 RGBW, one wire)
 
-- **Pixels 1–5 = status LEDs** behind the face-plate holes + icons
+- **Pixels 1–2 = dial illumination**, on the main PCB (9 & 3 o'clock, flanking the
+  movement): warm white (use the dedicated W channel) washing the walnut dial behind
+  the glass; ALS-gated night dim, **hard-off by default** → 0 emission.
+- **Pixels 3–7 = status LEDs** behind the face-plate holes + icons
   (`bell` · `alarm-clock` · `clock` · `volume-1` · `battery`, §12 of the README):
-  red = alarm armed, white = disarmed, etc. **Pixel pitch on the PCB must equal the
-  face-plate hole pitch** — fix both in the same drawing.
-- **Pixels 6–7 = dial illumination**: warm white (use the dedicated W channel) washing the
-  walnut dial behind the glass; ALS-gated night dim, **hard-off by default** → 0 emission.
+  red = alarm armed, white = disarmed, etc. **Off-board (2026-07-21)**, wired in series
+  from PCB connector **J12** (`+5V`/`DATA`/`GND`, JST-PH 1×03) so their pitch is set by
+  the face-plate hole spacing directly, not constrained by the PCB layout.
 - **One data line is plenty**: a full 7-pixel refresh is 7 × 32 bit @ 800 kHz ≈ **0.3 ms**.
   Brightness control and slow ramps are firmware (Espressif `led_strip`, RMT backend,
   gamma-corrected); no fancy animation needed or planned.
@@ -48,13 +50,13 @@ PWM outputs: **2** (LEDC) + **1 RMT data line**.
 |---|---|---|---|---|
 | Wake COB — **warm 3000K** | Inspired LED **`12V-COB-3000K-12M`** | 16714316 | **$0.64** /0.98″ seg ($215/12 m reel) | 12 V, 3.6 W/ft, 8 mm, cut @ 0.98″, UL. Wake-warm (IO45). ~1 ft ≈ 12 seg ≈ $7.7. |
 | Wake COB — **neutral 4000K** | Inspired LED **`12V-COB-4000K-12M`** | 16714317 | **$0.64** /0.98″ seg | same reel spec; Wake-cool (IO46). *(4000K = neutral; 24 V variant exists if a longer run wants less current.)* |
-| NeoPixels ×7 (status 5 + dial 2) | **SK6812 RGBW 5050** — Adafruit **2758** (10-pack) | 6134706 | **$5.95**/10 | on the main PCB (KiCad `LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm`); 3 spares |
+| NeoPixels ×7 (dial 2 on-PCB + status 5 off-board) | **SK6812 RGBW 5050** — Adafruit **2758** (10-pack) | 6134706 | **$5.95**/10 | 2 on the main PCB (KiCad `LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm`, D40/D41); 5 wired off-board via J12; 3 spares |
 | NeoPixel data buffer | **SN74AHCT1G125DBVR** | 376028 | **$0.14** | SOT-23-5, VCC = 5 V, TTL V_IH 2 V ← 3.3 V GPIO OK |
 | Data series R | **330 Ω** 0603 | — | ~$0.01 | at the first DIN |
 | Pixel decoupling | **100 nF** 0603 ×7 + **100 µF** bulk | — | ~$0.5 | one 100 nF at each pixel VDD |
 | Logic MOSFET (×2) | **AO3400A** | — | ~$0.1 ea | one low-side FET per wake PWM channel; 100 Ω gate + 10 kΩ pulldown. *(3rd FET recovered v0.19.)* |
 | **Amp PVDD rail-mux** | **LTC4412** (SOT-23-6) + P-FET | — | ~$2 | auto priority-OR: **12 V** boost when plugged, **5 V** rail on battery (quieter alarm). See [`power_values.md`](power_values.md) §8. |
-| JST connector | JST-PH 1×03 (J9, wake strips) | — | — | NeoPixels are on-board → no connector. |
+| JST connector | JST-PH 1×03 (J9, wake strips); JST-PH 1×03 (J12, off-board status pixels) | — | — | dial pixels (1–2) are on-board; status pixels (3–7) wire out through J12. |
 | Opal diffuser | 3 mm White Opal Acrylic (TAP Plastics) | — | — | wake mixing chamber. |
 | Aluminum tape | Reflective tape | — | — | line the mixing chamber. |
 
@@ -88,7 +90,8 @@ strip− to FET drain (**low-side** switching). Pins: warm = **IO45**, cool = **
 (see [`esp32.md`](esp32.md)).
 
 **NeoPixels:** IO7 -> SN74AHCT1G125 (VCC 5 V) -> 330 Ω -> DIN(1); DOUT(n) -> DIN(n+1);
-all VDD to **5 V**, all VSS to GND. On-board — no wiring harness.
+all VDD to **5 V**, all VSS to GND. Pixels 1–2 on-board; pixel 2's DOUT continues off-board
+through **J12** to pixels 3–7 in series (harness built by the user, off-PCB).
 
 ## PWM / data
 
@@ -102,9 +105,11 @@ all VDD to **5 V**, all VSS to GND. On-board — no wiring harness.
 
 ## Assembly
 
-1.  Build wooden cube + aluminum face (status-hole pitch = PCB pixel pitch!).
+1.  Build wooden cube + aluminum face.
 2.  Paint the wake cavity matte white; install acrylic diffuser; install COB strips.
-3.  Solder the 7 SK6812 + buffer on the main PCB (hand-solderable PLCC-4 pads).
+3.  Solder the 2 dial-wash SK6812 + buffer on the main PCB (hand-solderable PLCC-4 pads);
+    wire the 5 status SK6812 in series off-board from J12, matching the face-plate hole
+    pitch (fixed by the plate drawing, not the PCB).
 4.  Tune PWM/ramp curves; verify hotspot-free dial wash through the glass.
 
 ## Notes
@@ -118,3 +123,8 @@ all VDD to **5 V**, all VSS to GND. On-board — no wiring harness.
     [`power.md`](power.md) §LED / [`power_values.md`](power_values.md) §8.
 -   **Panel string — DROPPED (2026-07-19):** the ≤12-LED Cree CLM3C 5 V string + its AO3400A +
     LEDC channel went away with the display; dial lighting moved to NeoPixels 6–7.
+-   **Status pixels moved off-board (2026-07-21):** the PCB layout couldn't give the 5-pixel
+    status row real component spacing without crowding every other block (see `kicad/PCB_NOTES.md`).
+    Pixels 1–2 (dial wash) stay on-PCB at the chain head; a 3-pin JST-PH breakout (**J12**) carries
+    `+5V`/`DATA`/`GND` out to pixels 3–7, wired in series off-board and placed to match the
+    face-plate hole pitch directly.

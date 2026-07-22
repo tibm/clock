@@ -15,7 +15,7 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 | Block | Part | Rail | Notes |
 |---|---|---|---|
 | MCU | ESP32-S3-WROOM-1-N16R8 | 3.3 V | Wi-Fi+BLE, 16/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
-| Status/dial LEDs | 7× SK6812 RGBW 5050 (Adafruit 2758) | 5 V | 5 status + 2 dial pixels on-PCB; ONE data GPIO (IO7→RMT) via SN74AHCT1G125 3V3→5V buffer |
+| Status/dial LEDs | 7× SK6812 RGBW 5050 (Adafruit 2758) | 5 V | **2 dial pixels on-PCB** (D40/D41, chain pos 1-2); **5 status pixels off-board** via 3-pin JST-PH breakout J12 (chain pos 3-7, 2026-07-21); ONE data GPIO (IO7→RMT) via SN74AHCT1G125 3V3→5V buffer |
 | Knob | Bourns EM14A0D-C24-L064S + Kilo OEJNI-90-1-5 alu knob | 5 V (~30 mA) | optical, no detent, 64 CPR, push; A/B 5 V out → 100k/200k dividers → IO47/48 PCNT; SW → IO17 IRQ; J10 = JST ZH 1×06 (A06ZR pre-crimped cables, same as sensor J7) |
 | Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets); solders to PCB, shafts through-board (custom footprint) |
 | IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines incl. RADIO_OFF toggle (GPA3, J11) |

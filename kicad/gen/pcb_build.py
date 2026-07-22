@@ -123,42 +123,37 @@ def resolve_fp(field):
 
 # ref -> (x, y, rot_deg, side)  side "F" or "B".
 #
-# Only 4 parts get a genuine hand-placed anchor -- everything else (all
-# other ICs/connectors/discretes/passives) is grid-packed into per-block
-# fill zones below, sized from real measured footprint area and positioned
-# to clear 3 hard exclusions: the ESP32-S3 antenna keepout (built into the
-# stock footprint), the motor's centre courtyard (~21mm radius), and the
-# battery holder footprint. (First attempt hand-placed ~54 anchors from a
-# paper floor plan; a real overlap/keepout checker found 1000+ collisions,
-# because eyeballed mm-level spacing without a live renderer is unreliable
-# at this component count. Reducing to 4 true anchors -- the ones with an
-# actual mechanical/RF constraint -- and grid-packing the rest against
-# verified-safe rectangles is what actually converges.)
+# v2 (2026-07-21): rebuilt for real clearance after the first pass packed
+# everything with a 0.6mm gap -- correct on paper (0 DRC clearance
+# violations) but not actually buildable: no room to hand-solder, no
+# routing channel between parts, and connectors close enough to look
+# merged. This version widens every zone, adds real gaps BETWEEN zones
+# (not just within them), and gives connectors 1.5x the local gap (see
+# grid_fill). It also moves 5 of the 7 on-board NeoPixels off-board onto a
+# 3-pin breakout (J12) per schematic rev, and fixes microSD (J6) orientation
+# -- verified empirically (see PCB_NOTES.md) rather than assumed.
 ANCHORS = {
     # ---- FRONT: dial side ----
     "U14": (55.0, 23.0, 0, "F"),          # homing sensor, 12 o'clock, 32mm from centre
-    "D40": (18.6, 76.0, 0, "F"),          # status row (bottom arc, r=42mm)
-    "D41": (34.0, 91.4, 0, "F"),
-    "D42": (55.0, 97.0, 0, "F"),
-    "D43": (76.0, 91.4, 0, "F"),
-    "D44": (91.4, 76.0, 0, "F"),
-    "D45": (13.0, 55.0, 0, "F"),          # dial-wash, 9 o'clock
-    "D46": (97.0, 55.0, 0, "F"),          # dial-wash, 3 o'clock
-    # per-pixel decoupling: FRONT, offset next to its LED (the back, at the
-    # same XY, is the battery holder under the bottom arc -- see PCB_NOTES.md)
-    "C230": (23.6, 76.0, 0, "F"),
-    "C231": (39.0, 91.4, 0, "F"),
-    "C232": (60.0, 97.0, 0, "F"),
-    "C233": (81.0, 91.4, 0, "F"),
-    "C234": (96.4, 76.0, 0, "F"),
-    "C235": (13.0, 60.0, 0, "F"),
-    "C236": (97.0, 60.0, 0, "F"),
+    "D40": (13.0, 55.0, 0, "F"),          # on-PCB pixel 1 (chain pos 1), 9 o'clock
+    "D41": (97.0, 55.0, 0, "F"),          # on-PCB pixel 2 (chain pos 2), 3 o'clock
+    # per-pixel decoupling for D40/D41: BACK, near (not exactly behind --
+    # (13,55)/(97,55) fall inside the POWER/MOTORDRV zone rects, and DRC
+    # caught a real short risk against whatever the packer put there) --
+    # verified clear of every other placed footprint (see PCB_NOTES.md).
+    "C230": (18.0, 48.0, 0, "B"),
+    "C231": (103.0, 51.0, 0, "B"),
 
-    # ---- BACK: the 4 parts with a real mechanical/RF constraint ----
+    # ---- BACK: parts with a real mechanical/RF/access constraint ----
     "U8": (27.0, 15.0, 0, "B"),            # ESP32-S3-WROOM-1: antenna -> top edge
     "Y1": (42.0, 15.0, 90, "B"),           # crystal: must sit close to U8
-    "J6": (100.0, 25.0, 90, "B"),          # microSD: needs a board-edge slot
-    "J3": (104.0, 66.0, 0, "B"),           # speaker: clear of D44/D46 (front LEDs)
+    # microSD: card slot must open onto a free board edge, not "inward".
+    # Rotation verified empirically per-footprint (see PCB_NOTES.md) --
+    # rot=270 on the flipped/back footprint puts the slot mouth at +X (this
+    # footprint's contacts and its slot are on opposite sides, and which
+    # world direction "opposite the contacts" ends up pointing at depends
+    # on the flip+rotation combination, not just rotation alone).
+    "J6": (100.0, 93.0, 270, "B"),
     "M1": (55.0, 61.0, 0, "B"),            # motor: corrected to true centre at runtime
 }
 
@@ -166,72 +161,113 @@ ANCHORS = {
 #   EXCL_U8      -- ESP32 module body + its built-in antenna keepout zone
 #   EXCL_MOTOR   -- motor courtyard, as a centre circle
 #   EXCL_BATTERY -- battery holder footprint
+#   EXCL_J6      -- microSD socket + card-slot mouth (measured, +margin)
 EXCL_U8 = (2.0, 0.0, 52.0, 26.0)
-EXCL_MOTOR_R = 21.0  # circle at (CX, CY)
+# Motor courtyard circle: NOT centred on the shaft (CX,CY). The footprint's
+# own anchor point -- which is also its courtyard circle's centre -- sits
+# 6mm above the shaft in local coordinates (shaft pad is at local (0,-6)),
+# and that offset survives the flip-to-back unchanged (flip mirrors about
+# the anchor itself). M1 is placed at (55,61) precisely so the SHAFT lands
+# at (55,55); the courtyard is therefore centred at (55,61), not (55,55).
+# (Found via DRC: 3 "courtyard overlap" hits against AUDIO_EXT parts ~17mm
+# from (55,55) but genuinely inside the true, (55,61)-centred courtyard.)
+MOTOR_COURTYARD_CENTER = (CX, CY + 6.0)
+EXCL_MOTOR_R = 19.0  # ~2.3mm margin over the true 16.7mm courtyard radius
 EXCL_BATTERY = (5.0, 84.0, 85.0, 108.0)
+EXCL_J6 = (88.0, 82.0, 111.0, 103.0)
 
 # Fill zones for every other part (all other ICs/connectors/discretes plus
 # every R/C/RT), grouped by the same functional block the schematic itself
-# uses (b_*.py generators). Rectangles chosen + verified (see
-# verify_zones() below) to clear the exclusions above and each other.
+# uses (b_*.py generators). Rectangles verified (see verify_zones() below)
+# clear of the exclusions above, AND of each other with a real >=4mm gap
+# in between -- that gap is the routing channel between blocks, and also
+# where the two solid inner-layer GND pours get real width to work with
+# instead of being squeezed to nothing between adjacent component courtyards.
 FILL_ZONES = {
-    "MCU": {
-        "rect": (2.0, 28.0, 40.0, 36.0),
-        "refs": ["C140", "C141", "C142", "C143", "C144", "C145", "C146"],
+    "MCU": {  # decoupling, tucked directly below U8/Y1
+        # x1=46: verified clear of the r=21 circle at this zone's worst
+        # corner (46,36) -- widening further right dips into the circle.
+        "rect": (4.0, 29.0, 46.0, 36.0),
+        "refs": ["C140", "C141", "C142", "C143", "C144", "C145", "C146", "R50", "R51"],
+        "gap": 1.5,
     },
-    "MCU2": {  # small verified-safe pocket between the MCU and RAILS_SD zones
-        "rect": (40.0, 26.0, 53.0, 33.0),
-        "refs": ["R50", "R51"],
+    "RAILS_IO": {  # 5V/3.3V/12V boost + knob conn + MCP23017 expander + ext conns
+        # top-right, the whole board's "y<=33" safe arm (any x is motor-circle-
+        # clear up here) -- RAILS and IO_SENSOR were 2 thin zones squeezed by
+        # the circle when split; merged, the packer uses the shared height
+        # far better and both blocks get real room.
+        "rect": (53.0, 3.0, 108.0, 33.0),
+        "refs": (
+            ["U5", "U6", "U7", "L2", "L3", "L4", "D20", "J10", "J2", "SW1", "SW2"]
+            + [f"C{n}" for n in range(120, 136)] + [f"R{n}" for n in range(40, 49)]
+            + ["U13", "J7", "J11", "R62", "R97", "R98", "R99"]
+            + [f"R{n}" for n in range(90, 100)] + [f"R{n}" for n in range(111, 116)]
+            + ["C239", "C240", "C241"]
+            + ["C222", "C223", "R70", "R71", "R72"]  # microSD passives -- room here, not AUDIO
+        ),
+        "gap": 1.05,
     },
-    "POWER": {  # POWERIN + CHARGER + PROTECTOR + wake-LED driver + NeoPixel buffer
-        "rect": (2.0, 38.0, 32.0, 82.0),
+    "POWER": {  # POWER-IN + CHARGER + PROTECTOR (USB-C, LT3652, HY2111/AOSD32334C)
+        # left column, capped at x<=33 -- the motor keepout circle (r=21)
+        # reaches to within 21mm of centre (55,55), i.e. x<34 at y=55.
+        "rect": (2.0, 38.0, 33.0, 83.0),
         "refs": (
             ["J1", "U1", "C1", "R1", "R2", "R3", "R4", "D1"]
             + ["U2", "U3", "U4", "F1", "L1", "Q1", "Q2", "Q3", "D10", "D11", "D12", "RT1"]
             + [f"C{n}" for n in (100, 101, 102, 104, 105, 106, 107, 108, 109, 110)]
             + [f"R{n}" for n in range(10, 24)]
-            + ["J9", "Q6", "Q7", "U15", "C237", "C238", "R52",
-               "R104", "R105", "R106", "R107", "R110"]
         ),
+        "gap": 1.2,
     },
-    "RAILS_SD": {
-        # top-right; J6 (microSD anchor) occupies x91.7-108.3, y17.7-32.3,
-        # so full width is available above it (y<17) and J2/SW1/SW2 move to
-        # the small reclaimed corner beside it (RAILS_SD_CORNER).
-        "rect": (53.0, 2.0, 92.0, 17.0),
-        "refs": (
-            ["U5", "U6", "U7", "L2", "L3", "L4", "D20"]
-            + [f"C{n}" for n in range(120, 136)] + [f"R{n}" for n in range(40, 49)]
-            + ["C222", "C223", "R70", "R71", "R72"]
-        ),
-    },
-    "RAILS_SD_CORNER": {  # reclaimed sliver above J6, right of RAILS_SD
-        "rect": (92.0, 2.0, 108.0, 17.0),
-        "refs": ["J2", "SW1", "SW2"],
-    },
-    "IO_SENSOR": {
-        "rect": (53.0, 20.0, 90.0, 34.0),  # X capped below 90 -- J6 (microSD anchor) sits at x91.7-108.3
-        "refs": (
-            ["U13", "J7", "J10", "J11", "C239", "C240", "C241", "R62"]
-            + [f"R{n}" for n in range(90, 100)] + [f"R{n}" for n in range(111, 116)]
-            + ["R97", "R98", "R99"]  # QRE1113GR bias, behind U14 up front
-        ),
+    "WAKE": {  # wake-LED driver FETs + NeoPixel chain head/breakout -- reclaimed
+        # pocket between RAILS_IO and MOTORDRV: y>=33 clears RAILS_IO, x>=76
+        # is unconditionally clear of the r=21 circle for any y here, y<=44
+        # clears MOTORDRV.
+        "rect": (76.0, 33.0, 108.0, 44.0),
+        "refs": ["J9", "J12", "Q6", "Q7", "U15", "R52", "R104", "R105", "R106", "R107",
+                 "R110", "C237", "C238"],
+        "gap": 1.0,
     },
     "MOTORDRV": {
-        "rect": (78.0, 35.0, 108.0, 58.0),
-        "refs": ["U11", "U12", "C200", "C201", "C202", "C210", "C211", "C212"],
+        "rect": (78.0, 44.0, 108.0, 66.0),
+        "refs": (
+            ["U11", "U12", "C200", "C201", "C202", "C210", "C211", "C212"]
+            # TAS5760M bootstrap caps + PVDD flyback diode + speaker conn:
+            # no room left in AUDIO/AUDIO_EXT once the motor courtyard's
+            # true centre (55,61), not (55,55), was accounted for -- this
+            # zone has real slack (600mm2 allocated, ~280mm2 of actual
+            # parts), so they land here instead.
+            + [f"C{n}" for n in (180, 181, 182, 183, 184, 185, 186)]
+            + ["D30", "J3"]
+        ),
+        "gap": 1.3,
     },
     "AUDIO": {
-        "rect": (78.0, 60.0, 108.0, 82.0),
+        # bottom-right; x0=74 verified clear of the r=21 motor circle at
+        # y=66 (this zone's nearest edge to centre); y1=82 stops at the
+        # microSD keepout (EXCL_J6 starts y=82).
+        # U9 (HTSSOP-32) is 11mm tall -- with the packer's tallest-first
+        # shelf-packing that dominates one whole row, so this zone holds
+        # only the similarly-sized anchors (U9/U10/L5/L6/Q4); everything
+        # smaller moves to AUDIO_EXT, which has real slack, rather than
+        # forcing several more short rows into this zone's tight 16mm height.
+        "rect": (74.0, 68.0, 108.0, 82.0),
+        "refs": ["U9", "U10", "L5", "L6", "Q4"],
+        "gap": 1.0,
+    },
+    "AUDIO_EXT": {
+        # Rest of AUDIO's small parts: a reclaimed strip below the motor,
+        # above the battery. y0=80: with the motor courtyard correctly
+        # centred at (55,61) (not (55,55) -- see MOTOR_COURTYARD_CENTER),
+        # any y>=61+19=80 is unconditionally clear of it for ANY x, which
+        # is what lets this run the full width from POWER's edge (33) to
+        # the battery's edge (85) instead of the old, much narrower strip.
+        "rect": (33.0, 80.0, 73.0, 83.5),
         "refs": (
-            ["U9", "U10", "D30", "L5", "L6", "Q4"]  # J3 hand-anchored below --
-            # grid-fill placed it right under D44 (front LED at 91.4,76): DRC
-            # flagged a real short risk between J3's through-hole pin and
-            # D44's GND pad, both landing near the same XY on F.Cu.
-            + [f"C{n}" for n in (160, 161, 162, 164, 165, 166, 167, 170, 171, 172,
-                                  180, 181, 182, 183, 184, 185, 186)]
+            [f"C{n}" for n in (160, 161, 162, 164, 165, 166, 167, 170, 171, 172)]
             + ["R60", "R61"]
         ),
+        "gap": 0.5,
     },
 }
 
@@ -239,7 +275,7 @@ BT1_POS = (45.0, 96.0)  # battery holder, bottom arm, horizontal
 
 
 def verify_zones():
-    """Sanity-check every fill rect against the 3 hard exclusions and
+    """Sanity-check every fill rect against the 4 hard exclusions and
     against every other fill rect, before spending time on placement."""
     problems = []
     rects = {name: spec["rect"] for name, spec in FILL_ZONES.items()}
@@ -260,7 +296,9 @@ def verify_zones():
             problems.append(f"{name} overlaps EXCL_U8")
         if rects_overlap(r, EXCL_BATTERY):
             problems.append(f"{name} overlaps EXCL_BATTERY")
-        if circle_rect_overlap(CX, CY, EXCL_MOTOR_R, r):
+        if rects_overlap(r, EXCL_J6):
+            problems.append(f"{name} overlaps EXCL_J6")
+        if circle_rect_overlap(MOTOR_COURTYARD_CENTER[0], MOTOR_COURTYARD_CENTER[1], EXCL_MOTOR_R, r):
             problems.append(f"{name} overlaps motor keepout circle")
     for (n1, r1), (n2, r2) in itertools_combinations(list(rects.items())):
         if rects_overlap(r1, r2):
@@ -294,12 +332,17 @@ def add_footprint(board, ref, footprint_field, x, y, rot, side):
     return fp
 
 
-def grid_fill(board, rect, refs, parts):
-    """Row-pack refs (small R/C/RT) into rect on the BACK, using each
-    footprint's real bounding box so mixed 0603/0805/1210/electrolytic
-    sizes pack correctly. Returns list of placed FOOTPRINTs."""
+def grid_fill(board, rect, refs, parts, gap=1.4):
+    """Row-pack refs into rect on the BACK, using each footprint's real
+    bounding box so mixed 0603/0805/1210/electrolytic/IC/connector sizes
+    pack correctly, with real edge-to-edge clearance (`gap`, mm) for hand
+    soldering, routing escape, and reference-designator silkscreen -- the
+    first pass used 0.6mm, which left components touching in places.
+    Connectors (ref starts with "J") get 1.5x extra clearance beyond the
+    zone's base gap: they need real room for the mating cable/plug and
+    silkscreen labelling, and a 0.6mm-spaced connector row was the single
+    biggest complaint on the first layout. Returns list of placed FOOTPRINTs."""
     x0, y0, x1, y1 = rect
-    gap = 0.6
     cx, cy = x0 + gap, y0 + gap
     row_h = 0.0
     placed = []
@@ -336,17 +379,19 @@ def grid_fill(board, rect, refs, parts):
     loaded.sort(key=lambda t: -t[4])
 
     for fp, bx0, by0, w0, h0 in loaded:
-        w = w0 + gap
-        h = h0 + gap
+        extra = gap * 0.5 if fp.GetReference().startswith("J") else 0.0
+        w = w0 + gap + extra
+        h = h0 + gap + extra
         if cx + w > x1:
             cx = x0 + gap
             cy += row_h + gap
             row_h = 0.0
         # fp is currently anchored at (0,0); its pads bbox starts at (bx0,by0)
         # in that same frame, so moving the anchor to (cx-bx0, cy-by0) puts
-        # the bbox's top-left corner exactly at (cx,cy).
-        target_x = cx - bx0
-        target_y = cy - by0
+        # the bbox's top-left corner exactly at (cx,cy) (offset by half the
+        # connector's extra clearance so it's centred in its own cell).
+        target_x = cx - bx0 + extra / 2
+        target_y = cy - by0 + extra / 2
         fp.SetPosition(pcbnew.VECTOR2I(MM(target_x), MM(target_y)))
         cx += w
         row_h = max(row_h, h)
@@ -383,11 +428,12 @@ def set_board_outline(board, size):
 
 
 MOUNTING_HOLES = [
-    (8.0, 14.0),    # top-left: nudged off the ESP32 antenna keepout (x3-51,y0-8.25)
-    (102.0, 8.0),   # top-right: clear of RAILS_SD_CORNER
-    (55.0, 80.0),   # bottom-centre: clear strip between the motor and BT1
-    (102.0, 102.0),  # bottom-right: clear of AUDIO zone and BT1
-]
+    (36.0, 36.0),  # between MCU and POWER zones, right of POWER's column
+    (99.0, 12.0),  # RAILS_IO's unused right margin
+    (99.0, 75.0),  # AUDIO/AUDIO_EXT's unused margin
+    (30.0, 78.0),  # AUDIO_EXT's unused margin, above the battery
+]  # all 4 verified clear of every placed footprint + all hard exclusions
+# (see the grid-scan in PCB_NOTES.md) -- one per quadrant for even support.
 
 
 def add_mounting_holes(board, size, gnd_net):
@@ -465,11 +511,9 @@ def main():
 
     # ---- grid-filled passives ----
     for zname, spec in FILL_ZONES.items():
-        placed = grid_fill(board, spec["rect"], spec["refs"], parts)
+        placed = grid_fill(board, spec["rect"], spec["refs"], parts, gap=spec.get("gap", 1.4))
         for fp in placed:
             all_footprints[fp.GetReference()] = fp
-        # undo the blanket flip inside grid_fill for FRONT-only zone? none here;
-        # all fill zones are BACK, matches grid_fill's hard-coded flip.
 
     print(f"placed {len(all_footprints)} footprints (expected {len(parts)})")
 

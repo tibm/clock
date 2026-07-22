@@ -1,20 +1,20 @@
 """Blocks: LED — wake COB drivers (2x AO3400A low-side, 12 V plugged-only)
-and the STATUS + DIAL NeoPixel chain (7x SK6812 RGBW on 5 V, one RMT data
-line through a 74AHCT1G125 3V3->5V buffer). The v0.18 panel string (Cree
-CLM3C x12 + Q5) was dropped 2026-07-19 with the display.
+and the DIAL NeoPixel head (2x SK6812 RGBW on-PCB + a 3-pin breakout for
+5 more off-board, one RMT data line through a 74AHCT1G125 3V3->5V buffer).
+The v0.18 panel string (Cree CLM3C x12 + Q5) was dropped 2026-07-19 with
+the display. 2026-07-21: the 5 status pixels (ex-D40..D44) moved off-board
+(J12) so they can be placed around the dial by hand-wiring instead of
+fighting for PCB-edge space; D40/D41 (ex-D45/D46, renumbered to close the
+gap) stay on-board as chain positions 1-2, feeding J12 pin 2 (DATA) for
+positions 3-7 in series off-board.
 The +12V wire arrives on the x=281.94 column from the rails block.
 PWM/data lines come from the MCU as labels (long runs). Per led.md / pv §8.
 """
 U = 2.54
 
-PIXELS = [  # (ref, x, caption)  pitch 20.32, row y = 546.10
-    ("D40", 248.92, "BELL"),
-    ("D41", 269.24, "ALARM"),
-    ("D42", 289.56, "CLOCK"),
-    ("D43", 309.88, "VOL"),
-    ("D44", 330.20, "BATT"),
-    ("D45", 350.52, "DIAL1"),
-    ("D46", 370.84, "DIAL2"),
+PIXELS = [  # (ref, x, caption)  pitch 20.32, row y = 546.10 -- chain pos 1-2
+    ("D40", 248.92, "DIAL1"),
+    ("D41", 269.24, "DIAL2"),
 ]
 
 
@@ -62,11 +62,11 @@ def build(s):
     s.text("Wake COB strips are self-ballasted (12 V, plugged-only): firmware", 185, 491, size=1.3)
     s.text("gates their PWM off on battery.  ~1 kHz, gamma; LED + audio <= ~12 W.", 185, 495.5, size=1.3)
 
-    # ================= STATUS + DIAL NEOPIXELS (5 V) =================
-    s.frame(180, 512, 395, 585, "STATUS + DIAL NEOPIXELS - 7x SK6812 RGBW (5 V)")
-    s.text("Pixels 1-5 = status row behind the face holes (red/white semantics),", 185, 521, size=1.3)
-    s.text("6-7 = dial wash.  One RMT data line; AHCT buffer lifts 3V3 -> 5 V", 185, 525.5, size=1.3)
-    s.text("(SK6812 VIH = 0.7*VDD = 3.5 V).  <=0.6 A worst-case all-white.", 185, 530, size=1.3)
+    # ================= DIAL NEOPIXEL HEAD (5 V) =================
+    s.frame(180, 512, 395, 600, "DIAL NEOPIXEL HEAD - 2x on-PCB + 5x off-board via J12 (5 V)")
+    s.text("D40/D41 = on-PCB dial wash (chain pos 1-2). J12 breaks the chain out", 185, 521, size=1.3)
+    s.text("for 5 more pixels wired off-board (status row, chain pos 3-7). One RMT", 185, 525.5, size=1.3)
+    s.text("data line; AHCT buffer lifts 3V3 -> 5V (SK6812 VIH = 0.7*VDD = 3.5V).", 185, 530, size=1.3)
 
     # ---- 3V3 -> 5V data buffer (SN74AHCT1G125, SOT-23-5) ----
     U15 = s.comp("U15", "clock:74AHCT1G125", 218.44, 546.10,
@@ -102,25 +102,36 @@ def build(s):
     s.route(R110, "2", leds[0], "2", "H")            # into DIN of pixel 1
     for a, b in zip(leds, leds[1:]):
         s.route(a, "4", b, "2", "H")                 # DOUT -> next DIN
-    s.nc(leds[-1], "4")                              # last DOUT open
 
-    # +5V bus (top) + GND bus (bottom)
-    s.w((246.38, 535.94), (370.84, 535.94))
+    # ---- J12: 3-pin breakout for the 5 off-board pixels (chain pos 3-7) ----
+    J12 = s.comp("J12", "Connector_Generic:Conn_01x03", 300.99, 546.10,
+                value="NeoPixel ext (5V/DATA/GND, pos 3-7)",
+                footprint="Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical",
+                refpos=(305.79, 539.75, "left"), valpos=(305.79, 592.0, "left"))
+    s.route(leds[-1], "4", J12, "2", "H")             # last on-board DOUT -> DATA
+    s.rail(J12, "1", "+5V", rise=2.54)
+    s.gnd(J12, "3", drop=2.54)
+
+    # +5V bus (top) + GND bus (bottom) -- spans exactly D40..D41's VDD/VSS
+    # stubs (269.24 = D41's x); C237/decoupling tap the rail via s.rail()
+    # power-symbol flags, not a wire stub, so the bus doesn't need to reach them.
+    s.w((246.38, 535.94), (269.24, 535.94))
     s.power_at(246.38, 533.40, "+5V")
     s.w((246.38, 533.40), (246.38, 535.94))
-    s.w((246.38, 556.26), (370.84, 556.26))
+    s.w((246.38, 556.26), (269.24, 556.26))
     s.w((246.38, 556.26), (246.38, 558.80))
     s.power_at(246.38, 558.80, "GND")
 
-    # per-pixel decoupling (layout: one 100nF at every pixel VDD) + bulk
-    for i, x in enumerate([254.00, 264.16, 274.32, 284.48, 294.64, 304.80, 314.96]):
+    # per-pixel decoupling (100nF at each on-board pixel's VDD) + bulk
+    for i, x in enumerate([254.00, 264.16]):
         c = s.C(f"C23{i}", x, 571.50, "100nF",
                 refpos=(x - 1.02, 566.42, "right"), valpos=(x + 1.4, 566.42, "left"))
         s.rail(c, "1", "+5V", rise=0)
         s.gnd(c, "2", drop=0, show_value=False)
-    C237 = s.CP("C237", 327.66, 571.50, "100uF",
-                refpos=(326.64, 566.42, "right"), valpos=(329.06, 566.42, "left"))
+    C237 = s.CP("C237", 280.67, 571.50, "100uF",
+                refpos=(279.65, 566.42, "right"), valpos=(282.07, 566.42, "left"))
     s.rail(C237, "1", "+5V", rise=0)
     s.gnd(C237, "2", drop=0, show_value=False)
-    s.text("Layout: status row pitch = face-plate hole pitch; C230-236 one at each", 185, 578.5, size=1.3)
-    s.text("pixel VDD; C237 bulk + R110 + U15 at the chain head.", 185, 583, size=1.3)
+    s.text("Layout: D40/D41 = dial wash either side of the shaft. C230/231 one at", 185, 578.5, size=1.3)
+    s.text("each pixel VDD; C237 bulk + R110 + U15 at the chain head. J12 feeds", 185, 583, size=1.3)
+    s.text("5 more SK6812 wired off-board in series (chain pos 3-7), same rail.", 185, 587.5, size=1.3)

@@ -36,10 +36,13 @@ checklist, and verification results.
   2026-07-19 — port exits the back wall, no extension), J2 PROG, J3 speaker,
   J6 microSD, J7 **sensor board** (I²C + INT), J9 wake-LED strips,
   J10 **knob** (EM14 encoder + switch, top face), J11 **radio-off toggle**
-  (rear), BT1 cell holder. The **X40.879 stepper is on-board (M1)** since
+  (rear), J12 **off-board status NeoPixels** (2026-07-21, see below), BT1
+  cell holder. The **X40.879 stepper is on-board (M1)** since
   2026-07-17 — soldered to the PCB, shafts through a board hole (J4
   dropped). *(J5 display FPC + J8 panel string removed 2026-07-19 with the
-  display; the 7 status/dial NeoPixels are on-board D40–D46.)*
+  display; of the 7 status/dial NeoPixels, only D40/D41 — dial wash, chain
+  pos 1-2 — are on-board; pixels 3-7 (status row) wire out through **J12**,
+  a 3-pin JST-PH breakout, since 2026-07-21 — see `PCB_NOTES.md`.)*
 - **J10 knob connector** (reworked 2026-07-19/20 for the EM14 optical
   encoder): JST **ZH** 1×06 **B6B-ZR** — same family as J7, so ONE cheap
   pre-crimped ZH↔ZH cable type (A06ZR06ZR28H102B-style) serves both.
@@ -121,6 +124,14 @@ R111/R112 + R114/R115, ENC_SW RC R113/C239 → IO17), **J11 radio toggle**
 adapted vendor footprint; J7/J10/J11 standardized on JST ZH 2026-07-20).
 ERC still returns only the 2 known-benign items. Every symbol resolves to
 a footprint (stock KiCad or `clock.pretty`) — audited 2026-07-20.
+
+### PCB layout v2 + off-board status pixels (2026-07-21)
+The 5 status NeoPixels (ex-D40–D44) moved off-board onto a new 3-pin
+JST-PH breakout, **J12** (`+5V`/`DATA`/`GND`) — the PCB layout couldn't
+give them real component spacing without crowding every other block (see
+`PCB_NOTES.md`). Only the 2 dial-wash pixels stay on-board, renumbered
+**D40/D41** (chain positions 1–2, no gap in the BOM) at 9 & 3 o'clock;
+`gen/b_led.py` updated, ERC still returns only the 2 known-benign items.
 
 ## Regenerating
 ```
