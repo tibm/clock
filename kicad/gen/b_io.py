@@ -130,6 +130,12 @@ def build(s):
     s.pw(R62, "1", ("dy", -1.27))
     s.power_at(535.94, 474.98, "+3V3", show_value=False)
     s.text("+3V3", 536.702, 472.694, size=1.27)
+    # SPK_SD boot-state pulldown (TAS5760M 9.2.1.2.1: SD must be LOW while
+    # supplies ramp; GPA0 is hi-Z at POR). Lives here with R62, joined by
+    # name like the rest of the slow amp lines (added 2026-07-21).
+    R63 = s.R("R63", 556.26, 481.33, "100k")
+    s.glabel_at("SPK_SD", 556.26, 477.52, 180)   # directly on pin 1
+    s.gnd(R63, "2", drop=0)
 
     # ---- knob connector: Bourns EM14A0D-C24-L064S optical encoder (5 V,
     # 64 CPR, no detent) + push switch, off-board on the cube's top face.
@@ -185,7 +191,10 @@ def build(s):
     j10_5 = s.pxy(J10, "5")
     r113_2 = s.pxy(R113, "2")
     s.w(j10_5, (548.64, j10_5[1]), (548.64, r113_2[1]), r113_2)
-    s.glabel_at("ENC_SW", r113_2[0], r113_2[1], 180)  # at R113 pin2 = the row's left end
+    # label on a short stub left of R113 pin 2 so it clears the pin-2
+    # junction (hand-moved in eeschema 2026-07-21)
+    s.w(r113_2, (501.65, r113_2[1]))
+    s.glabel_at("ENC_SW", 501.65, r113_2[1], 180)
     C239 = s.C("C239", 537.21, 556.26, "100nF")   # pin 1 taps the row
     s.pw(C239, "1", ("y", r113_2[1]))
     s.gnd(C239, "2", drop=0)

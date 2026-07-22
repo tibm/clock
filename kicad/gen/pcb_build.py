@@ -215,7 +215,7 @@ FILL_ZONES = {
             ["J1", "U1", "C1", "R1", "R2", "R3", "R4", "D1"]
             + ["U2", "U3", "U4", "F1", "L1", "Q1", "Q2", "Q3", "D10", "D11", "D12", "RT1"]
             + [f"C{n}" for n in (100, 101, 102, 104, 105, 106, 107, 108, 109, 110)]
-            + [f"R{n}" for n in range(10, 24)]
+            + [f"R{n}" for n in range(10, 26)]  # incl. R24/R25 gate pulldowns (2026-07-21)
         ),
         "gap": 1.2,
     },
@@ -264,8 +264,8 @@ FILL_ZONES = {
         # the battery's edge (85) instead of the old, much narrower strip.
         "rect": (33.0, 80.0, 73.0, 83.5),
         "refs": (
-            [f"C{n}" for n in (160, 161, 162, 164, 165, 166, 167, 170, 171, 172)]
-            + ["R60", "R61"]
+            [f"C{n}" for n in (160, 161, 162, 163, 164, 165, 166, 167, 170, 171, 172)]
+            + ["R60", "R61", "R63"]  # C163 AVDD bypass + R63 SPK_SD pulldown (2026-07-21)
         ),
         "gap": 0.5,
     },

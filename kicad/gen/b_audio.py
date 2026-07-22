@@ -34,7 +34,8 @@ def build(s):
     R61 = s.R("R61", 631.19, 252.73, "0R")
     s.pw(U9, "13", ("x", 631.19), ("pin", R61, "1"))
     s.gnd(R61, "2", drop=0)
-    # SPK_SD (expander GPA0) / SPK_FAULT (open-drain, pull-up, GPB6)
+    # SPK_SD (expander GPA0) / SPK_FAULT (open-drain, pull-up, GPB6);
+    # SPK_SD's boot-state pulldown R63 lives in the IO block next to R62
     s.pw(U9, "7", ("x", 666.75))
     s.glabel_at("SPK_SD", 666.75, 247.65, 180)
     s.pw(U9, "6", ("x", 652.78))
@@ -43,6 +44,13 @@ def build(s):
     # ---- supplies + reg bypass (staggered caps below-left) ----
     C161 = s.C("C161", 638.81, 288.29, "100nF")          # DVDD
     s.gnd(C161, "2", drop=0)
+    # AVDD gets its own 100nF (datasheet: 0.1uF close to EACH supply pin;
+    # C162 10uF alone left AVDD without a local HF bypass). x=629.92 +
+    # right-justified texts keep it clear of C161's (cosmetics-pinned) labels
+    C163 = s.C("C163", 629.92, 288.29, "100nF",
+               refpos=(628.65, 286.89, "right"), valpos=(628.65, 289.69, "right"))
+    s.pw(C163, "1", ("y", 280.67), ("x", 633.73))
+    s.gnd(C163, "2", drop=0)
     C160 = s.C("C160", 648.97, 288.29, "1uF")            # GVDD_REG
     s.gnd(C160, "2", drop=0, show_value=False)
     C162 = s.C("C162", 643.89, 306.07, "10uF", fp="C0805")   # AVDD

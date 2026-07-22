@@ -12,9 +12,12 @@ PWM/data lines come from the MCU as labels (long runs). Per led.md / pv §8.
 """
 U = 2.54
 
-PIXELS = [  # (ref, x, caption)  pitch 20.32, row y = 546.10 -- chain pos 1-2
-    ("D40", 248.92, "DIAL1"),
-    ("D41", 269.24, "DIAL2"),
+PIXELS = [  # (ref, x, caption, caption_at)  pitch 20.32, row y = 524.51 --
+    # chain pos 1-2. x matches the harvested (cosmetics.py) positions; the
+    # captions were hand-placed next to each ref in eeschema 2026-07-21, so
+    # their coordinates are absolute (free text is NOT harvested).
+    ("D40", 306.07, "DIAL1", (307.34, 517.652)),
+    ("D41", 326.39, "DIAL2", (328.422, 517.906)),
 ]
 
 
@@ -85,13 +88,12 @@ def build(s):
     s.glabel_at("NEOPIX_DATA", 195.58, 524.51, 180)
     s.rail(U15, "5", "+5V", rise=2.54)               # VCC = 5 V
     s.gnd(U15, "3", drop=2.54)
-    # /OE tied low (always enabled): GND flag right at the pin. rot=0 (the
-    # default) -- a GND glyph always hangs below its own connection point
-    # regardless of which way the incoming wire runs; rot=180 (the
-    # previous value here) draws it upside down. Flagged by inspection
-    # 2026-07-22: every other GND flag in this codebase uses rot=0.
-    s.pw(U15, "1", ("dy", -2.54))
-    s.power_at(275.59, 511.81, "GND")
+    # /OE tied low (always enabled). Dogleg right so the GND glyph (rot=0,
+    # hangs below its connection point) lands beside the pin instead of
+    # upside-down above it / overlapping the stub (hand-tuned in eeschema
+    # 2026-07-21).
+    s.pw(U15, "1", ("dy", -1.27), ("x", 279.4), ("y", 514.35))
+    s.power_at(279.4, 514.35, "GND")
     C238 = s.C("C238", 233.68, 543.56, "100nF")
     s.rail(C238, "1", "+5V", rise=0)
     s.gnd(C238, "2", drop=0, show_value=False)
@@ -102,14 +104,14 @@ def build(s):
 
     # ---- the chain: DIN <- prev DOUT, VDD/VSS on shared bus rows ----
     leds = []
-    for ref, x, cap in PIXELS:
+    for ref, x, cap, cap_at in PIXELS:
         d = s.comp(ref, "LED:SK6812", x, 524.51, value="SK6812RGBW",
                    footprint="LED_SMD:LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm",
                    refpos=(x - 4.57, 518.16, "left"), valpos=(x - 4.57, 520.70, "left"),
                    show_value=False)
         s.pw(d, "3", ("y", 514.35))                  # VDD stub -> +5V bus
         s.pw(d, "1", ("y", 534.67))                  # VSS stub -> GND bus
-        s.text(cap, x - 2.54, 538.48, size=1.3)
+        s.text(cap, *cap_at, size=1.3)
         leds.append(d)
     s.route(R110, "2", leds[0], "2", "H")            # into DIN of pixel 1
     for a, b in zip(leds, leds[1:]):

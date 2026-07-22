@@ -243,10 +243,13 @@ def build():
         [P(3, "VIN", "L", 0, "passive"), P(4, "EN", "L", 1, "input"),
          P(5, "SS", "L", 2, "input"), P(6, "SYNC", "L", 3, "input"),
          P(9, "FB", "L", 4, "input"), P(10, "FREQ", "L", 5, "input"),
-         P(7, "COMP", "L", 6, "passive"),
+         # HTSSOP-14 (Table 5-1): AGND=7, COMP=8 (pin swap fixed 2026-07-21;
+         # they were reversed, which grounded COMP -> the boost never starts).
+         # NC (11) is "reserved, must be connected to ground" -> passive.
+         P(8, "COMP", "L", 6, "passive"),
          P(1, "SW", "R", 0, "passive"), P(2, "SW", "R", 1, "passive"),
-         P(11, "NC", "R", 2, "no_connect"),
-         P(8, "AGND", "R", 4, "power_in"),
+         P(11, "NC", "R", 2, "passive"),
+         P(7, "AGND", "R", 4, "power_in"),
          P(12, "PGND", "R", 5, "power_in"), P(13, "PGND", "R", 6, "power_in"),
          P(14, "PGND", "B", 0, "power_in"), P("15", "PAD", "B", 1, "power_in")],
         description="5A/40V boost converter (12V audio+wake rail)", width=17.78))

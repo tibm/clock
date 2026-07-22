@@ -98,6 +98,13 @@ def build(s):
     s.gnd(Q1, "2", drop=0)                               # source
     s.pw(Q1, "1", ("x", 320.04))                         # gate
     s.glabel_at("FULLCHG_EN", 320.04, 134.62, 180)
+    # gate pulldown: MCP23017 is hi-Z at POR -> without it the gate floats
+    # and the 4.05 V "fixed in HW" charge cap isn't guaranteed at boot.
+    # x=336.55 keeps its texts clear of Q1's "2N7002" value string.
+    R24 = s.R("R24", 336.55, 139.70, "100k",
+              refpos=(335.53, 138.30, "right"), valpos=(335.53, 141.10, "right"))
+    s.pw(R24, "1", ("y", 134.62))
+    s.gnd(R24, "2", drop=0)
     # bus-side caps + TVS
     C106 = s.C("C106", 364.49, 110.49, "10uF", fp="C0805")
     s.pw(C106, "1", ("x", 358.14))
@@ -149,6 +156,11 @@ def build(s):
     s.gnd(Q3, "2", drop=0)
     s.pw(Q3, "1", ("x", 73.66))
     s.glabel_at("VBAT_DIV_EN", 73.66, 228.60, 180)
+    # gate pulldown (expander hi-Z at POR): divider defaults to disconnected
+    R25 = s.R("R25", 67.31, 233.68, "100k",
+              refpos=(66.29, 232.28, "right"), valpos=(66.29, 235.08, "right"))
+    s.pw(R25, "1", ("y", 228.60), ("x", 73.66))
+    s.gnd(R25, "2", drop=0)
 
     # cell- -> protector dual FET (S1) ; S2 -> TCO -> GND (PACK-)
     U4 = s.comp("U4", "clock:AOSD32334C", 80.01, 246.38, value="AOSD32334C",

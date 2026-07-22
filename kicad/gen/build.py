@@ -31,8 +31,16 @@ def normalize(path):
         print(f"kicad-cli upgrade FAILED:\n{r.stdout}\n{r.stderr}")
         return False
     with open(path) as f:
-        head = f.read(200)
-    ver = head.split("(version", 1)[1].split(")")[0].strip() if "(version" in head else "?"
+        txt = f.read()
+    # eeschema (GUI) appends a top-level (embedded_fonts no) on save but
+    # kicad-cli sch upgrade omits it -- add it so a GUI re-save stays
+    # zero-diff. (Deeper-indented ones inside lib_symbols don't count.)
+    if "\n\t(embedded_fonts" not in txt and txt.rstrip().endswith(")"):
+        txt = txt.rstrip()[:-1].rstrip() + "\n\t(embedded_fonts no)\n)\n"
+        with open(path, "w") as f:
+            f.write(txt)
+    ver = txt[:200].split("(version", 1)[1].split(")")[0].strip() \
+        if "(version" in txt[:200] else "?"
     print(f"normalized via kicad-cli: format version {ver}")
     return True
 

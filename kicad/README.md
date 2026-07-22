@@ -125,6 +125,30 @@ adapted vendor footprint; J7/J10/J11 standardized on JST ZH 2026-07-20).
 ERC still returns only the 2 known-benign items. Every symbol resolves to
 a footprint (stock KiCad or `clock.pretty`) — audited 2026-07-20.
 
+### Electrical review fixes (2026-07-21, full netlist audit vs datasheets)
+1. **TPS55340 pin swap — CRITICAL, was fab-fatal:** the custom symbol had
+   COMP=7 / AGND=8; the PWP (HTSSOP-14) package is **AGND=7, COMP=8**
+   (datasheet Table 5-1). As drawn, COMP was hard-grounded and AGND floated
+   at DC through the comp network → the 12 V boost would never start.
+   Symbol (`mksym.py`) + `b_rails.py` pin refs swapped (visual layout
+   unchanged). **NC (pin 11)** is "reserved — must be connected to ground"
+   → now ties into the AGND/PGND column (was a no-connect X).
+2. **Boot-state pulldowns added** — the MCP23017 is hi-Z at POR, so every
+   FET/enable it drives floated until firmware config: **R24** 100 k
+   (Q1 gate, `FULLCHG_EN` — keeps the 4.05 V charge cap genuinely
+   "fixed in HW" at boot), **R25** 100 k (Q3 gate, `VBAT_DIV_EN`),
+   **R63** 100 k (TAS5760M `SPK_SD` — §9.2.1.2.1 requires SD LOW while
+   supplies ramp; R63 sits next to R62 in the IO block, joined by name).
+   TB6612 STBY needs none (internal 200 k pulldowns); `BOOST12_EN`
+   already had R44.
+3. **C163** 100 nF added (TAS5760M AVDD): AVDD and DVDD now each have
+   their own HF bypass (datasheet wants 0.1 µF per supply pin; AVDD
+   previously had only the shared 10 µF).
+4. Pin-number audit against datasheet PDFs: LT3652 (MSE), TPS61023 (DRL),
+   TLV62569 (DBV), LTC4412 (S6), AOSD32334C (SO-8), TAS5760M (DAP-32),
+   CH224K (ESSOP-10), ESP32-S3-WROOM-1 pad map, MCP23017 (SSOP), TB6612 —
+   all correct; TPS55340 was the only mismatch (item 1).
+
 ### PCB layout v2 + off-board status pixels (2026-07-21)
 The 5 status NeoPixels (ex-D40–D44) moved off-board onto a new 3-pin
 JST-PH breakout, **J12** (`+5V`/`DATA`/`GND`) — the PCB layout couldn't
@@ -142,13 +166,20 @@ then `python3 harvest.py` — it re-extracts every symbol's position and
 ref/value text placement into `cosmetics.py`, which `build.py` applies on
 top of the block code (wires are still drawn by `b_*.py`, so if you MOVE a
 symbol far enough to need rewiring, fix the block file — lint flags it).
+⚠ **harvest.py captures ONLY symbol `at` + Reference/Value text.** Free
+text (`s.text`), global labels and #PWR/#FLG glyphs are **not** harvested —
+hand-moves of those must be ported into the block file or the next build
+reverts them (bit us 2026-07-21: DIAL1/2 captions, the U15 /OE GND dogleg
+and the ENC_SW stub — all now encoded in `b_led.py`/`b_io.py`).
 `clock.kicad_pro` is only written if missing (eeschema owns it after that);
 `sym-lib-table` / `fp-lib-table` are rewritten each build.
 `build.py` finishes by normalizing the sheet through **`kicad-cli sch
 upgrade`** (needs KiCad 10 installed), so the file on disk is in the current
 KiCad format with canonical ordering and **stable per-pin uuids** — opening
 and saving in eeschema produces **zero diff**, and rebuilds are
-byte-reproducible.
+byte-reproducible. (It also re-appends the top-level `(embedded_fonts no)`
+that eeschema writes but `kicad-cli sch upgrade` drops — added 2026-07-21
+to keep the GUI round-trip zero-diff.)
 `sch2.py` — manual-placement builder (explicit wires; eeschema-rule
 junctions; collinear-wire merge; lint) · `b_*.py` — one file per block (all
 coordinates hand-chosen, 1.27 mm grid) · `mksym.py` — custom symbols.

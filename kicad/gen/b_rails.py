@@ -136,9 +136,9 @@ def build(s):
               refpos=(221.21, 332.61, "right"), valpos=(221.21, 335.41, "right"))
     s.pw(U7, "10", ("pin", R47, "1"))
     s.gnd(R47, "2", drop=1.27)
-    # COMP: R48 + C134 series to GND, C135 parallel
+    # COMP (pin 8 -- datasheet Table 5-1): R48 + C134 series to GND, C135 parallel
     R48 = s.R("R48", 234.95, 349.25, "2.55k")
-    s.pw(U7, "7", ("x", 234.95), ("pin", R48, "1"))
+    s.pw(U7, "8", ("x", 234.95), ("pin", R48, "1"))
     C134 = s.C("C134", 234.95, 356.87, "100nF")
     s.gnd(C134, "2", drop=0)
     C135 = s.C("C135", 245.11, 353.06, "100pF")
@@ -150,15 +150,16 @@ def build(s):
     R45 = s.R("R45", 273.05, 364.49, "86.6k")
     s.pw(U7, "9", ("x", 227.33), ("y", 368.30), ("px", R45, "2"))
     s.pw(R45, "1", ("y", 341.63), ("x", 281.94))
-    # grounds (right side tie + bottom pad)
-    s.pw(U7, "8", ("x", 271.78))
+    # grounds (right side tie + bottom pad); NC (11) is reserved-must-ground
+    # per Table 5-1, so it joins the AGND (7) / PGND (12,13) tie column
+    s.pw(U7, "11", ("x", 271.78))
+    s.pw(U7, "7", ("x", 271.78))
     s.pw(U7, "12", ("x", 271.78))
     s.pw(U7, "13", ("x", 271.78))
-    s.w((271.78, 327.66), (271.78, 335.28))
+    s.w((271.78, 322.58), (271.78, 335.28))
     s.power_at(271.78, 335.28, "GND")
     s.gnd(U7, "14", via=0)
     s.pw(U7, "15", ("dy", 2.54), ("px", U7, "14"))
-    s.nc(U7, "11")
     s.text("PLUGGED-ONLY: firmware asserts BOOST12_EN only while PD_PG is live.",
            185, 380, size=1.3)
     s.text("~12 W ceiling from 1S input: wake LEDs + audio share it.", 185, 375.5, size=1.3)
