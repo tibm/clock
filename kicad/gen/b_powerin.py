@@ -56,8 +56,12 @@ def build(s):
     s.gnd(D1, "2", drop=2.54, via=0)
 
     # --- CH224K ---
+    # ESSOP-10 (WCH): 3.9x4.9 body, 1.0 pitch, GND = exposed belly pad ONLY
+    # (pin 11) -- the stock symbol's default footprint. 2026-07-23: was
+    # wrongly overridden to TSSOP-10_3x3 (no EP -> U1 had NO ground; wrong
+    # pitch), caught by the PCB build's pad->net assignment.
     U1 = s.comp("U1", "Interface_USB:CH224K", 106.68, 81.28, value="CH224K",
-                footprint="Package_SO:TSSOP-10_3x3mm_P0.5mm",
+                footprint="Package_SO:SSOP-10-1EP_3.9x4.9mm_P1mm_EP2.1x3.3mm",
                 refpos=(96.52, 64.77, "right"), valpos=(96.52, 67.31, "right"))
     s.route(J1, "A5", U1, "7", "H")         # CC1
     s.route(J1, "B5", U1, "6", "H")         # CC2

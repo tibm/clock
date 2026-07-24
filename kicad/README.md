@@ -8,10 +8,12 @@ Open **`clock.kicad_pro`**. The sheet is **generated** by the Python code in
 
 **`clock.kicad_pcb`** (110×110mm, 4-layer) is likewise generated —
 by `gen/pcb_build.py`, run under KiCad's own bundled Python (`pcbnew`
-scripting), not by hand in the PCB editor. Full placement + stackup +
-zones + keepouts + net assignment; routing is not done. See
-[`PCB_NOTES.md`](PCB_NOTES.md) for the placement rationale, constraint
-checklist, and verification results.
+scripting), not by hand in the PCB editor. **v3 (2026-07-23)**: full
+per-part functional placement (every part hand-seeded at the pins it
+serves + bounded clearance relaxation + locality proof) + stackup + GND
+zones + keepouts + net assignment + collision-avoiding silkscreen;
+routing is not done. See [`PCB_NOTES.md`](PCB_NOTES.md) for the placement
+rationale, constraint checklist, and verification results.
 
 ## Page map
 
@@ -167,6 +169,17 @@ a footprint (stock KiCad or `clock.pretty`) — audited 2026-07-20.
    distinguishes a full cell (no step) from an empty back-fed holder
    (~0.3–0.4 V body-diode step). POR-safe defaults; plugged-only use.
    Docs: `esp32.md` (IO1 + GPB7 rows), `power.md`, `power_values.md` §6.
+
+### CH224K footprint fix (2026-07-23, found by the PCB v3 build)
+**U1 was fab-fatal as drawn**: `b_powerin.py` overrode the stock symbol's
+footprint with `TSSOP-10_3x3mm_P0.5mm`, but the CH224K is **ESSOP-10**
+(3.9×4.9 mm body, **1.0 mm** pitch) whose **only GND is the exposed belly
+pad** (pin 11) — so U1 had no ground at all *and* the wrong lead pitch.
+Caught by `pcb_build.py`'s pad→net assignment (pin 11 had no pad to land
+on). Now `Package_SO:SSOP-10-1EP_3.9x4.9mm_P1mm_EP2.1x3.3mm` — the
+symbol's own default. ERC unchanged (2 known-benign). ⚠ verify the EP
+land vs the WCH drawing before fab; give the EP thermal vias so it can be
+soldered with an iron from the far side (hand-solder rule).
 
 ### PCB layout v2 + off-board status pixels (2026-07-21)
 The 5 status NeoPixels (ex-D40–D44) moved off-board onto a new 3-pin

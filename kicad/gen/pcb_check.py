@@ -9,7 +9,10 @@ import pcbnew
 HERE = os.path.dirname(os.path.abspath(__file__))
 PCB = os.path.join(os.path.dirname(HERE), "clock.kicad_pcb")
 
-CX, CY, KEEPOUT_R = 55.0, 55.0, 20.0  # 1mm margin beyond the ~19mm courtyard
+# Motor courtyard circle: centred on M1's ANCHOR (shaft +6mm in y), NOT on
+# the shaft/board centre -- see pcb_build.py MOTOR_ANCHOR.  r=16.7 courtyard
+# + 0.5 margin.  (Was 20.0 @ (55,55) for the v2 layout: both wrong.)
+CX, CY, KEEPOUT_R = 55.0, 61.0, 17.2
 
 
 def bbox_mm(fp):
