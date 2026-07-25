@@ -114,9 +114,9 @@ def build(s):
     s.pwr_flag(287.02, 309.88)
     # output caps
     s.w((281.94, 309.88), (281.94, 393.70))          # +12V column (branch below)
-    s.w((281.94, 316.23), (304.80, 316.23))
     for ref, x in [("C130", 289.56), ("C131", 297.18), ("C132", 304.80)]:
         c = s.C(ref, x, 320.04, "22uF", fp="C1210")
+        s.pw(c, "1", ("x", 281.94))   # pin1 -> +12V column, pin-relative so it tracks cosmetic moves
         s.gnd(c, "2", drop=0)
     # EN: BOOST12_EN (expander GPA2) + 100k pulldown (off at boot)
     s.pw(U7, "4", ("x", 224.79), ("y", 346.71), ("x", 198.12))

@@ -184,8 +184,6 @@ P("R51", 31.0, 27.0, 90)
 P("J2", 6.0, 11.0, 0)           # 1x4, pin 1 at anchor, pads run +y
 P("SW1", 17.0, 13.2, 90)        # RESET
 P("SW2", 23.0, 13.2, 90)        # BOOT
-# WAKE_COOL pull-down at its U8 pad (49.7,26.5)
-P("R52", 48.0, 29.5, 0)
 # homing-sensor support directly behind U14 (front (55,27)): 150R LED drive,
 # 10k pull-up, 100n filter; HOME_OPTO returns to U8.38 at world (35.25,11.3)
 P("R98", 51.0, 31.8, 0)

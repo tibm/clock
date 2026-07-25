@@ -97,13 +97,14 @@ def build(s):
     Q1 = s.nmos("Q1", 347.98, 134.62, "2N7002")
     s.gnd(Q1, "2", drop=0)                               # source
     s.pw(Q1, "1", ("x", 320.04))                         # gate
-    s.glabel_at("FULLCHG_EN", 320.04, 134.62, 180)
+    s.pw(Q1, "3", ("pin", R16, "2"))                     # drain -> R16 (976k); explicit + pin-relative so both follow moves
+    s.glabel_at("FULLCHG_EN", 320.04, s.pxy(Q1, "1")[1], 180)  # label tracks Q1's gate y
     # gate pulldown: MCP23017 is hi-Z at POR -> without it the gate floats
     # and the 4.05 V "fixed in HW" charge cap isn't guaranteed at boot.
     # x=336.55 keeps its texts clear of Q1's "2N7002" value string.
     R24 = s.R("R24", 336.55, 139.70, "100k",
               refpos=(335.53, 138.30, "right"), valpos=(335.53, 141.10, "right"))
-    s.pw(R24, "1", ("y", 134.62))
+    s.pw(R24, "1", ("y", s.pxy(Q1, "1")[1]))             # tap the Q1 gate net (tracks the move)
     s.gnd(R24, "2", drop=0)
     # bus-side caps + TVS
     C106 = s.C("C106", 364.49, 110.49, "10uF", fp="C0805")
@@ -161,12 +162,12 @@ def build(s):
     Q3 = s.nmos("Q3", 88.90, 228.60, "2N7002")
     s.route(R23, "2", Q3, "3", "V")
     s.gnd(Q3, "2", drop=0)
-    s.pw(Q3, "1", ("x", 73.66))
-    s.glabel_at("VBAT_DIV_EN", 73.66, 228.60, 180)
+    s.pw(Q3, "1", ("x", 73.66), ("y", 219.71), ("x", 78.74))  # gate -> node (R25 taps) -> up/over to the moved label
+    s.glabel_at("VBAT_DIV_EN", 78.74, 219.71, 180)
     # gate pulldown (expander hi-Z at POR): divider defaults to disconnected
     R25 = s.R("R25", 67.31, 233.68, "100k",
               refpos=(66.29, 232.28, "right"), valpos=(66.29, 235.08, "right"))
-    s.pw(R25, "1", ("y", 228.60), ("x", 73.66))
+    s.pw(R25, "1", ("x", 73.66), ("y", 228.60))   # exit pin1 sideways then drop to the net, clear of R25's body
     s.gnd(R25, "2", drop=0)
 
     # ---- CELL_TEST: full-cell vs no-cell discriminator (2026-07-21) ----
@@ -189,8 +190,8 @@ def build(s):
     Q8 = s.nmos("Q8", 139.70, 190.50, "2N7002")
     s.pw(Q8, "3", ("py", R27, "2"))                           # drain joins node A
     s.gnd(Q8, "2", drop=0)
-    s.pw(Q8, "1", ("x", 121.92))                              # gate run left
-    s.glabel_at("CELL_TEST", 121.92, 190.50, 180)
+    s.pw(Q8, "1", ("x", 123.19))                              # gate run left
+    s.glabel_at("CELL_TEST", 123.19, 190.50, 180)
     R26 = s.R("R26", 127.00, 194.31, "100k",                  # Q8 gate pulldown
               refpos=(125.73, 192.91, "right"), valpos=(125.73, 195.71, "right"))
     s.gnd(R26, "2", drop=0)

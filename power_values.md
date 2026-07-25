@@ -113,7 +113,7 @@ Datasheet `boost_12v_audio_tps55340.pdf`. V_REF = **1.229 V**. Datasheet worked 
 | **Knob (EM14A0D-C24-L064S, 5 V)** | A/B outputs are 5 V logic → **divider 100 k series + 200 k → GND** per channel (node ≈ 3.2 V → IO47/48 PCNT; ~67 k source Z is fine at ≤ a few hundred Hz quadrature); **ENC_SW** dry contact → **10 k PU to 3V3 + 100 nF** at IO17 (+ ~5 ms FW debounce) |
 | **I²C pull-ups** | main board **4.7 kΩ ×2** (SDA/SCL) @ 3V3. Sensor breakouts add 10 k each in ∥ — lift their jumpers if the bus gets too strong |
 | **ESP32 EN** | **10 kΩ** PU + **1 µF** to GND (+ optional reset button) |
-| **ESP32 straps** | IO0: **10 kΩ** PU (+ boot button); IO46: **10 kΩ** PD (ensure low at boot); IO3/IO45 use internal straps |
+| **ESP32 straps** | IO0: **10 kΩ** PU (+ boot button); IO45/IO46 (the wake PWM lines) sit low at boot via their AO3400A gate nets (R105/R107 = 100 Ω + 10 k ≈ **10.1 kΩ to GND** at the pin) + the S3 internal strap PD — **no dedicated pulldown** (R52 dropped 2026-07-25 as redundant); IO3 internal |
 
 ---
 

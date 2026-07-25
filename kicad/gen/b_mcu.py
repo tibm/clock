@@ -90,5 +90,5 @@ def build(s):
     s.glabel(U8, "26", "WAKE_WARM_PWM")
     s.glabel(U8, "16", "WAKE_COOL_PWM")
 
-    s.text("IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high, IO46 low (R52,", 410, 48, size=1.3)
-    s.text("at the LED block), IO3/45 internal.  Flash + console + JTAG = USB-CDC (IO19/20).", 410, 53, size=1.3)
+    s.text("IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high; IO45/46 low via", 410, 48, size=1.3)
+    s.text("their wake gate nets + internal PD; IO3 internal.  Flash+console+JTAG = USB-CDC (IO19/20).", 410, 53, size=1.3)

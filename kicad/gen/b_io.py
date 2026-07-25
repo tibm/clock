@@ -134,7 +134,8 @@ def build(s):
     # supplies ramp; GPA0 is hi-Z at POR). Lives here with R62, joined by
     # name like the rest of the slow amp lines (added 2026-07-21).
     R63 = s.R("R63", 556.26, 481.33, "100k")
-    s.glabel_at("SPK_SD", 556.26, 477.52, 180)   # directly on pin 1
+    s.pw(R63, "1", ("x", 580.39), ("y", 449.58))   # pin1 -> SPK_SD label (user placement)
+    s.glabel_at("SPK_SD", 580.39, 449.58, 0)
     s.gnd(R63, "2", drop=0)
 
     # ---- knob connector: Bourns EM14A0D-C24-L064S optical encoder (5 V,

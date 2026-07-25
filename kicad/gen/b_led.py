@@ -40,8 +40,8 @@ def build(s):
     s.gnd(Q6, "2", drop=0)
     R104 = s.R("R104", 304.80, 443.23, "100R", rot=90)
     s.route(R104, "2", Q6, "1", "H")
-    s.pw(R104, "1", ("x", 298.45))
-    s.glabel_at("WAKE_WARM_PWM", 298.45, 443.23, 180)
+    s.pw(R104, "1", ("x", 293.37))
+    s.glabel_at("WAKE_WARM_PWM", 293.37, 443.23, 180)
     R105 = s.R("R105", 308.61, 450.85, "10k")
     s.pw(R105, "1", ("y", 443.23))
     s.gnd(R105, "2", drop=0)
@@ -54,16 +54,14 @@ def build(s):
     s.gnd(Q7, "2", drop=0)
     R106 = s.R("R106", 312.42, 466.09, "100R", rot=90)
     s.route(R106, "2", Q7, "1", "H")
-    s.pw(R106, "1", ("x", 303.53))
-    s.glabel_at("WAKE_COOL_PWM", 303.53, 466.09, 180)
+    s.pw(R106, "1", ("x", 293.37))
+    s.glabel_at("WAKE_COOL_PWM", 293.37, 466.09, 180)
     R107 = s.R("R107", 316.23, 473.71, "10k")
     s.pw(R107, "1", ("y", 466.09))
     s.gnd(R107, "2", drop=0)
-    # IO46 boot-strap pulldown (strap must be low at boot) on the PWM line
-    R52 = s.R("R52", 306.07, 469.9, "10k",
-              refpos=(305.03, 468.5, "right"), valpos=(305.03, 471.3, "right"))
-    s.pw(R52, "1", ("y", 466.09))
-    s.gnd(R52, "2", drop=0)
+    # (R52 IO46-strap 10k PD dropped 2026-07-25 -- redundant: the R106+R107
+    # wake-cool gate net already presents ~10.1k from IO46 to GND at boot,
+    # same as IO45; the S3 internal strap pulldown backs it up.)
 
     s.text("Wake COB strips are self-ballasted (12 V, plugged-only): firmware", 185, 470.68, size=1.3)
     s.text("gates their PWM off on battery.  ~1 kHz, gamma; LED + audio <= ~12 W.", 185, 475.18, size=1.3)
@@ -84,8 +82,8 @@ def build(s):
                  value="SN74AHCT1G125",
                  footprint="Package_TO_SOT_SMD:SOT-23-5",
                  refpos=(267.97, 516.38, "left"), valpos=(254.00, 530.86, "left"))
-    s.pw(U15, "2", ("x", 195.58))                    # A <- MCU (3V3)
-    s.glabel_at("NEOPIX_DATA", 195.58, 524.51, 180)
+    s.pw(U15, "2", ("x", 210.82))                    # A <- MCU (3V3)
+    s.glabel_at("NEOPIX_DATA", 210.82, 524.51, 180)
     s.rail(U15, "5", "+5V", rise=2.54)               # VCC = 5 V
     s.gnd(U15, "3", drop=2.54)
     # /OE tied low (always enabled). Dogleg right so the GND glyph (rot=0,
