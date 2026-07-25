@@ -80,8 +80,11 @@ symbol (standalone, RGBW-compatible pinout).
 | *(removed 2026-07-19)* | ~~`Hirose_FH34SRJ-10S-0.5SH…`~~ J5 display FPC | file kept in `clock.pretty` for a future display variant; no longer referenced |
 
 ## Validation (all automated in `gen/`)
-- `kicad-cli sch erc` → **2 known-benign items**:
-  LT3652 BAT output ↔ VBAT PWR_FLAG, QRE1113 open-emitter ↔ GND flag.
+- `kicad-cli sch erc` → **0 violations (clean)**. The two former "benign"
+  items — LT3652 BAT (Output) ↔ VBAT PWR_FLAG and QRE1113 emitter
+  (Open-emitter) ↔ GND flag — were cleared 2026-07-25 by retyping those two
+  stock-symbol pins to `passive` on embed (`schlib.py` `PIN_TYPE_OVERRIDES`);
+  both are electrically passive taps, so connectivity/netlist are unchanged.
 - `gen/build.py` lint: no dangling wires, no body overlaps, no wires through
   symbols; junctions auto-placed with eeschema's own rules (T-points,
   pin-joins; wires broken at crossing-joins) so a GUI re-save is a no-op.

@@ -250,7 +250,7 @@
 						)
 					)
 				)
-				(pin output line
+				(pin passive line
 					(at 12.7 -2.54 180)
 					(length 2.54)
 					(name "BAT"
@@ -5648,7 +5648,7 @@
 						)
 					)
 				)
-				(pin open_emitter line
+				(pin passive line
 					(at 7.62 -2.54 180)
 					(length 2.54)
 					(name ""

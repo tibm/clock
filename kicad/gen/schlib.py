@@ -12,6 +12,17 @@ STD_SYM_DIR = "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols"
 LOCAL_SYM = os.path.join(os.path.dirname(__file__), "clock_custom.kicad_sym")
 
 
+# Stock-symbol pin-type corrections, applied on embed.  KiCad's ERC errors when
+# a Power-output PWR_FLAG shares a net with a pin typed Output / Open-emitter,
+# even though the tie is electrically a passive tap.  Retyping these two pins to
+# `passive` clears the two long-standing ERC errors while keeping the (needed)
+# VBAT rail flag and GND flag.
+PIN_TYPE_OVERRIDES = {
+    "Battery_Management:LT3652EMSE": {"9": "passive"},  # BAT onto the VBAT rail (declared by its PWR_FLAG)
+    "Sensor_Proximity:QRE1113": {"4": "passive"},        # phototransistor emitter, tied to GND (common-emitter)
+}
+
+
 class SymbolCache:
     def __init__(self, extra_libs=None):
         # nickname -> file path
@@ -70,6 +81,13 @@ class SymbolCache:
         nick, name = lib_id.split(":", 1)
         flat = copy.deepcopy(self._standalone_node(nick, name))
         flat[1] = QStr(lib_id)
+        ov = PIN_TYPE_OVERRIDES.get(lib_id)
+        if ov:
+            for sub in flat.findall("symbol"):
+                for pin in sub.findall("pin"):
+                    num = pin.find("number")
+                    if num is not None and str(num[1]) in ov:
+                        pin[1] = Atom(ov[str(num[1])])  # etype is pin[1]
         return flat
 
     def embed_nodes(self, lib_id):
