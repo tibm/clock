@@ -99,7 +99,7 @@ def build(s):
         s.pw(c, "1", ("y", 317.50))
         s.gnd(c, "2", drop=0, show_value=False)
     # inductor VBAT -> SW (both SW pins tied at x=269.24)
-    L4 = s.L("L4", 220.98, 309.88, "4.7uH", rot=90)
+    L4 = s.L("L4", 220.98, 309.88, "4.7uH", fp="L5050", rot=90)  # XGL5050-472MEC (Isat 9.7A); XAL4030 4.6A too low for 1S->12V boost
     s.pw(L4, "1", ("x", 186.69), ("y", 317.50))
     s.pw(L4, "2", ("x", 269.24), ("py", U7, "1"), ("pin", U7, "1"))
     s.pw(U7, "2", ("x", 269.24))

@@ -27107,7 +27107,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_Coilcraft_XAL4030-XXX"
+		(property "Footprint" "Inductor_SMD:L_Coilcraft_XAL5050-XXX"
 			(at 220.98 309.88 0)
 			(hide yes)
 			(show_name no)
@@ -33498,7 +33498,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "B340A"
 			(at 802.07 346.84 90)
 			(show_name no)
 			(do_not_autoplace no)

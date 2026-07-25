@@ -29,6 +29,7 @@ FP = {
     "CP_bulk": "Capacitor_SMD:CP_Elec_6.3x7.7",
     "L4030": "Inductor_SMD:L_Coilcraft_XAL4030-XXX",
     "L4020": "Inductor_SMD:L_Coilcraft_XAL4020-XXX",
+    "L5050": "Inductor_SMD:L_Coilcraft_XAL5050-XXX",  # 5x5mm: L4 = XGL5050-472MEC (Isat 9.7A)
     "SMA": "Diode_SMD:D_SMA",
     "SOD123": "Diode_SMD:D_SOD-123",
     "SOT23-3": "Package_TO_SOT_SMD:SOT-23",

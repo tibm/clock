@@ -49,6 +49,9 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 36 | `fet_2n7002.pdf` | **2N7002** (60 V, 0.3 A N-ch) ×3 — Q1 `FULLCHG_EN` / Q3 `VBAT_DIV_EN` / Q8 `CELL_TEST` *(filed 2026-07-24)* | Nexperia | **SOT-23** | ✅ | ~$0.10 | logic-level switch / level-shift |
 | 37 | `diode_schottky_bat46w.pdf` | **BAT46W-E3-08** (100 V Schottky, D10) — LT3652 BOOST refresh (schematic value `BAT46`; SOD-123 part is BAT46W) *(filed 2026-07-24)* | Vishay | **SOD-123** | ✅ | ~$0.30 | charger boost-diode |
 | 38 | `diode_clamp_bat42w.pdf` | **BAT42W-E3-08** (30 V Schottky, D13) — VBAT-sense reversed-cell clamp *(filed 2026-07-24)* | Vishay | **SOD-123** | ✅ | ~$0.30 | ADC-node clamp |
+| 39 | `esd_usb_usblc6.pdf` | **USBLC6-2SC6** (U16) — very-low-C USB D± ESD array (VBUS pin NC); DS4260 *(filed 2026-07-24)* | STMicroelectronics | **SOT-23-6L** | ✅ | ~$0.36 | USB 2.0 D± ESD |
+| 40 | `diode_schottky_b340a.pdf` | **B340A-13-F** (40 V / 3 A Schottky, D11/D20/D30) — charger catch + 12 V-boost rectifier + amp-mux 12 V leg; DS30891 *(filed 2026-07-24)* | Diodes Inc | **SMA / DO-214AC** | ✅ | ~$0.30 | power-path Schottky ×3 |
+| 41 | `inductor_coilcraft_xgl5050.pdf` | **XGL5050-472MEC** (L4, 4.7 µH, Isat 9.7 A, DCR 16 mΩ) — 12 V-boost inductor; replaced the 4×4 mm XAL4030 (Isat too low for 1S→12 V); Doc 1577-1 *(filed 2026-07-24)* | Coilcraft | **5×5 mm SMT** | ✅ | ~$1.3 | 12 V-boost SW node |
 
 **Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
 - **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.
@@ -60,7 +63,7 @@ The **display connector (row 11) is the exception** among leadless-class parts: 
 
 **Removed datasheets (leadless, replaced above):** `amp_tas5825m.pdf` (VQFN-32), `motor_driver_drv8835.pdf` (WSON-12), `pd_sink_stusb4500.pdf` (QFN-24), `charger_bq25628e.pdf` (WQFN-18), `fuel_gauge_max17048.pdf` (µDFN/WLP), `battery_protector_lc05111cmt.pdf` (WDFN-6). **v0.15 sensor consolidation:** `sensor_temp_tmp117.pdf` (TMP117 — dropped, redundant), `sensor_humidity_temp_sht4x.pdf` (SHT45 — folded into BME688), `sensor_accel_bma400.pdf` (BMA400 — replaced by LIS3DH). **2026-07-12 protector re-pick (availability, not leadless):** `battery_protector_s-8261.pdf` (S-8261 → reel-only, 3000 MOQ) + `protection_mosfet_ao4800.pdf` (AO4800 → reel-only) → replaced by AP9101C + AOSD32334C (both DigiKey cut-tape/singles). **2026-07-17 protector re-pick #2 (lifecycle):** `battery_protector_ap9101c.pdf` (AP9101C/AP9101CA family → NRND/obsolete at Diodes) → replaced by `battery_protector_hy2111.pdf` (HY2111-GB, LCSC).
 
-**Pending datasheets (2 — vendor sites block scripted download, add by hand):** `esd_usb_usblc6.pdf` — ST **USBLC6-2SC6** (U16) → [st.com usblc6-2.pdf](https://www.st.com/resource/en/datasheet/usblc6-2.pdf); `diode_schottky_b340a.pdf` — Diodes **B340A** (D11/D20, and D30 if `SS34`→B340A) → [diodes.com DS30891](https://www.diodes.com/assets/Datasheets/ds30891.pdf).
+**2026-07-24 additions (rows 35–40):** switcher/protection discretes + inductors that were on the board but undocumented — filed with the 12 V-boost inductor now specced as **XGL5050-472MEC** (`XAL5030-472` was out of stock; see root README §16c). All ⭐ parts now have a datasheet on file.
 
 ---
 

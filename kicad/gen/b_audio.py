@@ -153,7 +153,7 @@ def build(s):
     s.pw(Q4, "3", ("x", 723.90))                      # drain -> PVDD
     s.pw(U10, "6", ("x", 723.90))                     # SENSE -> PVDD
     s.w((723.90, 312.42), (723.90, 335.28))
-    D30 = s.D_schottky("D30", 800.10, 345.44, "SS34", rot=270)
+    D30 = s.D_schottky("D30", 800.10, 345.44, "B340A", rot=270)  # SMA (matches land); consolidates w/ D11/D20
     s.w((800.10, 393.70), (800.10, 349.25))           # +12V from the rails
     s.pw(D30, "1", ("y", 335.28), ("x", 723.90))      # cathode -> PVDD
     s.text("PVDD auto-mux: 12 V wins when plugged; on battery Q4 ideal-diodes", 640, 355, size=1.3)
