@@ -463,12 +463,21 @@ VERIFY_PINS = [
 # ==========================================================================
 
 
-def add_footprint(board, ref, footprint_field, x, y, rot, side):
+def add_footprint(board, ref, footprint_field, x, y, rot, side, value=None):
     lib_dir, fp_name = resolve_fp(footprint_field)
     fp = pcbnew.FootprintLoad(lib_dir, fp_name)
     if fp is None:
         raise RuntimeError(f"could not load footprint {footprint_field} for {ref}")
     fp.SetReference(ref)
+    # Carry the schematic identity onto the board.  FootprintLoad() leaves the
+    # FPID library-nickname blank and the Value at the footprint's own name, so
+    # without this every board part's Value/footprint field diverges from the
+    # sheet: "Update PCB from Schematic" would flag all ~183 parts and any
+    # PCB-derived BOM/pick&place would print footprint names instead of values.
+    nick = footprint_field.split(":", 1)[0]
+    fp.SetFPID(pcbnew.LIB_ID(nick, fp_name))
+    if value is not None:
+        fp.SetValue(value)
     fp.SetPosition(pcbnew.VECTOR2I(MM(x), MM(y)))
     board.Add(fp)  # parent before Flip: unparented flip of a footprint with an
     # embedded zone (ESP32 antenna keepout) segfaults
@@ -994,7 +1003,8 @@ def main():
 
     fps = {}
     for ref, (x, y, rot, side) in PLACEMENT.items():
-        fps[ref] = add_footprint(board, ref, parts[ref]["footprint"], x, y, rot, side)
+        fps[ref] = add_footprint(board, ref, parts[ref]["footprint"], x, y, rot, side,
+                                 parts[ref]["value"])
 
     # shaft NPTH exactly at board centre (anchor is 6mm off the shaft)
     m1 = fps["M1"]
