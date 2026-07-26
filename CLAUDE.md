@@ -10,6 +10,7 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 - `esp32.md` — ESP32-S3 pin-level IO map + MCP23017 expander port map (schematic-ready).
 - `led.md` — LED subsystem: wake COB + panel LEDs, 3 PWM channels, AO3400A drivers.
 - `power_values.md` — schematic-ready FB/comp/passive values per converter + support networks.
+- `FIRMWARE.md` — FW architecture (source of truth for software): ESP-IDF + C++23 active objects, 9-task model, HSMs, Command surface (CLI ⇄ BLE), CLI, test/bring-up plan.
 
 ## Locked BOM (core)
 | Block | Part | Rail | Notes |
