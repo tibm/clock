@@ -44056,7 +44056,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Notes" "Custom footprint; shafts pass through the board. Long lead time (MiniTools / DigiKey X40-879) - customer-supplied option"
+		(property "Notes" "DO NOT MOUNT. Customer will mount part after PCB reception."
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -48962,6 +48962,18 @@
 		)
 		(layer "Edge.Cuts")
 		(uuid "6278ced3-176f-4d8d-8fd6-c806be9445bf")
+	)
+	(gr_text "WayWayWay"
+		(at 25 3 0)
+		(layer "F.SilkS")
+		(uuid "cced0c73-5c00-4ed9-9639-4691500f77b6")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
 	)
 	(gr_text "I <3 Jane"
 		(at 51 62.5 0)
