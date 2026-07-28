@@ -542,6 +542,46 @@ All float (the S3 has a single-precision FPU). The **TAS5760M has no on-chip DSP
 the only thing between a 12 V Class-D amp and a 2″ driver, so the limiter is a **safety** feature,
 not a nicety. Coefficients are live-tunable from the CLI (`snd dsp`) and persisted to NVS.
 
+#### Output-power ceiling — **8 W peak into 4 Ω (hard limit, 2026-07-27)**
+
+The limiter is also what protects the **output-filter inductors L5/L6** (Coilcraft XAL4040-103MEC,
+10 µH). They carry the full speaker current, and nothing in hardware protects them: the TAS5760M's
+overcurrent error trips at **7 A per BTL output, doubled in PBTL ≈ 14 A** — 4–5× past the
+inductors' **3.0 A saturation**. Firmware is the only guard.
+
+| | @ 12 W (rail-limited max) | **@ 8 W (the cap)** | Part rating |
+|---|---|---|---|
+| Speaker RMS current | 1.73 A | **1.41 A** | Irms 2.2 A (20 °C rise) |
+| Audio peak current | 2.45 A | **2.00 A** | — |
+| + switching ripple `PVDD/(4·L·f_SW)` | ±0.38 A | ±0.38 A | — |
+| **Worst-case instantaneous** | 2.83 A (94 % of Isat) | **2.38 A (79 % of Isat)** | **Isat 3.0 A** |
+| DCR heat, both inductors | 0.50 W | **0.34 W** | DCR 84 mΩ |
+
+**Ceiling in dBFS** — the limiter works in dBFS, so the watt target has to be translated through the
+TAS5760M analog gain (`A_GAIN[3:2]`, reg 0x06 — see `power_values.md` §10):
+
+```
+V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^(A_GAIN_dBV/20))
+```
+
+| A_GAIN | 0 dBFS equals | ceiling for 8 W |
+|---|---|---|
+| **19.2 dBV** (our setting) | 9.12 V rms | **−4.1 dBFS** |
+| 22.6 dBV | 13.49 V rms | −7.5 dBFS |
+| 25.0 dBV | 17.78 V rms | −9.9 dBFS |
+
+- `kSpkPowerCeilW = 8.0f` and `kLimitCeilDbfs = -4.1f` are **compile-time constants**, not config.
+  `Config::limiter_dbfs` and `snd dsp limit` are **clamped to ≤ `kLimitCeilDbfs`** — the CLI accepts
+  a quieter value and rejects a louder one with the reason. Default moves **−1.0 → −4.1 dBFS**.
+- **Recompute `kLimitCeilDbfs` if A_GAIN or the 12 V setpoint changes.** A gain bump silently
+  re-scales the watts behind the same dBFS number.
+- **On battery** the ceiling is not the binding limit: PVDD drops to ~4.96 V (LTC4412 mux), the rail
+  clips at 3.5 V rms ≈ **3.1 W**, peak inductor current ~1.25 A. The hard-clip guard handles it.
+- The 8 W cap does **not** replace the shared-rail budget: 8 W acoustic ≈ 9.4 W off the 12 V boost,
+  and wake LEDs + audio must still stay ≤ ~12 W total (`power_values.md` §5) during a sunrise alarm.
+- ⚠ Bench-confirm before trusting it: current probe on L5 at max volume with the real alarm sample,
+  looking for the current peaks going non-linear (core saturation), not just for the dBFS number.
+
 **Pop-free sequencing** (both directions, via `board`):
 start → enable 12 V/5 V PVDD path → start I²S clocks → wait 10 ms → `SPK_SD` high (unmute) → ramp gain.
 stop → ramp gain to 0 → `SPK_SD` low → wait 5 ms → stop I²S.
@@ -760,7 +800,8 @@ struct Config {
     uint8_t  volume_pct, brightness_pct, sunrise_min, snooze_min;
     uint16_t backup_tick_s;                                   // D7
     uint32_t steps_per_rev;  int16_t zero_h, zero_m; uint16_t backlash_usteps;
-    float    hpf_hz, limiter_dbfs;
+    float    hpf_hz, limiter_dbfs;   // limiter_dbfs clamped <= kLimitCeilDbfs
+                                     // (-4.1 = the 8 W L5/L6 cap, §6.2)
     uint8_t  knob_counts_per_unit;
     bool     dial_glow_enabled;
 };
@@ -885,7 +926,7 @@ entire product with no knob, no dial and no waiting for 07:00.
 | **inject** | `sim press [long]` · `sim turn <±n>` · `sim tap` · `sim alarm` · `sim batt <mV>` · `sim unplug` · `sim sunrise <pct>` |
 | hands | `hand home` · `hand goto <hh:mm>` · `hand step <h\|m> <±n>` · `hand zero <h\|m>` · `hand spr <n>` · `hand backlash <n>` · `hand sweep` · `hand opto` (live ADC — you need this to place the index mark) |
 | light | `led <0-6> <r> <g> <b> <w>` · `led test` (chain walk — proves the 74AHCT1G125 and the off-board J12 harness) · `wake <warm%> <cool%>` · `als` |
-| audio | `snd play <file>` · `snd tone <hz> <s>` · `snd vol <0-100>` · `snd dsp hpf <hz>` · `snd dsp limit <dbfs>` · `snd stop` · `amp reg <r> [v]` |
+| audio | `snd play <file>` · `snd tone <hz> <s>` · `snd vol <0-100>` · `snd dsp hpf <hz>` · `snd dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap; a louder value is rejected with the reason)* · `snd stop` · `amp reg <r> [v]` |
 | bus | `i2c scan` · `i2c rd\|wr <addr> <reg> [v]` · `exp` (dump both MCP23017 ports) · `exp set <pin> <0\|1>` |
 | power | `pwr` (VBAT, SoC, CHRG/FAULT/PD_PG, mode) · `pwr mode <auto\|active\|low>` · `pwr cell` (runs the `CELL_TEST` discriminator) · `pwr sleep <s>` |
 | time | `time [set <iso>]` · `tz <posix>` · `sync` · `clk` (slow-clock source + measured ppm) |
@@ -907,7 +948,7 @@ alarm 07:15 Mon-Fri ARMED  next in 17h08m   snooze=9m
 ui    Idle   pixels off   wake 0/0
 pwr   PLUGGED  15.0V PD  vbat 4.02V (79%)  chrg=CV fault=none
 net   wifi=Online -54dBm  ble=bonded(1) adv=off  radio_off=0
-snd   idle  vol 62%  hpf 150Hz  limit -1.0dBFS
+snd   idle  vol 62%  hpf 150Hz  limit -4.1dBFS (8W cap)
 ```
 
 ---
@@ -939,7 +980,7 @@ actually carries bugs, because all of it is pure:
 | `ui` HSM | Scripted event lists → assert mode, pixels, hand targets. Every timeout path |
 | Alarm scheduler | DST spring-forward (skipped local time), fall-back (doubled time), TZ change mid-week, dow masks, leap day, alarm set to "now" |
 | Hand math | Wrap at 12:00, shortest-path direction, backlash overshoot, `steps_per_rev` trim, angle↔time round-trip for all 43 200 minute positions |
-| DSP | Biquad impulse response vs a reference; limiter never exceeds ceiling for a full-scale square wave; no NaN on denormals |
+| DSP | Biquad impulse response vs a reference; limiter never exceeds ceiling for a full-scale square wave; `snd dsp limit` above `kLimitCeilDbfs` is rejected, and a config restored from NVS is re-clamped; no NaN on denormals |
 | `Command` dispatch | Authorization matrix per `Origin`; malformed TLV; every command round-trips CLI text → `Command` → BLE TLV → `Command` |
 | Config migration | Every version N → N+1, plus corrupt/truncated blobs |
 
@@ -960,7 +1001,7 @@ Target-only (Unity, on-device): drivers, DMA, I²C timing, deep-sleep wake accur
 | 3 | `motion` open-loop (`hand step`), tune microstep depth + 25 kHz carrier for silence, `hand opto` to place the index mark, then the homing FSM | The mechanism |
 | 4 | `ui`: PCNT + press + `led test` | Knob and the off-board J12 pixel harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
-| 6 | `audio`: I²S + MCLK + TAS5760M regs → tone → WAV from SD → tune `snd dsp` | The alarm can be loud without killing the driver |
+| 6 | `audio`: I²S + MCLK + TAS5760M regs → tone → WAV from SD → tune `snd dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
 | 8 | `supervisor` power modes + `backup_tick_s` deep-sleep loop, measure actual mA | The 48 h backup claim |
 | 9 | BLE provisioning + Clock Control service + OTA | The app |

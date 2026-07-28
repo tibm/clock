@@ -81,7 +81,10 @@ def build(s):
     s.power_at(358.14, 78.74, "VBAT")
     s.w((358.14, 78.74), (358.14, 81.28))
     # NTC chain (thermistor mounts against the 18650 holder)
-    RT1 = s.ntc("RT1", 313.69, 113.03, "10k")
+    # value text parked below D11 / left of R17: "10k NTC" is wider than the
+    # gap between RT1 and the V_FB wire (see parts_db.VALUE_POS)
+    RT1 = s.ntc("RT1", 313.69, 113.03, "10k NTC",
+                valpos=(311.4, 121.6, "right"))
     s.pw(U2, "8", ("x", 313.69), ("pin", RT1, "1"))
     R17 = s.R("R17", 313.69, 120.65, "909R")
     s.gnd(R17, "2", drop=0)

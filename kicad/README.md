@@ -220,3 +220,23 @@ junctions; collinear-wire merge; lint) · `b_*.py` — one file per block (all
 coordinates hand-chosen, 1.27 mm grid) · `mksym.py` — custom symbols.
 Validate: `kicad-cli sch erc clock.kicad_sch`
 (`/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli`).
+
+## BOM part data (`gen/parts_db.py` + `gen/stamp_bom.py`, 2026-07-27)
+The generators only emit Value + Footprint, so the PCBWay plug-in's BOM came
+out with **empty `Package` / `MPN`** columns (it reads *footprint* fields named
+`MPN` and `Package`, and turns every other footprint field into an extra
+column). `gen/parts_db.py` holds MPN / Manufacturer / Package / Description /
+Notes for all 182 BOM parts (README §16b/§16c for the locked parts; DigiKey-
+verified passives, voltage ratings per `power_values.md`).
+```
+cd gen && python3 stamp_bom.py          # --dry-run to preview
+```
+splices those five fields into **both** `clock.kicad_sch` and
+`clock.kicad_pcb` in place (no regeneration → hand DRC fixes survive), is
+idempotent, and fails loudly on any part missing from the DB.
+**Re-run it after every `build.py` / `pcb_build.py` rebuild**, then re-export
+from the PCBWay plug-in. Side effect: RT1 no longer groups with the 10 kΩ
+resistors, because the MPN now differs.
+`parts_db.VALUES` additionally corrects two **Value** fields in place —
+`RT1` → `10k NTC` and `C172` → `100uF` (2026-07-27); `b_charger.py` /
+`b_audio.py` emit the same strings, so it is a no-op after a rebuild.

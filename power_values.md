@@ -122,7 +122,7 @@ Datasheet `boost_12v_audio_tps55340.pdf`. V_REF = **1.229 V**. Datasheet worked 
 | IC / rail | Decoupling |
 |---|---|
 | ESP32-S3 3V3 | **10 µF + 22 µF + 0.1 µF** (module bulk) + 0.1 µF per 3V3 pad |
-| TAS5760M | PVDD **0.1 µF + 1 µF + 220 µF** bulk; DVDD/AVDD **0.1 µF + 10 µF**; bootstrap + output filter per datasheet |
+| TAS5760M | PVDD **0.1 µF + 1 µF + 100 µF/25 V** bulk (C172; **was 220 µF** — no ≥16 V 220 µF exists in the board's Ø6.3 mm SMD can, Panasonic/Nichicon start at Ø8, so the value dropped 2026-07-27 to a **Rubycon 25TZV100M6.3X8** low-ESR part, 300 mA @100 kHz. ⚠ bench: watch PVDD sag on alarm transients; the fix if it sags is a Ø8 land + 220 µF/16 V, not a bigger ceramic); DVDD/AVDD **0.1 µF + 10 µF**; bootstrap + output filter per datasheet |
 | TB6612FNG ×2 | VM **0.1 µF + 10 µF**; VCC **0.1 µF** |
 | MCP23017 | **0.1 µF** |
 | SK6812 chain (7×) | **100 nF at every pixel VDD** + **100 µF bulk** at the chain head; SN74AHCT1G125 **100 nF** |
@@ -163,7 +163,7 @@ present. Pinout (TSOT-23-6): **1 VIN · 2 GND · 3 CTL · 4 STAT · 5 GATE · 6 
 | **CTL** (3) | **GND** | fully automatic SENSE-based switchover (no MCU/expander line) |
 | **STAT** (4) | **470 k → 3V3** (optional) or NC | open-drain "12 V-present" flag; can land on a spare expander IN |
 | **12 V leg** | 12 V-boost OUT → **Schottky (SS34 / B340A, 40 V, ≥1.5 A)** → PVDD | 12 V has margin for the ~0.4 V drop (PVDD ≈ 11.6 V plugged); blocks 5 V↔12 V back-feed |
-| **PVDD bulk** | keep the §7 `0.1 + 1 + 220 µF` at the amp | mux output = PVDD node |
+| **PVDD bulk** | keep the §7 `0.1 + 1 + 100 µF/25 V` at the amp | mux output = PVDD node |
 
 When 12 V is up, PVDD rises to ~11.6 V > VIN(5 V) → LTC4412 turns Q_5V off (its body diode is also
 reverse-biased) → amp on 12 V. On battery the Schottky blocks and Q_5V ideal-diodes 5 V→PVDD.
@@ -179,7 +179,7 @@ Datasheet `amp_tas5760m.pdf` (32-pin DAP). **Software (I²C) control**, **PBTL m
 | **I²C address** | **0x6C** → **SPK_SLEEP/ADR (13) → GND** (weak PU, latched at power-up; HIGH = 0x6D). Prep a **0 Ω to GND** | §8.4.2.5.1 |
 | **PBTL enable** | firmware sets **reg 0x06 bit 7 = 1** (default 0 = BTL); channel-select = 0x06 bit 1. Wire **OUTA+∥OUTB+** and **OUTA−∥OUTB−** to the speaker | §8.4.2.3 |
 | **Analog gain** | firmware **A_GAIN[3:2] in reg 0x06**; start **19.2 dBV** (matches 12 V PVDD), digital boost default. (SW mode: gain is a register, not a pin) | §8.4.2.4 |
-| **Output LC (4 Ω)** | **10 µH + 0.68 µF per leg** (datasheet 4 Ω filter; 8 Ω = 22 µH, 6 Ω = 15 µH), f_c ≈ 30–40 kHz | §6.13 |
+| **Output LC (4 Ω)** | **10 µH + 0.68 µF per leg** (datasheet 4 Ω filter; 8 Ω = 22 µH, 6 Ω = 15 µH), f_c ≈ 30–40 kHz. **L5/L6 = XAL4040-103MEC, Isat 3.0 A** and they carry the full speaker current; the OCE trips at 7 A/BTL (**~14 A in PBTL**), so the amp cannot protect them → the **firmware limiter is capped at 8 W into 4 Ω** (peak 2.0 A + 0.38 A ripple ≈ 79 % of Isat), [`FIRMWARE.md`](FIRMWARE.md) §6.2 | §6.13 |
 | **SPK_SD (7)** | from **MCP23017 GPA0** (idle-low = shutdown at boot) | §8.4.2.1 |
 | **SPK_FAULT (6)** | open-drain → **10 k PU to 3V3**; optional to a spare expander IN (GPB6) for a HW fault line, else poll fault regs over I²C | §8.3.3.1 |
 | **SFT_CLIP (2)** | **tie to GVDD_REG** (soft-clipper off → clip at rail; firmware HPF + limiter + digital clipper protect the driver). Divider+cap only if a fixed soft-clip point is wanted | §8.4.1.3 |
@@ -201,6 +201,7 @@ Datasheet `amp_tas5760m.pdf` (32-pin DAP). **Software (I²C) control**, **PBTL m
 
 ## Still open (needs a decision, datasheet, or bench)
 - **LTC4412 PVDD mux — RESOLVED** (§8): ideal-diode FET (AO3401A) on 5 V + Schottky on 12 V, CTL=GND. Bench: confirm wake-COB wattage keeps **LED + audio ≤ ~12 W**.
+- **L5/L6 saturation headroom — RESOLVED in firmware 2026-07-27** (§10): DSP limiter capped at **8 W into 4 Ω** = −4.1 dBFS at the 19.2 dBV analog gain. **Recompute the dBFS ceiling if A_GAIN or the 12 V setpoint moves.** Bench: current probe on L5 at max volume.
 - **TAS5760M — RESOLVED** (§10): SW/I²C (GAIN pins HIGH), addr 0x6C, PBTL reg 0x06[7], gain 19.2 dBV, LC 10 µH + 0.68 µF (4 Ω). **MCLK on IO43** (reassigned from the aux UART log; HW I²S0 via the S3 GPIO matrix, ~12.288 MHz) — logging = USB-CDC only.
 - **TB6612 — RESOLVED** (`esp32.md` pinout table): PWMA/PWMB tied HIGH to Vcc (PWM-on-IN); coil AO/BO → X40 contacts mapped.
 - **LT3652 NTC — RESOLVED** (§1): 10 k NTC **+ 0.91 k series** → 0/45 °C.

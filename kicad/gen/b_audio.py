@@ -127,8 +127,10 @@ def build(s):
     s.w((723.90, 289.56), (751.84, 289.56))
     for ref, x, v, fp in [("C170", 731.52, "100nF", "C0603"),
                           ("C171", 739.14, "1uF", "C0603"),
-                          ("C172", 751.84, "220uF", None)]:
-        c = s.CP(ref, x, 293.37, v) if v == "220uF" else s.C(ref, x, 293.37, v, fp=fp)
+                          # 100uF/25V: the D6.3 land has no >=16 V 220uF part
+                          # (2026-07-27) — see parts_db.py C172
+                          ("C172", 751.84, "100uF", None)]:
+        c = s.CP(ref, x, 293.37, v) if fp is None else s.C(ref, x, 293.37, v, fp=fp)
         s.pw(c, "1", ("y", 289.56))
         s.gnd(c, "2", drop=0)
 
