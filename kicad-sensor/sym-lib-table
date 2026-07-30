@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "sensor")(type "KiCad")(uri "${KIPRJMOD}/gen/sensor_custom.kicad_sym")(options "")(descr "Clock sensor-board custom symbols"))
+)

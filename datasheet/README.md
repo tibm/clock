@@ -1,10 +1,12 @@
 # Datasheet Summary
 
-Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**; **LED / backup-mode / TCO / VCOM 2026-07-12**; **homing sensor re-picked → onsemi QRE1113 2026-07-12**; **amp-PVDD mux LTC4412 2026-07-12**; **cell protector re-picked → AP9101C 2026-07-12, re-picked again → HYCON HY2111-GB 2026-07-17 (AP9101C family went NRND/obsolete)**; **v0.19 cube-redesign parts 2026-07-19/20**) and **match the root [`README.md`](../README.md)** (v0.19).
+Quick-reference for the datasheets in this folder. Prices are single-unit USD and approximate — click through to verify live stock/price. All parts are **currently active/orderable** (verified 2026-07-04; homing sensor 2026-07-05; sensor set 2026-07-05; **power-path & interconnect set 2026-07-05**; **IO expander 2026-07-07**; **LED / backup-mode / TCO / VCOM 2026-07-12**; **homing sensor re-picked → onsemi QRE1113 2026-07-12**; **amp-PVDD mux LTC4412 2026-07-12**; **cell protector re-picked → AP9101C 2026-07-12, re-picked again → HYCON HY2111-GB 2026-07-17 (AP9101C family went NRND/obsolete)**; **v0.19 cube-redesign parts 2026-07-19/20**; **IMU re-picked → CEVA BNO085 2026-07-29 (supersedes the LIS3DH, row 14)**) and **match the root [`README.md`](../README.md)** (v0.19).
+
+> ⚠ **Sensor board built as its own PCB (2026-07-29).** The "option 2b" custom sensor daughterboard of §15 now exists as a real KiCad project — [`../kicad-sensor/`](../kicad-sensor/) (schematic only; no PCB layout yet). It carries **BME688 + TSL2591 + BNO085** and plugs into main-board **J7** on the same 6-way JST ZH harness. The **accelerometer changed from the LIS3DH to the BNO085** (9-axis with on-chip SH-2 fusion) — the LIS3DH row/section below is **kept, marked superseded**, per the never-delete-a-datasheet rule.
 
 > ⚠ **v0.19 cube redesign (2026-07-19/20).** The product lost its info display and gained NeoPixel status/dial LEDs, a top-face knob and a vertical USB-C (root README changelog). **No datasheet was removed**: the display set (rows 1, 11) and the horizontal USB-C (row 25) are **retained for a possible future variant** and marked *"not in current build"*. New v0.19 parts are rows **30–34**; the Kilo OEJNI-90-1-5 aluminum knob is purely mechanical (no datasheet filed — dimensions in the root README §16b row).
 
-> 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, LIS3DH**; fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section.
+> 🔩 **HAND-SOLDERABLE PARTS ONLY (hard requirement).** The bare PCB is fab'd externally; **every part is soldered by hand** with an iron. So **no QFN / DFN / WSON / BGA / WLP / LGA** parts sit bare on the board — every active IC here is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. Two power parts (amp, charger) are HTSSOP/MSOP **PowerPAD**: the leads are iron-solderable and the belly pad is grounded through a thermal-via array (back-side hot-air optional). This trades **board area** for hand-assembly — accepted. Parts that *only* exist leadless (env/MEMS sensors — **BME688, TSL2591, BNO085** (was LIS3DH); fuel gauge) are pushed onto **pre-made breakout modules** (2a) or a **custom SMT-assembled daughterboard** (2b), or **dropped**; see §15 + the root README manufacturing section. **The rule scopes the main PCB only** — the 2b sensor board ([`../kicad-sensor/`](../kicad-sensor/)) is ordered fab-assembled by definition.
 
 > 🔩 **The stepper ships as two files.** `stepper_motor_x40-879.pdf` is a 2-page **pinout addendum** for the dual-shaft **X40.879** (the motor we're buying); it explicitly defers to the **X27 base spec** (`stepper_motor_x27_base-spec.pdf`) for torque, current, and dimensions. Keep both.
 
@@ -24,7 +26,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 11 | `connector_display_fpc_fh34.pdf` | **FH34SRJ-10S-0.5SH** — ⚠ **not in current build** (went with the display, v0.19; kept) | Hirose | **FPC/ZIF 0.5 mm (SMT)** | ✅ | ~$0.7 | 10-pin display FPC tail |
 | 12 | `sensor_env_bme688.pdf` | **BME688** | Bosch Sensortec | LGA-8 → **module** | ✅ | ~$5 | I²C/SPI — **chosen env part:** T+RH+press+**VOC/gas** (one chip = climate + air-quality) |
 | 13 | `sensor_light_tsl2591.pdf` | **TSL2591** (`TSL25911FN`) | ams-OSRAM | WFDFN-6 → **module** | ✅ | ~$3 | I²C (188 µlx–88 klx) |
-| 14 | `sensor_accel_lis3dh.pdf` | **LIS3DH** | STMicroelectronics | LGA-16 → **module** | ✅ | ~$2 | I²C/SPI (tap + orient) |
+| 14 | `sensor_accel_lis3dh.pdf` | **LIS3DH** — ⚠ **superseded 2026-07-29** by the BNO085 (row 42); kept for a low-cost/low-power variant | STMicroelectronics | LGA-16 → **module** | ✅ | ~$2 | I²C/SPI (tap + orient) |
 | 15 | `sensor_homing_QRE1113-D.PDF` | **QRE1113** | onsemi | **4-lead reflective (TH gull-wing, ≈3.6×2.9×1.7 mm) — on-board** (SMD `QRE1113GR` alt) | ✅ | ~$0.76 | reflective opto (analog → ADC/comparator) |
 | 16 | `xtal_32k_abs07.pdf` | **ABS07-32.768KHZ-T** (32.768 kHz, CL 12.5 pF, ±20 ppm) | Abracon | **3.2×1.5 mm 2-SMD** | ✅ | ~$0.3 | RTC clock (S3 XTAL32K) |
 | 17 | `reverse_pfet_ao3401a.pdf` | **AO3401A** (−30 V, −4 A P-ch) | Alpha & Omega | **SOT-23-3** | ✅ | ~$0.24 | reverse-polarity FET |
@@ -52,10 +54,11 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 39 | `esd_usb_usblc6.pdf` | **USBLC6-2SC6** (U16) — very-low-C USB D± ESD array (VBUS pin NC); DS4260 *(filed 2026-07-24)* | STMicroelectronics | **SOT-23-6L** | ✅ | ~$0.36 | USB 2.0 D± ESD |
 | 40 | `diode_schottky_b340a.pdf` | **B340A-13-F** (40 V / 3 A Schottky, D11/D20/D30) — charger catch + 12 V-boost rectifier + amp-mux 12 V leg; DS30891 *(filed 2026-07-24)* | Diodes Inc | **SMA / DO-214AC** | ✅ | ~$0.30 | power-path Schottky ×3 |
 | 41 | `inductor_coilcraft_xgl5050.pdf` | **XGL5050-472MEC** (L4, 4.7 µH, Isat 9.7 A, DCR 16 mΩ) — 12 V-boost inductor; replaced the 4×4 mm XAL4030 (Isat too low for 1S→12 V); Doc 1577-1 *(filed 2026-07-24)* | Coilcraft | **5×5 mm SMT** | ✅ | ~$1.3 | 12 V-boost SW node |
+| 42 | `sensor_imu_bno085.pdf` | **BNO085** (`BNO08X` datasheet 1000-3927 v1.17) — 9-axis IMU with the **SH-2 sensor-hub firmware on-chip** (rotation vector, gravity, linear accel, tap/step/shake); **replaces the LIS3DH** (row 14) on the sensor board *(filed 2026-07-29)* | CEVA (Hillcrest Labs) | **LGA-28 5.2×3.8×1.1 mm → sensor board (PCBA)** | ✅ [DK 1888-1006-1-ND](https://www.digikey.com/en/products/detail/ceva-technologies-inc/BNO085/9445940) (329 pcs, 16 wk lead) | ~$13.6 | I²C 0x4A/0x4B (SPI/UART alt) + H_INTN |
 
-**Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. **Both build paths carry the identical set — BME688 + TSL2591 + LIS3DH — so the firmware is the same either way** (see §15):
-- **2a — chosen (build now): STEMMA QT / Qwiic daisy-chain** of three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)**. Zero leadless soldering, fastest bring-up.
-- **2b — future: one custom sensor daughterboard** carrying the **same three bare chips**, JLCPCB SMT-assembled; you hand-solder only its 0.1″ header / castellated edge → smallest footprint, still no iron on a leadless pad. Same part numbers → same I²C addresses → 2a firmware runs unchanged.
+**Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the **main** board. Both build paths carry the same set — **BME688 + TSL2591 + BNO085** *(the BNO085 replaced the LIS3DH 2026-07-29)* — so the firmware is the same either way (see §15):
+- **2a — bring-up: STEMMA QT / Qwiic daisy-chain** of ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · BNO085 (4754, ~$25)**. Zero leadless soldering, fastest bring-up.
+- **2b — drawn 2026-07-29: one custom sensor daughterboard** carrying the three bare chips — schematic in [`../kicad-sensor/`](../kicad-sensor/), fab-assembled (PCBA), plugging into main-board **J7** on the 6-way JST ZH harness. Same part numbers → same I²C addresses → 2a firmware runs unchanged. **This board is exempt from the hand-solder rule** (that rule scopes the main PCB, which is iron-assembled); it is ordered assembled.
 
 The **display connector (row 11) is the exception** among leadless-class parts: a 0.5 mm FPC/ZIF is explicitly hand-solderable, so it sits **on the main PCB**. **No RTC IC** — timekeeping is the **ESP32-S3 internal RTC off a 32.768 kHz crystal** (XTAL32K, GPIO15/16) + SNTP; no coin cell (see root README §6/§8/§10).
 
@@ -249,7 +252,18 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Alt:** **Vishay VEML7700** — outputs lux directly, simpler/cheaper, floor ~0.0036 lux (adequate but less sensitive); Adafruit 4162, ~$5.
 - **Price:** ~$3 bare / **$6.95 board**.
 
-## 14. ST LIS3DH — Triple-Axis Accelerometer *(tap-to-snooze + flat/standing, R14)*
+## 14b. CEVA BNO085 — 9-Axis Fusion IMU *(supersedes §14 for tap-to-snooze + orientation, 2026-07-29)*
+
+- **Product:** accel + gyro + magnetometer **plus a Cortex-M0+ running CEVA's SH-2 firmware** in one 28-pin LGA. The fusion runs **on-chip**: rotation vector, game rotation vector, gravity, linear acceleration, and the classifier outputs (**tap / double-tap, shake, stability, step**) arrive as ready-made reports — the ESP32 does no sensor maths.
+- **Refs:** `BNO085` · **CEVA Technologies (Hillcrest Labs)** · **LGA-28, 5.2 × 3.8 × 1.1 mm, 0.5 mm pitch** · **DigiKey 1888-1006-1-ND** ([$13.57, 329 pcs, Active, 16 wk lead](https://www.digikey.com/en/products/detail/ceva-technologies-inc/BNO085/9445940)) · datasheet `BNO08X 1000-3927 v1.17` (`sensor_imu_bno085.pdf`).
+- **Power / IO:** **VDD 2.4–3.6 V** (sensors) + **VDDIO 1.65–3.6 V** (core/IO) — both on 3V3; §6.3 requires VDD up **before or with** VDDIO, which one shared rail satisfies by construction. I²C ≤400 kHz at **0x4A** (SA0 low) or **0x4B**; `H_INTN` push-pull, active low.
+- **Design rules taken from the datasheet** (Fig. 1-11 + notes 1-8, all implemented in `../kicad-sensor/`): PS1 = PS0 = 0 selects I²C · BOOTN 10 k pull-up (low at reset = DFU) · 100 nF on **CAP** (pin 9) · 32.768 kHz crystal on 26/27 with 22 pF loads (the performance table Fig. 6-14 is **only specified with an external clock or crystal**) · CLKSEL0 low = crystal · the **secondary "ENV" I²C master bus (pins 15/16) must be pulled up even when unused**, because SH-2 probes it at every reset.
+- **⚠ Clock stretching:** poll a BNO085 with no data ready and it **stretches SCL until it has some** (§1.2.2.1) — on a shared bus that stalls every other device. Read it **only when `H_INTN` is asserted**; that is why J7 pin 5 is wired to this part's interrupt and nothing else.
+- **Hand-assembly:** LGA leadless → **2a board = Adafruit 4754 (BNO085, STEMMA QT), $24.95** ([DK 13426653](https://www.digikey.com/en/products/detail/adafruit-industries-llc/4754/13426653)); on **2b** the bare BNO085 is machine-placed on the sensor board. **Land pattern:** KiCad's stock `Package_LGA:LGA-28_5.2x3.8mm_P0.5mm` is a *generic IPC* pattern (right numbering, ~0.10–0.13 mm extra toe per side), so the board uses a **vendor land verified against Fig. 7-2** instead — `../kicad-sensor/sensor.pretty/CEVA_BNO085_LGA-28_5.2x3.8mm_P0.5mm`, measured 5.2000 × 3.8000 mm exactly (2026-07-29).
+- **Why over the LIS3DH:** same jobs (tap-to-snooze R3, flat-vs-standing R14) with no fusion code on the host, plus a real heading/orientation vector for free. Costs ~7× the LIS3DH and much more power — revert to §14 if the power budget bites.
+- **Price:** ~$13.6 bare / $24.95 board.
+
+## 14. ST LIS3DH — Triple-Axis Accelerometer *(⚠ superseded by §14b 2026-07-29; kept for a low-cost/low-power variant)*
 
 - **Product:** 3-axis ±2/4/8/16 g accelerometer, 10-bit, on-chip **tap / double-tap** and low-power modes with two programmable interrupts. I²C/SPI. Low-res is fine here — flat-vs-standing is a static gravity read and tap is an IRQ.
 - **Refs:** `LIS3DH` · **STMicroelectronics** · **LGA-16 (3×3 mm)** · datasheet `LIS3DH` (`sensor_accel_lis3dh.pdf`).
@@ -259,21 +273,23 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Interface:** I²C (shared) + INT.
 - **Price:** ~$2 bare / ~$5 board.
 
-## 15. Sensor build — option 2a (chosen) vs 2b (future) — *identical sensor set*
+## 15. Sensor build — option 2a (bring-up) vs 2b (drawn 2026-07-29) — *identical sensor set*
 
-**Both paths carry the same three sensors — BME688 + TSL2591 + LIS3DH — so the firmware is identical either way.** Every one is leadless, so the cluster is built as **modules**, never bare on the main PCB:
+**Both paths carry the same three sensors — BME688 + TSL2591 + BNO085 — so the firmware is identical either way.** Every one is leadless, so the cluster is never bare on the **main** PCB:
 
-- **2a — chosen now: STEMMA QT / Qwiic daisy-chain.** Three ready Adafruit boards, one 4-wire I²C chain, zero leadless soldering:
+- **2a — bring-up: STEMMA QT / Qwiic daisy-chain.** Three ready Adafruit boards, one 4-wire I²C chain, zero leadless soldering:
 
   | Sensor | Board | ~Price | Ref |
   |--------|-------|--------|-----|
   | Env (T/RH/press/VOC) | **Adafruit 5046** (BME688) | ~$19 | [DK 14313482](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482) |
   | Light (weak-light) | **Adafruit 1980** (TSL2591) | $6.95 | [DK 4990786](https://www.digikey.com/en/products/detail/adafruit-industries-llc/1980/4990786) |
-  | Accel (tap+orient) | **Adafruit 2809** (LIS3DH) | $4.95 | [DK 5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
+  | IMU (tap+orient) | **Adafruit 4754** (BNO085) | $24.95 | [DK 13426653](https://www.digikey.com/en/products/detail/adafruit-industries-llc/4754/13426653) |
+  | *(was)* Accel | ~~Adafruit 2809 (LIS3DH), $4.95~~ — superseded 2026-07-29 | — | [DK 5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
 
-  Chain to the main board over one JST-SH STEMMA QT cable → SDA/SCL/3V3/GND. ≈ **$31** for the three.
+  Chain to the main board over one JST-SH STEMMA QT cable → SDA/SCL/3V3/GND. ≈ **$51** for the three.
 
-- **2b — future: one custom sensor daughterboard.** The **same three bare chips** (BME688 + TSL2591 + LIS3DH — §12/13/14) on a small PCB, **JLCPCB/PCBA machine-placed**; you **hand-solder only its 0.1″ header / castellated edge** to the main board. Never an iron on a leadless pad → mfg rule intact; smallest footprint; one physical board to install. **Same part numbers → same I²C addresses → the 2a firmware runs unchanged.**
+- **2b — schematic drawn 2026-07-29: one custom sensor daughterboard.** The **same three bare chips** (BME688 + TSL2591 + BNO085 — §12/13/14b) on a small PCB, **fab-assembled (PCBA)**; the only through-hole part is its **JST ZH B6B-ZR**, and it plugs into main-board **J7** on the same 6-way harness as the knob (J10). Never an iron on a leadless pad → the main board's hand-solder rule stays intact; smallest footprint; one physical board to install. **Same part numbers → same I²C addresses → the 2a firmware runs unchanged.**
+  KiCad project: [`../kicad-sensor/`](../kicad-sensor/) — single A3 sheet, ERC clean, **no PCB layout yet**.
 
 ## 16. onsemi QRE1113GR — Reflective Optical Sensor *(hand homing, root README §5)*
 
