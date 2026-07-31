@@ -1,9 +1,14 @@
 # Wooden Smart Clock — sensor board (KiCad)
 
 Small SMT daughterboard carrying the three off-board sensors, plugged into
-**main-board J7** on a 6-way JST ZH harness. **Schematic only — no PCB layout
-yet.** Open `sensor.kicad_pro`; the sheet is **generated** by the Python in
-`gen/` (see *Regenerating*) — edit the block files, not the `.kicad_sch`.
+**main-board J7** on a 6-way JST ZH harness. Open `sensor.kicad_pro`; both the
+sheet and the board are **generated** by the Python in `gen/` (see
+*Regenerating*) — edit the block files, not the `.kicad_sch`/`.kicad_pcb`.
+
+**PCB: 30 × 16 mm, 2 layers, placed 2026-07-30 — not routed.** Front face =
+the two sensors that must see the outside world (TSL2591 window + BME688
+vent); back face = the harness connector and the IMU. Full rationale,
+floor plan and verification in [`PCB_NOTES.md`](PCB_NOTES.md).
 
 This is "option **2b**" of [`../datasheet/README.md`](../datasheet/README.md) §15:
 the same sensor set as the STEMMA-QT bring-up chain, on one board, at the same
@@ -137,15 +142,24 @@ and `Sensor_Optical:TSL25911FN`.
    (`OptoDevice:AMS_TSL25911FN`) stock footprints are part-specific KiCad libs
    generated from those datasheets, so they need no separate check.
 2. **Harness polarity** — 1:1, not reversed (above).
-3. **Placement, when the PCB is laid out:** give U2 (gas sensor) ambient air
-   and distance from any self-heating part, keep an enclosure vent over it,
-   and do not conformal-coat it. U3 needs a clear window with no shadow, kept
-   off-axis from the dial LEDs. U1 must be mounted rigidly to the body so the
-   gravity vector reads true.
+3. ~~Placement~~ — **closed 2026-07-30**, see [`PCB_NOTES.md`](PCB_NOTES.md):
+   U2 has the far corner, a pour keepout, a clear back side and a Ø5.2 mm
+   vent marked on `User.Drawings`; U3 has a Ø4.0 mm window with 0.64 mm of
+   clear courtyard and only 0.5 mm-tall neighbours; U1 sits on the line
+   between the two M2 screws. Still on the enclosure side: keep the vent away
+   from the amp/LED/battery heat and the ALS off-axis from the dial LEDs, do
+   not conformal-coat U2, and **use nylon or brass M2 screws** — steel next
+   to the magnetometer is a permanent hard-iron offset.
+4. **Route it** — the board carries placement + pours + nets, no traces.
 
 ## Validation
 
 - `kicad-cli sch erc sensor.kicad_sch` → **0 violations**.
+- PCB: `gen/pcb_build.py` QA (0 courtyard errors at the 0.22 mm floor, 0 edge
+  violations, 0 missed pad→net lookups, 14 pin-transform assertions) +
+  `gen/pcb_check.py` re-checking the *saved* file independently (16/16) +
+  `kicad-cli pcb drc` (0 errors; 3 cosmetic silk warnings, 62 unconnected =
+  the unrouted ratsnest). Details in [`PCB_NOTES.md`](PCB_NOTES.md).
 - `gen/build.py` lint: no dangling wires, no body overlaps, no wires through
   symbols; junctions placed by eeschema's own rules so a GUI re-save is a
   no-op. The sheet is normalised through `kicad-cli sch upgrade`, so opening
@@ -174,6 +188,18 @@ pass and one junction algorithm. Local files:
 | `gen/b_imu.py` | BNO085 + crystal + config straps |
 | `gen/b_env.py` | BME688 |
 | `gen/b_als.py` | TSL2591 |
+| `gen/pcb_build.py` | **the PCB**: placement, outline, holes, pours, nets, silk + QA |
+| `gen/pcb_check.py` | independent re-check of the saved `.kicad_pcb` |
+| `gen/pcb_fill.py` | fills the GND pours (own process — the filler segfaults in the builder's) |
+
+The PCB scripts run under **KiCad's bundled python3.9** (they need `pcbnew`),
+not system python:
+
+```
+cd gen
+/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 pcb_build.py
+/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 pcb_check.py
+```
 
 There is no `cosmetics.py`/`harvest.py` here — hand-tuned positions in
 eeschema would be lost on the next build, so make layout changes in the block
