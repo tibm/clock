@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/tibo/Developer/PRIVATE/clock/kicad-sensor/sensor.kicad_sch")
-		(date "2026-07-30T20:23:54")
+		(date "2026-07-31T08:16:17")
 		(tool "Eeschema 10.0.4")
 		(sheet
 			(number "1")
