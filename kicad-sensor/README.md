@@ -160,12 +160,74 @@ and `Sensor_Optical:TSL25911FN`.
   `gen/pcb_check.py` re-checking the *saved* file independently (16/16) +
   `kicad-cli pcb drc` (0 errors; 3 cosmetic silk warnings, 62 unconnected =
   the unrouted ratsnest). Details in [`PCB_NOTES.md`](PCB_NOTES.md).
+  ⚠ **Stale since the manual routing pass** (board is now 4 layers / 4 pours,
+  parts moved): on the current file 4 of those 16 fail — C1↔J1 courtyards
+  touch (0.000 mm), H1/H2 are 0.02 mm inside the 0.35 mm edge rule, C4/C7 now
+  sit on the back behind U2, and the "2 GND pours" assumption. The checks
+  encode the *generated* placement, so decide per item whether the check or
+  the board should move.
+- BOM (2026-08-01): `gen/pcb_check.py` BOM block **5/5** — all 29 BOM parts
+  carry MPN/Manufacturer/Package/Description, board fields identical to the
+  schematic's, and the DNP / off-BOM sets agree between the two files.
+  `gen/stamp_bom.py` re-run is a no-op (idempotent), ERC still 0 violations,
+  and both files still round-trip byte-identically through KiCad's own
+  writers.
 - `gen/build.py` lint: no dangling wires, no body overlaps, no wires through
   symbols; junctions placed by eeschema's own rules so a GUI re-save is a
   no-op. The sheet is normalised through `kicad-cli sch upgrade`, so opening
   and saving in eeschema produces zero diff.
 - Netlist spot-checked pin-by-pin against the three datasheets (every
   `RESV_NC` and the TSL2591 `NC` land on their own unconnected nets).
+
+## BOM part data (`gen/parts_db.py` + `gen/stamp_bom.py`, 2026-08-01)
+
+The generators only emit Value + Footprint, which is not a BOM: this board is
+**ordered fab-assembled**, so every line has to be unambiguous to an assembly
+house (`MPN` + `Package`) and the parts that must *not* be fitted have to say
+so in a field, not in a value string.
+
+```
+cd gen && python3 stamp_bom.py          # --dry-run to preview
+```
+
+splices **MPN / Manufacturer / Package / Description / Notes** into *both*
+`sensor.kicad_sch` (eeschema + `kicad-cli` BOMs) and `sensor.kicad_pcb` (the
+PCBWay plug-in reads *footprint* fields) — in place, no regeneration, so hand
+DRC fixes survive — then sets two kinds of flag and hands both files back to
+KiCad's own serializers (`kicad-cli sch upgrade` + `gen/pcb_canon.py`) so they
+stay byte-identical to a GUI save. Idempotent; fails loudly on a part that is
+missing from the db. **Re-run it after every `build.py` / `pcb_build.py`
+rebuild** — both generators write their file from scratch and drop the fields.
+
+- **DNP** (`parts_db.DNP`) → `(dnp yes)` on the symbol + the `dnp` footprint
+  attribute. **R4 and R11 are the alternate I²C-address straps**: only their
+  *value strings* said "(DNP)", so a BOM taken before 2026-08-01 told the
+  assembler to fit them — and R3+R4 or R10+R11 fitted together ties +3V3 to
+  GND through 0 Ω. They now export with KiCad's `DNP` column set.
+- **Not a part** (`parts_db.EXCLUDE_FROM_BOM`) → `(in_bom no)` +
+  `(in_pos_files no)` on TP1/TP2, matching the `exclude_from_bom` their
+  footprints already carried, so the schematic-side and PCB-side BOMs agree
+  (and "Update PCB from Schematic" can't put the test pads back).
+
+Part data: the three sensors + the crystal + J1 are local to
+`gen/parts_db.py`; the **generic passives are imported from the main board's
+`../../kicad/gen/parts_db.py`**, so both boards order the same physical 0603 /
+0805 parts. Per-reference data never falls through to the main board's table —
+J1/U1/U2/U3/Y1 exist there too and mean different parts. DigiKey status/price
+re-verified 2026-08-01 (BNO085 1888-1006-1-ND $13.57 · BME688 828-BME688CT-ND
+$8.99 — `../datasheet/README.md` §12's ~$5 is the reel price · TSL25911FN
+TSL25911FNTR-ND $1.74; all Active).
+
+Export (13 lines, 29 pieces; group by `Notes` too, or the two DNP straps merge
+into one line and take one another's note):
+
+```
+kicad-cli sch export bom \
+  --fields 'Reference,Value,Package,MPN,Manufacturer,Description,Footprint,${QUANTITY},${DNP},Notes' \
+  --labels 'Refs,Value,Package,MPN,Manufacturer,Description,Footprint,Qty,DNP,Notes' \
+  --group-by 'MPN,Value,Notes' --sort-field Reference \
+  -o sensor_bom.csv sensor.kicad_sch
+```
 
 ## Regenerating
 
@@ -189,8 +251,10 @@ pass and one junction algorithm. Local files:
 | `gen/b_env.py` | BME688 |
 | `gen/b_als.py` | TSL2591 |
 | `gen/pcb_build.py` | **the PCB**: placement, outline, holes, pours, nets, silk + QA |
-| `gen/pcb_check.py` | independent re-check of the saved `.kicad_pcb` |
+| `gen/pcb_check.py` | independent re-check of the saved `.kicad_pcb` (geometry, nets, BOM) |
 | `gen/pcb_fill.py` | fills the GND pours (own process — the filler segfaults in the builder's) |
+| `gen/pcb_canon.py` | re-saves the `.kicad_pcb` through pcbnew's writer (own process) |
+| `gen/parts_db.py` · `gen/stamp_bom.py` | BOM part data + the stamper (above) — **re-run after every rebuild** |
 
 The PCB scripts run under **KiCad's bundled python3.9** (they need `pcbnew`),
 not system python:
@@ -198,6 +262,7 @@ not system python:
 ```
 cd gen
 /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 pcb_build.py
+python3 stamp_bom.py     # ALWAYS: a rebuild drops every BOM field and flag
 /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 pcb_check.py
 ```
 

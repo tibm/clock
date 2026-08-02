@@ -6,8 +6,10 @@ Deliberately shares NOTHING with the builder's in-memory model: it loads the
 saved board, re-exports the netlist from the schematic, and re-derives the
 board outline from Edge.Cuts, then re-tests every promise the build makes --
 part clearance, edge clearance, which side each sensor is on, pad->net
-assignment, mounting holes and the gas sensor's thermal island.  A pass here
-means the file on disk is right, not just the script that wrote it.
+assignment, mounting holes, the gas sensor's thermal island, and the BOM the
+assembly house will be handed (stamp_bom.py's fields and DNP flags, checked
+against the schematic, not against parts_db).  A pass here means the file on
+disk is right, not just the script that wrote it.
 """
 import itertools
 import math
@@ -25,13 +27,14 @@ PCB = os.path.join(SENSOR_DIR, "sensor.kicad_pcb")
 SCH = os.path.join(SENSOR_DIR, "sensor.kicad_sch")
 KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
 sys.path.insert(0, os.path.abspath(os.path.join(SENSOR_DIR, "..", "kicad", "gen")))
-from sexp import parse  # noqa: E402
+from sexp import Node, parse  # noqa: E402
 
 MIN_GAP = 0.22          # requirement 1
 PAD_EDGE = 0.5          # copper to board edge
 CRTYD_EDGE = 0.35       # courtyard to board edge
 FRONT_PARTS = {"U2", "U3"}
 BACK_PARTS = {"J1"}
+BOM_FIELDS = ("MPN", "Manufacturer", "Package", "Description")
 
 M = pcbnew.ToMM
 fails = []
@@ -115,9 +118,26 @@ def outside(rect, ol, margin):
 
 
 # ---------------------------------------------------------------- netlist
+def components(root):
+    """{ref: (value, {field: text}, {flag})} straight from the schematic --
+    `flag` is KiCad's own `dnp` / `exclude_from_bom` / `exclude_from_pos_files`
+    marker, which is what a BOM exporter acts on."""
+    out = {}
+    for c in root.find("components").findall("comp"):
+        ref = str(c.find("ref")[1])
+        fields = {}
+        for f in (c.find("fields") or Node()).findall("field"):
+            name = str(f.find("name")[1])
+            fields[name] = str(f[2]) if len(f) > 2 else ""
+        flags = {str(p.find("name")[1]) for p in c.findall("property")
+                 if p.find("value") is None}
+        out[ref] = (str(c.find("value")[1]), fields, flags)
+    return out
+
+
 def netlist():
     """Fresh export into a temp dir -- never reuse the builder's copy, and
-    leave no artefact behind."""
+    leave no artefact behind.  -> ({(ref, pin): net}, {ref: component})"""
     tmp = tempfile.mkdtemp()
     try:
         out = os.path.join(tmp, "check.net")
@@ -127,6 +147,7 @@ def netlist():
         root = parse(open(out, encoding="utf-8").read())
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    comps = components(root)
     mapping = {}
     for net in root.find("nets").findall("net"):
         name = None
@@ -142,7 +163,7 @@ def netlist():
                     pin = str(c[1])
             if ref and pin:
                 mapping[(ref, pin)] = name
-    return mapping
+    return mapping, comps
 
 
 def main():
@@ -200,7 +221,7 @@ def main():
                       f"{'' if not padbad else ' -- ' + str(padbad)}")
 
     print("\n--- pad -> net (against a fresh netlist export) ---")
-    nl = netlist()
+    nl, comps = netlist()
     wrong, missing = [], []
     for (ref, pin), want in nl.items():
         fp = fps.get(ref)
@@ -239,6 +260,40 @@ def main():
     zones = [z for z in board.Zones() if not z.GetIsRuleArea()]
     check(len(zones) == 2 and all(z.GetNetname() == "GND" for z in zones),
           f"{len(zones)} GND pours ({[z.GetZoneName() for z in zones]})")
+
+    print("\n--- BOM (fields + flags, board vs schematic) ---")
+    on_bom = {r: f for r, f in fps.items()
+              if not f.GetAttributes() & pcbnew.FP_EXCLUDE_FROM_BOM}
+    blank = [f"{r}.{n}" for r, f in sorted(on_bom.items()) for n in BOM_FIELDS
+             if not f.GetFieldsShownText().get(n, "").strip()]
+    check(not blank, f"all {len(on_bom)} BOM parts carry {'/'.join(BOM_FIELDS)}"
+                     f"{'' if not blank else ' -- ' + str(blank[:8])}")
+    drift = []
+    for r, f in sorted(on_bom.items()):
+        if r not in comps:                      # mounting holes: board-only
+            continue
+        value, fields, _ = comps[r]
+        got = f.GetFieldsShownText()
+        if got.get("Value", "") != value:
+            drift.append(f"{r}.Value {got.get('Value')!r} != {value!r}")
+        for n in BOM_FIELDS:
+            if got.get(n, "") != fields.get(n, ""):
+                drift.append(f"{r}.{n} {got.get(n)!r} != {fields.get(n)!r}")
+    check(not drift, f"board fields match the schematic's"
+                     f"{'' if not drift else ' -- ' + str(drift[:5])}")
+
+    sch_dnp = {r for r, c in comps.items() if "dnp" in c[2]}
+    pcb_dnp = {r for r, f in fps.items() if f.IsDNP()}
+    said = {r for r, c in comps.items() if "DNP" in c[0].upper()}
+    check(sch_dnp == pcb_dnp, f"same do-not-populate set in both files "
+                              f"(sch {sorted(sch_dnp)}, pcb {sorted(pcb_dnp)})")
+    check(said == sch_dnp, f"every '(DNP)' value string is a real DNP flag "
+                           f"(said {sorted(said)}, flagged {sorted(sch_dnp)})")
+    sch_off = {r for r, c in comps.items() if "exclude_from_bom" in c[2]}
+    pcb_off = {r for r in comps
+               if r in fps and fps[r].GetAttributes() & pcbnew.FP_EXCLUDE_FROM_BOM}
+    check(sch_off == pcb_off, f"same off-BOM set in both files "
+                              f"(sch {sorted(sch_off)}, pcb {sorted(pcb_off)})")
 
     print(f"\n=== {len(fails)} FAILURES, {len(notes)} checks passed ===")
     for f in fails:

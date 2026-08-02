@@ -191,14 +191,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 180)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "18c2317d-bef2-4a81-ae3a-b2a9d456457e")
+			(uuid "9b7c47c9-b13b-559a-83da-e980966d2220")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "9ad9bf3b-c677-509c-b4f8-a99d9e3c5cd0")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "0333d82d-7f3d-5f79-89ec-5023e416f91e")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "41f432df-a2cc-5690-9684-aaf16bc13382")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "eb369417-fbcf-58b1-8d24-3dee93591ceb")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -338,14 +386,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 0 0 180)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "aeac86ca-0924-49d0-9d6f-6384d2ac1937")
+			(uuid "31c25682-c1f1-574e-8b5f-48d2bb8b7226")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "1860b1d1-44a4-54e4-abc6-385d119acd81")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "RC0603JR-070RL"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3228bd7d-8dd8-5b4f-8a50-1ad82b074225")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d4a6dc2a-2329-5a08-b910-e51b5525c79b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 180)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "c9b8385c-adf7-50fe-af62-d7433c868457")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -593,14 +689,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "375298fb-a7ec-4ee9-a71e-846181a0b9e5")
+			(uuid "27c1b88c-d1a8-59bb-a59d-b3dfe977f20b")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5dd55278-4887-558b-b69d-8893d934bcf9")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "RC0603JR-070RL"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "1b77f769-3ff9-580e-8cfe-7219d55a398e")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "e5bd1993-2b8e-5c09-a0e7-4656888ff348")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "DO NOT POPULATE — alternate BME688 address strap — fit INSTEAD OF R10 for 0x76 (both fitted = +3V3 shorted to GND through 0 ohm)"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "66a4043e-9c7a-58e8-a061-5cb4b441102a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -616,7 +760,7 @@
 				)
 			)
 		)
-		(attr smd)
+		(attr smd dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -0.237258 -0.5225)
@@ -740,14 +884,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "2efad52e-8455-4136-a996-17813e671b10")
+			(uuid "61ab5082-d308-538d-8542-73486701da68")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "23f4c6ff-444a-5c72-92e8-cad02f4a3d97")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "73530d19-0e55-5350-909d-abedfac1d49c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "771daeab-cb91-5897-9bcf-ce5ec0fec818")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "017c449e-038d-5704-a004-f14a33255e0b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -889,12 +1081,64 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "SENSOR OPTICAL AMBIENT LIGHT I2C WFDFN-6"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "6f9dda64-c76b-4a06-931e-6a9c9cc82e88")
+			(uuid "31b5b8c3-f20d-5568-8660-da0e3045b8bd")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Package" "WFDFN-6 2.0x2.0mm"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b0ee2c85-4c8f-535b-9d90-52dab2bbc82e")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "TSL25911FN"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8fb6f41c-1d28-5d1b-9291-bcd957d598e8")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "ams-OSRAM"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d52f73a7-4e25-5e81-b42c-d9b44022f9f5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "DigiKey TSL25911FNTR-ND (product 4162547) — $1.74, Active, 29k pcs (2026-08-01). Optical window: no coating, no label over U3"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5678041b-ddf9-5e49-b1a3-4d7e39f3a672")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1289,14 +1533,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "43369181-20f9-4dab-a8ff-ef2083fdeb6c")
+			(uuid "5d799717-bc15-56ef-8b56-dd3709455e8f")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6a547813-959a-5b0f-b139-7be97721e7e0")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "CL10B105KA8NNNC"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "00f066b4-ede0-5f73-b734-d567d5545678")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b70abc97-3182-59c7-b0f5-6a283d06aa73")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "e9349ee4-ea1a-5281-b1d3-031aafe4407d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -1436,14 +1728,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "SENSOR TEMP/RH/PRESSURE/GAS I2C LGA-8"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "e7a4e81a-490c-49aa-8cc9-914425ae9ea1")
+			(uuid "daf414bc-46cc-5d77-879a-ba037bcf374b")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "LGA-8 3.0x3.0x0.93mm"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "97dba837-ad97-58f8-95a0-7d062ab8d0b4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "BME688"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "bb929f04-3acf-549b-896e-602d1b39992d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "Bosch Sensortec"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "c7e51dfc-fc45-510f-b74f-75e735607bc7")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "DigiKey 828-BME688CT-ND — $8.99 single, Active, 9.3k pcs (2026-08-01; datasheet/README.md §12's ~$5 is the 3k reel price). Gas sensor: do not conformal-coat, keep the vent clear"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "dc57ab07-d9c2-582a-9a10-6980833b2e85")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -1752,14 +2092,62 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "40d339b5-eb2a-4002-8cad-bea475d685b9")
+			(uuid "36ddcfc6-1945-5aae-947a-87dbc6325af3")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f426a7b3-7627-5ac1-8dd4-e77bf741de3a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f53899f6-19c3-5ffb-b364-1538451ebdb6")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8a5b4c91-18e6-595f-85b3-d75001d8c409")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "ff789845-e75e-5e2c-bf2f-0dd38e37f834")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 			)
 		)
@@ -1902,14 +2290,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "e9553cd7-e16b-4795-a4d9-2d28bb337a92")
+			(uuid "f5588074-47c7-5df5-b29b-136c57d2d8bc")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "581bd436-36e4-5fef-ba94-d839e00fb1fb")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603JR-070RL"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "18fcfb14-ff8c-531e-a583-70a5fabbf971")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "21753107-169d-5c8f-9089-f4bf6c2569cc")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "DO NOT POPULATE — alternate BNO085 address strap — fit INSTEAD OF R3 for 0x4B (both fitted = +3V3 shorted to GND through 0 ohm)"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "affa18aa-7dd5-572a-9ba0-11a8ee2a436d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -1927,7 +2367,7 @@
 				(justify mirror)
 			)
 		)
-		(attr smd)
+		(attr smd dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -0.237258 0.5225)
@@ -2055,14 +2495,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "e9fd03f1-5827-442d-8dd9-a37351306e0d")
+			(uuid "c2dd2b69-15b4-536f-9a0d-91f44904f50c")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0805"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "4df2caef-651c-5ade-9722-268118515642")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL21A106KAYNNNE"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "399d8149-cd90-5986-873d-933747563005")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5831ce91-b1ee-54eb-a74e-76391ed74c74")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1be5cbd6-9dec-530a-831f-a8c01f418e5b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -2208,14 +2700,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "77375cbb-0fa2-43eb-aa49-b62e791d92e3")
+			(uuid "6d67cbce-49cc-5d02-bc43-bf5a0da4d7df")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "4a90ea5f-b8f9-5159-b043-6974b455ea98")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "3f4989fa-c777-5190-8777-3801a3a1bcc4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "c3c1b834-7629-5467-b6e2-ea1789f7765c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "d818861d-9ec4-5217-9a9e-7f0e51a3de4c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -2362,14 +2906,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "IC IMU 9-AXIS SH-2 FUSION I2C LGA-28"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "a662a0bc-933b-4ffd-b63a-267800929ebc")
+			(uuid "de8bd52d-ee6f-55ba-afb0-ab8224baff65")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "LGA-28 5.2x3.8x1.1mm, 0.5mm pitch"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f44c58dd-20eb-5d61-aacb-ca6c7b7f74e3")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "BNO085"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "9ec1514a-9853-5215-a197-19db2e90a68d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "CEVA Technologies"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5692587d-e057-5d7c-bbee-def81bb0ddee")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "DigiKey 1888-1006-1-ND (cut tape) — $13.57, Active, 324 pcs, 16 wk factory lead (2026-08-01). Land pattern is the vendor one in sensor.pretty (verified against BNO08X Fig. 7-2), NOT KiCad's generic LGA-28"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "8da41713-c77a-56f7-a430-df507bb9746c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -2770,14 +3366,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "08ebf80a-17e4-427a-8240-6dbb81247c19")
+			(uuid "acf175e1-0c40-5bc8-8c73-83514cb2c05f")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "d3320b27-d0db-5d8d-bf5a-969329fdb37f")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "aa7aff24-d1c8-5814-b979-123c345ea4e5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "fa44e226-9a27-5979-b34f-79bd993f7d78")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "3353fa69-621f-5770-9e1e-8583910c5c8a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -2923,14 +3571,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 270)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "5ff39daf-98f9-499c-bef3-4c462923b08d")
+			(uuid "cc4d5071-1fe1-5840-b6ce-5b34e9bd333d")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "119905d4-8f6b-51be-97e4-31dd131f17a7")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f1831186-8ed5-5806-b281-5a9cf22f37e5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "82111213-7a71-5192-b5d3-5c8f11304f63")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "733020ab-ab9b-503d-acc2-bf96a77c3050")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -3076,14 +3776,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "ce705eed-51e5-4552-b48f-37351d6eeb51")
+			(uuid "ef12dc46-579d-55a0-8c85-7f892ad141e8")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "bb637046-ac94-52b2-96fb-532b2ca060be")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10B105KA8NNNC"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "cb8949cf-1520-5997-8ded-7716500e4bb1")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "ff6bc0c0-f5cd-5a86-8275-daeb1a3df196")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "75e1349b-edc7-54e8-a4d4-e73d6f3d5eec")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -3229,14 +3981,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "56c2511b-b7e0-4393-91c6-e8b4e7e11fb2")
+			(uuid "cfc7826d-787d-5eda-a1c1-0ea83be695f8")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "bd7f2371-efca-515c-9822-03e9051d5961")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "ba502609-3943-59b4-ac9e-a0f5e7978e9c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "4e70ac45-bc20-5f88-8513-5517c4dfaf60")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f7238f43-5773-5671-aa0e-5efb5956115a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -3382,14 +4186,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 22PF 50V C0G/NP0 0603"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "02d09b9d-d611-4a46-9e83-51ef76d03d75")
+			(uuid "7704a44b-c74a-5947-b891-733113e7b2d7")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "03758b7f-47d2-5ef4-8a26-7d52729f8d49")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10C220JB8NNNC"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b1b01af3-31cf-5334-a753-55726632c1b7")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "979a6113-bbd3-5e7b-8e5a-13bd8e6f888f")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "a11e3404-7cfd-524a-95df-6544db0e26b3")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -3535,14 +4391,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "58dae481-53a7-4648-bc76-0940c95f5b2a")
+			(uuid "1b6a3fb7-89a0-5498-94de-8299773f4d09")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "3e633ad6-98a0-5a7b-8392-53d7ea1d056a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f8b58681-8e86-5c31-bafc-d82da06c1c05")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "2ff9f771-ab56-5464-81e6-c6c10a124f7a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "c365be84-b4cc-588c-bd64-16d76ee76eab")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -3688,14 +4596,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "20ab1c29-695e-41ad-a2df-7b4c09083f13")
+			(uuid "10bbbf45-d51c-5191-8dd5-5b434969f413")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "40cebde0-5b57-5331-afc2-0e778c1514fa")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "efed362c-338a-5db7-9feb-4dac70e0f2b2")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5e58ab11-01ac-5a5d-887f-ef9651b53c7d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "e92de56b-7b53-51da-b56d-1d0b41139bcc")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -3945,14 +4905,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "5e41808e-0fbe-4175-9863-283ac10d635e")
+			(uuid "ba28fa0e-b560-5a42-81fc-5b2a6ba361c7")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5cd2fc0e-4c5a-525b-aacf-beaeaeaef02d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1f700eeb-7abe-513c-a639-fc17f499429e")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5e03e805-6ef4-5a3a-a117-c5fcfef8949a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "767eef7f-2363-5c8e-99cb-504b890c3011")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -4203,14 +5215,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "196354f2-c815-4290-afb5-c71f4bc1a14d")
+			(uuid "4ce53516-a831-5ab4-9f1b-0c5b56b17c5d")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "9c84a58d-ef98-5c04-a2a6-92ebb6a50ef4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "4bb94f39-b2a4-5e66-86a3-bb0696e6853e")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b63849e7-b5f6-56ac-8245-ae6fa79aeffb")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "152db984-77b6-5a87-8edf-aa9485f5aea5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -4358,12 +5422,68 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CRYSTAL 32.768KHZ 12.5PF SMD"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "56671a83-f9f2-4ba9-9545-bb96720a8001")
+			(uuid "f285a224-3bcc-500e-9542-965f0966a299")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "SMD 3.2x1.5mm 2-pin"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f6394e72-4201-5a1e-9682-bd44f9ea091b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "ABS07-32.768KHZ-T"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "22fcb6a9-4d57-5350-935d-0cc749ea7bd0")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Abracon"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "e9938433-90ef-5b2a-9892-766f970b550c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Same part as the main board's RTC crystal — one line covers both boards"
+			(at 0 0 180)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "9dc46069-4ad7-5c4f-b3ed-144207cd7cf3")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4556,14 +5676,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "fc9919d6-fbb7-4451-88ce-d35bd7ee66fb")
+			(uuid "1e778816-afd1-5354-bcbe-48e95a95768f")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "25b6c496-7f43-5f28-8e32-ab639f17b3c6")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10B104KB8NNNC"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "6bad79c9-41e0-5785-96b1-b02943486e6c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "a1b1c2b5-d437-5333-9764-3d305e661b72")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "a55a1b0a-10f5-5d77-b188-1f826bca5fea")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -4709,14 +5881,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "6da22ed3-3411-4173-bd09-4522a4d91a10")
+			(uuid "aad3fb12-00ea-5464-8a1f-e4589f55b6cf")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "56b5e59e-3a4e-55c7-a1fa-604ba5716653")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b8da88e0-a377-5805-be8c-2db9aa54bc85")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "3fe95ea5-c3f9-53c4-a6af-8f175b4e56d4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "2b09a700-eae5-5c62-984c-5c8e434d8f78")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -4863,14 +6087,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CAP CER 22PF 50V C0G/NP0 0603"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "f76bb1cd-9650-4fd1-a95e-f5273d2f6968")
+			(uuid "5511df13-9cf6-5cc3-9d1c-eef3d7c050cc")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5afb95cc-3eaf-54db-997a-c1e7327f599c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10C220JB8NNNC"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "bff3a6d0-52e2-508a-b198-23cda05c7365")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5c0fc671-d0c7-589d-90a4-68dcea8070b9")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 180)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "8db42b27-55e8-57e7-942e-2602a82dd4c0")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -5016,14 +6292,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "97286997-efcc-4dc7-8aee-3c727cb1300a")
+			(uuid "23d24565-da81-5bbd-9e68-3e0e2bda72a3")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "d99e1919-ed85-5728-a67f-0e267bda766b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "09e8d91e-0452-545a-a4d6-1b2cbd56eab2")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "a4b2f920-3c85-53ae-b5d8-fee30484e710")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "17feaa3d-146c-522d-9a39-d0feee7fc047")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -5169,14 +6497,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "CONN HEADER VERT 6POS 1.50MM"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "3fdb34c2-aa14-4b87-a51c-21e10f3bc4a5")
+			(uuid "10aa1251-38af-5231-aff2-1d82d529b86a")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "JST ZH 1.50mm 6-pos TH vertical"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "c0b865c4-f2fc-5092-9ac3-48ce4e248652")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "B6B-ZR(LF)(SN)"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "00e32cd4-7c0b-5e98-be09-f53545a32579")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "JST Sales America"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "e09c3da3-6fa1-527f-991e-ae9520f855a5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Mates main-board J7 1:1 over the 6-way ZH harness (same part both ends). The only through-hole part on this board — hand-solder it after reflow, or have it fitted as a second operation"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "baea948d-97a8-5787-8778-2a8b35948270")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -5683,14 +7063,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "ed541f85-f40b-4fd1-9d5a-7da18b07e60a")
+			(uuid "b759ce94-0f67-538e-820a-316453b231fa")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "8e0ec014-612e-5f52-8b8b-ea224f4454ec")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603JR-070RL"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "9830d614-d2de-51f1-a20f-59e7a7acd235")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "a2830fde-b318-5fdd-84d3-fdf68097388c")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f09e6352-42cf-55ef-b6ab-bff95a333631")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
@@ -5837,14 +7269,66 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
-			(uuid "ad43d5cf-d1ef-4fa5-8b2b-a1632793182a")
+			(uuid "acb319b6-edc5-59a6-bac1-f4019051ca34")
 			(effects
 				(font
 					(size 1.27 1.27)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Package" "0603"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b8acfdc1-03c2-5a91-b9bc-ecec90b41aa1")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "RC0603FR-0710KL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "05a489ec-175d-5dc8-99fd-2ae2bdd63410")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "9f712746-fcb7-5207-ba12-87404c10a272")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "99f37be6-3721-56db-a2f7-c5fa624aba6a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
 				)
 				(justify mirror)
 			)
