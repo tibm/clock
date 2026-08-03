@@ -311,4 +311,15 @@
 		(layers "*.Cu" "*.Mask")
 	)
 	(embedded_fonts no)
+	(model "${KIPRJMOD}/3d/GCT_USB4160-03-0230-C.step"
+		(offset
+			(xyz 0 -1.31 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz -90 0 0)
+		)
+	)
 )

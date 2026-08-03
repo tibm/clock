@@ -1481,7 +1481,7 @@
 			(uuid "049ab228-6987-479e-ad41-8003238b5425")
 		)
 		(embedded_fonts no)
-		(model "${KICAD10_3DMODEL_DIR}/OptoDevice.3dshapes/DFN-6_2x2.4mm_P0.65mm.step"
+		(model "${KIPRJMOD}/3d/AMS_TSL25911FN.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -7008,7 +7008,7 @@
 			(uuid "b86fb963-575b-469f-991a-ac9ca4107303")
 		)
 		(embedded_fonts no)
-		(model "${KICAD10_3DMODEL_DIR}/Connector_JST.3dshapes/JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical.step"
+		(model "${KIPRJMOD}/3d/JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical.step"
 			(offset
 				(xyz 0 0 0)
 			)

@@ -107,4 +107,15 @@
 		(layers "*.Cu" "*.Mask")
 	)
 	(embedded_fonts no)
+	(model "${KIPRJMOD}/3d/Keystone_1043.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz -90 0 180)
+		)
+	)
 )

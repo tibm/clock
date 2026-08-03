@@ -231,7 +231,7 @@
 	(embedded_fonts no)
 	(model "${KIPRJMOD}/3d/X40_879.step"
 		(offset
-			(xyz 0 0 -18.26)
+			(xyz 0 0 18.26)
 		)
 		(scale
 			(xyz 1 1 1)

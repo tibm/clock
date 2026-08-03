@@ -32,6 +32,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
+import models3d  # noqa: E402
 from sexp import parse  # noqa: E402
 
 import pcbnew  # noqa: E402
@@ -476,6 +477,9 @@ def add_footprint(board, ref, footprint_field, x, y, rot, side, value=None):
     fp.SetFPID(pcbnew.LIB_ID(nick, fp_name))
     if value is not None:
         fp.SetValue(value)
+    models3d.apply_override(fp)  # stock footprints whose stock 3D model is
+    # missing from the KiCad install (JST ZH, AMS_TSL25911FN) -- project
+    # footprints carry their own (model ...) and are left alone.
     fp.SetPosition(pcbnew.VECTOR2I(MM(x), MM(y)))
     board.Add(fp)  # parent before Flip: unparented flip of a footprint with an
     # embedded zone (ESP32 antenna keepout) segfaults

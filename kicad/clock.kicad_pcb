@@ -1505,6 +1505,17 @@
 			(uuid "cfc7e6e0-7ec5-4063-aa1a-2cec0a172d8a")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/3d/QRE1113GR.step"
+			(offset
+				(xyz 0.8196 0.1417 5.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 180 0 0)
+			)
+		)
 	)
 	(footprint "LED_SMD:LED_SK6812_PLCC4_5.0x5.0mm_P3.2mm"
 		(layer "F.Cu")
@@ -8664,6 +8675,17 @@
 			(uuid "f6f8779a-03b5-4665-973e-11f6fd303220")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/3d/GCT_USB4160-03-0230-C.step"
+			(offset
+				(xyz 0 -1.31 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 0 0)
+			)
+		)
 	)
 	(footprint "Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical"
 		(layer "B.Cu")
@@ -25352,6 +25374,17 @@
 			(uuid "fa6cf216-d70a-4de6-a08c-f45635f3af65")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/3d/Keystone_1043.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 0 180)
+			)
+		)
 	)
 	(footprint "Package_SO:HTSSOP-32-1EP_6.1x11mm_P0.65mm_EP5.2x11mm_Mask4.11x4.36mm"
 		(layer "B.Cu")
@@ -32359,7 +32392,7 @@
 			(uuid "35e61f31-ca80-48ea-9664-91ad3fa41346")
 		)
 		(embedded_fonts no)
-		(model "${KICAD10_3DMODEL_DIR}/Connector_JST.3dshapes/JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical.step"
+		(model "${KIPRJMOD}/3d/JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -35251,7 +35284,7 @@
 			(uuid "f34ed007-6510-4098-8c4a-15f241235858")
 		)
 		(embedded_fonts no)
-		(model "${KICAD10_3DMODEL_DIR}/Connector_JST.3dshapes/JST_ZH_B2B-ZR_1x02_P1.50mm_Vertical.step"
+		(model "${KIPRJMOD}/3d/JST_ZH_B2B-ZR_1x02_P1.50mm_Vertical.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -40954,7 +40987,7 @@
 			(uuid "cec09e79-a37b-41ab-9c24-df70cdd2ec79")
 		)
 		(embedded_fonts no)
-		(model "${KICAD10_3DMODEL_DIR}/Connector_JST.3dshapes/JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical.step"
+		(model "${KIPRJMOD}/3d/JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -44297,7 +44330,7 @@
 		(embedded_fonts no)
 		(model "${KIPRJMOD}/3d/X40_879.step"
 			(offset
-				(xyz 0 0 -18.26)
+				(xyz 0 0 18.26)
 			)
 			(scale
 				(xyz 1 1 1)
