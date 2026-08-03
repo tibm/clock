@@ -3,7 +3,7 @@
 	(generator "clock_gen")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "onsemi QRE1113GR reflective object sensor, surface mount, ARUSM-313 / CASE 100CY, land pattern per datasheet page 8 (98AON13407G): pads 1.66x0.79 mm, span 5.66 mm, row pitch 2.59 mm")
+	(descr "onsemi QRE1113GR reflective object sensor, surface mount, ARUSM-313 / CASE 100CY, land pattern per datasheet page 8 (98AON13407G). The figure's 5.66 and 2.59 are OVERALL land-pattern dimensions, not centre pitches: with 1.66x0.79 mm pads that is x = +/-2.00 and y = +/-0.90, and +/-0.90 is the 1.80 mm lead pitch on the package drawing. (Pads were at y = +/-1.295 until 2026-08-02, i.e. 2.59 read as a pitch, which left each 0.5 mm-wide lead overlapping only 0.25 mm of its pad.)")
 	(tags "onsemi QRE1113GR reflective sensor phototransistor SMD")
 	(property "Reference" "REF**"
 		(at 0 -3 0)
@@ -67,8 +67,8 @@
 		(layer "F.SilkS")
 	)
 	(fp_circle
-		(center -3.3 1.295)
-		(end -3.15 1.295)
+		(center -3.3 0.9)
+		(end -3.15 0.9)
 		(stroke
 			(width 0.3)
 			(type solid)
@@ -98,7 +98,7 @@
 	)
 	(fp_line
 		(start -1.45 0.795)
-		(end -2.4 1.295)
+		(end -2.4 0.9)
 		(stroke
 			(width 0.1)
 			(type solid)
@@ -116,22 +116,22 @@
 		)
 	)
 	(pad "1" smd rect
-		(at -2 1.295)
+		(at -2 0.9)
 		(size 1.66 0.79)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "2" smd rect
-		(at 2 1.295)
+		(at 2 0.9)
 		(size 1.66 0.79)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "3" smd rect
-		(at 2 -1.295)
+		(at 2 -0.9)
 		(size 1.66 0.79)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "4" smd rect
-		(at -2 -1.295)
+		(at -2 -0.9)
 		(size 1.66 0.79)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
