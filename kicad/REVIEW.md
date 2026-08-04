@@ -49,14 +49,14 @@ all routing.**
 | 1 | Q4 PVDD-mux P-FET source/drain reversed | `1f3736a` | schematic only — **PCB re-route still open** |
 | 2 | TAS5760M PBTL outputs paralleled wrong pairs | `1f3736a`, refined `1cf1629` | schematic only — **PCB re-route still open** |
 | 3 | LT3652 `C104` → 26 min charge timeout | `1f3736a` | 1 µF, same 0603 land, existing BOM line |
-| 10 | J7/J10 identical connectors, incompatible pinouts | `f8c6441` | connector kept; **`SENSOR` + `KNOB` silkscreen added** on B.SilkS |
+| 10 | J7/J10 identical connectors, incompatible pinouts | `637be57` | connector kept; **`SENSOR` + `KNOB` silkscreen added** on B.SilkS |
 | 11 | J7 pin 6 (`ALS_INT`) was NC | `727dbfd` | → expander GPB3; **PCB trace still open** |
 | 12 | J7 value string said LIS3DH | `727dbfd` | now BNO085 — ⚠ see note below |
-| 13 | `R1` 137 mW in a 100 mW 0603 | `f8c6441` | → **1206**, `RC1206FR-071KL` (¼ W); **PCB land swap still open** |
+| 13 | `R1` 137 mW in a 100 mW 0603 | `637be57` | → **1206**, `RC1206FR-071KL` (¼ W); **PCB land swap still open** |
 | 15 | `VBAT_SENSE` floats above +3V3 | `727dbfd` | **D14** added; **PCB place + route still open** |
 | 17 | Encoder divider 66.7 kΩ source impedance | `727dbfd` | → 10k/20k, same ratio, value-only |
-| 20 | Reverse-cell fault current into the protector | `f8c6441` | `R20` 100R → **200R** (HYCON's max), halves it to ~18 mA |
-| 21 | MCP23017 INTA/INTB tied | `f8c6441` | firmware requirement **R-BOARD-1** in `FIRMWARE.md` §6.5 |
+| 20 | Reverse-cell fault current into the protector | `637be57` | `R20` 100R → **200R** (HYCON's max), halves it to ~18 mA |
+| 21 | MCP23017 INTA/INTB tied | `637be57` | firmware requirement **R-BOARD-1** in `FIRMWARE.md` §6.5 |
 
 > ⚠ **#12 has a firmware consequence.** `FIRMWARE.md` §6.5 still lists the motion sensor as
 > **LIS3DH @ 0x18, "hardware tap IRQ, no polling"**. The sensor board actually carries a
@@ -142,7 +142,7 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   sits on its own leg's column while keeping its **original U9 pin** — which the existing PCB
   copper already implements. Cuts the #2 PCB rework from two long crossing pin-side routes to two
   short straight far-pad runs.
-- **2026-08-04** (`f8c6441`): #10 (silkscreen), #13 (1206), #20 (200R), #21 + #16 written into
+- **2026-08-04** (`637be57`): #10 (silkscreen), #13 (1206), #20 (200R), #21 + #16 written into
   `FIRMWARE.md`. DRC 0 violations / 0 unconnected after the silkscreen addition.
 - Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before** rotating while
   KiCad mirrors **after**, silently swapping the two mirror axes at rot 90/270. Harmless until now
