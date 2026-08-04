@@ -58,6 +58,33 @@ all routing.**
     high-power 0603 part — both need an MPN sourced and verified on DigiKey, which
     is your call, not a mechanical edit. `parts_db` keys resistor MPNs by *value
     only*, so it also needs a `_REF["R1"]` override either way.
+- **2026-08-03 — Phase 2 prep**: `C181`/`C182` swapped positions in
+  `cosmetics.py` so each bootstrap cap sits on the column of the leg it belongs
+  to. This keeps **both caps on their original U9 pins** (C181-U9.25 BSTRPA-,
+  C182-U9.19 BSTRPB+), which the existing PCB copper already implements — cutting
+  the PCB rework for #2 from *two long crossing pin-side routes* down to
+  **two short straight far-pad runs**. Schematic is now final for #1/#2/#3.
+
+  ### Phase 2 work order (PCB) — measured, not estimated
+
+  The U9 fan-out is genuinely full: in the 5.7 × 8.0 mm box around it,
+  **B.Cu 47.5 mm / 8 nets, In1 60.3 mm / 5 nets, In2 24.7 mm / 3 nets, 8 vias,
+  8 pads — and F.Cu completely empty (0 mm)**. F.Cu is the escape layer.
+
+  | # | connection | from | to | note |
+  |---|---|---|---|---|
+  | 2 | `U9.20` → leg B | (100.15, 75.63) | leg B at (101.55, 77.58) | delete segs at pad; PVDD via at (101.56, 76.81) blocks the direct diagonal |
+  | 2 | `U9.26` → leg A | (100.15, 79.53) | leg A via at (101.36, 81.05) | PVDD knot at (101.16–101.58, 80.08–80.52) blocks B.Cu |
+  | 2 | `C181.2` → leg A | (103.50, 81.83) | `C180.2` (103.50, 78.18) | straight vertical, x = 103.50 |
+  | 2 | `C182.2` → leg B | (106.00, 78.18) | `C183.2` (106.00, 81.83) | straight vertical, x = 106.00 |
+  | 1 | `Q4.3` → `+5V` | (100.92, 71.10) | +5V at (100.91, 68.26) | **must not** go straight up: pads 1/2 leave a 0.43 mm gap and a 0.25 mm track needs 0.45 mm. Hop on F.Cu with vias at (100.91, 68.26) and (100.92, 70.16) — both verified clear of all three Q4 pads |
+  | 1 | `Q4.2` → `PVDD` | (101.88, 69.22) | PVDD at (103.74, 71.10) | direct B.Cu diagonal, clear |
+  | 15 | `D14` | — | `VBAT_SENSE` + `+3V3` | new SOD-123 to place near D13 (99.09, 104.30) |
+  | 11 | `ALS_INT` | `J7.6` | `U13.4` | new net, both parts already placed |
+
+  Segments to delete first (they sit on pads whose net changed): `Q4` 281, 934;
+  `U9` 539, 540, 541, 543, 1743, 1744, 1745, 1747.
+
 - Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before**
   rotating while KiCad mirrors **after**, which silently swaps the two mirror axes
   at rot 90/270. Harmless until now (BT1 was the only mirrored part, at rot 0);

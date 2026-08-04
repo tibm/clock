@@ -144,12 +144,17 @@ COSMETICS = {
     'C180': {'at': (727.71, 254.0, 0.0, None),
                'ref': (727.964, 251.714, 0.0, 'left'),
                'val': (727.964, 256.54, 0.0, 'left')},
-    'C181': {'at': (734.06, 254.0, 0.0, None),
-               'ref': (734.568, 251.714, 0.0, 'left'),
-               'val': (734.822, 256.54, 0.0, 'left')},
-    'C182': {'at': (741.68, 254.0, 0.0, None),
+    # C181/C182 positions swapped 2026-08-03: this puts each cap on the
+    # bootstrap column of the leg it belongs to, so each keeps its ORIGINAL
+    # U9 pin (C181-U9.25 BSTRPA-, C182-U9.19 BSTRPB+) and the PCB only has to
+    # move the two far pads on short straight runs, instead of two long
+    # crossing pin-side routes.  [REVEIW.md #2]
+    'C181': {'at': (741.68, 254.0, 0.0, None),
                'ref': (742.188, 251.714, 0.0, 'left'),
                'val': (741.934, 256.54, 0.0, 'left')},
+    'C182': {'at': (734.06, 254.0, 0.0, None),
+               'ref': (734.568, 251.714, 0.0, 'left'),
+               'val': (734.822, 256.54, 0.0, 'left')},
     'C183': {'at': (754.38, 254.0, 0.0, None),
                'ref': (754.888, 251.968, 0.0, 'left'),
                'val': (755.396, 256.54, 0.0, 'left')},
