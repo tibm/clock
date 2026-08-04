@@ -118,7 +118,7 @@ firmware/
 │  ├─ hal/                        # RAII wrappers: Mcpwm Gptimer I2cBus I2sTx SpiBus
 │  │                              # Adc Pcnt LedStrip Ledc Gpio Nvs UsbConsole
 │  ├─ drivers/                    # X40Movement Tb6612 Qre1113 Sk6812Chain Tas5760
-│  │                              # Mcp23017 Bme688 Tsl2591 Lis3dh Lt3652Status
+│  │                              # Mcp23017 Bme688 Tsl2591 Bno085 Lt3652Status
 │  ├─ services/                   # the 9 active objects (§3)
 │  └─ transport/                  # cli_adapter/  ble_gatt/   → both call command::dispatch
 └─ test/
@@ -165,7 +165,7 @@ handful of `std::atomic` status flags.
 | 2 | **`audio`** | 18 | 1 | 8 K | I²S0 + DMA | WAV streaming → HPF biquad + limiter + volume ramp → I²S. Amp pop-free sequencing |
 | 3 | **`storage`** | 14 | 1 | 6 K | SPI2/SD/FATFS, LittleFS, NVS | Audio prefetch into a PSRAM ring; config load/save; BLE asset upload; OTA writes. **All blocking file I/O lives here** |
 | 4 | **`chrono`** | 12 | 1 | 4 K | wall clock, alarm table | Time authority (TZ/DST/sources), alarm scheduling, sunrise pre-roll, hand targets, re-home policy |
-| 5 | **`board`** | 11 | 1 | 5 K | **I²C0 (sole owner)**, ADC1_CH0 (IO1) | MCP23017 service, TAS5760M registers, BME688/BSEC, TSL2591, LIS3DH, VBAT, charger status, radio toggle |
+| 5 | **`board`** | 11 | 1 | 5 K | **I²C0 (sole owner)**, ADC1_CH0 (IO1) | MCP23017 service, TAS5760M registers, BME688/BSEC, TSL2591, BNO085 (SHTP/SH-2), VBAT, charger status, radio toggle |
 | 6 | **`ui`** | 10 | 1 | 4 K | PCNT unit0, SPI3→SK6812, LEDC ch0/1 | The knob HSM; all light output (7 pixels + wake light), gamma, ALS gating, hard-off |
 | 7 | **`net`** | 6 | **0** | 5 K | esp_event, SNTP, NimBLE app link, OTA | Connectivity HSM, BLE GATT server + provisioning, obeys `RADIO_OFF` as a hard override |
 | 8 | **`supervisor`** | 5 | 1 | 3 K | TWDT, power policy, coredump | Power-mode policy, low-battery shutdown, fault latch + LED fault codes, reset-reason reporting |
@@ -186,8 +186,8 @@ LED rendering out of `ui`, BLE out of `net`.
 | **GPTimer0 → commutation** | 20 kHz **while moving; stopped when idle** | Q16.16 phase accumulator += velocity → index `constexpr` sine LUT → write 8 MCPWM comparators. ≈3 µs, IRAM. The task never touches a comparator |
 | I²S `on_sent` | ~180 Hz | Task-notify `audio` |
 | GPIO `ENC_SW` IO17 | user | Start 5 ms debounce timer → `KnobPress` to `ui` |
-| GPIO `SENSOR_INT` IO42 | rare | Notify `board` (LIS3DH tap / TSL2591 threshold) |
-| GPIO `EXPANDER_INT` IO44 | rare | Notify `board` → reads INTF/INTCAP (clears the latch) |
+| GPIO `SENSOR_INT` IO42 | rare | Notify `board` → drain one SHTP packet from the BNO085. **BNO085 only** — the TSL2591's `ALS_INT` moved to expander GPB3 (`REVIEW.md` #11), so it arrives via `EXPANDER_INT` |
+| GPIO `EXPANDER_INT` IO44 | rare | Notify `board` → reads INTF/INTCAP (clears the latch). Sources: charger CHRG/FAULT/PD_PG, `SPK_FAULT`, radio toggle, **TSL2591 `ALS_INT` (GPB3)** |
 | PCNT IO47/48 | — | **No ISR.** Hardware quadrature + glitch filter; `ui` diffs the count every 20 ms |
 | SPI3 DMA (LED) | on demand | Driver-internal |
 
@@ -215,7 +215,7 @@ flowchart TB
     MOT --- X40["X40.879 via 2x TB6612<br/>QRE1113 homing"]
     AUD --- AMP["TAS5760M → DMA58-4"]
     STO --- SD["microSD + LittleFS"]
-    BRD --- I2C["MCP23017 · BME688<br/>TSL2591 · LIS3DH · TAS5760M regs"]
+    BRD --- I2C["MCP23017 · BME688<br/>TSL2591 · BNO085 · TAS5760M regs"]
     UIA --- LED["7x SK6812 · 2x wake COB"]
     UIA --- KNB["EM14 encoder + switch"]
     NET --- IDF
@@ -226,7 +226,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     KNB(["knob<br/>PCNT + IRQ"]) -->|KnobTurn KnobPress| UIA["ui"]
-    ACC(["LIS3DH tap"]) -->|SENSOR_INT| BRD["board"]
+    ACC(["BNO085 tap"]) -->|SENSOR_INT| BRD["board"]
     BRD -->|Tap| UIA
     BRD -->|Ambient| UIA
     BRD -->|PowerState| SUP["supervisor"]
@@ -624,7 +624,7 @@ stop → ramp gain to 0 → `SPK_SD` low → wait 5 ms → stop I²S.
 |---|---|---|
 | MCP23017 | 0x20 | On `EXPANDER_INT` → read `INTF`/`INTCAP` (clears the latch) **+ a 1 s resync read** to recover from a missed interrupt (a known MCP23017 failure mode) |
 | TAS5760M | 0x6C | On demand (config at start, volume, mute, fault read) |
-| LIS3DH | 0x18 | Hardware tap IRQ → `Tap`; no polling |
+| BNO085 | 0x4A | `SENSOR_INT` → drain one SHTP packet; **Tap Detector only**, no polling. Not a register map — see below |
 | TSL2591 | 0x29 | 1 s, auto-gain; publishes `Ambient` |
 | BME688 | 0x77 | BSEC LP mode, 3 s; state blob saved to LittleFS every 6 h |
 
@@ -658,6 +658,52 @@ Also owns **ADC1_CH0 `VBAT_SENSE`**: assert `VBAT_DIV_EN` → settle 1 ms → 64
 > ⚠ **BSEC licensing.** Bosch's BSEC 2.x is a binary blob under its own license. If that's
 > unacceptable, fall back to the open `BME68x` driver plus a simple gas-resistance baseline — the
 > AO interface (`Ambient`) is identical either way.
+
+#### 6.5.1 BNO085 — not an accelerometer, a sensor hub
+
+This document previously specified an **LIS3DH**; the sensor board carries a **BNO085**
+(corrected 2026-08-04, see `kicad/REVIEW.md` #12). The `Tap` event and its consumers are
+unchanged, but the driver is a different class of thing and the estimate should reflect that.
+
+**Board facts** (from `kicad-sensor/gen/b_imu.py`, wired to CEVA's own I²C reference):
+
+| | |
+|---|---|
+| Address | **0x4A** — `SA0` low via `R3` (`R4` is the DNP alternate for 0x4B) |
+| Interface | `PS1 = PS0 = 0` → **I²C**; `H_CSN` tied high (unused in I²C) |
+| Timebase | `CLKSEL0 = 0` → the sensor board's **own 32.768 kHz crystal** |
+| `SENSOR_INT` | active-low, **push-pull** (not open-drain). `R97` on the main board is harmless but redundant |
+| Reset | **no host line.** `NRST` is a 10k/100 nF power-on RC only |
+
+**What changes versus a register-map part**
+
+1. **Transport is SHTP, not registers.** Every exchange is a packet: a 4-byte SHTP header
+   (length LSB/MSB, channel, sequence) then payload, on top of the SH-2 command/report layer.
+   Use CEVA's reference `sh2` driver and give it an I²C read/write shim over the `board` bus —
+   do not hand-roll it.
+2. **`SENSOR_INT` means "the hub has a packet for you"**, not "a tap happened". The ISR notifies
+   `board`; `board` reads exactly one SHTP packet and lets `sh2` dispatch it. Most packets early
+   on are not sensor reports.
+3. **Boot is asynchronous.** After the POR RC releases, the hub emits an unsolicited advertisement
+   and a reset-complete before it will accept configuration. Drain those, confirm with a product-ID
+   request, *then* enable features. Budget a few hundred ms; do not block an AO for it — treat
+   BNO085 bring-up as a small state machine inside `board`.
+4. **Enable only `SH2_TAP_DETECTOR`.** The hub can also produce rotation vector, accel, gyro, mag,
+   step counter, stability and significant-motion reports. Every enabled feature costs I²C traffic
+   and power for a product that needs one bit. Leave the rest off.
+5. **Allow generous I²C timeouts.** The BNO085 clock-stretches; the ESP32-S3 master handles it, but
+   the per-transaction timeout must not be tuned down to what the MCP23017 needs.
+6. **Power is materially higher** than the LIS3DH this replaced (mA, not µA). It is on the always-on
+   `+3V3` rail with no gate — folded into the same "mostly wall-powered" acceptance as
+   `REVIEW.md` #14, but note it in §7.4 rather than assuming a µA-class part.
+
+> **R-BOARD-3 — the BNO085 cannot be reset by firmware.** `NRST` has no host line, so a wedged
+> hub can only be cleared by cycling `+3V3`, which the board also cannot do. Give the driver a
+> liveness check (no packet within N seconds of an expected one → mark the sensor failed), publish
+> the failure, and **degrade gracefully**: tap-to-snooze stops working, nothing else does. Do not
+> let a silent BNO085 stall `board` or wedge the I²C bus for the other three devices.
+> *(If a host reset line is ever wanted, it needs a spare expander pin and a wire on J7 — J7.6 is
+> now taken by `ALS_INT`.)*
 
 ### 6.6 `ui` — the knob HSM + all light output
 
@@ -812,6 +858,13 @@ stateDiagram-v2
 Alarms fire in **every** mode including `BatteryLow` — the deep-sleep wake schedule is
 `min(backup_tick_s, time_to_next_alarm)`, and the alarm wake brings radios up only if needed.
 
+> **Standing draw the firmware cannot switch off.** The EM14 encoder (26 mA on `+5V`), the
+> QRE1113 homing LED (14 mA on `+3V3`) and the BNO085 are all hard-wired to always-on rails — no
+> gate exists (`REVIEW.md` #14, deferred because the product is mostly wall-powered). So
+> `BatteryLow` deep sleep saves the *SoC's* current, not the board's, and backup runtime is set by
+> those fixed loads rather than by `backup_tick_s`. Don't model battery life as if deep sleep were
+> µA-class.
+
 ### 7.5 Configuration
 
 Single versioned struct in NVS namespace `clock`, with one migration function per version bump:
@@ -925,7 +978,7 @@ sequenceDiagram
     AUD->>BRD: AmpPower on
     BRD->>BRD: 12 V or 5 V mux, SPK_SD high
     AUD->>AUD: HPF, limiter, volume ramp, I2S
-    BRD->>UI: Tap from LIS3DH
+    BRD->>UI: Tap from BNO085
     UI->>AUD: Stop with fade
     UI->>CHR: Snooze
     CHR->>MOT: HandTarget, hands back to current time
@@ -985,6 +1038,7 @@ snd   idle  vol 62%  hpf 150Hz  limit -4.1dBFS (8W cap)
 | Audio DSP | ~8 % of core 1 while playing | 2 biquads + limiter on 48 kHz mono, float |
 | LED render | <1 % | 7 pixels @ 50 Hz over SPI DMA |
 | BSEC | <1 % | 3 s cadence |
+| BNO085 SH-2 driver | <1 % CPU | Tap-only, so packets are rare — but budget RAM for the `sh2` state plus an SHTP buffer sized to the largest report you enable. **Measure it once the driver is in**; it is the one item here that is a guess, not a calculation |
 | Everything else | <2 % | event-driven |
 | **Internal SRAM** | ~45 K stacks + ~60 K IDF/Wi-Fi + DMA | of 512 K |
 | **PSRAM** | 192 K audio ring + BSEC + OTA scratch | of 8 M |
