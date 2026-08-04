@@ -51,17 +51,20 @@ all routing.**
 | 3 | LT3652 `C104` → 26 min charge timeout | `1f3736a` | 1 µF, same 0603 land, existing BOM line |
 | 10 | J7/J10 identical connectors, incompatible pinouts | `637be57` | connector kept; **`SENSOR` + `KNOB` silkscreen added** on B.SilkS |
 | 11 | J7 pin 6 (`ALS_INT`) was NC | `727dbfd` | → expander GPB3; **PCB trace still open** |
-| 12 | J7 value string said LIS3DH | `727dbfd` | now BNO085 — ⚠ see note below |
+| 12 | J7 value string said LIS3DH | `727dbfd` sch · `3cc15da` fw | schematic **and** `FIRMWARE.md` now say BNO085 — see note below |
 | 13 | `R1` 137 mW in a 100 mW 0603 | `637be57` | → **1206**, `RC1206FR-071KL` (¼ W); **PCB land swap still open** |
 | 15 | `VBAT_SENSE` floats above +3V3 | `727dbfd` | **D14** added; **PCB place + route still open** |
 | 17 | Encoder divider 66.7 kΩ source impedance | `727dbfd` | → 10k/20k, same ratio, value-only |
 | 20 | Reverse-cell fault current into the protector | `637be57` | `R20` 100R → **200R** (HYCON's max), halves it to ~18 mA |
 | 21 | MCP23017 INTA/INTB tied | `637be57` | firmware requirement **R-BOARD-1** in `FIRMWARE.md` §6.5 |
+| — | `FIRMWARE.md` sensor was LIS3DH, board is BNO085 | `3cc15da` | new §6.5.1 + **R-BOARD-3**; `SENSOR_INT` is BNO085-only now that `ALS_INT` is on GPB3 |
 
-> ⚠ **#12 has a firmware consequence.** `FIRMWARE.md` §6.5 still lists the motion sensor as
-> **LIS3DH @ 0x18, "hardware tap IRQ, no polling"**. The sensor board actually carries a
-> **BNO085** — a different address (0x4A/0x4B) and a *much* heavier driver (SHTP/SH-2 protocol,
-> not a simple register map). Left unchanged because it is a real planning decision, not a typo.
+> ✅ **#12's firmware consequence is now handled.** `FIRMWARE.md` had specified an
+> **LIS3DH @ 0x18** throughout. Corrected to **BNO085 @ 0x4A** in `3cc15da`, including a new
+> §6.5.1 covering what actually changes: SHTP/SH-2 transport instead of a register map,
+> `SENSOR_INT` meaning "packet available" rather than "tap happened", asynchronous boot,
+> enabling only `SH2_TAP_DETECTOR`, clock stretching, and **R-BOARD-3** — `NRST` has no host
+> line, so firmware cannot reset the hub and must degrade gracefully instead.
 
 ### ⏳ Open — PCB / fab work (deferred to the routing pass)
 
@@ -144,6 +147,9 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   short straight far-pad runs.
 - **2026-08-04** (`637be57`): #10 (silkscreen), #13 (1206), #20 (200R), #21 + #16 written into
   `FIRMWARE.md`. DRC 0 violations / 0 unconnected after the silkscreen addition.
+- **2026-08-04** (`3cc15da`): `FIRMWARE.md` corrected from LIS3DH to BNO085 — new §6.5.1 (SHTP/SH-2
+  driver model, board strapping, tap-only feature set), **R-BOARD-3** (no host reset line), plus the
+  `SENSOR_INT`/`EXPANDER_INT` split from #11 and the standing-draw note in §7.4.
 - Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before** rotating while
   KiCad mirrors **after**, silently swapping the two mirror axes at rot 90/270. Harmless until now
   (BT1 was the only mirrored part, at rot 0); fixed, verified not to move any other net.
