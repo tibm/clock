@@ -27,6 +27,7 @@ _R = {
     "2.55k":  ("RC0603FR-072K55L",  "RES 2.55K OHM 1% 1/10W 0603"),
     "4.7k":   ("RC0603FR-074K7L",   "RES 4.7K OHM 1% 1/10W 0603"),
     "10k":    ("RC0603FR-0710KL",   "RES 10K OHM 1% 1/10W 0603"),
+    "20k":    ("RC0603FR-0720KL",   "RES 20K OHM 1% 1/10W 0603"),
     "45.3k":  ("RC0603FR-0745K3L",  "RES 45.3K OHM 1% 1/10W 0603"),
     "56k":    ("RC0603FR-0756KL",   "RES 56K OHM 1% 1/10W 0603"),
     "86.6k":  ("RC0603FR-0786K6L",  "RES 86.6K OHM 1% 1/10W 0603"),
@@ -123,6 +124,10 @@ _REF = {
     "D10": ("BAT46W-E3-08", "Vishay", "SOD-123",
             "DIODE SCHOTTKY 100V 250MA SOD-123", ""),
     "D13": ("BAT42W-E3-08", "Vishay", "SOD-123",
+            "DIODE SCHOTTKY 30V 200MA SOD-123", ""),
+    # D14 = the +3V3 half of the VBAT_SENSE clamp pair (D13 clamps negative,
+    # D14 positive). Same part and land as D13, so no new BOM line -- only qty.
+    "D14": ("BAT42W-E3-08", "Vishay", "SOD-123",
             "DIODE SCHOTTKY 30V 200MA SOD-123", ""),
     "D11": ("B340A-13-F", "Diodes Incorporated", "DO-214AC (SMA)",
             "DIODE SCHOTTKY 40V 3A SMA", ""),

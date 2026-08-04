@@ -23,7 +23,7 @@ PCB = os.path.join(KICAD_DIR, "clock.kicad_pcb")
 KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
 
 # Findings that are known-not-yet-fixed: reported as TODO instead of FAIL.
-OPEN = {4, 5, 8, 9, 10, 15, 17, 24}
+OPEN = {4, 5, 8, 9, 10, 24}
 
 results = []
 
@@ -110,10 +110,22 @@ def sch_checks():
           f"J7.2={net_of(nets, 'J7.2')} J10.2={net_of(nets, 'J10.2')}")
 
     # -- #15: with the divider FET off, R22 pulls the ADC node to V_cell.
+    clamp = next((n for n in ("D14", "D15")
+                  if net_of(nets, f"{n}.1") == "+3V3"
+                  and net_of(nets, f"{n}.2") == "VBAT_SENSE"), None)
     check(15, "VBAT_SENSE clamped to +3V3 (divider-off leakage)",
-          any(n.startswith("D") and net_of(nets, f"{n}.1") == "+3V3"
-              for n in ("D14", "D15")),
-          "no clamp diode to +3V3 on VBAT_SENSE")
+          clamp is not None,
+          f"clamp = {clamp}" if clamp else "no clamp diode to +3V3")
+
+    # -- #11: the sensor board drives ALS_INT (TSL2591 INT) onto J7 pin 6.
+    check(11, "J7 pin 6 (ALS_INT) landed on a GPIO, not NC",
+          net_of(nets, "J7.6") == net_of(nets, "U13.4") is not None,
+          f"J7.6={net_of(nets, 'J7.6')}")
+
+    # -- #12: the sensor board carries a BNO085, not a LIS3DH.
+    check(12, "J7 value names the parts actually on the sensor board",
+          "BNO085" in vals.get("J7", "") and "LIS3DH" not in vals.get("J7", ""),
+          vals.get("J7", ""))
 
     # -- #17: 100k/200k = 66.7k source impedance into PCNT across a noisy board.
     enc = [vals.get(r) for r in ("R111", "R112", "R114", "R115")]

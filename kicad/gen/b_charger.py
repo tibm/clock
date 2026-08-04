@@ -169,6 +169,16 @@ def build(s):
     D13 = s.D_schottky("D13", 110.49, 217.17, "BAT42W", fp="SOD123", rot=270)
     s.pw(D13, "1", ("x", 102.87))                        # cathode -> ADC node
     s.gnd(D13, "2", drop=0)
+    # D14: the positive half of the same clamp pair.  With VBAT_DIV_EN low Q3
+    # opens the bottom of the divider, so R22 pulls the ADC node up to V_cell
+    # (~4.05 V) -- above the ESP32's VDD+0.3 abs-max, leaving IO1 forward-
+    # biasing its own upper ESD diode whenever the divider is disabled.  A
+    # Schottky to +3V3 clamps the node at ~3.5 V at the few uA involved.
+    # Same BAT42W/SOD-123 as D13.  [REVEIW.md #15]
+    D14 = s.D_schottky("D14", 118.11, 217.17, "BAT42W", fp="SOD123", rot=90)
+    s.pw(D14, "2", ("x", 110.49))                        # anode -> ADC node
+    s.pw(D14, "1", ("dy", 3.81))
+    s.power_at(118.11, 224.79, "+3V3")
     Q3 = s.nmos("Q3", 88.90, 228.60, "2N7002")
     s.route(R23, "2", Q3, "3", "V")
     s.gnd(Q3, "2", drop=0)

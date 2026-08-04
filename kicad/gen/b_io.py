@@ -1,6 +1,6 @@
 """Blocks: SENSORS & HOMING (sensor-board connector + QRE1113) and
 IO EXPANDER + KNOB (MCP23017, EM14 optical encoder connector, I2C pull-ups).
-Knob A/B (5 V outputs -> 100k/200k dividers) and the expander INT are WIRED
+Knob A/B (5 V outputs -> 10k/20k dividers) and the expander INT are WIRED
 to the MCU down the x~425 corridor; ENC_SW + slow expander fan-out lines use
 labels (per the block-diagram style). BTN1-3 + the EC11 dropped 2026-07-19.
 """
@@ -13,11 +13,14 @@ def build(s):
     # ================= SENSORS & HOMING =================
     s.frame(405, 225, 595, 305, "SENSORS (I2C off-board) + HAND-HOMING (QRE1113)")
 
-    # sensor-board connector (STEMMA-QT chain: BME688 + TSL2591 + LIS3DH).
+    # sensor-board connector (STEMMA-QT chain: BME688 + TSL2591 + BNO085).
     # JST ZH 1x06 (B6B-ZR, TH top-entry) so the cheap pre-crimped
-    # A06ZR06ZR28H102B ZH<->ZH cable plugs straight in; pin 6 spare.
+    # A06ZR06ZR28H102B ZH<->ZH cable plugs straight in.
+    # NB same connector + cable as J10 (knob) 13.5 mm away, but J10 pin 2 is
+    # +5V where this one is +3V3 -- swapping them kills the sensor board.
+    # Keying is still open: REVEIW.md #10.
     J7 = s.comp("J7", "Connector_Generic:Conn_01x06", 533.40, 254.00,
-                value="Sensor board (BME688+TSL2591+LIS3DH)",
+                value="Sensor board (BME688+TSL2591+BNO085)",
                 footprint="Connector_JST:JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical",
                 refpos=(533.40, 265.43, None), valpos=(535.94, 241.30, None))
     s.pw(J7, "1", ("x", 505.46), ("dy", 2.54))
@@ -27,7 +30,10 @@ def build(s):
     s.glabel(J7, "3", "I2C_SDA")
     s.glabel(J7, "4", "I2C_SCL")
     s.glabel(J7, "5", "SENSOR_INT")
-    s.nc(J7, "6")                                     # spare wire in the cable
+    # pin 6 is NOT spare: the sensor board drives ALS_INT (TSL2591 INT, pulled
+    # up there by its R12) onto it.  Land it on the expander's free GPB3 so the
+    # light sensor can interrupt instead of being polled.  [REVEIW.md #11]
+    s.glabel(J7, "6", "ALS_INT")
     # SENSOR_INT pull-up (INT lines are open-drain)
     R97 = s.R("R97", 541.02, 254.00, "10k")
     s.rail(R97, "1", "+3V3", rise=0)
@@ -121,7 +127,7 @@ def build(s):
     for pin, name in [("1", "PD_PG"), ("2", "CHRG"), ("3", "FAULT"),
                       ("5", "FULLCHG_EN"), ("6", "VBAT_DIV_EN")]:
         s.glabel(U13, pin, name)
-    s.nc(U13, "4")                                     # GPB3 spare
+    s.glabel(U13, "4", "ALS_INT")                      # GPB3 = TSL2591 INT (J7.6)
     # SPK_FAULT (GPB6): run right, open-drain pull-up R62 hangs on it
     s.pw(U13, "7", ("x", 535.94), ("dx", 2.54))
     s.glabel_at("SPK_FAULT", 538.48, 487.68, 0)
@@ -154,22 +160,26 @@ def build(s):
     # +5V (the EM14 opto-ASIC runs on 5 V, ~30 mA)
     s.pw(J10, "2", ("x", 546.10), ("dy", -5.08))
     s.power_at(546.10, 523.24, "+5V")
-    # A/B: 5 V outputs -> 100k/200k dividers (~3.2 V) -> PCNT (IO47/48),
+    # A/B: 5 V outputs -> 10k/20k dividers (3.33 V) -> PCNT (IO47/48),
+    # wired down the x=424/427 corridor to the MCU.  Same 1:2 ratio as the
+    # original 100k/200k, but 6.7k instead of 66.7k source impedance: these
+    # run ~40 mm past both stepper drivers and the class-D amp.  Costs
+    # 2x167 uA on +5V, against the encoder's own 26 mA.  [REVEIW.md #17]
     # wired down the x=424/427 corridor to the MCU
-    R111 = s.R("R111", 528.32, 530.86, "100k", rot=90,
+    R111 = s.R("R111", 528.32, 530.86, "10k", rot=90,
                refpos=(526.03, 527.05, None), valpos=(532.13, 527.05, None))
     s.pw(J10, "3", ("px", R111, "2"))
     s.pw(R111, "1", ("x", 424.18))
     s.pw(U8, "24", ("x", 424.18), ("y", 530.86))                   # ENC_A
-    R112 = s.R("R112", 518.16, 533.40, "100k", rot=90,
+    R112 = s.R("R112", 518.16, 533.40, "10k", rot=90,
                refpos=(514.35, 529.72, None), valpos=(520.70, 529.72, None))
     s.pw(J10, "4", ("px", R112, "2"))
     s.pw(R112, "1", ("x", 426.72))
     s.pw(U8, "25", ("x", 426.72), ("y", 533.40))                   # ENC_B
-    R114 = s.R("R114", 523.24, 535.94, "200k")
+    R114 = s.R("R114", 523.24, 535.94, "20k")
     s.pw(R114, "1", ("y", 530.86))
     s.gnd(R114, "2", drop=0)
-    R115 = s.R("R115", 444.50, 538.48, "200k")
+    R115 = s.R("R115", 444.50, 538.48, "20k")
     s.pw(R115, "1", ("y", 533.40))
     s.gnd(R115, "2", drop=0)
     # SW: dry contact to GND -> 10k pull-up + 100n debounce -> IO17 (IRQ)

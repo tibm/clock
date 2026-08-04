@@ -47,6 +47,17 @@ all routing.**
   lint clean, netlist diff vs. the pre-fix schematic is exactly the 6 intended node
   moves and nothing else. **PCB side still pending** — needs *Update PCB from
   Schematic* (F8) plus a re-route of the affected traces at Q4, U9 and C181/C182.
+- **2026-08-03 — Phase 1b** (cheap schematic follow-ons): **#11, #12, #15, #17
+  fixed**. #11 lands J7.6 on the expander's free GPB3 as `ALS_INT`; #15 adds **D14**
+  (same BAT42W/SOD-123 as D13, so no new BOM line) clamping the ADC node to +3V3;
+  #17 drops the encoder divider to 10 k/20 k (same 1:2 ratio, 6.7 kΩ instead of
+  66.7 kΩ). ERC 0; netlist diff is exactly these changes. **D14 still has to be
+  placed and routed on the PCB.**
+  - **#13 deliberately left out** of the batch: fixing the 137 mW in `R1`'s 100 mW
+    0603 needs either a 1206 land (0.25 W, and R1 has 4.6 mm of clear space) or a
+    high-power 0603 part — both need an MPN sourced and verified on DigiKey, which
+    is your call, not a mechanical edit. `parts_db` keys resistor MPNs by *value
+    only*, so it also needs a `_REF["R1"]` override either way.
 - Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before**
   rotating while KiCad mirrors **after**, which silently swaps the two mirror axes
   at rot 90/270. Harmless until now (BT1 was the only mirrored part, at rot 0);
@@ -66,13 +77,13 @@ all routing.**
 | 8 | Switcher hot loops 5–28 mm | 🟠 | pcb | ☐ |
 | 9 | `C238` is 50 mm from U15 | 🟠 | pcb | ☐ |
 | 10 | J7/J10 identical connectors, incompatible pinouts | 🟡 | sch + pcb | ☐ |
-| 11 | J7 pin 6 mismatch vs. sensor board (`ALS_INT`) | 🟡 | sch + pcb | ☐ |
-| 12 | J7 value string says LIS3DH, board has BNO085 | 🟡 | doc | ☐ |
+| 11 | J7 pin 6 mismatch vs. sensor board (`ALS_INT`) | 🟡 | sch + pcb | sch ☑ · pcb ☐ |
+| 12 | J7 value string says LIS3DH, board has BNO085 | 🟡 | doc | ☑ |
 | 13 | `R1` (CH224K VDD) 137 mW in a 0603 | 🟡 | BOM/footprint | ☐ |
 | 14 | Ungated always-on loads (~70 mA idle) | 🟡 | sch + pcb | ☐ |
-| 15 | `VBAT_SENSE` floats above +3V3 when divider off | 🟡 | sch | ☐ |
+| 15 | `VBAT_SENSE` floats above +3V3 when divider off | 🟡 | sch | sch ☑ (D14) · pcb ☐ |
 | 16 | `CELL_TEST` on battery = power cut / boot loop | 🟡 | sch or firmware | ☐ |
-| 17 | Encoder A/B divider 66.7 kΩ source impedance | 🟡 | value only | ☐ |
+| 17 | Encoder A/B divider 66.7 kΩ source impedance | 🟡 | value only | ☑ (10k/20k) |
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | pcb | ☐ |
 | 19 | PVDD bulk marginal (100 µF, 300 mA ripple) | 🟡 | BOM | ☐ |
 | 20 | Reverse-cell protection leans on protector FETs | 🟡 | note | ☐ |
