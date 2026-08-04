@@ -31274,7 +31274,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "RES 1K OHM 1% 1/10W 0603"
+		(property "Description" "RES 1K OHM 1% 1/4W 1206"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -31286,7 +31286,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Package" "0603"
+		(property "Package" "1206"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -31299,7 +31299,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "RC0603FR-071KL"
+		(property "MPN" "RC1206FR-071KL"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -31325,7 +31325,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+		(property "Notes" "1206 for the power rating, NOT 0603 -- see REVIEW.md #13"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -49040,6 +49040,30 @@
 				(size 1.5 1.5)
 				(thickness 0.224999)
 			)
+		)
+	)
+	(gr_text "SENSOR"
+		(at 94.5 13.4 0)
+		(layer "B.SilkS")
+		(uuid "ea0d4e6c-6ee9-51ca-b212-64908c95d9a7")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
+	(gr_text "KNOB"
+		(at 78.0 9.0 0)
+		(layer "B.SilkS")
+		(uuid "5504c2ac-dab5-5694-99f5-2cfc04d64768")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
 		)
 	)
 	(gr_text "CELL-"

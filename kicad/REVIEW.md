@@ -38,86 +38,136 @@ all routing.**
 
 ---
 
-## Progress
+## Status overview
 
-- **2026-08-03 — Phase 0** (branch `review-fixes`): destructive-run guard added to
-  `gen/pcb_build.py`; `gen/review_check.py` added as a standing regression check
-  (`python3 review_check.py`).
-- **2026-08-03 — Phase 1**: findings **#1, #2, #3 fixed in the schematic**, ERC 0,
-  lint clean, netlist diff vs. the pre-fix schematic is exactly the 6 intended node
-  moves and nothing else. **PCB side still pending** — needs *Update PCB from
-  Schematic* (F8) plus a re-route of the affected traces at Q4, U9 and C181/C182.
-- **2026-08-03 — Phase 1b** (cheap schematic follow-ons): **#11, #12, #15, #17
-  fixed**. #11 lands J7.6 on the expander's free GPB3 as `ALS_INT`; #15 adds **D14**
-  (same BAT42W/SOD-123 as D13, so no new BOM line) clamping the ADC node to +3V3;
-  #17 drops the encoder divider to 10 k/20 k (same 1:2 ratio, 6.7 kΩ instead of
-  66.7 kΩ). ERC 0; netlist diff is exactly these changes. **D14 still has to be
-  placed and routed on the PCB.**
-  - **#13 deliberately left out** of the batch: fixing the 137 mW in `R1`'s 100 mW
-    0603 needs either a 1206 land (0.25 W, and R1 has 4.6 mm of clear space) or a
-    high-power 0603 part — both need an MPN sourced and verified on DigiKey, which
-    is your call, not a mechanical edit. `parts_db` keys resistor MPNs by *value
-    only*, so it also needs a `_REF["R1"]` override either way.
-- **2026-08-03 — Phase 2 prep**: `C181`/`C182` swapped positions in
-  `cosmetics.py` so each bootstrap cap sits on the column of the leg it belongs
-  to. This keeps **both caps on their original U9 pins** (C181-U9.25 BSTRPA-,
-  C182-U9.19 BSTRPB+), which the existing PCB copper already implements — cutting
-  the PCB rework for #2 from *two long crossing pin-side routes* down to
-  **two short straight far-pad runs**. Schematic is now final for #1/#2/#3.
+**Legend** — ☑ done · ⏳ open · ⏸ deferred (accepted risk, revisit later) · ✔ accepted (no change)
 
-  ### Phase 2 work order (PCB) — measured, not estimated
+### ☑ Fixed
 
-  The U9 fan-out is genuinely full: in the 5.7 × 8.0 mm box around it,
-  **B.Cu 47.5 mm / 8 nets, In1 60.3 mm / 5 nets, In2 24.7 mm / 3 nets, 8 vias,
-  8 pads — and F.Cu completely empty (0 mm)**. F.Cu is the escape layer.
+| # | Finding | Fixed in | Note |
+|---|---|---|---|
+| 1 | Q4 PVDD-mux P-FET source/drain reversed | `1f3736a` | schematic only — **PCB re-route still open** |
+| 2 | TAS5760M PBTL outputs paralleled wrong pairs | `1f3736a`, refined `1cf1629` | schematic only — **PCB re-route still open** |
+| 3 | LT3652 `C104` → 26 min charge timeout | `1f3736a` | 1 µF, same 0603 land, existing BOM line |
+| 10 | J7/J10 identical connectors, incompatible pinouts | `f8c6441` | connector kept; **`SENSOR` + `KNOB` silkscreen added** on B.SilkS |
+| 11 | J7 pin 6 (`ALS_INT`) was NC | `727dbfd` | → expander GPB3; **PCB trace still open** |
+| 12 | J7 value string said LIS3DH | `727dbfd` | now BNO085 — ⚠ see note below |
+| 13 | `R1` 137 mW in a 100 mW 0603 | `f8c6441` | → **1206**, `RC1206FR-071KL` (¼ W); **PCB land swap still open** |
+| 15 | `VBAT_SENSE` floats above +3V3 | `727dbfd` | **D14** added; **PCB place + route still open** |
+| 17 | Encoder divider 66.7 kΩ source impedance | `727dbfd` | → 10k/20k, same ratio, value-only |
+| 20 | Reverse-cell fault current into the protector | `f8c6441` | `R20` 100R → **200R** (HYCON's max), halves it to ~18 mA |
+| 21 | MCP23017 INTA/INTB tied | `f8c6441` | firmware requirement **R-BOARD-1** in `FIRMWARE.md` §6.5 |
 
-  | # | connection | from | to | note |
-  |---|---|---|---|---|
-  | 2 | `U9.20` → leg B | (100.15, 75.63) | leg B at (101.55, 77.58) | delete segs at pad; PVDD via at (101.56, 76.81) blocks the direct diagonal |
-  | 2 | `U9.26` → leg A | (100.15, 79.53) | leg A via at (101.36, 81.05) | PVDD knot at (101.16–101.58, 80.08–80.52) blocks B.Cu |
-  | 2 | `C181.2` → leg A | (103.50, 81.83) | `C180.2` (103.50, 78.18) | straight vertical, x = 103.50 |
-  | 2 | `C182.2` → leg B | (106.00, 78.18) | `C183.2` (106.00, 81.83) | straight vertical, x = 106.00 |
-  | 1 | `Q4.3` → `+5V` | (100.92, 71.10) | +5V at (100.91, 68.26) | **must not** go straight up: pads 1/2 leave a 0.43 mm gap and a 0.25 mm track needs 0.45 mm. Hop on F.Cu with vias at (100.91, 68.26) and (100.92, 70.16) — both verified clear of all three Q4 pads |
-  | 1 | `Q4.2` → `PVDD` | (101.88, 69.22) | PVDD at (103.74, 71.10) | direct B.Cu diagonal, clear |
-  | 15 | `D14` | — | `VBAT_SENSE` + `+3V3` | new SOD-123 to place near D13 (99.09, 104.30) |
-  | 11 | `ALS_INT` | `J7.6` | `U13.4` | new net, both parts already placed |
+> ⚠ **#12 has a firmware consequence.** `FIRMWARE.md` §6.5 still lists the motion sensor as
+> **LIS3DH @ 0x18, "hardware tap IRQ, no polling"**. The sensor board actually carries a
+> **BNO085** — a different address (0x4A/0x4B) and a *much* heavier driver (SHTP/SH-2 protocol,
+> not a simple register map). Left unchanged because it is a real planning decision, not a typo.
 
-  Segments to delete first (they sit on pads whose net changed): `Q4` 281, 934;
-  `U9` 539, 540, 541, 543, 1743, 1744, 1745, 1747.
+### ⏳ Open — PCB / fab work (deferred to the routing pass)
 
-- Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before**
-  rotating while KiCad mirrors **after**, which silently swaps the two mirror axes
-  at rot 90/270. Harmless until now (BT1 was the only mirrored part, at rot 0);
-  fixed, and verified not to move any other net.
+| # | Finding | Sev | What it needs |
+|---|---|---|---|
+| 1, 2, 11, 13, 15 | PCB side of the fixes above | 🔴/🟡 | net sync + the re-routes in the Phase 2 work order below |
+| 4 | All tracks 0.25 mm — no power net class | 🟠 | `POWER` net class ≥1.0 mm on VBAT/+12V/PVDD/+5V/VBUS; F.Cu is 98 % empty |
+| 5 | No thermal vias in U7/U9/U2 exposed pads | 🟠 | via arrays — purely additive, highest value per minute |
+| 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
+| 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
+| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | move power trunks to the empty F.Cu to free inner channels |
+| 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
+| 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **see recommendation below** |
 
-## Status tracker
+### ⏸ Deferred — accepted for now, revisit later
 
-| # | Finding | Sev | Fix location | Done |
+| # | Finding | Why deferred | Revisit when |
+|---|---|---|---|
+| 6, 7 | Protector OC trip / battery IR drop below the 12 W target | Mostly a *plugged + wake-LEDs* case; battery audio runs off the 5 V rail (~3.1 W into 4 Ω) | If battery-mode alarm power is ever raised, or if 8 Ω is adopted (halves it) |
+| 14 | Ungated always-on loads (~70 mA idle) | **Mostly wall-powered**, so backup runtime is good enough | If battery runtime becomes a goal — gate the EM14 (26 mA) and QRE1113 LED (14 mA); GPA4-6/GPB3 are free |
+| 16 | `CELL_TEST` on battery cuts power | Self-recovering reset loop, **not damage**; firmware-enforced instead | If a hardware interlock against `PD_PG` is ever wanted |
+| 19 | PVDD bulk 100 µF / 300 mA ripple | BOM-only, works at reduced power | Alongside the #4/#8 power pass |
+
+### ✔ Accepted — no change planned
+
+| # | Finding | Rationale |
+|---|---|---|
+| 22 | No UART console (IO43/44 consumed) | Known and accepted; USB-Serial-JTAG is the bring-up path, boot-log TX still probeable on IO43 |
+
+---
+
+## #16 — how crucial is it, really?
+
+**Not very, and firmware discipline is a legitimate fix here.** The failure mode is bounded:
+asserting `CELL_TEST` on battery opens `Q2`, all rails drop, the MCP23017 loses power, its GPIOs
+go hi-Z, `R26` pulls `Q8` off, `Q9` turns off and `Q2` conducts again — the board reboots. It is a
+**self-recovering reset loop, not damage**, and plugging in ends it immediately. Nothing is
+stressed beyond ratings at any point.
+
+The residual risk is a firmware bug that re-asserts it every boot on battery, which would look
+like a dead product until the user plugs in. That is cheap to prevent and now written down as
+**R-BOARD-2** in `FIRMWARE.md` §6.5: gate every assertion on a fresh `PD_PG` read.
+
+Worth knowing: the schematic comment in `b_charger.py` claiming *"on battery Q2's body diode keeps
+the system alive but drops ~0.4 V"* is **wrong** — the body diode faces VBAT→cell+ and cannot
+back-feed. That comment is what would mislead someone into thinking this is safe on battery.
+
+## #24 — recommendation for the 32.768 kHz crystal
+
+**Do the placement fix, keep the part, add a firmware check.** In priority order:
+
+1. **Placement (during the routing pass, ~free).** Move `C145`/`C146` to within ~2 mm of `Y1`'s
+   pins — they are 5.9 mm away today. `Y1` itself is already fine (2.9 / 3.2 mm from the module's
+   XTAL pins). Keep both nets on one layer, no vias, and ring the pair with GND stitching: these
+   are MΩ-impedance nodes and the current layout gives them a large loop next to the switchers.
+2. **Keep the ABS07.** CL 12.5 pF with 18 pF loads gives CL_eff ≈ 12 pF — correct. Its 70 kΩ max
+   ESR is *at* Espressif's ceiling, but that is a startup-margin question, not a correctness one,
+   and the part is on Espressif's own kind of BOM. Don't respin it speculatively.
+3. **Verify on the first article, not on paper.** Check that the RTC actually starts on the
+   32 kHz crystal across the temperature range you care about. If it is marginal, the drop-in is
+   any 3215 32.768 kHz part with lower ESR (≤ 50 kΩ) at the same 12.5 pF CL — same land, same caps.
+4. **Firmware fallback.** Have `chrono` detect 32 kHz oscillator start failure and fall back to
+   the internal RC, logging it. Consequence of the fallback is only more drift between SNTP syncs,
+   which for this product is cosmetic.
+
+Severity is genuinely low: worst case is a slightly worse holdover clock, not a broken board.
+
+---
+
+## Progress log
+
+- **2026-08-03 — Phase 0** (branch `review-fixes`): destructive-run guard on `gen/pcb_build.py`;
+  `gen/review_check.py` added as a standing regression check.
+- **2026-08-03 — Phase 1** (`1f3736a`): #1, #2, #3 fixed in the schematic. ERC 0, netlist diff is
+  exactly the 6 intended node moves.
+- **2026-08-03 — Phase 1b** (`727dbfd`): #11, #12, #15, #17.
+- **2026-08-03 — Phase 2 prep** (`1cf1629`): `C181`/`C182` swapped positions so each bootstrap cap
+  sits on its own leg's column while keeping its **original U9 pin** — which the existing PCB
+  copper already implements. Cuts the #2 PCB rework from two long crossing pin-side routes to two
+  short straight far-pad runs.
+- **2026-08-04** (`f8c6441`): #10 (silkscreen), #13 (1206), #20 (200R), #21 + #16 written into
+  `FIRMWARE.md`. DRC 0 violations / 0 unconnected after the silkscreen addition.
+- Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before** rotating while
+  KiCad mirrors **after**, silently swapping the two mirror axes at rot 90/270. Harmless until now
+  (BT1 was the only mirrored part, at rot 0); fixed, verified not to move any other net.
+
+### Phase 2 work order (PCB) — measured, not estimated
+
+The U9 fan-out is genuinely full: in the 5.7 × 8.0 mm box around it, **B.Cu 47.5 mm / 8 nets,
+In1 60.3 mm / 5 nets, In2 24.7 mm / 3 nets, 8 vias, 8 pads — and F.Cu completely empty (0 mm)**.
+F.Cu is the escape layer.
+
+| # | connection | from | to | note |
 |---|---|---|---|---|
-| 1 | Q4 PVDD-mux P-FET source/drain reversed | 🔴 | sch + pcb | sch ☑ · pcb ☐ |
-| 2 | TAS5760M PBTL outputs paralleled wrong pairs | 🔴 | sch + pcb | sch ☑ · pcb ☐ |
-| 3 | LT3652 `C104` 100 nF → 26 min charge timeout | 🔴 | value only | ☑ (1 µF, same 0603 land) |
-| 4 | All tracks 0.25 mm — no power net class | 🟠 | pcb | ☐ |
-| 5 | No thermal vias in U7 / U9 / U2 exposed pads | 🟠 | pcb | ☐ |
-| 6 | Protector OC trips below peak battery current | 🟠 | BOM or firmware | ☐ |
-| 7 | Battery IR drop starves the 12 V boost | 🟠 | pcb + BOM | ☐ |
-| 8 | Switcher hot loops 5–28 mm | 🟠 | pcb | ☐ |
-| 9 | `C238` is 50 mm from U15 | 🟠 | pcb | ☐ |
-| 10 | J7/J10 identical connectors, incompatible pinouts | 🟡 | sch + pcb | ☐ |
-| 11 | J7 pin 6 mismatch vs. sensor board (`ALS_INT`) | 🟡 | sch + pcb | sch ☑ · pcb ☐ |
-| 12 | J7 value string says LIS3DH, board has BNO085 | 🟡 | doc | ☑ |
-| 13 | `R1` (CH224K VDD) 137 mW in a 0603 | 🟡 | BOM/footprint | ☐ |
-| 14 | Ungated always-on loads (~70 mA idle) | 🟡 | sch + pcb | ☐ |
-| 15 | `VBAT_SENSE` floats above +3V3 when divider off | 🟡 | sch | sch ☑ (D14) · pcb ☐ |
-| 16 | `CELL_TEST` on battery = power cut / boot loop | 🟡 | sch or firmware | ☐ |
-| 17 | Encoder A/B divider 66.7 kΩ source impedance | 🟡 | value only | ☑ (10k/20k) |
-| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | pcb | ☐ |
-| 19 | PVDD bulk marginal (100 µF, 300 mA ripple) | 🟡 | BOM | ☐ |
-| 20 | Reverse-cell protection leans on protector FETs | 🟡 | note | ☐ |
-| 21 | MCP23017 INTA/INTB tied — needs `IOCON.MIRROR` | 🟡 | firmware | ☐ |
-| 22 | No UART console (IO43/44 consumed) | 🟡 | note | ☐ |
-| 23 | U9 exposed-pad land needs fab cross-check | 🟡 | verify | ☐ |
-| 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | pcb | ☐ |
+| 2 | `U9.20` → leg B | (100.15, 75.63) | leg B at (101.55, 77.58) | PVDD via at (101.56, 76.81) blocks the direct diagonal |
+| 2 | `U9.26` → leg A | (100.15, 79.53) | leg A via at (101.36, 81.05) | PVDD knot at (101.16–101.58, 80.08–80.52) blocks B.Cu |
+| 2 | `C181.2` → leg A | (103.50, 81.83) | `C180.2` (103.50, 78.18) | straight vertical, x = 103.50 |
+| 2 | `C182.2` → leg B | (106.00, 78.18) | `C183.2` (106.00, 81.83) | straight vertical, x = 106.00 |
+| 1 | `Q4.3` → `+5V` | (100.92, 71.10) | +5V at (100.91, 68.26) | **must not** go straight up: pads 1/2 leave a 0.43 mm gap and a 0.25 mm track needs 0.45 mm. Hop on F.Cu with vias at (100.91, 68.26) and (100.92, 70.16) — both verified clear of all three Q4 pads |
+| 1 | `Q4.2` → `PVDD` | (101.88, 69.22) | PVDD at (103.74, 71.10) | direct B.Cu diagonal, clear |
+| 13 | `R1` land | 0603 | **1206** | 4.6 mm of clear space around it |
+| 15 | `D14` | — | `VBAT_SENSE` + `+3V3` | new SOD-123 to place near D13 (99.09, 104.30) |
+| 11 | `ALS_INT` | `J7.6` | `U13.4` | new net, both parts already placed |
+
+Segments to delete first (they sit on pads whose net changed): `Q4` 281, 934;
+`U9` 539, 540, 541, 543, 1743, 1744, 1745, 1747.
 
 ---
 

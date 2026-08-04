@@ -631,6 +631,30 @@ stop → ramp gain to 0 → `SPK_SD` low → wait 5 ms → stop I²S.
 Also owns **ADC1_CH0 `VBAT_SENSE`**: assert `VBAT_DIV_EN` → settle 1 ms → 64-sample average with
 `adc_cali` curve fitting → de-assert. Every 10 s plugged, 60 s on battery, always before a sleep decision.
 
+#### Hardware-imposed requirements (from the 2026-08-02 review — `kicad/REVIEW.md`)
+
+> **R-BOARD-1 — set `IOCON.MIRROR = 1` before enabling any MCP23017 interrupt.**
+> `INTA` and `INTB` are tied together on the board (one line to IO44). They are
+> push-pull, active-low outputs by default, so if per-bank interrupts are enabled
+> while `MIRROR = 0`, one bank asserting while the other does not puts **two
+> push-pull outputs in contention**. `MIRROR = 1` makes both pins reflect both
+> banks, so they always drive the same level. POR is safe (`GPINTEN = 0`, both
+> deasserted); the hazard window is only between enabling interrupts and setting
+> MIRROR — so write `IOCON` **first**. Setting `IOCON.ODR = 1` (open-drain) is an
+> equally valid alternative; `R94` is already fitted as the pull-up.
+> *(review finding #21)*
+
+> **R-BOARD-2 — never assert `CELL_TEST` unless `PD_PG` says the wall is live.**
+> `CELL_TEST` turns off `Q2`, the reverse-polarity P-FET in series with the cell.
+> Its body diode faces VBAT→cell+, so it **cannot** back-feed: on battery,
+> asserting `CELL_TEST` cuts all system power. The board then reboots (rails drop
+> → MCP23017 loses power → its GPIOs go hi-Z → `R26` pulls `Q8` off → `Q9` off →
+> `Q2` conducts again), i.e. it is a **self-recovering reset loop, not damage** —
+> but it is an unbounded one while the condition persists. There is no hardware
+> interlock, so this is a firmware invariant: gate every `CELL_TEST` assertion on
+> a fresh `PD_PG` read, and treat it as a plugged-only diagnostic.
+> *(review finding #16 — accepted as firmware-enforced, see REVIEW.md)*
+
 > ⚠ **BSEC licensing.** Bosch's BSEC 2.x is a binary blob under its own license. If that's
 > unacceptable, fall back to the open `BME68x` driver plus a simple gas-resistance baseline — the
 > AO interface (`Ambient`) is identical either way.

@@ -18,7 +18,7 @@ def build(s):
     # A06ZR06ZR28H102B ZH<->ZH cable plugs straight in.
     # NB same connector + cable as J10 (knob) 13.5 mm away, but J10 pin 2 is
     # +5V where this one is +3V3 -- swapping them kills the sensor board.
-    # Keying is still open: REVEIW.md #10.
+    # Keying is still open: REVIEW.md #10.
     J7 = s.comp("J7", "Connector_Generic:Conn_01x06", 533.40, 254.00,
                 value="Sensor board (BME688+TSL2591+BNO085)",
                 footprint="Connector_JST:JST_ZH_B6B-ZR_1x06_P1.50mm_Vertical",
@@ -32,7 +32,7 @@ def build(s):
     s.glabel(J7, "5", "SENSOR_INT")
     # pin 6 is NOT spare: the sensor board drives ALS_INT (TSL2591 INT, pulled
     # up there by its R12) onto it.  Land it on the expander's free GPB3 so the
-    # light sensor can interrupt instead of being polled.  [REVEIW.md #11]
+    # light sensor can interrupt instead of being polled.  [REVIEW.md #11]
     s.glabel(J7, "6", "ALS_INT")
     # SENSOR_INT pull-up (INT lines are open-drain)
     R97 = s.R("R97", 541.02, 254.00, "10k")
@@ -164,7 +164,7 @@ def build(s):
     # wired down the x=424/427 corridor to the MCU.  Same 1:2 ratio as the
     # original 100k/200k, but 6.7k instead of 66.7k source impedance: these
     # run ~40 mm past both stepper drivers and the class-D amp.  Costs
-    # 2x167 uA on +5V, against the encoder's own 26 mA.  [REVEIW.md #17]
+    # 2x167 uA on +5V, against the encoder's own 26 mA.  [REVIEW.md #17]
     # wired down the x=424/427 corridor to the MCU
     R111 = s.R("R111", 528.32, 530.86, "10k", rot=90,
                refpos=(526.03, 527.05, None), valpos=(532.13, 527.05, None))

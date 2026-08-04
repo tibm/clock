@@ -12484,7 +12484,7 @@
 		)
 		(uuid "60a36621-6104-597e-b622-4e65375530ca")
 	)
-	(text "I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  ~3 h timer"
+	(text "I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  4.4 h timer"
 		(exclude_from_sim no)
 		(at 250 150 0)
 		(effects
@@ -33225,7 +33225,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+		(property "Footprint" "Resistor_SMD:R_1206_3216Metric"
 			(at 114.3 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -33247,7 +33247,7 @@
 				)
 			)
 		)
-		(property "Package" "0603"
+		(property "Package" "1206"
 			(at 114.3 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -33258,7 +33258,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0603FR-071KL"
+		(property "MPN" "RC1206FR-071KL"
 			(at 114.3 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -33280,7 +33280,7 @@
 				)
 			)
 		)
-		(property "Description" "RES 1K OHM 1% 1/10W 0603"
+		(property "Description" "RES 1K OHM 1% 1/4W 1206"
 			(at 114.3 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -33291,7 +33291,7 @@
 				)
 			)
 		)
-		(property "Notes" "Substitution OK - same value/tolerance/voltage/dielectric/size"
+		(property "Notes" "1206 for the power rating, NOT 0603 -- see REVIEW.md #13"
 			(at 114.3 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -49418,7 +49418,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100R"
+		(property "Value" "200R"
 			(at 60.136 266.83 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -49462,7 +49462,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0603FR-07100RL"
+		(property "MPN" "RC0603FR-07200RL"
 			(at 58.42 265.43 0)
 			(hide yes)
 			(show_name no)
@@ -49484,7 +49484,7 @@
 				)
 			)
 		)
-		(property "Description" "RES 100 OHM 1% 1/10W 0603"
+		(property "Description" "RES 200 OHM 1% 1/10W 0603"
 			(at 58.42 265.43 0)
 			(hide yes)
 			(show_name no)

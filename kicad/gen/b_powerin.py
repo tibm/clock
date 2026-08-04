@@ -72,8 +72,10 @@ def build(s):
     R2 = s.R("R2", 106.68, 63.5, "10k")
     s.pw(R2, "1", ("y", 55.88))
     s.route(R2, "2", U1, "8", "V")
-    # VDD via 1k from the rail + 1uF
-    R1 = s.R("R1", 114.3, 63.5, "1k")
+    # VDD via 1k from the rail + 1uF (WCH reference 6.1).  1206 land, not
+    # 0603: on the 15 V contract this resistor dissipates 137 mW feeding the
+    # CH224K's internal 3.3 V shunt.  [REVIEW.md #13]
+    R1 = s.R("R1", 114.3, 63.5, "1k", fp="R1206")
     s.pw(R1, "1", ("y", 55.88))
     s.pw(R1, "2", ("y", 71.12), ("px", U1, "1"))
     C1 = s.C("C1", 140.97, 71.12, "1uF")

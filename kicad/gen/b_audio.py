@@ -89,7 +89,7 @@ def build(s):
     # A+ to B+ instead shorts two ANTI-PHASE half-bridges together -> a hard
     # PVDD->PGND path through 2x120 mOhm every switching cycle.  The symbol
     # already orders the pins A+/A-/B+/B-, so each leg is a pair of adjacent
-    # pins.  [REVEIW.md #2]
+    # pins.  [REVIEW.md #2]
     s.pw(U9, "29", ("x", 734.06))                     # OUTA+  (224.79)
     s.pw(U9, "26", ("x", 734.06))                     # OUTA-  (227.33)
     s.w((734.06, 224.79), (734.06, 227.33))           # leg A -> L5
@@ -101,10 +101,11 @@ def build(s):
     L6 = s.L("L6", 758.19, 241.30, "10uH", rot=90)
     s.pw(L6, "1", ("x", 750.57), ("y", 232.41))
     # bootstrap caps (BSTx -> its OWN leg's switching node); 220nF per fig. 62.
-    # The x=727.71/741.68 stubs land on the y=260.35 row (-> leg A) and the
-    # x=734.06/754.38 stubs on the y=262.89 row (-> leg B), so BSTRPA-/BSTRPB+
-    # trade columns with the output re-tie above: C181 (A-) joins leg A and
-    # C182 (B+) joins leg B.  [REVEIW.md #2]
+    # x=727.71/741.68 drop onto the y=260.35 row (-> leg A) and x=734.06/754.38
+    # onto y=262.89 (-> leg B).  C181/C182 swapped columns (see cosmetics.py) so
+    # each cap sits on its own leg while KEEPING its original U9 pin -- which is
+    # what the existing PCB copper already does, so only their far pads move.
+    # [REVIEW.md #2]
     for pin, x, ref in [("30", 727.71, "C180"), ("19", 734.06, "C182"),
                         ("25", 741.68, "C181"), ("24", 754.38, "C183")]:
         s.pw(U9, pin, ("x", x), ("y", 250.19))
@@ -165,7 +166,7 @@ def build(s):
     # BOOST12_EN goes high -- past abs-max for U5 (7 V), U6 (6 V), U15 (7 V),
     # the SK6812s and the EM14.  mirror="x" swaps which side pins 2/3 exit on
     # while leaving pin 1 (gate) pointing up at U10, so no wire moves.
-    # [REVEIW.md #1]
+    # [REVIEW.md #1]
     Q4 = s.comp("Q4", "clock:AO3401A", 711.20, 302.26, rot=270, mirror="x",
                 value="AO3401A",
                 footprint="Package_TO_SOT_SMD:SOT-23",

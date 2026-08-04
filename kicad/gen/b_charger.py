@@ -55,7 +55,7 @@ def build(s):
     # at 150 mA in 3.3 min, so it would be latched off as a BAD BATTERY.
     # 1 uF -> 4.4 h EOC / 33 min precondition (datasheet nominal is 0.68 uF =
     # 3 h / 22.5 min; 1 uF keeps the 0603 land AND an existing BOM line, and a
-    # slightly longer safety timer is the safe direction).  [REVEIW.md #3]
+    # slightly longer safety timer is the safe direction).  [REVIEW.md #3]
     C104 = s.C("C104", 269.24, 115.57, "1uF")
     s.pw(U2, "6", ("x", 269.24), ("pin", C104, "1"))
     s.gnd(C104, "2", drop=0)
@@ -128,7 +128,7 @@ def build(s):
     s.gnd(D12, "2", drop=0)
 
     s.text("Float 4.05 V (R14/R15); FULLCHG_EN -> 4.20 V full-charge mode", 250, 145, size=1.3)
-    s.text("I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  ~3 h timer", 250, 150, size=1.3)
+    s.text("I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  4.4 h timer", 250, 150, size=1.3)
     s.text("Charges only on the 15 V contract (UVLO 11.2 V); runs with no cell.", 250, 155, size=1.3)
 
     # VBAT staircase down to the RAILS block (joined by the battery below);
@@ -174,7 +174,7 @@ def build(s):
     # (~4.05 V) -- above the ESP32's VDD+0.3 abs-max, leaving IO1 forward-
     # biasing its own upper ESD diode whenever the divider is disabled.  A
     # Schottky to +3V3 clamps the node at ~3.5 V at the few uA involved.
-    # Same BAT42W/SOD-123 as D13.  [REVEIW.md #15]
+    # Same BAT42W/SOD-123 as D13.  [REVIEW.md #15]
     D14 = s.D_schottky("D14", 118.11, 217.17, "BAT42W", fp="SOD123", rot=90)
     s.pw(D14, "2", ("x", 110.49))                        # anode -> ADC node
     s.pw(D14, "1", ("dy", 3.81))
@@ -238,7 +238,13 @@ def build(s):
                 value="HY2111-GB",
                 footprint="Package_TO_SOT_SMD:SOT-23-6")
     # VDD via R20 from cell+ (junction on the holder+ wire)
-    R20 = s.R("R20", 58.42, 265.43, "100R")
+    # 200R (HYCON's max for R1; typ 100R).  The protector's VDD sits on the
+    # cell+ side, so a REVERSED cell drives VDD ~3.7 V below VSS and the only
+    # thing limiting current into the IC's ESD structures is this resistor:
+    # 100R gives ~37 mA, 200R halves it to ~18 mA.  The cost is negligible --
+    # the offset it adds to overcharge detection is I_VDD (uA) x 100R, i.e.
+    # well under a mV.  [REVIEW.md #20]
+    R20 = s.R("R20", 58.42, 265.43, "200R")
     s.w((58.42, 203.20), (58.42, 261.62))
     s.junction(58.42, 203.20)
     s.pw(R20, "2", ("y", 269.24), ("px", U3, "5"))

@@ -6,7 +6,7 @@ Runs on plain python3 (no pcbnew needed); uses kicad-cli to export the netlist.
     python3 review_check.py            # schematic checks + PCB checks
     python3 review_check.py --sch-only # skip the PCB (e.g. mid-rework)
 
-Each check maps to a numbered finding in ../REVEIW.md.  A check that has not
+Each check maps to a numbered finding in ../REVIEW.md.  A check that has not
 been fixed yet reports TODO (expected, non-fatal); a check that WAS fixed and
 has regressed reports FAIL and sets a non-zero exit code.
 """
@@ -23,7 +23,7 @@ PCB = os.path.join(KICAD_DIR, "clock.kicad_pcb")
 KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
 
 # Findings that are known-not-yet-fixed: reported as TODO instead of FAIL.
-OPEN = {4, 5, 8, 9, 10, 24}
+OPEN = {4, 5, 8, 9, 24}
 
 results = []
 
@@ -103,12 +103,6 @@ def sch_checks():
           c is not None and c >= 0.68e-6,
           f"C104={vals.get('C104')} -> {c * 4.4e6:.2f} h EOC" if c else "unparsed")
 
-    # -- #10: J7 (sensor, +3V3 on pin 2) and J10 (knob, +5V on pin 2) take the
-    #         same 6-way ZH cable; swapping them puts 5 V on the sensor rail.
-    check(10, "J7/J10 not both 6-pin ZH with different rail on pin 2",
-          net_of(nets, "J7.2") == net_of(nets, "J10.2"),
-          f"J7.2={net_of(nets, 'J7.2')} J10.2={net_of(nets, 'J10.2')}")
-
     # -- #15: with the divider FET off, R22 pulls the ADC node to V_cell.
     clamp = next((n for n in ("D14", "D15")
                   if net_of(nets, f"{n}.1") == "+3V3"
@@ -152,6 +146,13 @@ def pcb_checks():
                      re.findall(r"\(segment[\s\S]{0,400}?\(width ([\d.]+)\)", txt)})
     check(4, "power nets routed wider than the 0.25 mm default",
           any(w >= 0.5 for w in widths), f"track widths present: {widths}")
+
+    # -- #10: J7 (+3V3 on pin 2) and J10 (+5V on pin 2) take the same 6-way ZH
+    #         cable and sit 13.5 mm apart; swapping them kills the sensor board.
+    #         Resolved by silkscreen rather than by keying, so check the labels.
+    silk = re.findall(r'\(gr_text "(SENSOR|KNOB)"', txt)
+    check(10, "J7/J10 disambiguated by SENSOR/KNOB silkscreen",
+          {"SENSOR", "KNOB"} <= set(silk), f"B.SilkS labels found: {sorted(set(silk))}")
 
     # -- #5: exposed pads are the only heat path for U7/U9/U2.
     vias = [(float(a), float(b)) for a, b in

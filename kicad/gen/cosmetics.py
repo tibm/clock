@@ -148,7 +148,7 @@ COSMETICS = {
     # bootstrap column of the leg it belongs to, so each keeps its ORIGINAL
     # U9 pin (C181-U9.25 BSTRPA-, C182-U9.19 BSTRPB+) and the PCB only has to
     # move the two far pads on short straight runs, instead of two long
-    # crossing pin-side routes.  [REVEIW.md #2]
+    # crossing pin-side routes.  [REVIEW.md #2]
     'C181': {'at': (741.68, 254.0, 0.0, None),
                'ref': (742.188, 251.714, 0.0, 'left'),
                'val': (741.934, 256.54, 0.0, 'left')},
@@ -302,7 +302,7 @@ COSMETICS = {
     # mirror 'y' (was None) so pin 3 (drain) exits LEFT to +5V and pin 2
     # (source) exits RIGHT to PVDD -- the LTC4412 pass-FET orientation.  This
     # entry overrides b_audio.py's rot/mirror, so the fix has to live here.
-    # [REVEIW.md #1]
+    # [REVIEW.md #1]
     'Q4': {'at': (711.2, 302.26, 270.0, 'y'),
                'ref': (713.74, 300.228, 90.0, None),
                'val': (711.2, 308.61, 90.0, None)},

@@ -19,6 +19,7 @@ SUB_OK = "Substitution OK - same value/tolerance/voltage/dielectric/size"
 _R = {
     "0R":     ("RC0603JR-070RL",    "RES 0 OHM JUMPER 1/10W 0603"),
     "100R":   ("RC0603FR-07100RL",  "RES 100 OHM 1% 1/10W 0603"),
+    "200R":   ("RC0603FR-07200RL",  "RES 200 OHM 1% 1/10W 0603"),
     "150R":   ("RC0603FR-07150RL",  "RES 150 OHM 1% 1/10W 0603"),
     "330R":   ("RC0603FR-07330RL",  "RES 330 OHM 1% 1/10W 0603"),
     "909R":   ("RC0603FR-07909RL",  "RES 909 OHM 1% 1/10W 0603"),
@@ -77,6 +78,7 @@ _CASE = {  # KiCad footprint name -> BOM package string
     "C_0805_2012Metric": "0805",
     "C_1210_3225Metric": "1210",
     "R_0603_1608Metric": "0603",
+    "R_1206_3216Metric": "1206",
     "R_2010_5025Metric": "2010",
 }
 
@@ -85,6 +87,16 @@ _REF = {
     # (mpn, manufacturer, package, description, notes)
     "BT1": ("1043", "Keystone Electronics", "TH holder, 18650",
             "BATTERY HOLDER 18650 PC PIN", ""),
+
+    # R1 feeds the CH224K's VDD shunt regulator straight off VBUS.  On the
+    # 15 V contract the shunt holds VDD at 3.3 V, so R1 carries
+    # (15-3.3)/1k = 11.7 mA and burns (15-3.3)^2/1k = 137 mW -- 1.4x a 0603's
+    # 100 mW and 1.1x an 0805's 125 mW.  1206 (250 mW) is the first standard
+    # land with real margin, and R1 has 4.6 mm of clear space around it.
+    # Same Yageo RC series as every other resistor here.  [REVIEW.md #13]
+    "R1": ("RC1206FR-071KL", "YAGEO", "1206",
+           "RES 1K OHM 1% 1/4W 1206",
+           "1206 for the power rating, NOT 0603 -- see REVIEW.md #13"),
 
     # electrolytics (both on the same D6.3 SMD land)
     "C107": ("EEE-FK1C101P", "Panasonic", "SMD radial can D6.3xL6.1mm",
