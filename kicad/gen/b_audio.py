@@ -83,19 +83,30 @@ def build(s):
     s.power_at(695.96, 276.86, "GND")
 
     # ---- outputs: PBTL ties + bootstraps + LC filter + speaker ----
+    # PBTL on this part is PRE-FILTER: in PBTL the two A half-bridges switch
+    # IN PHASE as one leg and the two B half-bridges as the other, so the tie
+    # is OUTA+||OUTA- and OUTB+||OUTB- (TI SLOS772F fig. 64 and 65).  Tying
+    # A+ to B+ instead shorts two ANTI-PHASE half-bridges together -> a hard
+    # PVDD->PGND path through 2x120 mOhm every switching cycle.  The symbol
+    # already orders the pins A+/A-/B+/B-, so each leg is a pair of adjacent
+    # pins.  [REVEIW.md #2]
     s.pw(U9, "29", ("x", 734.06))                     # OUTA+  (224.79)
-    s.pw(U9, "20", ("x", 734.06))                     # OUTB+  (229.87)
-    s.w((734.06, 224.79), (734.06, 229.87))
-    s.pw(U9, "26", ("x", 750.57))                     # OUTA-  (227.33)
+    s.pw(U9, "26", ("x", 734.06))                     # OUTA-  (227.33)
+    s.w((734.06, 224.79), (734.06, 227.33))           # leg A -> L5
+    s.pw(U9, "20", ("x", 750.57))                     # OUTB+  (229.87)
     s.pw(U9, "23", ("x", 750.57))                     # OUTB-  (232.41)
-    s.w((750.57, 227.33), (750.57, 232.41))
+    s.w((750.57, 229.87), (750.57, 232.41))           # leg B -> L6
     L5 = s.L("L5", 758.19, 224.79, "10uH", rot=90)
     s.w((734.06, 224.79), (754.38, 224.79))
     L6 = s.L("L6", 758.19, 241.30, "10uH", rot=90)
     s.pw(L6, "1", ("x", 750.57), ("y", 232.41))
-    # bootstrap caps (BSTx -> switching node); 220nF per datasheet fig. 62
-    for pin, x, ref in [("30", 727.71, "C180"), ("25", 734.06, "C181"),
-                        ("19", 741.68, "C182"), ("24", 754.38, "C183")]:
+    # bootstrap caps (BSTx -> its OWN leg's switching node); 220nF per fig. 62.
+    # The x=727.71/741.68 stubs land on the y=260.35 row (-> leg A) and the
+    # x=734.06/754.38 stubs on the y=262.89 row (-> leg B), so BSTRPA-/BSTRPB+
+    # trade columns with the output re-tie above: C181 (A-) joins leg A and
+    # C182 (B+) joins leg B.  [REVEIW.md #2]
+    for pin, x, ref in [("30", 727.71, "C180"), ("19", 734.06, "C182"),
+                        ("25", 741.68, "C181"), ("24", 754.38, "C183")]:
         s.pw(U9, pin, ("x", x), ("y", 250.19))
         s.C(ref, x, 254.00, "220nF",
             refpos=(x + 1.4, 252.59, "left"), valpos=(x + 1.4, 255.39, "left"))
@@ -146,13 +157,23 @@ def build(s):
     s.gnd(U10, "3", via=0)                            # CTL = GND (automatic)
     s.gnd(U10, "2")
     s.nc(U10, "4")                                    # STAT unused
-    Q4 = s.comp("Q4", "clock:AO3401A", 711.20, 302.26, rot=270, value="AO3401A",
+    # Q4 orientation: an LTC4412 pass FET must be wired DRAIN to the input it
+    # switches (+5V) and SOURCE to the output (SENSE/PVDD), so the body diode
+    # is reverse-biased once the auxiliary supply pulls SENSE above VIN
+    # (LTC4412 §OPERATION).  Built the other way round, the body diode
+    # (anode = drain) dumps the 12 V rail straight into +5V the moment
+    # BOOST12_EN goes high -- past abs-max for U5 (7 V), U6 (6 V), U15 (7 V),
+    # the SK6812s and the EM14.  mirror="x" swaps which side pins 2/3 exit on
+    # while leaving pin 1 (gate) pointing up at U10, so no wire moves.
+    # [REVEIW.md #1]
+    Q4 = s.comp("Q4", "clock:AO3401A", 711.20, 302.26, rot=270, mirror="x",
+                value="AO3401A",
                 footprint="Package_TO_SOT_SMD:SOT-23",
                 refpos=(716.28, 295.91, None), valpos=(711.20, 309.88, None))
     s.pw(U10, "5", ("y", 295.91), ("px", Q4, "1"), ("pin", Q4, "1"))
-    s.pw(Q4, "2", ("x", 701.04), ("y", 302.26))
+    s.pw(Q4, "3", ("x", 701.04), ("y", 302.26))       # DRAIN -> +5V (input)
     s.power_at(701.04, 302.26, "+5V")
-    s.pw(Q4, "3", ("x", 723.90))                      # drain -> PVDD
+    s.pw(Q4, "2", ("x", 723.90))                      # SOURCE -> PVDD (output)
     s.pw(U10, "6", ("x", 723.90))                     # SENSE -> PVDD
     s.w((723.90, 312.42), (723.90, 335.28))
     D30 = s.D_schottky("D30", 800.10, 345.44, "B340A", rot=270)  # SMA (matches land); consolidates w/ D11/D20

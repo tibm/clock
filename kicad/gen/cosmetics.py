@@ -294,7 +294,11 @@ COSMETICS = {
     'Q3': {'at': (88.9, 228.6, 0.0, None),
                'ref': (93.73, 227.2, 0.0, 'left'),
                'val': (101.854, 230.886, 0.0, 'right')},
-    'Q4': {'at': (711.2, 302.26, 270.0, None),
+    # mirror 'y' (was None) so pin 3 (drain) exits LEFT to +5V and pin 2
+    # (source) exits RIGHT to PVDD -- the LTC4412 pass-FET orientation.  This
+    # entry overrides b_audio.py's rot/mirror, so the fix has to live here.
+    # [REVEIW.md #1]
+    'Q4': {'at': (711.2, 302.26, 270.0, 'y'),
                'ref': (713.74, 300.228, 90.0, None),
                'val': (711.2, 308.61, 90.0, None)},
     'Q6': {'at': (313.69, 443.23, 0.0, None),

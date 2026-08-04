@@ -177,6 +177,10 @@ _REF = {
     "M1":  ("X40.879", "Juken Swiss Technology",
             "TH, 8 pins, dual coaxial shaft",
             "STEPPER MOTOR ANALOG CLOCK MOVEMENT DUAL-SHAFT",
+            # The "DO NOT MOUNT" half of this note used to live ONLY in
+            # clock.kicad_pcb as a hand edit, so every stamp_bom.py run wiped
+            # it. Keep it here -- parts_db is what stamp_bom writes from.
+            "DO NOT MOUNT. Customer will mount part after PCB reception. "
             "Custom footprint; shafts pass through the board. Long lead time "
             "(MiniTools / DigiKey X40-879) - customer-supplied option"),
     "SW1": ("RS-282G05A3-SM RT", "C&K", "SMD tactile 4.2x3.2mm",

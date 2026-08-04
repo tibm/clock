@@ -979,6 +979,23 @@ def qa_ratsnest(fps, net_map):
 
 
 def main():
+    # ---- DESTRUCTIVE-RUN GUARD (added 2026-08-03) --------------------------
+    # This script builds the board with CreateEmptyBoard() and overwrites
+    # clock.kicad_pcb.  Since commit 91c5087 the board has been ROUTED (1884
+    # segments, 555 vias, 4 filled GND zones) by the autorouter + manual
+    # passes -- none of which this script can reproduce.  Re-running it throws
+    # all of that away.  The PCB is now hand-owned: make placement/net changes
+    # in pcbnew and pull schematic edits across with Update PCB from Schematic
+    # (F8), which preserves routing.
+    if os.environ.get("PCB_BUILD_WIPE_ROUTING") != "1":
+        raise SystemExit(
+            "refusing to run: this would overwrite the routed clock.kicad_pcb.\n"
+            "The board has been routed by hand since this generator last owned "
+            "it -- use pcbnew + 'Update PCB from Schematic' (F8) instead.\n"
+            "If you really mean to regenerate placement from scratch (and "
+            "re-route the whole board), re-run with "
+            "PCB_BUILD_WIPE_ROUTING=1.")
+
     net_map = load_netlist(export_netlist())
     parts = load_schematic_parts()
 

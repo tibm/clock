@@ -106,11 +106,12 @@ class Comp:
         self.uuid = uid(f"comp:{ref}:{lib_id}:{x}:{y}")
 
     def _xf(self, x, y):
+        # KiCad applies the symbol transform as ROTATE, THEN MIRROR -- verified
+        # against eeschema's own pin placement for Q4 (rot 270 + mirror x).
+        # This used to mirror first, which is the same thing only at rot 0
+        # (BT1, the only mirrored part before now) and silently swaps the two
+        # mirror axes at 90/270, putting every wire on the wrong pin.
         bx, by = x, -y
-        if self.mirror == "x":
-            by = -by
-        elif self.mirror == "y":
-            bx = -bx
         r = self.rot % 360
         if r == 90:
             bx, by = by, -bx
@@ -118,6 +119,10 @@ class Comp:
             bx, by = -bx, -by
         elif r == 270:
             bx, by = -by, bx
+        if self.mirror == "x":
+            by = -by
+        elif self.mirror == "y":
+            bx = -bx
         return self.x + bx, self.y + by
 
     def pin_xy(self, number):

@@ -48,8 +48,15 @@ def build(s):
     R13 = s.R("R13", 248.92, 130.81, "10k")   # pull-up above the FAULT run
     s.rail(R13, "1", "+3V3", rise=2.54)
     s.pw(R13, "2", ("dy", 1.27))
-    # TIMER cap
-    C104 = s.C("C104", 269.24, 115.57, "100nF")
+    # TIMER cap.  t_EOC(hr) = C_TIMER * 4.4e6, t_PRE (bad-battery) = t_EOC/8
+    # (LT3652 §PIN FUNCTIONS/TIMER).  100nF gave 0.44 h EOC and a 3.3 min
+    # precondition window -- far too short: a 3 Ah cell needs ~3 h at 1 A, and
+    # a deeply-discharged cell cannot clear the 2.84 V precondition threshold
+    # at 150 mA in 3.3 min, so it would be latched off as a BAD BATTERY.
+    # 1 uF -> 4.4 h EOC / 33 min precondition (datasheet nominal is 0.68 uF =
+    # 3 h / 22.5 min; 1 uF keeps the 0603 land AND an existing BOM line, and a
+    # slightly longer safety timer is the safe direction).  [REVEIW.md #3]
+    C104 = s.C("C104", 269.24, 115.57, "1uF")
     s.pw(U2, "6", ("x", 269.24), ("pin", C104, "1"))
     s.gnd(C104, "2", drop=0)
     s.gnd(U2, "13")

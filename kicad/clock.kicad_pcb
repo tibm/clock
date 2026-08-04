@@ -44100,7 +44100,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Notes" "DO NOT MOUNT. Customer will mount part after PCB reception."
+		(property "Notes" "DO NOT MOUNT. Customer will mount part after PCB reception. Custom footprint; shafts pass through the board. Long lead time (MiniTools / DigiKey X40-879) - customer-supplied option"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
