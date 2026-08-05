@@ -110,7 +110,7 @@ the old audio nets (they get consumed when those legs are re-routed) and 4 silks
 collisions introduced by the two new/changed footprints (D14 vs C131's reference,
 R1's reference vs J1's shield pad).
 
-### 🛣 Routing — done 2026-08-04 (`HASHROUTE`)
+### 🛣 Routing — done 2026-08-04 (`f480ced`)
 
 All 12 ratsnest connections are routed. **DRC: 0 errors, 0 unconnected**, 4 silkscreen
 warnings (cosmetic, see below).
