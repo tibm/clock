@@ -173,7 +173,7 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | # | Finding | Sev | What it needs |
 |---|---|---|---|
 | ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
-| 4 | All tracks 0.25 mm — no power net class | 🟠 | `POWER` net class ≥1.0 mm on VBAT/+12V/PVDD/+5V/VBUS; F.Cu is 98 % empty |
+| 4 | Power widths — **partially done** | 🟠 | `POWER` net class added; every segment widened as far as it fits. **~half of VBAT/PVDD length is still ≤0.3 mm** — the necks are long runs on In2.Cu that #18 blocks. Finishing it means moving those trunks to F.Cu |
 | ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
 | 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
@@ -225,6 +225,45 @@ Thickness is therefore the only lever left on this axis.
 
 Thermally, 2.0 mm makes the new vias ~25 % worse (longer barrel), which is second-order
 next to going from zero vias to 49.
+
+### ⚡ Power widths (#4) — partially done 2026-08-05 (`HASHW`)
+
+A `POWER` net class (1.0 mm track, 0.8/0.4 via, board-default 0.1 mm clearance) now covers
+`VBAT`, `PVDD`, `+5V`, `+12V`, `VBUS` and both amp output legs, so future routing defaults
+to copper instead of 0.25 mm. Every existing segment on those nets was then widened to the
+most its own neighbourhood allows, per-net targets from IPC-2221 (1 oz, external, ~20 °C):
+
+| net | total copper R | narrowest | still ≤0.3 mm |
+|---|---|---|---|
+| `VBAT` | 408 → **268 mΩ** (−34 %) | 0.25 mm | **48 %** of its length |
+| `PVDD` | 118 → **77 mΩ** (−35 %) | 0.25 mm | **53 %** |
+| `+5V` | 513 → **322 mΩ** (−37 %) | 0.25 mm | 36 % |
+| `+12V` | 187 → **111 mΩ** (−41 %) | 0.25 mm | — |
+| `VBUS` | 107 → **83 mΩ** (−22 %) | 0.25 mm | — |
+| amp leg A / leg B | 58 → **40** / 56 → **33 mΩ** | 0.25 mm | — |
+
+Point-to-point, where the path is pure track: charger BAT → cell+ **126 → 70 mΩ**,
+12 V → wake LEDs **136 → 69 mΩ**, PVDD ORing → amp **61 → 47 mΩ**, 5 V → motor VM
+**172 → 146 mΩ**.
+
+**Read the "narrowest" column, not the average.** A net's current capacity is set by its
+tightest neck, and every one of these still contains 0.25 mm segments — ~1.2 A at +20 °C,
+against VBAT's 4 A and PVDD's 3 A peaks. **So #4 is not closed by this.** The resistance win
+is real, the ampacity limit is not yet lifted.
+
+The remaining necks are not scattered — they are a few long runs on the **inner layers**:
+
+| net | worst neck | where |
+|---|---|---|
+| `+5V` | **57.1 mm** at 0.25 mm | In2.Cu, (20.5, 44.7) → (77.6, 44.7) |
+| `VBAT` | **21.5 mm** at 0.25 mm | In2.Cu, (51.0, 61.0) → (72.5, 61.0) |
+| `VBAT` | 11.9 mm | B.Cu, (86.0, 39.3) → (86.0, 51.2) |
+| `PVDD` | 11.9 mm | B.Cu, (106.7, 71.3) → (106.7, 83.2) |
+
+They cannot widen in place because In2 is packed with the signal routing of **#18**. The fix
+is the one #4 always pointed at: **move these trunks onto F.Cu**, which is still ~98 % empty
+(118 mm of track on the whole layer). That is a re-route, not a width change, and it closes
+#4 and a good part of #18 together.
 
 ### ⏸ Deferred — accepted for now, revisit later
 
