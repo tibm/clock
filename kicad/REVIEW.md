@@ -174,7 +174,7 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 |---|---|---|---|
 | ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
 | 4 | All tracks 0.25 mm — no power net class | 🟠 | `POWER` net class ≥1.0 mm on VBAT/+12V/PVDD/+5V/VBUS; F.Cu is 98 % empty |
-| 5 | No thermal vias in U7/U9/U2 exposed pads | 🟠 | via arrays — purely additive, highest value per minute |
+| ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
 | 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | move power trunks to the empty F.Cu to free inner channels. **Now also blocking #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
@@ -205,10 +205,10 @@ the 18650 holder sits at (51, 96) — **47 mm from the nearest mount**, in the m
 unsupported bottom edge. Inserting a cell into a sprung holder is the largest force this
 board will ever see in normal use, and it lands exactly there.
 
-Going 1.6 → 2.0 mm buys stiffness ∝ t³ = **1.95×**. A fifth mounting hole near
-(55, 100) would cut that span roughly in half, and deflection goes as span³ — **~8× on the
-mode that matters**, for the cost of one hole and one standoff. If the goal is a board that
-survives cell changes, the extra mount is the better lever; they are not exclusive.
+Going 1.6 → 2.0 mm buys stiffness ∝ t³ = **1.95×**. A fifth mounting hole near (55, 100)
+would have cut that span roughly in half (deflection ∝ span³, so ~8× on the mode that
+matters) — **considered and declined 2026-08-04: the board keeps its four corner mounts.**
+Thickness is therefore the only lever left on this axis.
 
 **If you do go to 2.0 mm, three things need checking first:**
 
