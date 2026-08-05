@@ -10,6 +10,14 @@ cd gen
 /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 pcb_build.py
 ```
 
+> ⚠ **STALE as of 2026-08-04.** The board has been routed (1884 segments, 555
+> vias, filled zones) since commit `91c5087`, and `pcb_build.py` now refuses to
+> run without `PCB_BUILD_WIPE_ROUTING=1` because it would destroy that. Schematic
+> changes reach the board through `gen/sync_pcb.py` instead. Headless zone filling
+> also works now (KiCad 10), contrary to the note below. Everything past this point
+> describes the original placement pass and is kept for the reasoning, not as
+> current instructions.
+
 **Scope: placement + stackup + zones + keepouts + full net assignment +
 readable silkscreen. No traces are routed** — placement is the
 judgment-heavy part; routing a 6-block motor+RF+audio board blind would

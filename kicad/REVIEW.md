@@ -28,6 +28,11 @@ filled GND zones** that the generator never produced (added by the autorouter +
 manual passes, commits `91c5087` … `129a757`). **Re-running `pcb_build.py` destroys
 all routing.**
 
+- **PCB sync** — `gen/sync_pcb.py` is the headless stand-in for *Update PCB from
+  Schematic* (KiCad 10 exposes no netlist updater to Python and `kicad-cli pcb` has
+  no such subcommand). It applies values, footprint swaps, new parts and pad nets,
+  and cuts **only** the copper that would otherwise short two nets. It never adds
+  copper. Idempotent — a second run reports 0 changes.
 - **Schematic** — still generator-driven: edit `gen/b_*.py`, then
   **`build.py` followed by `stamp_bom.py`**. `build.py` alone drops the 684
   MPN/Manufacturer/Package/Notes properties that `stamp_bom.py` writes; the BOM
@@ -67,11 +72,49 @@ all routing.**
 > enabling only `SH2_TAP_DETECTOR`, clock stretching, and **R-BOARD-3** — `NRST` has no host
 > line, so firmware cannot reset the hub and must degrade gracefully instead.
 
+### 🔌 PCB sync — done 2026-08-04 (`HASHSYNC`)
+
+The board was one part, one footprint, seven values and eleven pad-nets behind the
+schematic. `gen/sync_pcb.py` closed that gap:
+
+| | applied |
+|---|---|
+| New part | **D14** (BAT42W, SOD-123) placed at (76.50, 80.00) B.Cu |
+| Footprint | **R1** 0603 → **1206** (position/rotation/side/nets preserved) |
+| Values | `C104` 1µF · `R20` 200R · `R111`/`R112` 10k · `R114`/`R115` 20k · `J7` label |
+| Pad nets | 11 — Q4.2/Q4.3 swap, U9.20/23/26, C181.2/C182.2/C183.2, L6.1, new `ALS_INT` on J7.6 + U13.4 |
+| Copper cut | 11 stubs that would have shorted two nets, + 11 stale fragments |
+| Zones | refilled (headless `ZONE_FILLER` **works** in KiCad 10 — `PCB_NOTES.md` was out of date) |
+
+**Verification:** schematic ↔ PCB now agree on every part, footprint, value and pad
+net (0 mismatches). DRC: **0 errors**, 7 warnings, **12 unconnected**.
+
+D14's placement was chosen against **courtyards, tracks and vias** — a first pass
+that only checked pad bounding boxes put it inside J3's courtyard and on top of a
+`CELL_TEST` track. The chosen slot is 0.9 mm from `VBAT_SENSE` copper and 7.6 mm
+from `+3V3` (it carries a few µA, so the longer leg is free).
+
+**The 12 unconnected are the routing work**, and they are the whole of it:
+
+| net | connection |
+|---|---|
+| `+5V` | Q4.3 → +5V (must hop on F.Cu — see #1) |
+| `PVDD` | Q4.2 → PVDD |
+| `Net-(U9-SPK_OUTA+)` | U9.26 → leg A · C181.2 → leg A · C180.2 → leg A |
+| `Net-(U9-SPK_OUTB+)` | U9.20 ↔ U9.23 · C182.2 · C183.2 · L6.1 |
+| `+3V3` / `VBAT_SENSE` | D14 both ends |
+| `ALS_INT` | J7.6 → U13.4 |
+
+7 remaining warnings, all cosmetic and for the routing/silk pass: 3 dangling vias on
+the old audio nets (they get consumed when those legs are re-routed) and 4 silkscreen
+collisions introduced by the two new/changed footprints (D14 vs C131's reference,
+R1's reference vs J1's shield pad).
+
 ### ⏳ Open — PCB / fab work (deferred to the routing pass)
 
 | # | Finding | Sev | What it needs |
 |---|---|---|---|
-| 1, 2, 11, 13, 15 | PCB side of the fixes above | 🔴/🟡 | net sync + the re-routes in the Phase 2 work order below |
+| 1, 2, 11, 15 | PCB side of the fixes above | 🔴/🟡 | **sync done** — only the 12 ratsnest connections above remain |
 | 4 | All tracks 0.25 mm — no power net class | 🟠 | `POWER` net class ≥1.0 mm on VBAT/+12V/PVDD/+5V/VBUS; F.Cu is 98 % empty |
 | 5 | No thermal vias in U7/U9/U2 exposed pads | 🟠 | via arrays — purely additive, highest value per minute |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
@@ -189,6 +232,9 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
 - **2026-08-04** (`3cc15da`): `FIRMWARE.md` corrected from LIS3DH to BNO085 — new §6.5.1 (SHTP/SH-2
   driver model, board strapping, tap-only feature set), **R-BOARD-3** (no host reset line), plus the
   `SENSOR_INT`/`EXPANDER_INT` split from #11 and the standing-draw note in §7.4.
+- **2026-08-04** (`HASHSYNC`): **PCB synced to the schematic** via the new
+  `gen/sync_pcb.py`; zones refilled; DRC 0 errors / 12 unconnected. See the PCB sync
+  table above.
 - **2026-08-04** (`35ca174`): #19 PVDD bulk → hybrid polymer (BOM-only); #16 comment in
   `b_charger.py` corrected; drawing date bumped. **Schematic declared complete** — see the
   readiness table above.
