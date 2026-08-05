@@ -72,7 +72,7 @@ all routing.**
 > enabling only `SH2_TAP_DETECTOR`, clock stretching, and **R-BOARD-3** — `NRST` has no host
 > line, so firmware cannot reset the hub and must degrade gracefully instead.
 
-### 🔌 PCB sync — done 2026-08-04 (`HASHSYNC`)
+### 🔌 PCB sync — done 2026-08-04 (`4f00d68`)
 
 The board was one part, one footprint, seven values and eleven pad-nets behind the
 schematic. `gen/sync_pcb.py` closed that gap:
@@ -232,7 +232,7 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
 - **2026-08-04** (`3cc15da`): `FIRMWARE.md` corrected from LIS3DH to BNO085 — new §6.5.1 (SHTP/SH-2
   driver model, board strapping, tap-only feature set), **R-BOARD-3** (no host reset line), plus the
   `SENSOR_INT`/`EXPANDER_INT` split from #11 and the standing-draw note in §7.4.
-- **2026-08-04** (`HASHSYNC`): **PCB synced to the schematic** via the new
+- **2026-08-04** (`4f00d68`): **PCB synced to the schematic** via the new
   `gen/sync_pcb.py`; zones refilled; DRC 0 errors / 12 unconnected. See the PCB sync
   table above.
 - **2026-08-04** (`35ca174`): #19 PVDD bulk → hybrid polymer (BOM-only); #16 comment in
