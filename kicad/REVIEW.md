@@ -226,7 +226,7 @@ Thickness is therefore the only lever left on this axis.
 Thermally, 2.0 mm makes the new vias ~25 % worse (longer barrel), which is second-order
 next to going from zero vias to 49.
 
-### ⚡ Power widths (#4) — partially done 2026-08-05 (`HASHW`)
+### ⚡ Power widths (#4) — partially done 2026-08-05 (`a20faef`)
 
 A `POWER` net class (1.0 mm track, 0.8/0.4 via, board-default 0.1 mm clearance) now covers
 `VBAT`, `PVDD`, `+5V`, `+12V`, `VBUS` and both amp output legs, so future routing defaults
