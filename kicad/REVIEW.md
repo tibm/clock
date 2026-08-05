@@ -110,11 +110,42 @@ the old audio nets (they get consumed when those legs are re-routed) and 4 silks
 collisions introduced by the two new/changed footprints (D14 vs C131's reference,
 R1's reference vs J1's shield pad).
 
+### 🛣 Routing — done 2026-08-04 (`HASHROUTE`)
+
+All 12 ratsnest connections are routed. **DRC: 0 errors, 0 unconnected**, 4 silkscreen
+warnings (cosmetic, see below).
+
+| connection | how |
+|---|---|
+| `Q4.3` → `+5V` | B.Cu stub + **F.Cu hop** (vias at 100.92,70.16 and 97.61,68.26) — B.Cu cannot pass between Q4 pads 1/2 (0.43 mm gap vs 0.45 mm needed) |
+| `Q4.2` → `PVDD` | direct B.Cu |
+| `D14` → `VBAT_SENSE` | B.Cu + via onto the In1 run |
+| `D14` → `+3V3` | B.Cu stub + F.Cu across + via |
+| `ALS_INT` J7.6 → U13.4 | B.Cu in the 0.65 mm GPB lane, exiting to F.Cu before FULLCHG_EN's diagonal |
+| leg A ×3, leg B ×4 | escape vias + F.Cu (the only free layer in that 46 mm² box) |
+
+**The old leg-B trunk was recovered rather than re-routed.** After the net swap it survived
+as *orphaned* copper on `Net-(U9-SPK_OUTA-)` (4 segs, 3 vias, U9.23→In2→In1→L6.1) — exactly
+the path new leg B needed. Re-netting it to `Net-(U9-SPK_OUTB+)` and restoring three cut
+stubs did most of leg B for free.
+
+Also swept **350 zero-length track segments** (336 on `+5V`) that had been in the board since
+the autorouter run in `91c5087` — 19 % of all segments, carrying no connectivity.
+
+Three things the clearance checker had to learn, each caught by DRC disagreeing with it:
+`pad.GetLayer()` lies for flipped pads · pads must be modelled as **rectangles** (a
+circumscribed circle round U9's 1.90 × 0.40 pads on 0.65 mm pitch swallows both neighbouring
+lanes) · **U9 carries a local clearance override of 0.2 mm**, twice the board rule.
+
+Remaining 4 warnings are all silkscreen around D14, which landed in the tight
+C131/C180-C183 cluster: its reference field and outline overlap C131's reference. Cosmetic —
+for the silk pass, alongside the `#24` crystal-cap move.
+
 ### ⏳ Open — PCB / fab work (deferred to the routing pass)
 
 | # | Finding | Sev | What it needs |
 |---|---|---|---|
-| 1, 2, 11, 15 | PCB side of the fixes above | 🔴/🟡 | **sync done** — only the 12 ratsnest connections above remain |
+| ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
 | 4 | All tracks 0.25 mm — no power net class | 🟠 | `POWER` net class ≥1.0 mm on VBAT/+12V/PVDD/+5V/VBUS; F.Cu is 98 % empty |
 | 5 | No thermal vias in U7/U9/U2 exposed pads | 🟠 | via arrays — purely additive, highest value per minute |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
