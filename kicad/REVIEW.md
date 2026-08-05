@@ -141,7 +141,7 @@ Remaining 4 warnings are all silkscreen around D14, which landed in the tight
 C131/C180-C183 cluster: its reference field and outline overlap C131's reference. Cosmetic —
 for the silk pass, alongside the `#24` crystal-cap move.
 
-### 🔥 Thermal vias (#5) — done 2026-08-04 (`HASHTV`)
+### 🔥 Thermal vias (#5) — done 2026-08-04 (`c8dcf86`)
 
 **49 GND vias added** inside the three exposed pads. DRC 0 errors / 0 warnings /
 0 unconnected. Vias are tented (board setting), so solder cannot drain through during
