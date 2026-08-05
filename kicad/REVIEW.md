@@ -141,6 +141,33 @@ Remaining 4 warnings are all silkscreen around D14, which landed in the tight
 C131/C180-C183 cluster: its reference field and outline overlap C131's reference. Cosmetic —
 for the silk pass, alongside the `#24` crystal-cap move.
 
+### 🔥 Thermal vias (#5) — done 2026-08-04 (`HASHTV`)
+
+**49 GND vias added** inside the three exposed pads. DRC 0 errors / 0 warnings /
+0 unconnected. Vias are tented (board setting), so solder cannot drain through during
+hand assembly.
+
+| part | EP | vias | ≈ via thermal path | dissipation |
+|---|---|---|---|---|
+| **U7** TPS55340 (12 V boost) | 3.4 × 5.0 mm | **14** | ~12 K/W | ~2 W at 12 W out |
+| **U9** TAS5760M (amp) | 5.2 × 11 mm | **33** | ~5 K/W | ~1.5 W at 10 W out |
+| **U2** LT3652 (charger) | 1.65 × 2.85 mm | **2** | ~84 K/W | ~0.7 W at 1 A |
+
+(0.3 mm drill through 1.6 mm FR4 ≈ 169 K/W each, in parallel — indicative, not a
+substitute for a thermal sim. Previously all three had **zero**, so the EPs could only
+spread heat sideways through 35 µm of B.Cu.)
+
+**U2 is the exception and it is finding #18's fault.** Its pad is 1.65 mm wide and two
+inner-layer *signals* cross it: `Net-(U8-IO11_LRCLK)` runs vertically on In1 at x = 95.94,
+right through the pad, and `+5V` closes the right side on In2. That leaves one usable
+corner, hence 2 vias instead of the 4-6 the pad would otherwise take. **Rerouting those two
+inner-layer traces clear of the pad is the fix**, and it is worth doing if `R18` is ever
+changed to 2 A (#7), which roughly doubles U2's dissipation to ~1.4 W.
+
+A checker bug is worth recording: an exposed pad's **paste-mask apertures are separate pads
+with no copper layer**, and treating them as copper falsely blocked most of every EP —
+U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for the same reason.
+
 ### ⏳ Open — PCB / fab work (deferred to the routing pass)
 
 | # | Finding | Sev | What it needs |
