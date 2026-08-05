@@ -177,9 +177,54 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | 5 | No thermal vias in U7/U9/U2 exposed pads | 🟠 | via arrays — purely additive, highest value per minute |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
 | 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
-| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | move power trunks to the empty F.Cu to free inner channels |
+| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | move power trunks to the empty F.Cu to free inner channels. **Now also blocking #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
+| 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
 | 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
 | 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **see recommendation below** |
+
+### 🔩 Mechanical: hole density and board thickness — assessed 2026-08-04
+
+**The holes are not a fragility problem.** Every hole on the board, of every kind:
+
+| | area | % of board |
+|---|---|---|
+| 615 vias (all 0.3 mm) | 43.5 mm² | 0.36 % |
+| 54 plated through-holes | 70.5 mm² | 0.58 % |
+| 9 non-plated (motor shaft/pegs, holder, USB) | 62.1 mm² | 0.51 % |
+| **total** | **176 mm²** | **1.46 %** of 12 069 mm² |
+
+Locally, inside the exposed pads where the new vias went, hole area is **U7 5.8 %,
+U9 4.1 %, U2 3.0 %** of the pad — ordinary for a PowerPAD via array, and the pads are
+small islands inside a continuous board. Stiffness is set by the laminate that is still
+there; 1.5 % perforation, spread out, does not measurably change it. **No reason to remove
+or thin the arrays.**
+
+**What actually governs robustness here is the mounting, not the thickness.** The board is
+110 × 110 mm with **four corner M3 holes only** (5,5 · 104.8,5.2 · 5,105 · 105.5,105.5), and
+the 18650 holder sits at (51, 96) — **47 mm from the nearest mount**, in the middle of an
+unsupported bottom edge. Inserting a cell into a sprung holder is the largest force this
+board will ever see in normal use, and it lands exactly there.
+
+Going 1.6 → 2.0 mm buys stiffness ∝ t³ = **1.95×**. A fifth mounting hole near
+(55, 100) would cut that span roughly in half, and deflection goes as span³ — **~8× on the
+mode that matters**, for the cost of one hole and one standoff. If the goal is a board that
+survives cell changes, the extra mount is the better lever; they are not exclusive.
+
+**If you do go to 2.0 mm, three things need checking first:**
+
+1. **Aspect ratio.** The smallest drill on the board is **0.2 mm** (the ESP32 module's
+   12-hole thermal array). At 1.6 mm that is 8:1; at 2.0 mm it becomes **10:1**, which is at
+   or past most fabs' standard limit and moves the order into a premium tier. The 0.3 mm
+   vias are fine either way (5.3:1 → 6.7:1).
+2. **The Juken motor's snap pegs.** X27 §3.2/§3.4 defer hole sizes and insertion force to
+   application note **AN-JST-001, which is not in `datasheet/`** (finding #25). Snap pegs are
+   moulded for a specific board thickness — this is the one change that could stop the motor
+   seating at all.
+3. **Through-hole connector retention** — J1's USB-C shell pegs in particular. (BT1 is
+   surface-mount, so the holder itself is unaffected.)
+
+Thermally, 2.0 mm makes the new vias ~25 % worse (longer barrel), which is second-order
+next to going from zero vias to 49.
 
 ### ⏸ Deferred — accepted for now, revisit later
 
