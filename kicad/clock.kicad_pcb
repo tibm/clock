@@ -12402,7 +12402,7 @@
 		(descr "Capacitor SMD 1210 (3225 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C132"
-			(at 4 1.235 90)
+			(at 4 -0.765 90)
 			(layer "B.SilkS")
 			(uuid "be7c4013-d604-4d26-8f45-772dd5dd9a66")
 			(effects
@@ -32422,7 +32422,7 @@
 		(descr "Capacitor SMD 1210 (3225 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C131"
-			(at 4 0.835 90)
+			(at 4 -1.665 90)
 			(layer "B.SilkS")
 			(uuid "16c6883f-c5a5-4e70-9838-6fd9a0b25a44")
 			(effects
@@ -46407,7 +46407,7 @@
 		(descr "SOD-123")
 		(tags "SOD-123")
 		(property "Reference" "D14"
-			(at 0.556 1.712 180)
+			(at -0.5 2 180)
 			(layer "B.SilkS")
 			(uuid "df7f5b1a-4da6-4bdb-81d7-5674dd0b3a6a")
 			(effects
@@ -49197,6 +49197,16 @@
 		(uuid "e3a42938-3bf7-4c4f-9c49-c72739b75424")
 	)
 	(gr_line
+		(start 71 36.5)
+		(end 67.5 39.5)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "B.SilkS")
+		(uuid "0d994250-7fc2-4827-88e6-b352be3c487f")
+	)
+	(gr_line
 		(start 82.5 42.5)
 		(end 83 42.5)
 		(stroke
@@ -49330,18 +49340,6 @@
 		(layer "Edge.Cuts")
 		(uuid "6278ced3-176f-4d8d-8fd6-c806be9445bf")
 	)
-	(gr_text "WayWayWay"
-		(at 25 3 0)
-		(layer "F.SilkS")
-		(uuid "cced0c73-5c00-4ed9-9639-4691500f77b6")
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.1)
-			)
-			(justify left bottom)
-		)
-	)
 	(gr_text "I <3 Jane"
 		(at 51 62.5 0)
 		(layer "F.SilkS")
@@ -49354,8 +49352,20 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "Tibo - Wooden Clock v0.2"
-		(at 55 106.5 0)
+	(gr_text "WayWayWay"
+		(at 51.5 107.5 0)
+		(layer "F.SilkS")
+		(uuid "cced0c73-5c00-4ed9-9639-4691500f77b6")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "Tibo - Wooden Clock v0.3"
+		(at 55 104 0)
 		(layer "F.SilkS")
 		(uuid "de2fc8c6-1af7-41bd-b336-8e5bac600120")
 		(effects
@@ -49363,6 +49373,18 @@
 				(size 1.5 1.5)
 				(thickness 0.224999)
 			)
+		)
+	)
+	(gr_text "RESET"
+		(at 16.5 19.5 0)
+		(layer "B.SilkS")
+		(uuid "73d3ac45-a8bb-41a6-a9df-639e92076fc1")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
 		)
 	)
 	(gr_text "CELL-"
@@ -49377,10 +49399,70 @@
 			(justify mirror)
 		)
 	)
+	(gr_text "BOOT"
+		(at 23.5 19.5 0)
+		(layer "B.SilkS")
+		(uuid "862184d5-8dd2-45c8-a710-1efe195992c6")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
+	(gr_text "WAKE_LED"
+		(at 37.5 77.5 0)
+		(layer "B.SilkS")
+		(uuid "615e5985-2636-4ebc-954f-ae70789f8091")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
+	(gr_text "RADIO"
+		(at 63.5 26.5 0)
+		(layer "B.SilkS")
+		(uuid "6119d65f-1c2d-4d5f-b0fb-1e07898829d5")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
+	(gr_text "STATUS_LED"
+		(at 65 41 0)
+		(layer "B.SilkS")
+		(uuid "a961ee05-5bb0-47c0-84b7-0f4649356f9a")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
 	(gr_text "KNOB"
 		(at 78 9 0)
 		(layer "B.SilkS")
 		(uuid "5504c2ac-dab5-5694-99f5-2cfc04d64768")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
+	(gr_text "AUDIO"
+		(at 80.5 84.5 0)
+		(layer "B.SilkS")
+		(uuid "741189bd-662c-4455-a0a2-0993ce3ec3f1")
 		(effects
 			(font
 				(size 1.2 1.2)
@@ -49414,7 +49496,7 @@
 		)
 	)
 	(gr_text "USB-PD"
-		(at 96 20.5 0)
+		(at 97 25 0)
 		(layer "B.SilkS")
 		(uuid "5391b537-17bd-4ecf-a5b2-e14061519a92")
 		(effects
@@ -49425,10 +49507,10 @@
 			(justify mirror)
 		)
 	)
-	(gr_text "AUDIO"
-		(at 96.5 74.5 0)
+	(gr_text "PROG"
+		(at 3 16 90)
 		(layer "B.SilkS")
-		(uuid "741189bd-662c-4455-a0a2-0993ce3ec3f1")
+		(uuid "336822b9-620a-4a59-b6ed-0ca56a60e1f5")
 		(effects
 			(font
 				(size 1.2 1.2)
@@ -49449,8 +49531,20 @@
 			(justify mirror)
 		)
 	)
+	(gr_text "SPKR"
+		(at 109 101 90)
+		(layer "B.SilkS")
+		(uuid "0aab33ed-630e-4a3f-9c0c-2684dd529d78")
+		(effects
+			(font
+				(size 1.2 1.2)
+				(thickness 0.18)
+			)
+			(justify mirror)
+		)
+	)
 	(gr_text "IO-EXP"
-		(at 76 16.5 270)
+		(at 70 18 270)
 		(layer "B.SilkS")
 		(uuid "029ea7b5-81bc-4d4c-8d84-d5e8e58167ac")
 		(effects
