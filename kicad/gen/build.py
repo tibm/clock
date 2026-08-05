@@ -65,7 +65,7 @@ def main():
         COSMETICS = {}
     s = Sch(cache, "clock", "clock", paper="A1",
             title="Wooden Smart Clock — main board",
-            date="2026-07-14", rev="A", company="",
+            date="2026-08-04", rev="A", company="",
             cosmetics=COSMETICS)
     for name in BLOCKS:
         try:

@@ -105,12 +105,19 @@ _REF = {
              "CAP ALUM 100UF 16V 20% SMD", SUB_OK),
     "C237": ("EEE-FK1C101P", "Panasonic", "SMD radial can D6.3xL6.1mm",
              "CAP ALUM 100UF 16V 20% SMD", SUB_OK),
-    "C172": ("25TZV100M6.3X8", "Rubycon", "SMD radial can D6.3xL8.0mm",
-             "CAP ALUM 100UF 25V 20% LOW-ESR SMD",
-             "PVDD bulk. Was 220uF: no tier-1 220uF >=16V exists in a D6.3 can "
-             "(Panasonic/Nichicon are D8), so the value dropped to 100uF/25V "
-             "(2026-07-27). TZV = low-ESR, 300 mA @100 kHz, 2000 h/105 C. "
-             "DigiKey alt: Nichicon UWT1E101MCL1GS (D6.3x7.7, 137 mA ripple)"),
+    "C172": ("EEH-ZA1E101P", "Panasonic", "SMD radial can D6.3xL7.7mm",
+             "CAP ALUM POLY HYBRID 100UF 25V SMD",
+             "PVDD bulk. **Hybrid polymer, NOT a plain electrolytic** -- the "
+             "ripple rating is the spec that matters here, not the value. A "
+             "class-D BTL draws i_supply = P/PVDD x (1-cos 2wt), so the bulk "
+             "sees (P/PVDD)/sqrt(2) rms at twice the audio frequency: 0.49 A "
+             "at the 8 W firmware limit, 0.68 A at clip. The previous part "
+             "(Rubycon 25TZV100M6.3X8, 300 mA @100 kHz) was under-rated ~1.6x; "
+             "the ZA hybrid is ~1.3 A with ~40 mOhm ESR, and 7.7 mm actually "
+             "fits the CP_Elec_6.3x7.7 land better than the old 8.0 mm can. "
+             "SUBSTITUTION RULE: any D6.3 part with >=600 mA @100 kHz ripple "
+             "and >=25 V. Value may drop to 68 uF if that buys the rating. "
+             "VERIFY DigiKey stock before ordering (REVIEW.md #19)"),
 
     # inductors
     "L1": ("XAL4040-103MEC", "Coilcraft", "SMD 4.0x4.0x4.0mm",

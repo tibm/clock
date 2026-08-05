@@ -197,9 +197,23 @@ def build(s):
     # holder+ -> Q2 OFF. The ADC (holder side!) then reads V_cell if a cell
     # is present (unchanged), or drops one Q2-body-diode below VBAT
     # (~0.3-0.4 V step) if the holder is empty. Firmware keys on the STEP at
-    # switch-off, plugged-only (on battery Q2's body diode keeps the system
-    # alive but drops ~0.4 V -- don't leave asserted). Defaults are safe:
-    # R26 holds Q8 off at POR, R27 holds Q9 off -> Q2 conducts normally.
+    # switch-off.
+    #
+    # *** PLUGGED-ONLY -- and not for the reason this comment used to give. ***
+    # It claimed "on battery Q2's body diode keeps the system alive but drops
+    # ~0.4 V". That is WRONG (corrected 2026-08-04, REVIEW.md #16): Q2 is a
+    # P-FET with S=holder+ and D=VBAT, so its body diode is anode-at-VBAT and
+    # conducts VBAT->holder+ ONLY. Discharge current has to flow holder+->VBAT,
+    # i.e. against the diode, so with Q2 off on battery the system loses power
+    # outright -- there is no 0.4 V fallback path.
+    # The result is a self-recovering reset loop, not damage: the rails drop,
+    # the MCP23017 loses power, its GPIOs go hi-Z, R26 pulls Q8 off, Q9 turns
+    # off and Q2 conducts again -> the board reboots. Nothing exceeds a rating.
+    # There is no hardware interlock, so this is a firmware invariant:
+    # FIRMWARE.md R-BOARD-2 -- gate every assertion on a fresh PD_PG read.
+    #
+    # Defaults are safe: R26 holds Q8 off at POR, R27 holds Q9 off -> Q2
+    # conducts normally.
     s.w((71.12, 203.20), (71.12, 171.45), (142.24, 171.45))   # holder+ rail
     Q9 = s.comp("Q9", "clock:AO3401A", 127.00, 177.80, rot=90, value="AO3401A",
                 footprint="Package_TO_SOT_SMD:SOT-23",
