@@ -5,9 +5,10 @@
 	(uuid "1adcbb43-c9c1-5e32-ae8f-acc3574b9320")
 	(paper "A1")
 	(title_block
-		(title "Wooden Smart Clock — main board")
+		(title "Wooden Clock - main board")
 		(date "2026-08-04")
-		(rev "A")
+		(rev "0.3")
+		(company "Tibo")
 	)
 	(lib_symbols
 		(symbol "Battery_Management:LT3652EMSE"
@@ -12184,8 +12185,8 @@
 		(uuid "19068936-70bf-5a36-821a-827ea72fc790")
 	)
 	(rectangle
-		(start 610 110)
-		(end 835 180)
+		(start 610 102.87)
+		(end 826.77 180)
 		(stroke
 			(width 0.2)
 			(type dash)
@@ -12276,7 +12277,7 @@
 	)
 	(rectangle
 		(start 610 405)
-		(end 835 585)
+		(end 826.77 581.66)
 		(stroke
 			(width 0.2)
 			(type dash)
@@ -12302,7 +12303,7 @@
 	)
 	(rectangle
 		(start 405 415)
-		(end 595 585)
+		(end 595 579.12)
 		(stroke
 			(width 0.2)
 			(type dash)
@@ -12315,7 +12316,7 @@
 	)
 	(rectangle
 		(start 610 190)
-		(end 835 385)
+		(end 826.77 385)
 		(stroke
 			(width 0.2)
 			(type dash)
@@ -12328,7 +12329,7 @@
 	)
 	(text "D40/D41 = on-PCB dial wash (chain pos 1-2). J12 breaks the chain out"
 		(exclude_from_sim no)
-		(at 185 499.41 0)
+		(at 183.134 499.182 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12339,7 +12340,7 @@
 	)
 	(text "Charges only on the 15 V contract (UVLO 11.2 V); runs with no cell."
 		(exclude_from_sim no)
-		(at 250 155 0)
+		(at 204.216 170.528 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12350,7 +12351,7 @@
 	)
 	(text "STORAGE — microSD (DM3AT), SPI2 dedicated"
 		(exclude_from_sim no)
-		(at 612.5 114.2 0)
+		(at 683.26 114.046 0)
 		(effects
 			(font
 				(size 2.6 2.6)
@@ -12373,7 +12374,7 @@
 	)
 	(text "INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Knob = EM14A0D-C24-L064S"
 		(exclude_from_sim no)
-		(at 410 571 0)
+		(at 410.21 564.206 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12384,7 +12385,7 @@
 	)
 	(text "IO EXPANDER (MCP23017 @0x20) + KNOB (EM14)"
 		(exclude_from_sim no)
-		(at 407.5 419.2 0)
+		(at 487.172 419.1 0)
 		(effects
 			(font
 				(size 2.6 2.6)
@@ -12441,7 +12442,7 @@
 	)
 	(text "SENSORS (I2C off-board) + HAND-HOMING (QRE1113)"
 		(exclude_from_sim no)
-		(at 407.5 229.2 0)
+		(at 481.838 229.616 0)
 		(effects
 			(font
 				(size 2.6 2.6)
@@ -12475,7 +12476,7 @@
 	)
 	(text "IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high; IO45/46 low via"
 		(exclude_from_sim no)
-		(at 410 48 0)
+		(at 407.924 49.022 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12486,7 +12487,7 @@
 	)
 	(text "I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  4.4 h timer"
 		(exclude_from_sim no)
-		(at 250 150 0)
+		(at 204.216 165.528 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12531,7 +12532,7 @@
 	)
 	(text "AUDIO — TAS5760M PBTL + LC filter + PVDD mux (12V/5V)"
 		(exclude_from_sim no)
-		(at 612.5 194.2 0)
+		(at 655.32 194.056 0)
 		(effects
 			(font
 				(size 2.6 2.6)
@@ -12543,7 +12544,7 @@
 	)
 	(text "each pixel VDD; C237 bulk + R110 + U15 at the chain head. J12 feeds"
 		(exclude_from_sim no)
-		(at 185 569.51 0)
+		(at 182.88 569.468 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12554,7 +12555,7 @@
 	)
 	(text "for 5 more pixels wired off-board (status row, chain pos 3-7). One RMT"
 		(exclude_from_sim no)
-		(at 185 503.91 0)
+		(at 183.134 503.682 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12598,7 +12599,7 @@
 	)
 	(text "data line; AHCT buffer lifts 3V3 -> 5V (SK6812 VIH = 0.7*VDD = 3.5V)."
 		(exclude_from_sim no)
-		(at 185 508.41 0)
+		(at 183.134 508.182 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12700,7 +12701,7 @@
 	)
 	(text "their wake gate nets + internal PD; IO3 internal.  Flash+console+JTAG = USB-CDC (IO19/20)."
 		(exclude_from_sim no)
-		(at 410 53 0)
+		(at 407.924 53.086 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12711,7 +12712,7 @@
 	)
 	(text "Layout: C222/C223 at the J6 VDD pin."
 		(exclude_from_sim no)
-		(at 688.34 130 0)
+		(at 785.876 138.684 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12734,7 +12735,7 @@
 	)
 	(text "1x02 (pre-crimped AxxZR cables).  A/B 5 V -> 100k/200k div -> PCNT; SW -> IO17 IRQ."
 		(exclude_from_sim no)
-		(at 410 580 0)
+		(at 410.21 573.206 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12790,7 +12791,7 @@
 	)
 	(text "5 more SK6812 wired off-board in series (chain pos 3-7), same rail."
 		(exclude_from_sim no)
-		(at 185 574.01 0)
+		(at 182.88 573.968 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12801,7 +12802,7 @@
 	)
 	(text "MOTOR — 2x TB6612FNG -> X40.879 dual-shaft stepper"
 		(exclude_from_sim no)
-		(at 612.5 409.2 0)
+		(at 624.078 408.94 0)
 		(effects
 			(font
 				(size 2.6 2.6)
@@ -12859,7 +12860,7 @@
 	)
 	(text "Layout: each driver's 10uF+100nF go at its VM pins, the 100nF at its VCC pin."
 		(exclude_from_sim no)
-		(at 615 415 0)
+		(at 624.586 414.02 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12893,7 +12894,7 @@
 	)
 	(text "Layout: D40/D41 = dial wash either side of the shaft. C230/231 one at"
 		(exclude_from_sim no)
-		(at 185 565.01 0)
+		(at 182.88 564.968 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12915,7 +12916,7 @@
 	)
 	(text "(optical, 64 CPR, no detent, push) on the top face.  J7/J10 = JST ZH 1x06, J11 = ZH"
 		(exclude_from_sim no)
-		(at 410 575.5 0)
+		(at 410.21 568.706 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -12981,7 +12982,7 @@
 	)
 	(text "Float 4.05 V (R14/R15); FULLCHG_EN -> 4.20 V full-charge mode"
 		(exclude_from_sim no)
-		(at 250 145 0)
+		(at 204.216 160.528 0)
 		(effects
 			(font
 				(size 1.3 1.3)
@@ -13117,12 +13118,6 @@
 		(uuid "18c1810f-0094-5836-bc85-739ed106e38d")
 	)
 	(junction
-		(at 73.66 228.6)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "1b227a1d-72a9-5e92-94a3-669f8c32f388")
-	)
-	(junction
 		(at 474.98 106.68)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -13237,6 +13232,12 @@
 		(uuid "3c70d702-a015-5734-9c01-fcfd862ab11d")
 	)
 	(junction
+		(at 571.5 449.58)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3eac2bd0-1e52-4806-b0e2-47293eb8ecef")
+	)
+	(junction
 		(at 331.47 142.24)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -13315,22 +13316,10 @@
 		(uuid "5482ff02-e0c0-5ec6-afa3-2e501fcc4725")
 	)
 	(junction
-		(at 73.66 224.79)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "555ebaa7-ea74-5a1f-a401-0f319cc7e7f5")
-	)
-	(junction
 		(at 332.74 121.92)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "55c97388-3b23-5471-a865-cceb666c19a0")
-	)
-	(junction
-		(at 237.49 332.74)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "578a967e-75ab-502f-ba2f-59fbb7ccdd38")
 	)
 	(junction
 		(at 91.44 247.65)
@@ -13513,12 +13502,6 @@
 		(uuid "8f89dee9-3fee-5562-8f42-f9db7615966f")
 	)
 	(junction
-		(at 110.49 213.36)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "900f33c0-0d87-5684-b9dd-12c94636cad2")
-	)
-	(junction
 		(at 290.83 320.04)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -13583,6 +13566,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9ca8ec02-8a5d-5aeb-a134-8dca1e5c5da0")
+	)
+	(junction
+		(at 102.87 213.36)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9eb91ae7-ff11-4e7c-9034-d199a86a7111")
 	)
 	(junction
 		(at 643.89 280.67)
@@ -13735,12 +13724,6 @@
 		(uuid "cbe366ee-0a85-5085-860c-9b3f1eb07c9e")
 	)
 	(junction
-		(at 102.87 213.36)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "cca79458-649c-5795-b080-79a3cb13abb6")
-	)
-	(junction
 		(at 281.94 341.63)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -13793,6 +13776,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "de8c5864-5a35-5edf-ba08-15865a589939")
+	)
+	(junction
+		(at 81.28 224.79)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "dfa18ce6-2979-42a8-a3e4-0298b81242d0")
 	)
 	(junction
 		(at 695.96 571.5)
@@ -14550,7 +14539,7 @@
 	)
 	(wire
 		(pts
-			(xy 510.54 449.58) (xy 513.08 449.58)
+			(xy 510.54 449.58) (xy 571.5 449.58)
 		)
 		(stroke
 			(width 0)
@@ -14700,16 +14689,6 @@
 	)
 	(wire
 		(pts
-			(xy 311.15 320.04) (xy 281.94 320.04)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1bbc95bc-0af8-5524-a8cf-b71ae9a7b5cf")
-	)
-	(wire
-		(pts
 			(xy 720.09 237.49) (xy 741.68 237.49)
 		)
 		(stroke
@@ -14757,16 +14736,6 @@
 			(type default)
 		)
 		(uuid "1cd9c516-e944-5db5-9429-685b5553bf78")
-	)
-	(wire
-		(pts
-			(xy 300.99 320.04) (xy 281.94 320.04)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1d22ab12-e516-5000-bafa-e33a5789ca7b")
 	)
 	(wire
 		(pts
@@ -15460,16 +15429,6 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 213.36) (xy 102.87 213.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "37fbb952-5b05-551d-9e87-b1e2b36d9039")
-	)
-	(wire
-		(pts
 			(xy 433.07 259.08) (xy 433.07 261.62)
 		)
 		(stroke
@@ -15477,6 +15436,16 @@
 			(type default)
 		)
 		(uuid "38db20a4-832a-54fa-a2f7-71b68469ef1b")
+	)
+	(wire
+		(pts
+			(xy 129.54 219.71) (xy 129.54 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3959191c-af60-4d7a-850e-b728fd99a932")
 	)
 	(wire
 		(pts
@@ -15570,6 +15539,16 @@
 	)
 	(wire
 		(pts
+			(xy 142.24 209.55) (xy 142.24 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3e24d610-4d39-4c2e-9a35-e32d4f7aafe2")
+	)
+	(wire
+		(pts
 			(xy 372.11 106.68) (xy 364.49 106.68)
 		)
 		(stroke
@@ -15620,7 +15599,7 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 228.6) (xy 73.66 219.71)
+			(xy 81.28 219.71) (xy 81.28 224.79)
 		)
 		(stroke
 			(width 0)
@@ -16140,7 +16119,7 @@
 	)
 	(wire
 		(pts
-			(xy 128.27 93.98) (xy 134.62 93.98)
+			(xy 128.27 93.98) (xy 143.51 93.98)
 		)
 		(stroke
 			(width 0)
@@ -16430,7 +16409,7 @@
 	)
 	(wire
 		(pts
-			(xy 580.39 453.39) (xy 580.39 449.58)
+			(xy 571.5 453.39) (xy 571.5 449.58)
 		)
 		(stroke
 			(width 0)
@@ -16940,16 +16919,6 @@
 	)
 	(wire
 		(pts
-			(xy 571.5 453.39) (xy 580.39 453.39)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "79ae8c17-566f-5d02-96f8-91db8d1af106")
-	)
-	(wire
-		(pts
 			(xy 483.87 119.38) (xy 490.22 119.38)
 		)
 		(stroke
@@ -17360,16 +17329,6 @@
 	)
 	(wire
 		(pts
-			(xy 237.49 332.74) (xy 237.49 332.74)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8a544254-f51c-570d-8603-8f621f6a549f")
-	)
-	(wire
-		(pts
 			(xy 695.96 568.96) (xy 695.96 571.5)
 		)
 		(stroke
@@ -17430,7 +17389,7 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 219.71) (xy 78.74 219.71)
+			(xy 81.28 219.71) (xy 78.74 219.71)
 		)
 		(stroke
 			(width 0)
@@ -17517,6 +17476,16 @@
 			(type default)
 		)
 		(uuid "91580520-b6f4-5f75-96f8-22a00aa2efa9")
+	)
+	(wire
+		(pts
+			(xy 571.5 449.58) (xy 577.85 449.58)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "91a3d84c-bbe4-4f5b-a31e-7efbcbdf3ea5")
 	)
 	(wire
 		(pts
@@ -17880,16 +17849,6 @@
 	)
 	(wire
 		(pts
-			(xy 118.11 213.36) (xy 110.49 213.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9fc99b4a-0af7-54b3-95f2-9aec88073efa")
-	)
-	(wire
-		(pts
 			(xy 701.04 441.96) (xy 701.04 439.42)
 		)
 		(stroke
@@ -18007,6 +17966,16 @@
 			(type default)
 		)
 		(uuid "a5d4101c-de7e-5fe0-8300-0c9e99180add")
+	)
+	(wire
+		(pts
+			(xy 81.28 224.79) (xy 81.28 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a66f431c-ece9-447c-9d6c-01333b3bad8b")
 	)
 	(wire
 		(pts
@@ -18420,16 +18389,6 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 224.79) (xy 73.66 228.6)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ba8539e9-1a1e-5658-b67c-23be1eda6376")
-	)
-	(wire
-		(pts
 			(xy 695.96 492.76) (xy 695.96 495.3)
 		)
 		(stroke
@@ -18460,6 +18419,16 @@
 	)
 	(wire
 		(pts
+			(xy 129.54 213.36) (xy 102.87 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bd0afe4b-6d9d-4bde-9a85-e570e902f3de")
+	)
+	(wire
+		(pts
 			(xy 40.64 109.22) (xy 40.64 111.76)
 		)
 		(stroke
@@ -18477,16 +18446,6 @@
 			(type default)
 		)
 		(uuid "bd1e805d-5a8a-5b95-8f15-e4a34454f4b2")
-	)
-	(wire
-		(pts
-			(xy 118.11 220.98) (xy 118.11 224.79)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bd2e8621-f086-57df-a0ba-5894ac423c35")
 	)
 	(wire
 		(pts
@@ -19030,7 +18989,7 @@
 	)
 	(wire
 		(pts
-			(xy 67.31 224.79) (xy 73.66 224.79)
+			(xy 67.31 224.79) (xy 81.28 224.79)
 		)
 		(stroke
 			(width 0)
@@ -19320,6 +19279,16 @@
 	)
 	(wire
 		(pts
+			(xy 142.24 219.71) (xy 129.54 219.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e3b54695-8718-4c20-9d7e-06d69382fea5")
+	)
+	(wire
+		(pts
 			(xy 175.26 203.2) (xy 175.26 212.09)
 		)
 		(stroke
@@ -19360,7 +19329,7 @@
 	)
 	(wire
 		(pts
-			(xy 290.83 320.04) (xy 281.94 320.04)
+			(xy 281.94 320.04) (xy 311.15 320.04)
 		)
 		(stroke
 			(width 0)
@@ -19640,7 +19609,7 @@
 	)
 	(wire
 		(pts
-			(xy 83.82 228.6) (xy 73.66 228.6)
+			(xy 83.82 228.6) (xy 81.28 228.6)
 		)
 		(stroke
 			(width 0)
@@ -20108,28 +20077,6 @@
 			)
 		)
 	)
-	(global_label "SPK_SD"
-		(shape bidirectional)
-		(at 580.39 449.58 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "314e2da5-d48e-55d3-8ba1-dd58ea1545a9")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 580.39 449.58 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-	)
 	(global_label "NEOPIX_DATA"
 		(shape bidirectional)
 		(at 210.82 524.51 180)
@@ -20198,7 +20145,7 @@
 	)
 	(global_label "PD_PG"
 		(shape bidirectional)
-		(at 134.62 93.98 0)
+		(at 143.51 93.98 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -20207,7 +20154,7 @@
 		)
 		(uuid "4d3c2d22-9ccc-5833-9f1a-29236e3640a4")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 134.62 93.98 0)
+			(at 143.51 93.98 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20660,7 +20607,7 @@
 	)
 	(global_label "SPK_SD"
 		(shape bidirectional)
-		(at 513.08 449.58 0)
+		(at 577.85 449.58 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -20669,7 +20616,7 @@
 		)
 		(uuid "a8e1e11e-3501-59e1-9ce7-e042b236783a")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 513.08 449.58 0)
+			(at 577.85 449.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21217,6 +21164,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 909 OHM 1% 1/10W 0603"
+			(at 313.69 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 313.69 120.65 0)
 			(hide yes)
@@ -21240,17 +21198,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 313.69 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 909 OHM 1% 1/10W 0603"
 			(at 313.69 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -21340,6 +21287,17 @@
 				)
 			)
 		)
+		(property "Description" "SWITCH TACTILE SPST-NO 50MA 12V SMD"
+			(at 463.55 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD tactile 4.2x3.2mm"
 			(at 463.55 127 0)
 			(hide yes)
@@ -21363,17 +21321,6 @@
 			)
 		)
 		(property "Manufacturer" "C&K"
-			(at 463.55 127 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "SWITCH TACTILE SPST-NO 50MA 12V SMD"
 			(at 463.55 127 0)
 			(hide yes)
 			(show_name no)
@@ -21530,6 +21477,17 @@
 				)
 			)
 		)
+		(property "Description" "IC REG BUCK ADJ 2A SOT-23-5"
+			(at 297.18 243.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23-5"
 			(at 297.18 243.84 0)
 			(hide yes)
@@ -21553,17 +21511,6 @@
 			)
 		)
 		(property "Manufacturer" "Texas Instruments"
-			(at 297.18 243.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC REG BUCK ADJ 2A SOT-23-5"
 			(at 297.18 243.84 0)
 			(hide yes)
 			(show_name no)
@@ -21662,6 +21609,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 102.87 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 102.87 217.17 0)
 			(hide yes)
@@ -21685,17 +21643,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 102.87 217.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 102.87 217.17 0)
 			(hide yes)
 			(show_name no)
@@ -21787,6 +21734,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 455.93 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 455.93 247.65 0)
 			(hide yes)
@@ -21810,17 +21768,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 455.93 247.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 455.93 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -21988,6 +21935,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 95.3K OHM 1% 1/10W 0603"
+			(at 222.25 335.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 222.25 335.28 0)
 			(hide yes)
@@ -22011,17 +21969,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 222.25 335.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 95.3K OHM 1% 1/10W 0603"
 			(at 222.25 335.28 0)
 			(hide yes)
 			(show_name no)
@@ -22187,6 +22134,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 528.32 530.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 528.32 530.86 0)
 			(hide yes)
@@ -22210,17 +22168,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 528.32 530.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 528.32 530.86 0)
 			(hide yes)
 			(show_name no)
@@ -22312,6 +22259,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 261.62 372.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 261.62 372.11 0)
 			(hide yes)
@@ -22335,17 +22293,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 261.62 372.11 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 261.62 372.11 0)
 			(hide yes)
 			(show_name no)
@@ -22435,6 +22382,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 731.52 293.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 731.52 293.37 0)
 			(hide yes)
@@ -22458,17 +22416,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 731.52 293.37 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 731.52 293.37 0)
 			(hide yes)
 			(show_name no)
@@ -23015,6 +22962,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 0.1 OHM 1% 1W 2010 CURRENT SENSE"
+			(at 328.93 88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "2010"
 			(at 328.93 88.9 0)
 			(hide yes)
@@ -23038,17 +22996,6 @@
 			)
 		)
 		(property "Manufacturer" "Vishay Dale"
-			(at 328.93 88.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 0.1 OHM 1% 1W 2010 CURRENT SENSE"
 			(at 328.93 88.9 0)
 			(hide yes)
 			(show_name no)
@@ -23290,6 +23237,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 46.99 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 46.99 276.86 0)
 			(hide yes)
@@ -23313,17 +23271,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 46.99 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 46.99 276.86 0)
 			(hide yes)
 			(show_name no)
@@ -23491,6 +23438,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 468.63 461.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 468.63 461.01 0)
 			(hide yes)
@@ -23514,17 +23472,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 468.63 461.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 468.63 461.01 0)
 			(hide yes)
 			(show_name no)
@@ -23690,6 +23637,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 6.8PF 50V C0G/NP0 0603"
+			(at 340.36 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 340.36 247.65 0)
 			(hide yes)
@@ -23713,17 +23671,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 340.36 247.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 6.8PF 50V C0G/NP0 0603"
 			(at 340.36 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -23965,6 +23912,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 537.21 556.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 537.21 556.26 0)
 			(hide yes)
@@ -23988,17 +23946,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 537.21 556.26 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 537.21 556.26 0)
 			(hide yes)
 			(show_name no)
@@ -24240,6 +24187,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 209.55 325.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 209.55 325.12 0)
 			(hide yes)
@@ -24263,17 +24221,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 209.55 325.12 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 209.55 325.12 0)
 			(hide yes)
 			(show_name no)
@@ -24440,6 +24387,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 721.36 513.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 721.36 513.08 0)
 			(hide yes)
@@ -24463,17 +24421,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 721.36 513.08 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 721.36 513.08 0)
 			(hide yes)
 			(show_name no)
@@ -24599,7 +24546,7 @@
 		(dnp no)
 		(uuid "14e870df-f02b-5568-aaaa-4c7738f1a6c7")
 		(property "Reference" "Q4"
-			(at 713.74 300.228 90)
+			(at 715.772 299.212 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -24609,7 +24556,7 @@
 			)
 		)
 		(property "Value" "AO3401A"
-			(at 711.2 308.61 90)
+			(at 718.566 301.498 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -24630,6 +24577,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 711.2 302.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "MOSFET P-CH 30V 4A SOT-23"
 			(at 711.2 302.26 0)
 			(hide yes)
 			(show_name no)
@@ -24663,17 +24621,6 @@
 			)
 		)
 		(property "Manufacturer" "Alpha & Omega Semiconductor"
-			(at 711.2 302.26 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET P-CH 30V 4A SOT-23"
 			(at 711.2 302.26 0)
 			(hide yes)
 			(show_name no)
@@ -24755,6 +24702,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 25V X7R 1210"
+			(at 311.15 323.85 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "1210"
 			(at 311.15 323.85 0)
 			(hide yes)
@@ -24778,17 +24736,6 @@
 			)
 		)
 		(property "Manufacturer" "Murata Electronics"
-			(at 311.15 323.85 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 25V X7R 1210"
 			(at 311.15 323.85 0)
 			(hide yes)
 			(show_name no)
@@ -24880,6 +24827,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 150 OHM 1% 1/10W 0603"
+			(at 430.53 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 430.53 247.65 0)
 			(hide yes)
@@ -24903,17 +24861,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 430.53 247.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 150 OHM 1% 1/10W 0603"
 			(at 430.53 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -25005,6 +24952,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET N-CH 30V 5.7A SOT-23"
+			(at 313.69 443.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23"
 			(at 313.69 443.23 0)
 			(hide yes)
@@ -25028,17 +24986,6 @@
 			)
 		)
 		(property "Manufacturer" "Alpha & Omega Semiconductor"
-			(at 313.69 443.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET N-CH 30V 5.7A SOT-23"
 			(at 313.69 443.23 0)
 			(hide yes)
 			(show_name no)
@@ -25120,6 +25067,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 762 435.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 762 435.61 0)
 			(hide yes)
@@ -25143,17 +25101,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 762 435.61 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 762 435.61 0)
 			(hide yes)
 			(show_name no)
@@ -25243,6 +25190,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 16V X5R 0805"
+			(at 321.31 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 321.31 247.65 0)
 			(hide yes)
@@ -25266,17 +25224,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 321.31 247.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 16V X5R 0805"
 			(at 321.31 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -25444,6 +25391,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 106.68 63.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 106.68 63.5 0)
 			(hide yes)
@@ -25467,17 +25425,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 106.68 63.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 106.68 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -25721,6 +25668,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 303.53 557.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 303.53 557.53 0)
 			(hide yes)
@@ -25744,17 +25702,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 303.53 557.53 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 303.53 557.53 0)
 			(hide yes)
 			(show_name no)
@@ -25844,6 +25791,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 485.14 533.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 485.14 533.4 0)
 			(hide yes)
@@ -25867,17 +25825,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 485.14 533.4 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 485.14 533.4 0)
 			(hide yes)
 			(show_name no)
@@ -26044,6 +25991,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP ALUM POLY HYBRID 100UF 25V SMD"
+			(at 751.84 293.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD radial can D6.3xL7.7mm"
 			(at 751.84 293.37 0)
 			(hide yes)
@@ -26067,17 +26025,6 @@
 			)
 		)
 		(property "Manufacturer" "Panasonic"
-			(at 751.84 293.37 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP ALUM POLY HYBRID 100UF 25V SMD"
 			(at 751.84 293.37 0)
 			(hide yes)
 			(show_name no)
@@ -26169,6 +26116,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
+			(at 754.38 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 754.38 254 0)
 			(hide yes)
@@ -26192,17 +26150,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 754.38 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
 			(at 754.38 254 0)
 			(hide yes)
 			(show_name no)
@@ -26444,6 +26391,17 @@
 				)
 			)
 		)
+		(property "Description" "SWITCH TACTILE SPST-NO 50MA 12V SMD"
+			(at 461.01 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD tactile 4.2x3.2mm"
 			(at 461.01 115.57 0)
 			(hide yes)
@@ -26467,17 +26425,6 @@
 			)
 		)
 		(property "Manufacturer" "C&K"
-			(at 461.01 115.57 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "SWITCH TACTILE SPST-NO 50MA 12V SMD"
 			(at 461.01 115.57 0)
 			(hide yes)
 			(show_name no)
@@ -26558,6 +26505,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 732K OHM 1% 1/10W 0603"
+			(at 259.08 250.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 259.08 250.19 0)
 			(hide yes)
@@ -26581,17 +26539,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 259.08 250.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 732K OHM 1% 1/10W 0603"
 			(at 259.08 250.19 0)
 			(hide yes)
 			(show_name no)
@@ -26681,6 +26628,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 2POS 1.50MM"
+			(at 546.1 457.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "JST ZH 1.50mm 2-pos TH vertical"
 			(at 546.1 457.2 0)
 			(hide yes)
@@ -26704,17 +26662,6 @@
 			)
 		)
 		(property "Manufacturer" "JST Sales America"
-			(at 546.1 457.2 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 2POS 1.50MM"
 			(at 546.1 457.2 0)
 			(hide yes)
 			(show_name no)
@@ -26793,6 +26740,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22PF 50V C0G/NP0 0603"
+			(at 344.17 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 344.17 118.11 0)
 			(hide yes)
@@ -26816,17 +26774,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 344.17 118.11 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22PF 50V C0G/NP0 0603"
 			(at 344.17 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -27070,6 +27017,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 205.74 350.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 205.74 350.52 0)
 			(hide yes)
@@ -27093,17 +27051,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 205.74 350.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 205.74 350.52 0)
 			(hide yes)
 			(show_name no)
@@ -27193,6 +27140,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 140.97 71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 140.97 71.12 0)
 			(hide yes)
@@ -27216,17 +27174,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 140.97 71.12 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 140.97 71.12 0)
 			(hide yes)
 			(show_name no)
@@ -27318,6 +27265,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET N-CH 60V 115MA SOT-23"
+			(at 139.7 190.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23"
 			(at 139.7 190.5 0)
 			(hide yes)
@@ -27341,17 +27299,6 @@
 			)
 		)
 		(property "Manufacturer" "onsemi"
-			(at 139.7 190.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET N-CH 60V 115MA SOT-23"
 			(at 139.7 190.5 0)
 			(hide yes)
 			(show_name no)
@@ -27433,6 +27380,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 638.81 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 638.81 288.29 0)
 			(hide yes)
@@ -27456,17 +27414,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 638.81 288.29 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 638.81 288.29 0)
 			(hide yes)
 			(show_name no)
@@ -27558,6 +27505,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 535.94 480.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 535.94 480.06 0)
 			(hide yes)
@@ -27581,17 +27539,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 535.94 480.06 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 535.94 480.06 0)
 			(hide yes)
 			(show_name no)
@@ -27681,6 +27628,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 666.75 297.18 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 666.75 297.18 0)
 			(hide yes)
@@ -27704,17 +27662,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 666.75 297.18 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 666.75 297.18 0)
 			(hide yes)
 			(show_name no)
@@ -27806,6 +27753,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 490.22 102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 490.22 102.87 0)
 			(hide yes)
@@ -27829,17 +27787,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 490.22 102.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 490.22 102.87 0)
 			(hide yes)
 			(show_name no)
@@ -27931,6 +27878,17 @@
 				)
 			)
 		)
+		(property "Description" "IC REG BOOST ADJ 3.7A SOT-563"
+			(at 223.52 246.38 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-563"
 			(at 223.52 246.38 0)
 			(hide yes)
@@ -27954,17 +27912,6 @@
 			)
 		)
 		(property "Manufacturer" "Texas Instruments"
-			(at 223.52 246.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC REG BOOST ADJ 3.7A SOT-563"
 			(at 223.52 246.38 0)
 			(hide yes)
 			(show_name no)
@@ -28133,6 +28080,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 248.92 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 248.92 130.81 0)
 			(hide yes)
@@ -28156,17 +28114,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 248.92 130.81 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 248.92 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -28215,7 +28162,7 @@
 		(dnp no)
 		(uuid "2e5f2705-8154-5bbc-86e7-f1dce2fa59bb")
 		(property "Reference" "Q1"
-			(at 352.81 140.84 0)
+			(at 344.17 143.764 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -28226,7 +28173,7 @@
 			)
 		)
 		(property "Value" "2N7002"
-			(at 345.694 145.542 0)
+			(at 347.218 146.05 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -28248,6 +28195,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 347.98 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "MOSFET N-CH 60V 115MA SOT-23"
 			(at 347.98 142.24 0)
 			(hide yes)
 			(show_name no)
@@ -28281,17 +28239,6 @@
 			)
 		)
 		(property "Manufacturer" "onsemi"
-			(at 347.98 142.24 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET N-CH 60V 115MA SOT-23"
 			(at 347.98 142.24 0)
 			(hide yes)
 			(show_name no)
@@ -28375,6 +28322,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 243.84 113.03 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 243.84 113.03 0)
 			(hide yes)
@@ -28398,17 +28356,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 243.84 113.03 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 243.84 113.03 0)
 			(hide yes)
 			(show_name no)
@@ -28803,6 +28750,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 233.68 543.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 233.68 543.56 0)
 			(hide yes)
@@ -28826,17 +28784,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 233.68 543.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 233.68 543.56 0)
 			(hide yes)
 			(show_name no)
@@ -28926,6 +28873,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP ALUM 100UF 16V 20% SMD"
+			(at 372.11 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD radial can D6.3xL6.1mm"
 			(at 372.11 110.49 0)
 			(hide yes)
@@ -28949,17 +28907,6 @@
 			)
 		)
 		(property "Manufacturer" "Panasonic"
-			(at 372.11 110.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP ALUM 100UF 16V 20% SMD"
 			(at 372.11 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -29051,6 +28998,17 @@
 				)
 			)
 		)
+		(property "Description" "DIODE SCHOTTKY 40V 3A SMA"
+			(at 302.26 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "DO-214AC (SMA)"
 			(at 302.26 110.49 0)
 			(hide yes)
@@ -29074,17 +29032,6 @@
 			)
 		)
 		(property "Manufacturer" "Diodes Incorporated"
-			(at 302.26 110.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "DIODE SCHOTTKY 40V 3A SMA"
 			(at 302.26 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -29163,6 +29110,17 @@
 				)
 			)
 		)
+		(property "Description" "FIXED IND 4.7UH 9.7A ISAT 16MOHM"
+			(at 220.98 309.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 5.3x5.5x5.0mm"
 			(at 220.98 309.88 0)
 			(hide yes)
@@ -29186,17 +29144,6 @@
 			)
 		)
 		(property "Manufacturer" "Coilcraft"
-			(at 220.98 309.88 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "FIXED IND 4.7UH 9.7A ISAT 16MOHM"
 			(at 220.98 309.88 0)
 			(hide yes)
 			(show_name no)
@@ -29440,6 +29387,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100 OHM 1% 1/10W 0603"
+			(at 300.99 443.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 300.99 443.23 0)
 			(hide yes)
@@ -29463,17 +29421,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 300.99 443.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100 OHM 1% 1/10W 0603"
 			(at 300.99 443.23 0)
 			(hide yes)
 			(show_name no)
@@ -29642,6 +29589,17 @@
 				)
 			)
 		)
+		(property "Description" "IC USB PD SINK CONTROLLER ESSOP-10"
+			(at 106.68 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "ESSOP-10 (SSOP-10, EP)"
 			(at 106.68 81.28 0)
 			(hide yes)
@@ -29665,17 +29623,6 @@
 			)
 		)
 		(property "Manufacturer" "WCH (Nanjing Qinheng)"
-			(at 106.68 81.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC USB PD SINK CONTROLLER ESSOP-10"
 			(at 106.68 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -29946,6 +29893,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
+			(at 741.68 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 741.68 254 0)
 			(hide yes)
@@ -29969,17 +29927,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 741.68 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
 			(at 741.68 254 0)
 			(hide yes)
 			(show_name no)
@@ -30071,6 +30018,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 56K OHM 1% 1/10W 0603"
+			(at 121.92 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 121.92 85.09 0)
 			(hide yes)
@@ -30094,17 +30052,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 121.92 85.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 56K OHM 1% 1/10W 0603"
 			(at 121.92 85.09 0)
 			(hide yes)
 			(show_name no)
@@ -30273,6 +30220,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 4.7K OHM 1% 1/10W 0603"
+			(at 458.47 443.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 458.47 443.23 0)
 			(hide yes)
@@ -30296,17 +30254,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 458.47 443.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 4.7K OHM 1% 1/10W 0603"
 			(at 458.47 443.23 0)
 			(hide yes)
 			(show_name no)
@@ -30671,7 +30618,7 @@
 			)
 		)
 		(property "Value" "TPS55340PWPR"
-			(at 241.3 314.11 0)
+			(at 241.3 313.69 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -30693,6 +30640,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 250.19 325.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "IC REG BOOST ADJ 5A 14HTSSOP-EP"
 			(at 250.19 325.12 0)
 			(hide yes)
 			(show_name no)
@@ -30726,17 +30684,6 @@
 			)
 		)
 		(property "Manufacturer" "Texas Instruments"
-			(at 250.19 325.12 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC REG BOOST ADJ 5A 14HTSSOP-EP"
 			(at 250.19 325.12 0)
 			(hide yes)
 			(show_name no)
@@ -30856,6 +30803,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
+			(at 734.06 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 734.06 254 0)
 			(hide yes)
@@ -30879,17 +30837,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 734.06 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
 			(at 734.06 254 0)
 			(hide yes)
 			(show_name no)
@@ -30979,6 +30926,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 6POS 1.50MM"
+			(at 533.4 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "JST ZH 1.50mm 6-pos TH vertical"
 			(at 533.4 254 0)
 			(hide yes)
@@ -31002,17 +30960,6 @@
 			)
 		)
 		(property "Manufacturer" "JST Sales America"
-			(at 533.4 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 6POS 1.50MM"
 			(at 533.4 254 0)
 			(hide yes)
 			(show_name no)
@@ -31561,6 +31508,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 20K OHM 1% 1/10W 0603"
+			(at 444.5 538.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 444.5 538.48 0)
 			(hide yes)
@@ -31584,17 +31542,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 444.5 538.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 20K OHM 1% 1/10W 0603"
 			(at 444.5 538.48 0)
 			(hide yes)
 			(show_name no)
@@ -31762,6 +31709,17 @@
 				)
 			)
 		)
+		(property "Description" "CRYSTAL 32.768KHZ 12.5PF SMD"
+			(at 490.22 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 3.2x1.5mm 2-pin"
 			(at 490.22 123.19 0)
 			(hide yes)
@@ -31785,17 +31743,6 @@
 			)
 		)
 		(property "Manufacturer" "Abracon"
-			(at 490.22 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CRYSTAL 32.768KHZ 12.5PF SMD"
 			(at 490.22 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -32053,7 +32000,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 118.11 224.79 0)
+		(at 142.24 209.55 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -32063,7 +32010,7 @@
 		(dnp no)
 		(uuid "4a8493bc-072e-57a4-8197-7b0cf916556b")
 		(property "Reference" "#PWR032"
-			(at 120.65 224.79 0)
+			(at 144.78 209.55 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -32074,7 +32021,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 118.11 220.98 0)
+			(at 142.24 205.74 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -32084,7 +32031,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 118.11 224.79 0)
+			(at 142.24 209.55 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -32095,7 +32042,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 118.11 224.79 0)
+			(at 142.24 209.55 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -32106,7 +32053,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 118.11 224.79 0)
+			(at 142.24 209.55 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -32408,6 +32355,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET P-CH 30V 4A SOT-23"
+			(at 78.74 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23"
 			(at 78.74 200.66 0)
 			(hide yes)
@@ -32431,17 +32389,6 @@
 			)
 		)
 		(property "Manufacturer" "Alpha & Omega Semiconductor"
-			(at 78.74 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET P-CH 30V 4A SOT-23"
 			(at 78.74 200.66 0)
 			(hide yes)
 			(show_name no)
@@ -32525,6 +32472,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 435.61 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 435.61 105.41 0)
 			(hide yes)
@@ -32548,17 +32506,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 435.61 105.41 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 435.61 105.41 0)
 			(hide yes)
 			(show_name no)
@@ -32726,6 +32673,17 @@
 				)
 			)
 		)
+		(property "Description" "STEPPER MOTOR ANALOG CLOCK MOVEMENT DUAL-SHAFT"
+			(at 777.24 502.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "TH, 8 pins, dual coaxial shaft"
 			(at 777.24 502.92 0)
 			(hide yes)
@@ -32749,17 +32707,6 @@
 			)
 		)
 		(property "Manufacturer" "Juken Swiss Technology"
-			(at 777.24 502.92 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "STEPPER MOTOR ANALOG CLOCK MOVEMENT DUAL-SHAFT"
 			(at 777.24 502.92 0)
 			(hide yes)
 			(show_name no)
@@ -32869,6 +32816,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET 2 N-CH 30V 8A SO-8"
+			(at 80.01 246.38 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "8-SOIC"
 			(at 80.01 246.38 0)
 			(hide yes)
@@ -32892,17 +32850,6 @@
 			)
 		)
 		(property "Manufacturer" "Alpha & Omega Semiconductor"
-			(at 80.01 246.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET 2 N-CH 30V 8A SO-8"
 			(at 80.01 246.38 0)
 			(hide yes)
 			(show_name no)
@@ -32968,7 +32915,7 @@
 			)
 		)
 		(property "Value" "TCO 77C"
-			(at 107.95 260.272 270)
+			(at 105.918 260.35 270)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -32989,6 +32936,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 107.95 257.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "THERMAL CUTOFF 77C 10A NON-RESET"
 			(at 107.95 257.81 0)
 			(hide yes)
 			(show_name no)
@@ -33022,17 +32980,6 @@
 			)
 		)
 		(property "Manufacturer" "Cantherm"
-			(at 107.95 257.81 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "THERMAL CUTOFF 77C 10A NON-RESET"
 			(at 107.95 257.81 0)
 			(hide yes)
 			(show_name no)
@@ -33122,6 +33069,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 518.16 431.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 518.16 431.8 0)
 			(hide yes)
@@ -33145,17 +33103,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 518.16 431.8 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 518.16 431.8 0)
 			(hide yes)
 			(show_name no)
@@ -33247,6 +33194,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 1K OHM 1% 1/4W 1206"
+			(at 114.3 63.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "1206"
 			(at 114.3 63.5 0)
 			(hide yes)
@@ -33270,17 +33228,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 114.3 63.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 1K OHM 1% 1/4W 1206"
 			(at 114.3 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -33396,7 +33343,7 @@
 	)
 	(symbol
 		(lib_id "Device:D_Schottky")
-		(at 118.11 217.17 90)
+		(at 142.24 215.9 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -33406,7 +33353,7 @@
 		(dnp no)
 		(uuid "4f9bc75c-6f18-5ad3-9654-10a3fb4bd08f")
 		(property "Reference" "D14"
-			(at 120.08 215.77 270)
+			(at 140.27 217.3 270)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -33417,7 +33364,7 @@
 			)
 		)
 		(property "Value" "BAT42W"
-			(at 120.08 218.57 270)
+			(at 140.27 214.5 270)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -33428,7 +33375,7 @@
 			)
 		)
 		(property "Footprint" "Diode_SMD:D_SOD-123"
-			(at 118.11 217.17 0)
+			(at 142.24 215.9 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -33439,40 +33386,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 118.11 217.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Package" "SOD-123"
-			(at 118.11 217.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "BAT42W-E3-08"
-			(at 118.11 217.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "Vishay"
-			(at 118.11 217.17 0)
+			(at 142.24 215.9 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -33483,7 +33397,40 @@
 			)
 		)
 		(property "Description" "DIODE SCHOTTKY 30V 200MA SOD-123"
-			(at 118.11 217.17 0)
+			(at 142.24 215.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Package" "SOD-123"
+			(at 142.24 215.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "BAT42W-E3-08"
+			(at 142.24 215.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Vishay"
+			(at 142.24 215.9 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -33713,6 +33660,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 200.66 325.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 200.66 325.12 0)
 			(hide yes)
@@ -33736,17 +33694,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 200.66 325.12 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 200.66 325.12 0)
 			(hide yes)
 			(show_name no)
@@ -33990,6 +33937,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 690.88 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 690.88 138.43 0)
 			(hide yes)
@@ -34013,17 +33971,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 690.88 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 690.88 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -34189,6 +34136,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 246.38 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 246.38 62.23 0)
 			(hide yes)
@@ -34212,17 +34170,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 246.38 62.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 246.38 62.23 0)
 			(hide yes)
 			(show_name no)
@@ -34312,6 +34259,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 749.3 435.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 749.3 435.61 0)
 			(hide yes)
@@ -34335,17 +34293,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 749.3 435.61 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 749.3 435.61 0)
 			(hide yes)
 			(show_name no)
@@ -34435,6 +34382,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 25V X7R 1210"
+			(at 290.83 323.85 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "1210"
 			(at 290.83 323.85 0)
 			(hide yes)
@@ -34458,17 +34416,6 @@
 			)
 		)
 		(property "Manufacturer" "Murata Electronics"
-			(at 290.83 323.85 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 25V X7R 1210"
 			(at 290.83 323.85 0)
 			(hide yes)
 			(show_name no)
@@ -34713,6 +34660,17 @@
 				)
 			)
 		)
+		(property "Description" "LED RGBW ADDRESSABLE 5050 SK6812"
+			(at 306.07 524.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "PLCC-4 5.0x5.0mm"
 			(at 306.07 524.51 0)
 			(hide yes)
@@ -34736,17 +34694,6 @@
 			)
 		)
 		(property "Manufacturer" "Opsco Optoelectronics"
-			(at 306.07 524.51 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "LED RGBW ADDRESSABLE 5050 SK6812"
 			(at 306.07 524.51 0)
 			(hide yes)
 			(show_name no)
@@ -35070,6 +35017,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 256.54 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 256.54 62.23 0)
 			(hide yes)
@@ -35093,17 +35051,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 256.54 62.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 256.54 62.23 0)
 			(hide yes)
 			(show_name no)
@@ -35271,6 +35218,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 316K OHM 1% 1/10W 0603"
+			(at 236.22 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 236.22 80.01 0)
 			(hide yes)
@@ -35294,17 +35252,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 236.22 80.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 316K OHM 1% 1/10W 0603"
 			(at 236.22 80.01 0)
 			(hide yes)
 			(show_name no)
@@ -35472,6 +35419,17 @@
 				)
 			)
 		)
+		(property "Description" "SENSOR OPTICAL REFLECTIVE ANALOG OUT"
+			(at 443.23 256.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD gull-wing 4-lead"
 			(at 443.23 256.54 0)
 			(hide yes)
@@ -35495,17 +35453,6 @@
 			)
 		)
 		(property "Manufacturer" "onsemi"
-			(at 443.23 256.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "SENSOR OPTICAL REFLECTIVE ANALOG OUT"
 			(at 443.23 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -35745,6 +35692,17 @@
 				)
 			)
 		)
+		(property "Description" "TVS DIODE 22V BIDIR 400W SMA"
+			(at 63.5 63.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "DO-214AC (SMA)"
 			(at 63.5 63.5 0)
 			(hide yes)
@@ -35768,17 +35726,6 @@
 			)
 		)
 		(property "Manufacturer" "Littelfuse"
-			(at 63.5 63.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "TVS DIODE 22V BIDIR 400W SMA"
 			(at 63.5 63.5 0)
 			(hide yes)
 			(show_name no)
@@ -36011,6 +35958,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 571.5 457.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 571.5 457.2 0)
 			(hide yes)
@@ -36034,17 +35992,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 571.5 457.2 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 571.5 457.2 0)
 			(hide yes)
 			(show_name no)
@@ -36514,6 +36461,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 330 OHM 1% 1/10W 0603"
+			(at 292.1 524.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 292.1 524.51 0)
 			(hide yes)
@@ -36537,17 +36495,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 292.1 524.51 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 330 OHM 1% 1/10W 0603"
 			(at 292.1 524.51 0)
 			(hide yes)
 			(show_name no)
@@ -36637,6 +36584,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 461.01 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 461.01 96.52 0)
 			(hide yes)
@@ -36660,17 +36618,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 461.01 96.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 461.01 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -36762,6 +36709,17 @@
 				)
 			)
 		)
+		(property "Description" "DIODE SCHOTTKY 40V 3A SMA"
+			(at 800.1 345.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "DO-214AC (SMA)"
 			(at 800.1 345.44 0)
 			(hide yes)
@@ -36785,17 +36743,6 @@
 			)
 		)
 		(property "Manufacturer" "Diodes Incorporated"
-			(at 800.1 345.44 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "DIODE SCHOTTKY 40V 3A SMA"
 			(at 800.1 345.44 0)
 			(hide yes)
 			(show_name no)
@@ -37104,6 +37051,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN MICRO SD CARD PUSH-PULL SMD"
+			(at 762 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMT push-push, 8-pos"
 			(at 762 152.4 0)
 			(hide yes)
@@ -37127,17 +37085,6 @@
 			)
 		)
 		(property "Manufacturer" "Hirose Electric"
-			(at 762 152.4 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN MICRO SD CARD PUSH-PULL SMD"
 			(at 762 152.4 0)
 			(hide yes)
 			(show_name no)
@@ -37245,6 +37192,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 330.2 256.54 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 330.2 256.54 0)
 			(hide yes)
@@ -37268,17 +37226,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 330.2 256.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 330.2 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -37672,6 +37619,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 662.94 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 662.94 276.86 0)
 			(hide yes)
@@ -37695,17 +37653,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 662.94 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 662.94 276.86 0)
 			(hide yes)
 			(show_name no)
@@ -37949,6 +37896,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 67.31 228.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 67.31 228.6 0)
 			(hide yes)
@@ -37972,17 +37930,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 67.31 228.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 67.31 228.6 0)
 			(hide yes)
 			(show_name no)
@@ -38031,7 +37978,7 @@
 		(dnp no)
 		(uuid "7373cb7e-1adc-5d7e-94c4-546bf3f13ea7")
 		(property "Reference" "C134"
-			(at 234.95 354.838 0)
+			(at 234.442 354.838 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -38072,6 +38019,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 237.49 356.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 237.49 356.87 0)
 			(hide yes)
@@ -38095,17 +38053,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 237.49 356.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 237.49 356.87 0)
 			(hide yes)
 			(show_name no)
@@ -38154,7 +38101,7 @@
 		(dnp no)
 		(uuid "739701f5-49d5-58ec-879f-e8bb95362fee")
 		(property "Reference" "R24"
-			(at 330.45 148.46 0)
+			(at 329.692 148.336 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -38165,7 +38112,7 @@
 			)
 		)
 		(property "Value" "100k"
-			(at 330.45 151.26 0)
+			(at 329.692 151.638 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -38187,6 +38134,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 331.47 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 331.47 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -38220,17 +38178,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 331.47 149.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 331.47 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -38550,6 +38497,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP ALUM 100UF 16V 20% SMD"
+			(at 330.2 557.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD radial can D6.3xL6.1mm"
 			(at 330.2 557.53 0)
 			(hide yes)
@@ -38573,17 +38531,6 @@
 			)
 		)
 		(property "Manufacturer" "Panasonic"
-			(at 330.2 557.53 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP ALUM 100UF 16V 20% SMD"
 			(at 330.2 557.53 0)
 			(hide yes)
 			(show_name no)
@@ -38749,6 +38696,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 808.99 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 808.99 154.94 0)
 			(hide yes)
@@ -38772,17 +38730,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 808.99 154.94 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 808.99 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -38872,6 +38819,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 643.89 306.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 643.89 306.07 0)
 			(hide yes)
@@ -38895,17 +38853,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 643.89 306.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 643.89 306.07 0)
 			(hide yes)
 			(show_name no)
@@ -39149,6 +39096,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 129.54 194.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 129.54 194.31 0)
 			(hide yes)
@@ -39172,17 +39130,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 129.54 194.31 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 129.54 194.31 0)
 			(hide yes)
 			(show_name no)
@@ -39272,6 +39219,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 16V X5R 0805"
+			(at 453.39 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 453.39 96.52 0)
 			(hide yes)
@@ -39295,17 +39253,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 453.39 96.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 16V X5R 0805"
 			(at 453.39 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -39397,6 +39344,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 86.6K OHM 1% 1/10W 0603"
+			(at 273.05 364.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 273.05 364.49 0)
 			(hide yes)
@@ -39420,17 +39378,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 273.05 364.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 86.6K OHM 1% 1/10W 0603"
 			(at 273.05 364.49 0)
 			(hide yes)
 			(show_name no)
@@ -39522,6 +39469,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 2K OHM 1% 1/10W 0603"
+			(at 62.23 280.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 62.23 280.67 0)
 			(hide yes)
@@ -39545,17 +39503,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 62.23 280.67 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 2K OHM 1% 1/10W 0603"
 			(at 62.23 280.67 0)
 			(hide yes)
 			(show_name no)
@@ -39723,6 +39670,17 @@
 				)
 			)
 		)
+		(property "Description" "DIODE SCHOTTKY 30V 200MA SOD-123"
+			(at 115.57 217.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOD-123"
 			(at 115.57 217.17 0)
 			(hide yes)
@@ -39746,17 +39704,6 @@
 			)
 		)
 		(property "Manufacturer" "Vishay"
-			(at 115.57 217.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "DIODE SCHOTTKY 30V 200MA SOD-123"
 			(at 115.57 217.17 0)
 			(hide yes)
 			(show_name no)
@@ -39989,6 +39936,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 976K OHM 1% 1/10W 0603"
+			(at 350.52 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 350.52 125.73 0)
 			(hide yes)
@@ -40012,17 +39970,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 350.52 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 976K OHM 1% 1/10W 0603"
 			(at 350.52 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -40071,7 +40018,7 @@
 		(dnp no)
 		(uuid "7ff05483-8f89-5aa6-bf7f-53a2ab99e40f")
 		(property "Reference" "C135"
-			(at 250.19 351.282 0)
+			(at 250.444 350.774 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -40112,6 +40059,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 100PF 50V C0G/NP0 0603"
+			(at 247.65 353.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 247.65 353.06 0)
 			(hide yes)
@@ -40135,17 +40093,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 247.65 353.06 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 100PF 50V C0G/NP0 0603"
 			(at 247.65 353.06 0)
 			(hide yes)
 			(show_name no)
@@ -40235,6 +40182,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 200.66 251.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 200.66 251.46 0)
 			(hide yes)
@@ -40258,17 +40216,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 200.66 251.46 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 200.66 251.46 0)
 			(hide yes)
 			(show_name no)
@@ -40360,6 +40307,17 @@
 				)
 			)
 		)
+		(property "Description" "IC BATT CHARGER LI-ION 2A 12MSOP-EP"
+			(at 287.02 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "12-MSOP-EP"
 			(at 287.02 96.52 0)
 			(hide yes)
@@ -40383,17 +40341,6 @@
 			)
 		)
 		(property "Manufacturer" "Analog Devices"
-			(at 287.02 96.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC BATT CHARGER LI-ION 2A 12MSOP-EP"
 			(at 287.02 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -40735,6 +40682,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 2POS 2.00MM"
+			(at 798.83 224.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "JST PH 2.00mm 2-pos TH vertical"
 			(at 798.83 224.79 0)
 			(hide yes)
@@ -40758,17 +40716,6 @@
 			)
 		)
 		(property "Manufacturer" "JST Sales America"
-			(at 798.83 224.79 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 2POS 2.00MM"
 			(at 798.83 224.79 0)
 			(hide yes)
 			(show_name no)
@@ -40849,6 +40796,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 709.93 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 709.93 138.43 0)
 			(hide yes)
@@ -40872,17 +40830,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 709.93 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 709.93 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -40974,6 +40921,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
+			(at 727.71 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 727.71 254 0)
 			(hide yes)
@@ -40997,17 +40955,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 727.71 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.22UF 25V X7R 0603"
 			(at 727.71 254 0)
 			(hide yes)
 			(show_name no)
@@ -41175,6 +41122,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 3POS 2.00MM"
+			(at 340.36 429.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "JST PH 2.00mm 3-pos TH vertical"
 			(at 340.36 429.26 0)
 			(hide yes)
@@ -41198,17 +41156,6 @@
 			)
 		)
 		(property "Manufacturer" "JST Sales America"
-			(at 340.36 429.26 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 3POS 2.00MM"
 			(at 340.36 429.26 0)
 			(hide yes)
 			(show_name no)
@@ -41292,6 +41239,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 142.24 175.26 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 142.24 175.26 0)
 			(hide yes)
@@ -41315,17 +41273,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 142.24 175.26 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 142.24 175.26 0)
 			(hide yes)
 			(show_name no)
@@ -41415,6 +41362,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 445.77 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 445.77 96.52 0)
 			(hide yes)
@@ -41438,17 +41396,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 445.77 96.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 445.77 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -41767,6 +41714,17 @@
 				)
 			)
 		)
+		(property "Description" "FIXED IND 10UH 3.0A ISAT 84MOHM"
+			(at 758.19 241.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 4.0x4.0x4.0mm"
 			(at 758.19 241.3 0)
 			(hide yes)
@@ -41790,17 +41748,6 @@
 			)
 		)
 		(property "Manufacturer" "Coilcraft"
-			(at 758.19 241.3 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "FIXED IND 10UH 3.0A ISAT 84MOHM"
 			(at 758.19 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -41879,6 +41826,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 266.7 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 266.7 62.23 0)
 			(hide yes)
@@ -41902,17 +41860,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 266.7 62.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 266.7 62.23 0)
 			(hide yes)
 			(show_name no)
@@ -42155,6 +42102,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100 OHM 1% 1/10W 0603"
+			(at 308.61 466.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 308.61 466.09 0)
 			(hide yes)
@@ -42178,17 +42136,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 308.61 466.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100 OHM 1% 1/10W 0603"
 			(at 308.61 466.09 0)
 			(hide yes)
 			(show_name no)
@@ -42430,6 +42377,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 798.83 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 798.83 154.94 0)
 			(hide yes)
@@ -42453,17 +42411,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 798.83 154.94 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 798.83 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -42555,6 +42502,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+			(at 631.19 252.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 631.19 252.73 0)
 			(hide yes)
@@ -42578,17 +42536,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 631.19 252.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 631.19 252.73 0)
 			(hide yes)
 			(show_name no)
@@ -42680,6 +42627,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 462.28 468.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 462.28 468.63 0)
 			(hide yes)
@@ -42703,17 +42661,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 462.28 468.63 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 462.28 468.63 0)
 			(hide yes)
 			(show_name no)
@@ -42880,6 +42827,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 16V X5R 0805"
+			(at 248.92 251.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 248.92 251.46 0)
 			(hide yes)
@@ -42903,17 +42861,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 248.92 251.46 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 16V X5R 0805"
 			(at 248.92 251.46 0)
 			(hide yes)
 			(show_name no)
@@ -43005,6 +42952,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 3POS 2.00MM"
+			(at 358.14 524.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "JST PH 2.00mm 3-pos TH vertical"
 			(at 358.14 524.51 0)
 			(hide yes)
@@ -43028,17 +42986,6 @@
 			)
 		)
 		(property "Manufacturer" "JST Sales America"
-			(at 358.14 524.51 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 3POS 2.00MM"
 			(at 358.14 524.51 0)
 			(hide yes)
 			(show_name no)
@@ -43122,6 +43069,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 308.61 450.85 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 308.61 450.85 0)
 			(hide yes)
@@ -43145,17 +43103,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 308.61 450.85 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 308.61 450.85 0)
 			(hide yes)
 			(show_name no)
@@ -43247,6 +43194,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 200K OHM 1% 1/10W 0603"
+			(at 323.85 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 323.85 125.73 0)
 			(hide yes)
@@ -43270,17 +43228,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 323.85 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 200K OHM 1% 1/10W 0603"
 			(at 323.85 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -43372,6 +43319,17 @@
 				)
 			)
 		)
+		(property "Description" "DIODE SCHOTTKY 100V 250MA SOD-123"
+			(at 321.31 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOD-123"
 			(at 321.31 81.28 0)
 			(hide yes)
@@ -43395,17 +43353,6 @@
 			)
 		)
 		(property "Manufacturer" "Vishay"
-			(at 321.31 81.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "DIODE SCHOTTKY 100V 250MA SOD-123"
 			(at 321.31 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -43562,6 +43509,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 132.08 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 132.08 90.17 0)
 			(hide yes)
@@ -43585,17 +43543,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 132.08 90.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 132.08 90.17 0)
 			(hide yes)
 			(show_name no)
@@ -43763,6 +43710,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+			(at 481.33 495.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 481.33 495.3 0)
 			(hide yes)
@@ -43786,17 +43744,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 481.33 495.3 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 481.33 495.3 0)
 			(hide yes)
 			(show_name no)
@@ -43962,6 +43909,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.68UF 50V X7R 0805"
+			(at 768.35 228.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 768.35 228.6 0)
 			(hide yes)
@@ -43985,17 +43943,6 @@
 			)
 		)
 		(property "Manufacturer" "KEMET"
-			(at 768.35 228.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.68UF 50V X7R 0805"
 			(at 768.35 228.6 0)
 			(hide yes)
 			(show_name no)
@@ -44085,6 +44032,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 25V X7R 1210"
+			(at 300.99 323.85 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "1210"
 			(at 300.99 323.85 0)
 			(hide yes)
@@ -44108,17 +44066,6 @@
 			)
 		)
 		(property "Manufacturer" "Murata Electronics"
-			(at 300.99 323.85 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 25V X7R 1210"
 			(at 300.99 323.85 0)
 			(hide yes)
 			(show_name no)
@@ -44210,6 +44157,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 91.44 219.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 91.44 219.71 0)
 			(hide yes)
@@ -44233,17 +44191,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 91.44 219.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 91.44 219.71 0)
 			(hide yes)
 			(show_name no)
@@ -44411,6 +44358,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET N-CH 30V 5.7A SOT-23"
+			(at 321.31 466.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23"
 			(at 321.31 466.09 0)
 			(hide yes)
@@ -44434,17 +44392,6 @@
 			)
 		)
 		(property "Manufacturer" "Alpha & Omega Semiconductor"
-			(at 321.31 466.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET N-CH 30V 5.7A SOT-23"
 			(at 321.31 466.09 0)
 			(hide yes)
 			(show_name no)
@@ -44754,6 +44701,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP ALUM 100UF 16V 20% SMD"
+			(at 191.77 325.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD radial can D6.3xL6.1mm"
 			(at 191.77 325.12 0)
 			(hide yes)
@@ -44777,17 +44735,6 @@
 			)
 		)
 		(property "Manufacturer" "Panasonic"
-			(at 191.77 325.12 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP ALUM 100UF 16V 20% SMD"
 			(at 191.77 325.12 0)
 			(hide yes)
 			(show_name no)
@@ -45031,6 +44978,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 99.06 194.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 99.06 194.31 0)
 			(hide yes)
@@ -45054,17 +45012,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 99.06 194.31 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 99.06 194.31 0)
 			(hide yes)
 			(show_name no)
@@ -45690,6 +45637,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 661.67 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 661.67 134.62 0)
 			(hide yes)
@@ -45713,17 +45671,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 661.67 134.62 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 661.67 134.62 0)
 			(hide yes)
 			(show_name no)
@@ -45967,6 +45914,17 @@
 				)
 			)
 		)
+		(property "Description" "IC AUDIO AMP CLASS-D I2S 32HTSSOP-EP"
+			(at 695.96 246.38 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "32-HTSSOP-EP (DAP)"
 			(at 695.96 246.38 0)
 			(hide yes)
@@ -45990,17 +45948,6 @@
 			)
 		)
 		(property "Manufacturer" "Texas Instruments"
-			(at 695.96 246.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC AUDIO AMP CLASS-D I2S 32HTSSOP-EP"
 			(at 695.96 246.38 0)
 			(hide yes)
 			(show_name no)
@@ -46250,6 +46197,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN RCPT USB TYPE-C 24P VERTICAL SMT"
+			(at 40.64 86.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMT vertical, 24-pin + 4 stakes"
 			(at 40.64 86.36 0)
 			(hide yes)
@@ -46273,17 +46231,6 @@
 			)
 		)
 		(property "Manufacturer" "GCT"
-			(at 40.64 86.36 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN RCPT USB TYPE-C 24P VERTICAL SMT"
 			(at 40.64 86.36 0)
 			(hide yes)
 			(show_name no)
@@ -46418,6 +46365,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 651.51 300.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 651.51 300.99 0)
 			(hide yes)
@@ -46441,17 +46399,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 651.51 300.99 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 651.51 300.99 0)
 			(hide yes)
 			(show_name no)
@@ -46541,6 +46488,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 269.24 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 269.24 115.57 0)
 			(hide yes)
@@ -46564,17 +46522,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 269.24 115.57 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 269.24 115.57 0)
 			(hide yes)
 			(show_name no)
@@ -46699,7 +46646,7 @@
 		(dnp no)
 		(uuid "b1208d11-2ca0-536a-9a27-0e8e51b78919")
 		(property "Reference" "RT1"
-			(at 316.168 111.63 0)
+			(at 315.976 111.506 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -46710,7 +46657,7 @@
 			)
 		)
 		(property "Value" "10k NTC"
-			(at 311.4 121.6 0)
+			(at 322.58 109.22 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -46732,6 +46679,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 313.69 113.03 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "NTC THERMISTOR 10K OHM 1% B3380 0603"
 			(at 313.69 113.03 0)
 			(hide yes)
 			(show_name no)
@@ -46765,17 +46723,6 @@
 			)
 		)
 		(property "Manufacturer" "Murata Electronics"
-			(at 313.69 113.03 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "NTC THERMISTOR 10K OHM 1% B3380 0603"
 			(at 313.69 113.03 0)
 			(hide yes)
 			(show_name no)
@@ -46867,6 +46814,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 236.22 97.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 236.22 97.79 0)
 			(hide yes)
@@ -46890,17 +46848,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 236.22 97.79 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 236.22 97.79 0)
 			(hide yes)
 			(show_name no)
@@ -46992,6 +46939,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 2.55K OHM 1% 1/10W 0603"
+			(at 237.49 349.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 237.49 349.25 0)
 			(hide yes)
@@ -47015,17 +46973,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 237.49 349.25 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 2.55K OHM 1% 1/10W 0603"
 			(at 237.49 349.25 0)
 			(hide yes)
 			(show_name no)
@@ -47495,6 +47442,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 739.14 293.37 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 739.14 293.37 0)
 			(hide yes)
@@ -47518,17 +47476,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 739.14 293.37 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 739.14 293.37 0)
 			(hide yes)
 			(show_name no)
@@ -47621,6 +47568,17 @@
 				)
 			)
 		)
+		(property "Description" "LED RGBW ADDRESSABLE 5050 SK6812"
+			(at 326.39 524.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "PLCC-4 5.0x5.0mm"
 			(at 326.39 524.51 0)
 			(hide yes)
@@ -47644,17 +47602,6 @@
 			)
 		)
 		(property "Manufacturer" "Opsco Optoelectronics"
-			(at 326.39 524.51 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "LED RGBW ADDRESSABLE 5050 SK6812"
 			(at 326.39 524.51 0)
 			(hide yes)
 			(show_name no)
@@ -47752,6 +47699,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+			(at 466.09 495.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 466.09 495.3 0)
 			(hide yes)
@@ -47775,17 +47733,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 466.09 495.3 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 466.09 495.3 0)
 			(hide yes)
 			(show_name no)
@@ -47952,6 +47899,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 4POS 2.54MM"
+			(at 421.64 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "1x04 2.54mm TH header"
 			(at 421.64 116.84 0)
 			(hide yes)
@@ -47975,17 +47933,6 @@
 			)
 		)
 		(property "Manufacturer" "Sullins Connector Solutions"
-			(at 421.64 116.84 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 4POS 2.54MM"
 			(at 421.64 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -48148,6 +48095,17 @@
 				)
 			)
 		)
+		(property "Description" "IC MOTOR DRIVER DUAL H-BRIDGE 24SSOP"
+			(at 693.42 543.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "24-SSOP"
 			(at 693.42 543.56 0)
 			(hide yes)
@@ -48171,17 +48129,6 @@
 			)
 		)
 		(property "Manufacturer" "Toshiba"
-			(at 693.42 543.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC MOTOR DRIVER DUAL H-BRIDGE 24SSOP"
 			(at 693.42 543.56 0)
 			(hide yes)
 			(show_name no)
@@ -48708,6 +48655,17 @@
 				)
 			)
 		)
+		(property "Description" "TVS DIODE 5V BIDIR 400W SMA"
+			(at 382.27 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "DO-214AC (SMA)"
 			(at 382.27 110.49 0)
 			(hide yes)
@@ -48731,17 +48689,6 @@
 			)
 		)
 		(property "Manufacturer" "Littelfuse"
-			(at 382.27 110.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "TVS DIODE 5V BIDIR 400W SMA"
 			(at 382.27 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -49127,6 +49074,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 629.92 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 629.92 288.29 0)
 			(hide yes)
@@ -49150,17 +49108,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 629.92 288.29 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 629.92 288.29 0)
 			(hide yes)
 			(show_name no)
@@ -49250,6 +49197,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 285.75 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 285.75 247.65 0)
 			(hide yes)
@@ -49273,17 +49231,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 285.75 247.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 285.75 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -49451,6 +49398,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 200 OHM 1% 1/10W 0603"
+			(at 58.42 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 58.42 265.43 0)
 			(hide yes)
@@ -49474,17 +49432,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 58.42 265.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 200 OHM 1% 1/10W 0603"
 			(at 58.42 265.43 0)
 			(hide yes)
 			(show_name no)
@@ -49576,6 +49523,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+			(at 473.71 495.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 473.71 495.3 0)
 			(hide yes)
@@ -49599,17 +49557,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 473.71 495.3 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
 			(at 473.71 495.3 0)
 			(hide yes)
 			(show_name no)
@@ -49701,6 +49648,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET P-CH 30V 4A SOT-23"
+			(at 127 177.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23"
 			(at 127 177.8 0)
 			(hide yes)
@@ -49724,17 +49682,6 @@
 			)
 		)
 		(property "Manufacturer" "Alpha & Omega Semiconductor"
-			(at 127 177.8 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET P-CH 30V 4A SOT-23"
 			(at 127 177.8 0)
 			(hide yes)
 			(show_name no)
@@ -49818,6 +49765,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 18PF 50V C0G/NP0 0603"
+			(at 480.06 119.38 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 480.06 119.38 0)
 			(hide yes)
@@ -49841,17 +49799,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 480.06 119.38 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 18PF 50V C0G/NP0 0603"
 			(at 480.06 119.38 0)
 			(hide yes)
 			(show_name no)
@@ -50018,6 +49965,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 364.49 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 364.49 110.49 0)
 			(hide yes)
@@ -50041,17 +49999,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 364.49 110.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 364.49 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -50219,6 +50166,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 45.3K OHM 1% 1/10W 0603"
+			(at 332.74 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 332.74 118.11 0)
 			(hide yes)
@@ -50242,17 +50200,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 332.74 118.11 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 45.3K OHM 1% 1/10W 0603"
 			(at 332.74 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -50419,6 +50366,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 307.34 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 307.34 85.09 0)
 			(hide yes)
@@ -50442,17 +50400,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 307.34 85.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 307.34 85.09 0)
 			(hide yes)
 			(show_name no)
@@ -50618,6 +50565,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 474.98 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 474.98 110.49 0)
 			(hide yes)
@@ -50641,17 +50599,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 474.98 110.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 474.98 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -50819,6 +50766,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 18PF 50V C0G/NP0 0603"
+			(at 477.52 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 477.52 127 0)
 			(hide yes)
@@ -50842,17 +50800,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 477.52 127 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 18PF 50V C0G/NP0 0603"
 			(at 477.52 127 0)
 			(hide yes)
 			(show_name no)
@@ -51096,6 +51043,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.047UF 50V X7R 0603"
+			(at 231.14 335.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 231.14 335.28 0)
 			(hide yes)
@@ -51119,17 +51077,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 231.14 335.28 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.047UF 50V X7R 0603"
 			(at 231.14 335.28 0)
 			(hide yes)
 			(show_name no)
@@ -51372,6 +51319,17 @@
 				)
 			)
 		)
+		(property "Description" "FIXED IND 10UH 3.0A ISAT 84MOHM"
+			(at 316.23 88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 4.0x4.0x4.0mm"
 			(at 316.23 88.9 0)
 			(hide yes)
@@ -51395,17 +51353,6 @@
 			)
 		)
 		(property "Manufacturer" "Coilcraft"
-			(at 316.23 88.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "FIXED IND 10UH 3.0A ISAT 84MOHM"
 			(at 316.23 88.9 0)
 			(hide yes)
 			(show_name no)
@@ -51530,7 +51477,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 248.92 345.44 0)
+			(at 252.222 344.17 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -51638,6 +51585,17 @@
 				)
 			)
 		)
+		(property "Description" "IC IDEAL DIODE POWERPATH CTRLR SOT-23-6"
+			(at 695.96 314.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "TSOT-23-6"
 			(at 695.96 314.96 0)
 			(hide yes)
@@ -51661,17 +51619,6 @@
 			)
 		)
 		(property "Manufacturer" "Analog Devices"
-			(at 695.96 314.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC IDEAL DIODE POWERPATH CTRLR SOT-23-6"
 			(at 695.96 314.96 0)
 			(hide yes)
 			(show_name no)
@@ -51838,6 +51785,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 1UF 25V X7R 0603"
+			(at 648.97 288.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 648.97 288.29 0)
 			(hide yes)
@@ -51861,17 +51819,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 648.97 288.29 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 1UF 25V X7R 0603"
 			(at 648.97 288.29 0)
 			(hide yes)
 			(show_name no)
@@ -52040,6 +51987,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 4.7K OHM 1% 1/10W 0603"
+			(at 469.9 443.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 469.9 443.23 0)
 			(hide yes)
@@ -52063,17 +52021,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 469.9 443.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 4.7K OHM 1% 1/10W 0603"
 			(at 469.9 443.23 0)
 			(hide yes)
 			(show_name no)
@@ -52163,6 +52110,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 461.01 257.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 461.01 257.81 0)
 			(hide yes)
@@ -52186,17 +52144,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 461.01 257.81 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 461.01 257.81 0)
 			(hide yes)
 			(show_name no)
@@ -52286,6 +52233,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 731.52 513.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 731.52 513.08 0)
 			(hide yes)
@@ -52309,17 +52267,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 731.52 513.08 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 731.52 513.08 0)
 			(hide yes)
 			(show_name no)
@@ -52411,6 +52358,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 652.78 215.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 652.78 215.9 0)
 			(hide yes)
@@ -52434,17 +52392,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 652.78 215.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 652.78 215.9 0)
 			(hide yes)
 			(show_name no)
@@ -52610,6 +52557,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 711.2 513.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 711.2 513.08 0)
 			(hide yes)
@@ -52633,17 +52591,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 711.2 513.08 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 711.2 513.08 0)
 			(hide yes)
 			(show_name no)
@@ -52735,6 +52682,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 259.08 259.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 259.08 259.08 0)
 			(hide yes)
@@ -52758,17 +52716,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 259.08 259.08 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 259.08 259.08 0)
 			(hide yes)
 			(show_name no)
@@ -53238,6 +53185,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.68UF 50V X7R 0805"
+			(at 773.43 245.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 773.43 245.11 0)
 			(hide yes)
@@ -53261,17 +53219,6 @@
 			)
 		)
 		(property "Manufacturer" "KEMET"
-			(at 773.43 245.11 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.68UF 50V X7R 0805"
 			(at 773.43 245.11 0)
 			(hide yes)
 			(show_name no)
@@ -53514,6 +53461,17 @@
 				)
 			)
 		)
+		(property "Description" "FIXED IND 1UH 8.7A ISAT"
+			(at 222.25 232.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 4.0x4.0x2.1mm"
 			(at 222.25 232.41 0)
 			(hide yes)
@@ -53537,17 +53495,6 @@
 			)
 		)
 		(property "Manufacturer" "Coilcraft"
-			(at 222.25 232.41 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "FIXED IND 1UH 8.7A ISAT"
 			(at 222.25 232.41 0)
 			(hide yes)
 			(show_name no)
@@ -53628,6 +53575,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 509.27 546.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 509.27 546.1 0)
 			(hide yes)
@@ -53651,17 +53609,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 509.27 546.1 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 509.27 546.1 0)
 			(hide yes)
 			(show_name no)
@@ -53979,6 +53926,17 @@
 				)
 			)
 		)
+		(property "Description" "CONN HEADER VERT 6POS 1.50MM"
+			(at 560.07 530.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "JST ZH 1.50mm 6-pos TH vertical"
 			(at 560.07 530.86 0)
 			(hide yes)
@@ -54002,17 +53960,6 @@
 			)
 		)
 		(property "Manufacturer" "JST Sales America"
-			(at 560.07 530.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CONN HEADER VERT 6POS 1.50MM"
 			(at 560.07 530.86 0)
 			(hide yes)
 			(show_name no)
@@ -54105,6 +54052,17 @@
 				)
 			)
 		)
+		(property "Description" "TVS DIODE ESD USB 2-CHANNEL SOT-23-6"
+			(at 73.66 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23-6"
 			(at 73.66 99.06 0)
 			(hide yes)
@@ -54128,17 +54086,6 @@
 			)
 		)
 		(property "Manufacturer" "STMicroelectronics"
-			(at 73.66 99.06 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "TVS DIODE ESD USB 2-CHANNEL SOT-23-6"
 			(at 73.66 99.06 0)
 			(hide yes)
 			(show_name no)
@@ -54231,6 +54178,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 20K OHM 1% 1/10W 0603"
+			(at 523.24 538.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 523.24 538.48 0)
 			(hide yes)
@@ -54254,17 +54212,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 523.24 538.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 20K OHM 1% 1/10W 0603"
 			(at 523.24 538.48 0)
 			(hide yes)
 			(show_name no)
@@ -54508,6 +54455,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 453K OHM 1% 1/10W 0603"
+			(at 330.2 247.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 330.2 247.65 0)
 			(hide yes)
@@ -54531,17 +54489,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 330.2 247.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 453K OHM 1% 1/10W 0603"
 			(at 330.2 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -54633,6 +54580,17 @@
 				)
 			)
 		)
+		(property "Description" "MOSFET N-CH 60V 115MA SOT-23"
+			(at 88.9 228.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23"
 			(at 88.9 228.6 0)
 			(hide yes)
@@ -54656,17 +54614,6 @@
 			)
 		)
 		(property "Manufacturer" "onsemi"
-			(at 88.9 228.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MOSFET N-CH 60V 115MA SOT-23"
 			(at 88.9 228.6 0)
 			(hide yes)
 			(show_name no)
@@ -54750,6 +54697,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 100K OHM 1% 1/10W 0603"
+			(at 91.44 209.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 91.44 209.55 0)
 			(hide yes)
@@ -54773,17 +54731,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 91.44 209.55 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 100K OHM 1% 1/10W 0603"
 			(at 91.44 209.55 0)
 			(hide yes)
 			(show_name no)
@@ -54875,6 +54822,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 541.02 254 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 541.02 254 0)
 			(hide yes)
@@ -54898,17 +54856,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 541.02 254 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 541.02 254 0)
 			(hide yes)
 			(show_name no)
@@ -55150,6 +55097,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 676.91 317.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 676.91 317.5 0)
 			(hide yes)
@@ -55173,17 +55131,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 676.91 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 676.91 317.5 0)
 			(hide yes)
 			(show_name no)
@@ -55273,6 +55220,17 @@
 				)
 			)
 		)
+		(property "Description" "FIXED IND 2.2UH 5.6A ISAT"
+			(at 312.42 241.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 4.0x4.0x2.1mm"
 			(at 312.42 241.3 0)
 			(hide yes)
@@ -55296,17 +55254,6 @@
 			)
 		)
 		(property "Manufacturer" "Coilcraft"
-			(at 312.42 241.3 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "FIXED IND 2.2UH 5.6A ISAT"
 			(at 312.42 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -55463,6 +55410,17 @@
 				)
 			)
 		)
+		(property "Description" "IC BUFFER 1CH 3-STATE SOT-23-5"
+			(at 275.59 524.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23-5"
 			(at 275.59 524.51 0)
 			(hide yes)
@@ -55486,17 +55444,6 @@
 			)
 		)
 		(property "Manufacturer" "Texas Instruments"
-			(at 275.59 524.51 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC BUFFER 1CH 3-STATE SOT-23-5"
 			(at 275.59 524.51 0)
 			(hide yes)
 			(show_name no)
@@ -55585,6 +55532,17 @@
 				)
 			)
 		)
+		(property "Description" "DIODE SCHOTTKY 40V 3A SMA"
+			(at 275.59 309.88 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "DO-214AC (SMA)"
 			(at 275.59 309.88 0)
 			(hide yes)
@@ -55608,17 +55566,6 @@
 			)
 		)
 		(property "Manufacturer" "Diodes Incorporated"
-			(at 275.59 309.88 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "DIODE SCHOTTKY 40V 3A SMA"
 			(at 275.59 309.88 0)
 			(hide yes)
 			(show_name no)
@@ -55773,6 +55720,17 @@
 				)
 			)
 		)
+		(property "Description" "FIXED IND 10UH 3.0A ISAT 84MOHM"
+			(at 758.19 224.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD 4.0x4.0x4.0mm"
 			(at 758.19 224.79 0)
 			(hide yes)
@@ -55796,17 +55754,6 @@
 			)
 		)
 		(property "Manufacturer" "Coilcraft"
-			(at 758.19 224.79 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "FIXED IND 10UH 3.0A ISAT 84MOHM"
 			(at 758.19 224.79 0)
 			(hide yes)
 			(show_name no)
@@ -56190,6 +56137,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 468.63 96.52 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 468.63 96.52 0)
 			(hide yes)
@@ -56213,17 +56171,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 468.63 96.52 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 468.63 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -56543,6 +56490,17 @@
 				)
 			)
 		)
+		(property "Description" "IC BATT PROTECTION 1S 4.28V SOT-23-6"
+			(at 80.01 276.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SOT-23-6"
 			(at 80.01 276.86 0)
 			(hide yes)
@@ -56566,17 +56524,6 @@
 			)
 		)
 		(property "Manufacturer" "HYCON Technology"
-			(at 80.01 276.86 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC BATT PROTECTION 1S 4.28V SOT-23-6"
 			(at 80.01 276.86 0)
 			(hide yes)
 			(show_name no)
@@ -56756,6 +56703,17 @@
 				)
 			)
 		)
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
+			(at 316.23 473.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 316.23 473.71 0)
 			(hide yes)
@@ -56779,17 +56737,6 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO"
-			(at 316.23 473.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 316.23 473.71 0)
 			(hide yes)
 			(show_name no)
@@ -56879,6 +56826,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 656.59 313.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 656.59 313.69 0)
 			(hide yes)
@@ -56902,17 +56860,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 656.59 313.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 656.59 313.69 0)
 			(hide yes)
 			(show_name no)
@@ -57003,6 +56950,17 @@
 				)
 			)
 		)
+		(property "Description" "BATTERY HOLDER 18650 PC PIN"
+			(at 48.26 203.2 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "TH holder, 18650"
 			(at 48.26 203.2 0)
 			(hide yes)
@@ -57026,17 +56984,6 @@
 			)
 		)
 		(property "Manufacturer" "Keystone Electronics"
-			(at 48.26 203.2 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "BATTERY HOLDER 18650 PC PIN"
 			(at 48.26 203.2 0)
 			(hide yes)
 			(show_name no)
@@ -57191,6 +57138,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 220PF 50V C0G/NP0 0603"
+			(at 269.24 250.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 269.24 250.19 0)
 			(hide yes)
@@ -57214,17 +57172,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 269.24 250.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 220PF 50V C0G/NP0 0603"
 			(at 269.24 250.19 0)
 			(hide yes)
 			(show_name no)
@@ -57316,6 +57263,17 @@
 				)
 			)
 		)
+		(property "Description" "IC I/O EXPANDER I2C 16BIT 28SSOP"
+			(at 497.84 469.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "28-SSOP"
 			(at 497.84 469.9 0)
 			(hide yes)
@@ -57339,17 +57297,6 @@
 			)
 		)
 		(property "Manufacturer" "Microchip Technology"
-			(at 497.84 469.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC I/O EXPANDER I2C 16BIT 28SSOP"
 			(at 497.84 469.9 0)
 			(hide yes)
 			(show_name no)
@@ -57519,6 +57466,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
+			(at 316.23 557.53 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0603"
 			(at 316.23 557.53 0)
 			(hide yes)
@@ -57542,17 +57500,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 316.23 557.53 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 0.1UF 50V X7R 0603"
 			(at 316.23 557.53 0)
 			(hide yes)
 			(show_name no)
@@ -57644,6 +57591,17 @@
 				)
 			)
 		)
+		(property "Description" "MODULE ESP32-S3 WIFI/BLE 16MB FLASH 8MB PSRAM"
+			(at 525.78 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "SMD module 18x25.5mm, castellated"
 			(at 525.78 139.7 0)
 			(hide yes)
@@ -57667,17 +57625,6 @@
 			)
 		)
 		(property "Manufacturer" "Espressif Systems"
-			(at 525.78 139.7 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "MODULE ESP32-S3 WIFI/BLE 16MB FLASH 8MB PSRAM"
 			(at 525.78 139.7 0)
 			(hide yes)
 			(show_name no)
@@ -57873,6 +57820,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 22UF 16V X5R 0805"
+			(at 241.3 251.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 241.3 251.46 0)
 			(hide yes)
@@ -57896,17 +57854,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 241.3 251.46 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 22UF 16V X5R 0805"
 			(at 241.3 251.46 0)
 			(hide yes)
 			(show_name no)
@@ -57955,7 +57902,7 @@
 		(dnp no)
 		(uuid "fe904b8e-6145-543d-92c7-90e1a5a3c290")
 		(property "Reference" "U11"
-			(at 681.482 443.738 0)
+			(at 708.406 486.664 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -57966,7 +57913,7 @@
 			)
 		)
 		(property "Value" "TB6612FNG"
-			(at 682.244 446.024 0)
+			(at 715.518 484.124 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -57988,6 +57935,17 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 693.42 467.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "IC MOTOR DRIVER DUAL H-BRIDGE 24SSOP"
 			(at 693.42 467.36 0)
 			(hide yes)
 			(show_name no)
@@ -58021,17 +57979,6 @@
 			)
 		)
 		(property "Manufacturer" "Toshiba"
-			(at 693.42 467.36 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "IC MOTOR DRIVER DUAL H-BRIDGE 24SSOP"
 			(at 693.42 467.36 0)
 			(hide yes)
 			(show_name no)
@@ -58252,6 +58199,17 @@
 				)
 			)
 		)
+		(property "Description" "CAP CER 10UF 25V X5R 0805"
+			(at 737.87 435.61 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Package" "0805"
 			(at 737.87 435.61 0)
 			(hide yes)
@@ -58275,17 +58233,6 @@
 			)
 		)
 		(property "Manufacturer" "Samsung Electro-Mechanics"
-			(at 737.87 435.61 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "CAP CER 10UF 25V X5R 0805"
 			(at 737.87 435.61 0)
 			(hide yes)
 			(show_name no)
