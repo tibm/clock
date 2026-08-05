@@ -56,6 +56,7 @@ all routing.**
 | 15 | `VBAT_SENSE` floats above +3V3 | `727dbfd` | **D14** added; **PCB place + route still open** |
 | 17 | Encoder divider 66.7 kΩ source impedance | `727dbfd` | → 10k/20k, same ratio, value-only |
 | 20 | Reverse-cell fault current into the protector | `637be57` | `R20` 100R → **200R** (HYCON's max), halves it to ~18 mA |
+| 19 | PVDD bulk under-rated for ripple | `35ca174` | → hybrid polymer, same D6.3 land: **BOM-only, no PCB impact** |
 | 21 | MCP23017 INTA/INTB tied | `637be57` | firmware requirement **R-BOARD-1** in `FIRMWARE.md` §6.5 |
 | — | `FIRMWARE.md` sensor was LIS3DH, board is BNO085 | `3cc15da` | new §6.5.1 + **R-BOARD-3**; `SENSOR_INT` is BNO085-only now that `ALS_INT` is on GPB3 |
 
@@ -86,7 +87,45 @@ all routing.**
 | 6, 7 | Protector OC trip / battery IR drop below the 12 W target | Mostly a *plugged + wake-LEDs* case; battery audio runs off the 5 V rail (~3.1 W into 4 Ω) | If battery-mode alarm power is ever raised, or if 8 Ω is adopted (halves it) |
 | 14 | Ungated always-on loads (~70 mA idle) | **Mostly wall-powered**, so backup runtime is good enough | If battery runtime becomes a goal — gate the EM14 (26 mA) and QRE1113 LED (14 mA); GPA4-6/GPB3 are free |
 | 16 | `CELL_TEST` on battery cuts power | Self-recovering reset loop, **not damage**; firmware-enforced instead | If a hardware interlock against `PD_PG` is ever wanted |
-| 19 | PVDD bulk 100 µF / 300 mA ripple | BOM-only, works at reduced power | Alongside the #4/#8 power pass |
+
+### 🧾 Schematic readiness — checked 2026-08-04 (`35ca174`)
+
+The schematic is **complete and validated for the PCB phase.** Evidence, not assertion:
+
+| Check | Result |
+|---|---|
+| `kicad-cli sch erc --severity-all` | **0 violations** |
+| Generator lint (dangling wires, wires through bodies) | **clean** |
+| Components / nets | 183 / 149 |
+| Parts missing a footprint | **0** |
+| Parts missing MPN / Manufacturer / Package | **0** (`stamp_bom`: 183 matched, 0 unmatched) |
+| Unintentional dangling (1-pin) nets | **0** — all 18 are explicit NC flags, each verified deliberate |
+| `review_check.py` schematic items | **8/8 pass, 0 regressions** |
+| Remaining open findings that touch the schematic | **none** — every one is PCB, BOM-sourcing, or explicitly deferred |
+
+The 18 deliberate no-connects: J1 SBU1/2 (USB 2.0 subset) · J6 DET_A/B (no spare GPIO for
+card-detect) · U1 CFG2/3 (correct for CH224K single-resistor mode, WCH fig. 6.1) · U10 STAT ·
+U13 GPA4-7 spare + 2 NC pins · U16 VBUS (deliberate — the 15 V PD rail exceeds the pin's
+5.25 V rating) · U3 NC · U8 IO35-37 (reserved by the octal PSRAM).
+
+**Delta the PCB must absorb (what F8 will reconcile):**
+
+| Kind | Items |
+|---|---|
+| New part | `D14` (BAT42W, SOD-123) — place near D13 |
+| Footprint change | `R1` 0603 → **1206** |
+| Value changes | `C104` 100nF→1µF · `R20` 100R→200R · `R111`/`R112` 100k→10k · `R114`/`R115` 200k→20k · `J7` label |
+| Net changes | Q4 pads 2/3 · U9 pads 20/26 · C181/C182 far pads · new `ALS_INT` |
+
+**Two things that are not blockers but are decisions you own:**
+
+1. **Revision letter.** The title block still reads **rev A** while the schematic has changed
+   materially since the routed PCB was produced (a new part, a footprint change, 7 value changes
+   and 4 net changes). Bump it before release so the fab package is unambiguous — the date is
+   now 2026-08-04, but the letter is your numbering scheme, not mine to pick.
+2. **Two MPNs need a DigiKey stock check** before ordering — they are the only items in the BOM
+   I could not verify offline: `R1` = `RC1206FR-071KL` (#13) and `C172` = `EEH-ZA1E101P` (#19).
+   Both have a written substitution rule in `parts_db.py`, so a swap stays checkable.
 
 ### ✔ Accepted — no change planned
 
@@ -150,6 +189,9 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
 - **2026-08-04** (`3cc15da`): `FIRMWARE.md` corrected from LIS3DH to BNO085 — new §6.5.1 (SHTP/SH-2
   driver model, board strapping, tap-only feature set), **R-BOARD-3** (no host reset line), plus the
   `SENSOR_INT`/`EXPANDER_INT` split from #11 and the standing-draw note in §7.4.
+- **2026-08-04** (`35ca174`): #19 PVDD bulk → hybrid polymer (BOM-only); #16 comment in
+  `b_charger.py` corrected; drawing date bumped. **Schematic declared complete** — see the
+  readiness table above.
 - Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before** rotating while
   KiCad mirrors **after**, silently swapping the two mirror axes at rot 90/270. Harmless until now
   (BT1 was the only mirrored part, at rot 0); fixed, verified not to move any other net.
