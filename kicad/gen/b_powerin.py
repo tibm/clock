@@ -83,8 +83,8 @@ def build(s):
     s.gnd(C1, "2", drop=1.27)
     s.pwr_flag(121.92, 67.31)                        # R1-fed VDD (ERC)
     # PG -> label + 10k pull-up to 3V3
-    s.pw(U1, "10", ("x", 128.27), ("y", 93.98), ("x", 134.62))
-    s.glabel_at("PD_PG", 134.62, 93.98, 0)
+    s.pw(U1, "10", ("x", 128.27), ("y", 93.98), ("x", 143.51))
+    s.glabel_at("PD_PG", 143.51, 93.98, 0)
     R4 = s.R("R4", 132.08, 90.17, "10k")
     s.rail(R4, "1", "+3V3", rise=0)
     s.jpin(R4, "2")                          # bottom lands on the PG run

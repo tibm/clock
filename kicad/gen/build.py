@@ -60,13 +60,13 @@ BLOCKS = [
 def main():
     cache = SymbolCache()
     try:
-        from cosmetics import COSMETICS
+        from cosmetics import COSMETICS, FRAMES, TEXTS
     except ImportError:
-        COSMETICS = {}
+        COSMETICS, FRAMES, TEXTS = {}, {}, {}
     s = Sch(cache, "clock", "clock", paper="A1",
-            title="Wooden Smart Clock — main board",
-            date="2026-08-04", rev="A", company="",
-            cosmetics=COSMETICS)
+            title="Wooden Clock - main board",
+            date="2026-08-04", rev="0.3", company="Tibo",
+            cosmetics=COSMETICS, frames=FRAMES, texts=TEXTS)
     for name in BLOCKS:
         try:
             mod = importlib.import_module(name)
@@ -84,7 +84,10 @@ def main():
     s.text("Off-board parts (SD card, sensors, speaker, wake-LED strips,", 20, 348.5, size=1.3)
     s.text("knob, radio toggle, cell) enter via connectors J1..J11 / BT1.", 20, 353, size=1.3)
 
+    degen = s.drop_degenerate()
+    trimmed = s.trim_overlaps()
     merged = s.merge_collinear()
+    degen += s.drop_degenerate()   # merges can leave a zero-length stub
     added, dropped = s.auto_junctions()
     issues = s.lint()
     project2.write_sym_lib_table()

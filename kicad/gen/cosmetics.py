@@ -82,10 +82,10 @@ COSMETICS = {
                'ref': (236.474, 333.248, 0.0, 'right'),
                'val': (236.474, 337.82, 0.0, 'right')},
     'C134': {'at': (237.49, 356.87, 0.0, None),
-               'ref': (234.95, 354.838, 0.0, None),
+               'ref': (234.442, 354.838, 0.0, None),
                'val': (234.442, 359.156, 0.0, None)},
     'C135': {'at': (247.65, 353.06, 0.0, None),
-               'ref': (250.19, 351.282, 0.0, None),
+               'ref': (250.444, 350.774, 0.0, None),
                'val': (250.952, 355.6, 0.0, None)},
     'C140': {'at': (445.77, 96.52, 0.0, None),
                'ref': (448.31, 94.234, 0.0, None),
@@ -144,11 +144,6 @@ COSMETICS = {
     'C180': {'at': (727.71, 254.0, 0.0, None),
                'ref': (727.964, 251.714, 0.0, 'left'),
                'val': (727.964, 256.54, 0.0, 'left')},
-    # C181/C182 positions swapped 2026-08-03: this puts each cap on the
-    # bootstrap column of the leg it belongs to, so each keeps its ORIGINAL
-    # U9 pin (C181-U9.25 BSTRPA-, C182-U9.19 BSTRPB+) and the PCB only has to
-    # move the two far pads on short straight runs, instead of two long
-    # crossing pin-side routes.  [REVIEW.md #2]
     'C181': {'at': (741.68, 254.0, 0.0, None),
                'ref': (742.188, 251.714, 0.0, 'left'),
                'val': (741.934, 256.54, 0.0, 'left')},
@@ -227,6 +222,9 @@ COSMETICS = {
     'D13': {'at': (115.57, 217.17, 270.0, None),
                'ref': (117.54, 215.77, 90.0, 'left'),
                'val': (117.54, 218.57, 90.0, 'left')},
+    'D14': {'at': (142.24, 215.9, 270.0, None),
+               'ref': (140.27, 217.3, 270.0, 'left'),
+               'val': (140.27, 214.5, 270.0, 'left')},
     'D20': {'at': (275.59, 309.88, 0.0, 'y'),
                'ref': (275.336, 306.578, 0.0, None),
                'val': (275.59, 312.85, 0.0, None)},
@@ -241,7 +239,7 @@ COSMETICS = {
                'val': (321.82, 520.7, 0.0, 'left')},
     'F1': {'at': (107.95, 257.81, 90.0, None),
                'ref': (107.95, 255.524, 270.0, None),
-               'val': (107.95, 260.272, 270.0, None)},
+               'val': (105.918, 260.35, 270.0, None)},
     'J1': {'at': (40.64, 86.36, 0.0, None),
                'ref': (30.48, 65.38, 0.0, 'left'),
                'val': (30.48, 67.73, 0.0, 'left')},
@@ -291,21 +289,17 @@ COSMETICS = {
                'ref': (769.874, 486.156, 0.0, 'left'),
                'val': (769.874, 488.696, 0.0, 'left')},
     'Q1': {'at': (347.98, 142.24, 0.0, None),
-               'ref': (352.81, 140.84, 0.0, 'left'),
-               'val': (345.694, 145.542, 0.0, 'right')},
+               'ref': (344.17, 143.764, 0.0, 'left'),
+               'val': (347.218, 146.05, 0.0, 'right')},
     'Q2': {'at': (78.74, 200.66, 270.0, None),
                'ref': (74.422, 198.374, 90.0, None),
                'val': (85.344, 198.374, 90.0, None)},
     'Q3': {'at': (88.9, 228.6, 0.0, None),
                'ref': (93.73, 227.2, 0.0, 'left'),
                'val': (101.854, 230.886, 0.0, 'right')},
-    # mirror 'y' (was None) so pin 3 (drain) exits LEFT to +5V and pin 2
-    # (source) exits RIGHT to PVDD -- the LTC4412 pass-FET orientation.  This
-    # entry overrides b_audio.py's rot/mirror, so the fix has to live here.
-    # [REVIEW.md #1]
-    'Q4': {'at': (711.2, 302.26, 270.0, 'y'),
-               'ref': (713.74, 300.228, 90.0, None),
-               'val': (711.2, 308.61, 90.0, None)},
+    'Q4': {'at': (711.2, 302.26, 90.0, 'x'),
+               'ref': (715.772, 299.212, 90.0, None),
+               'val': (718.566, 301.498, 90.0, None)},
     'Q6': {'at': (313.69, 443.23, 0.0, None),
                'ref': (318.52, 441.83, 0.0, 'left'),
                'val': (319.278, 444.5, 0.0, 'left')},
@@ -397,8 +391,8 @@ COSMETICS = {
                'ref': (93.156, 218.31, 0.0, 'left'),
                'val': (93.156, 221.11, 0.0, 'left')},
     'R24': {'at': (331.47, 149.86, 0.0, None),
-               'ref': (330.45, 148.46, 0.0, 'right'),
-               'val': (330.45, 151.26, 0.0, 'right')},
+               'ref': (329.692, 148.336, 0.0, 'right'),
+               'val': (329.692, 151.638, 0.0, 'right')},
     'R25': {'at': (67.31, 228.6, 0.0, None),
                'ref': (65.786, 227.076, 0.0, 'right'),
                'val': (65.532, 229.87, 0.0, 'right')},
@@ -499,8 +493,8 @@ COSMETICS = {
                'ref': (457.646, 246.25, 0.0, 'left'),
                'val': (457.646, 249.05, 0.0, 'left')},
     'RT1': {'at': (313.69, 113.03, 0.0, None),
-               'ref': (316.168, 111.63, 0.0, 'left'),
-               'val': (316.168, 114.43, 0.0, 'left')},
+               'ref': (315.976, 111.506, 0.0, 'left'),
+               'val': (322.58, 109.22, 0.0, 'right')},
     'SW1': {'at': (461.01, 115.57, 0.0, None),
                'ref': (461.01, 111.506, 0.0, None),
                'val': (461.01, 117.778, 0.0, None)},
@@ -514,8 +508,8 @@ COSMETICS = {
                'ref': (688.34, 304.14, 0.0, 'left'),
                'val': (681.99, 306.324, 0.0, 'left')},
     'U11': {'at': (693.42, 467.36, 0.0, None),
-               'ref': (681.482, 443.738, 0.0, 'right'),
-               'val': (682.244, 446.024, 0.0, 'right')},
+               'ref': (708.406, 486.664, 0.0, 'right'),
+               'val': (715.518, 484.124, 0.0, 'right')},
     'U12': {'at': (693.42, 543.56, 0.0, None),
                'ref': (681.482, 521.208, 0.0, 'right'),
                'val': (682.498, 523.24, 0.0, 'right')},
@@ -548,7 +542,7 @@ COSMETICS = {
                'val': (292.1, 237.236, 0.0, 'left')},
     'U7': {'at': (250.19, 325.12, 0.0, None),
                'ref': (241.3, 311.76, 0.0, 'left'),
-               'val': (241.3, 314.11, 0.0, 'left')},
+               'val': (241.3, 313.69, 0.0, 'left')},
     'U8': {'at': (525.78, 139.7, 0.0, None),
                'ref': (507.746, 102.362, 0.0, 'left'),
                'val': (486.918, 177.546, 0.0, 'left')},
@@ -558,4 +552,158 @@ COSMETICS = {
     'Y1': {'at': (490.22, 123.19, 90.0, None),
                'ref': (493.268, 123.19, 270.0, 'left'),
                'val': (486.664, 123.19, 270.0, 'right')},
+}
+
+# dashed module boxes, keyed by their title text
+FRAMES = {
+    'AUDIO — TAS5760M PBTL + LC filter + PVDD mux (12V/5V)':
+        (610.0, 190.0, 826.77, 385.0),
+    'BATTERY — 18650 + reverse P-FET + protector + TCO':
+        (15.0, 160.0, 170.0, 308.0),
+    'CHARGER — LT3652 (1S buck, 4.05 V float, 1.0 A)':
+        (180.0, 40.0, 395.0, 215.0),
+    'DIAL NEOPIXEL HEAD - 2x on-PCB + 5x off-board via J12 (5 V)':
+        (180.0, 490.41, 395.0, 578.41),
+    'HOW TO READ THIS SHEET':
+        (15.0, 318.0, 170.0, 357.0),
+    'IO EXPANDER (MCP23017 @0x20) + KNOB (EM14)':
+        (405.0, 415.0, 595.0, 579.12),
+    'LED - wake COB drivers (12 V, plugged-only)':
+        (180.0, 415.68, 395.0, 485.68),
+    'MCU — ESP32-S3-WROOM-1-N16R8 (Wi-Fi + BLE, native USB-JTAG)':
+        (405.0, 40.0, 595.0, 215.0),
+    'MOTOR — 2x TB6612FNG -> X40.879 dual-shaft stepper':
+        (610.0, 405.0, 826.77, 581.66),
+    'POWER IN — USB-C PD sink (15 V)':
+        (15.0, 40.0, 170.0, 152.0),
+    'RAIL — 12 V boost (plugged-only: audio PVDD + wake LEDs)':
+        (180.0, 286.0, 395.0, 384.0),
+    'RAILS — 5 V boost (always on) -> 3V3 buck':
+        (180.0, 222.0, 395.0, 278.0),
+    'SENSORS (I2C off-board) + HAND-HOMING (QRE1113)':
+        (405.0, 225.0, 595.0, 305.0),
+    'STORAGE — microSD (DM3AT), SPI2 dedicated':
+        (610.0, 102.87, 826.77, 180.0),
+}
+
+# every free text (incl. frame titles), keyed by its string
+TEXTS = {
+    '(optical, 64 CPR, no detent, push) on the top face.  J7/J10 = JST ZH 1x06, J11 = ZH':
+        (410.21, 568.706, 0.0),
+    '+3V3':
+        (536.702, 472.694, 0.0),
+    '+5V: display panel, stepper VM, panel LEDs, PVDD-mux aux.  +3V3: MCU + all logic.':
+        (185.0, 274.0, 0.0),
+    '1x02 (pre-crimped AxxZR cables).  A/B 5 V -> 100k/200k div -> PCNT; SW -> IO17 IRQ.':
+        (410.21, 573.206, 0.0),
+    '5 more SK6812 wired off-board in series (chain pos 3-7), same rail.':
+        (182.88, 573.968, 0.0),
+    'AUDIO — TAS5760M PBTL + LC filter + PVDD mux (12V/5V)':
+        (655.32, 194.056, 0.0),
+    'BATTERY — 18650 + reverse P-FET + protector + TCO':
+        (17.5, 164.2, 0.0),
+    'CFG1=56k -> 15 V PDO; falls back to 5 V (charger idles <11.2 V).':
+        (20.0, 141.0, 0.0),
+    'CH224K DP/DM shorted = PD-only; Type-C D± go to the MCU.':
+        (20.0, 136.0, 0.0),
+    'CHARGER — LT3652 (1S buck, 4.05 V float, 1.0 A)':
+        (182.5, 44.2, 0.0),
+    'Charges only on the 15 V contract (UVLO 11.2 V); runs with no cell.':
+        (204.216, 170.528, 0.0),
+    'D+/D- = native USB-JTAG (IO19/20). Vertical - port out the back wall.':
+        (20.0, 150.5, 0.0),
+    'D40/D41 = on-PCB dial wash (chain pos 1-2). J12 breaks the chain out':
+        (183.134, 499.182, 0.0),
+    'DIAL NEOPIXEL HEAD - 2x on-PCB + 5x off-board via J12 (5 V)':
+        (182.5, 494.61, 0.0),
+    'DIAL1':
+        (307.34, 517.652, 0.0),
+    'DIAL2':
+        (328.422, 517.906, 0.0),
+    'Float 4.05 V (R14/R15); FULLCHG_EN -> 4.20 V full-charge mode':
+        (204.216, 160.528, 0.0),
+    'HOW TO READ THIS SHEET':
+        (17.5, 322.2, 0.0),
+    'I2S, MCPWM, encoder) are drawn as wires; GND / +3V3 / +5V taps':
+        (20.0, 339.0, 0.0),
+    'INT: any GPA/GPB change -> IO44 (IOCON.MIRROR=1).  Knob = EM14A0D-C24-L064S':
+        (410.21, 564.206, 0.0),
+    'IO EXPANDER (MCP23017 @0x20) + KNOB (EM14)':
+        (487.172, 419.1, 0.0),
+    'IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high; IO45/46 low via':
+        (407.924, 49.022, 0.0),
+    'I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  4.4 h timer':
+        (204.216, 165.528, 0.0),
+    'LED - wake COB drivers (12 V, plugged-only)':
+        (182.5, 419.88, 0.0),
+    'Layout: C222/C223 at the J6 VDD pin.':
+        (785.876, 138.684, 0.0),
+    'Layout: D40/D41 = dial wash either side of the shaft. C230/231 one at':
+        (182.88, 564.968, 0.0),
+    "Layout: each driver's 10uF+100nF go at its VM pins, the 100nF at its VCC pin.":
+        (624.586, 414.02, 0.0),
+    'Li-ion 18650 ONLY - 2.5-4.2 V':
+        (25.0, 190.0, 0.0),
+    'MCU centre, peripherals right.  Power paths and MCU buses (SPI,':
+        (20.0, 334.0, 0.0),
+    'MCU — ESP32-S3-WROOM-1-N16R8 (Wi-Fi + BLE, native USB-JTAG)':
+        (407.5, 44.2, 0.0),
+    'MOTOR — 2x TB6612FNG -> X40.879 dual-shaft stepper':
+        (624.078, 408.94, 0.0),
+    'OV 4.28 V / OD 2.90 V fixed (-GB). Independent of the charger.':
+        (20.0, 303.0, 0.0),
+    'Off-board parts (SD card, sensors, speaker, wake-LED strips,':
+        (20.0, 348.5, 0.0),
+    'One page, laid out like block_diagram.drawio: power flows left,':
+        (20.0, 329.0, 0.0),
+    'PBTL mono (reg 0x06[7]=1): OUTA||OUTB.  MCLK 256fs ~12.288 MHz.':
+        (640.0, 365.0, 0.0),
+    'PLUGGED-ONLY: firmware asserts BOOST12_EN only while PD_PG is live.':
+        (185.0, 380.0, 0.0),
+    'POWER IN — USB-C PD sink (15 V)':
+        (17.5, 44.2, 0.0),
+    'PVDD auto-mux: 12 V wins when plugged; on battery Q4 ideal-diodes':
+        (640.0, 355.0, 0.0),
+    'PWM-on-IN microstepping: MCPWM waveforms on AIN/BIN, PWMA/B tied high.':
+        (615.0, 575.0, 0.0),
+    'QRE1113GR faces reflective tabs on the hand hubs (no magnets).':
+        (486.41, 297.0, 0.0),
+    'RAIL — 12 V boost (plugged-only: audio PVDD + wake LEDs)':
+        (182.5, 290.2, 0.0),
+    'RAILS — 5 V boost (always on) -> 3V3 buck':
+        (182.5, 226.2, 0.0),
+    'SENSORS (I2C off-board) + HAND-HOMING (QRE1113)':
+        (481.838, 229.616, 0.0),
+    'SPI mode: MSB-first, CS active-low, ~25 MHz. No card-detect (no spare GPIO).':
+        (688.34, 174.0, 0.0),
+    'STEP_STBY (expander GPA1) low at boot -> drivers off. Coil map: esp32.md.':
+        (615.0, 579.5, 0.0),
+    'STORAGE — microSD (DM3AT), SPI2 dedicated':
+        (683.26, 114.046, 0.0),
+    'Sensor breakouts carry their own I2C pull-ups.':
+        (486.41, 301.5, 0.0),
+    'USB 2.0 subset of the 24-pin USB4160 (SS pads unconnected);':
+        (20.0, 146.0, 0.0),
+    'Wake COB strips are self-ballasted (12 V, plugged-only): firmware':
+        (185.0, 470.68, 0.0),
+    'and named labels connect by name (same name = same net).':
+        (20.0, 344.0, 0.0),
+    'cell- -> AOSD32334C (OD/OC gated) -> TCO 77 C -> PACK- (GND)':
+        (20.0, 298.0, 0.0),
+    'data line; AHCT buffer lifts 3V3 -> 5V (SK6812 VIH = 0.7*VDD = 3.5V).':
+        (183.134, 508.182, 0.0),
+    'each pixel VDD; C237 bulk + R110 + U15 at the chain head. J12 feeds':
+        (182.88, 569.468, 0.0),
+    'for 5 more pixels wired off-board (status row, chain pos 3-7). One RMT':
+        (183.134, 503.682, 0.0),
+    'gates their PWM off on battery.  ~1 kHz, gamma; LED + audio <= ~12 W.':
+        (185.0, 475.18, 0.0),
+    'knob, radio toggle, cell) enter via connectors J1..J11 / BT1.':
+        (20.0, 353.0, 0.0),
+    'the 5 V rail -> ~3 W quieter alarm.  Firmware: LEDs+audio <= ~12 W.':
+        (640.0, 360.0, 0.0),
+    'their wake gate nets + internal PD; IO3 internal.  Flash+console+JTAG = USB-CDC (IO19/20).':
+        (407.924, 53.086, 0.0),
+    '~12 W ceiling from 1S input: wake LEDs + audio share it.':
+        (185.0, 375.5, 0.0),
 }

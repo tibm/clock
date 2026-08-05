@@ -286,14 +286,16 @@ VALUES = {
 }
 
 # Schematic Value-text placement (x, y, justify[, rotation]), applied to
-# clock.kicad_sch only. "10k NTC" is 9.3 mm wide but the gap between RT1 and
-# the V_FB wire is only ~8.5 mm, so the default right-of-symbol spot drops the
-# last glyph on a wire; every free horizontal slot nearby reads as a label for
-# D11 or R17 instead; vertical alongside RT1 hits the thermistor arrow. Park
-# it below D11, left of R17.
-VALUE_POS = {
-    "RT1": (311.4, 121.6, "right"),
-}
+# clock.kicad_sch only.
+#
+# EMPTY SINCE 2026-08-04, and it should stay that way.  This predates
+# harvest.py capturing GUI-placed Reference/Value text, and the two fought:
+# stamp_bom.py runs AFTER build.py, so an entry here silently overwrote the
+# position the user had placed by hand (RT1's "10k NTC" was the one case).
+# cosmetics.py is now the single source of truth for where cosmetic text
+# sits -- move it in eeschema and re-run harvest.py instead of adding an
+# entry here.
+VALUE_POS = {}
 
 
 def part_for(ref, value, footprint):

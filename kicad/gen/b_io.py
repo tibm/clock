@@ -105,8 +105,10 @@ def build(s):
         s.pw(U13, pin, ("x", tx), ("pin", r, "1"))
         s.gnd(r, "2", drop=0)
 
-    # GPA fan-out: labels for far nets
-    s.glabel(U13, "21", "SPK_SD")
+    # GPA fan-out: labels for far nets.  SPK_SD carries no label of its own
+    # here -- GPA0 runs right and meets R63's stub, and the single SPK_SD
+    # label sits at that junction (one label, not two facing each other).
+    s.pw(U13, "21", ("x", 571.50))
     s.glabel(U13, "22", "STEP_STBY")
     s.glabel(U13, "23", "BOOST12_EN")
 
@@ -140,8 +142,9 @@ def build(s):
     # supplies ramp; GPA0 is hi-Z at POR). Lives here with R62, joined by
     # name like the rest of the slow amp lines (added 2026-07-21).
     R63 = s.R("R63", 556.26, 481.33, "100k")
-    s.pw(R63, "1", ("x", 580.39), ("y", 449.58))   # pin1 -> SPK_SD label (user placement)
-    s.glabel_at("SPK_SD", 580.39, 449.58, 0)
+    s.pw(R63, "1", ("x", 571.50), ("y", 449.58))   # pin1 -> the GPA0 run
+    s.w((571.50, 449.58), (577.85, 449.58))
+    s.glabel_at("SPK_SD", 577.85, 449.58, 0)
     s.gnd(R63, "2", drop=0)
 
     # ---- knob connector: Bourns EM14A0D-C24-L064S optical encoder (5 V,

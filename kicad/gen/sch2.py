@@ -162,7 +162,7 @@ class Comp:
 class Sch:
     def __init__(self, cache: SymbolCache, name: str, project: str,
                  paper="A1", title="", date="", rev="", company="",
-                 cosmetics=None):
+                 cosmetics=None, frames=None, texts=None):
         self.cache = cache
         self.name = name
         self.project = project
@@ -183,6 +183,11 @@ class Sch:
         self._refs = set()
         self.parts = {}       # cross-block component handles (e.g. "U8")
         self.cosmetics = cosmetics or {}   # ref -> GUI-harvested placement
+        # GUI-harvested cosmetics for the non-symbol furniture (harvest.py).
+        # Keyed by content, not by call order, so adding/removing a frame or
+        # a text elsewhere can't silently shift someone else's override.
+        self.cos_frames = frames or {}     # frame title -> (x1, y1, x2, y2)
+        self.cos_texts = texts or {}       # text string -> (x, y, rot)
 
     # ---------------- placement ----------------
     def comp(self, ref, lib_id, x, y, value=None, footprint="", unit=1,
@@ -398,13 +403,23 @@ class Sch:
         self.labels.append(("local", text, round(x, 4), round(y, 4), rot, None))
 
     def text(self, s, x, y, rot=0, size=1.5, bold=False):
+        cos = self.cos_texts.get(s)
+        if cos:
+            x, y, rot = cos
         self.texts.append((s, x, y, rot, size, bold))
 
     def rect(self, x1, y1, x2, y2):
         self.rects.append((x1, y1, x2, y2))
 
     def frame(self, x1, y1, x2, y2, title):
-        """Section frame with a title in the top-left corner."""
+        """Section frame with a title in the top-left corner.
+
+        Both the box and its title can be overridden independently from
+        cosmetics (FRAMES by title, TEXTS by string) — a GUI readability pass
+        moves them separately, so the generator must too."""
+        box = self.cos_frames.get(title)
+        if box:
+            x1, y1, x2, y2 = box
         self.rect(x1, y1, x2, y2)
         self.text(title, x1 + 2.5, y1 + 4.2, size=2.6, bold=True)
 
@@ -447,6 +462,104 @@ class Sch:
             else:
                 out.append(seg)
         self.wires = out
+
+    def drop_degenerate(self):
+        """Remove zero-length wires.  A pw()/route() whose last leg lands
+        exactly on its start emits one, and eeschema deletes it on save (and
+        the phantom endpoint can pull in a spurious junction), so a GUI
+        re-save would otherwise never be a no-op."""
+        before = len(self.wires)
+        self.wires = [w for w in self.wires
+                      if abs(w[0] - w[2]) > 0.001 or abs(w[1] - w[3]) > 0.001]
+        return before - len(self.wires)
+
+    def trim_overlaps(self):
+        """Shorten the longer of any two OVERLAPPING collinear wires so they
+        merely abut.
+
+        Two pw() calls that approach the same node along the same lane lay
+        redundant copper on top of each other.  It is invisible on screen and
+        harmless electrically, but eeschema removes it on save, so the
+        generator has to as well or every GUI round-trip shows a diff.
+
+        Trimming (rather than unioning) is what makes the result match: the
+        pieces are then abutting, and merge_collinear() decides whether to
+        fuse them using the same rule eeschema uses — fuse when the shared
+        point carries nothing, keep both when a junction/pin/label sits there.
+        """
+        trimmed = 0
+        changed = True
+        while changed:
+            changed = False
+            for i in range(len(self.wires)):
+                for j in range(len(self.wires)):
+                    if i == j:
+                        continue
+                    a, b = self.wires[i], self.wires[j]
+                    av = abs(a[0] - a[2]) < 0.02
+                    bv = abs(b[0] - b[2]) < 0.02
+                    if av != bv:
+                        continue                      # not parallel
+                    if av and abs(a[0] - b[0]) > 0.02:
+                        continue                      # different column
+                    if not av and abs(a[1] - b[1]) > 0.02:
+                        continue                      # different row
+                    k = 1 if av else 0                # varying coordinate
+                    a1, a2 = sorted((a[k], a[k + 2]))
+                    b1, b2 = sorted((b[k], b[k + 2]))
+                    if min(a2, b2) - max(a1, b1) <= 0.02:
+                        continue                      # touch or disjoint
+                    if (a2 - a1) <= (b2 - b1):
+                        continue                      # act on the LONGER one
+                    fixed_c = a[0] if av else a[1]
+                    if (b1 >= a1 - 0.02) and (b2 <= a2 + 0.02):
+                        # b is redundant copper lying entirely on top of a.
+                        # Normally just delete it; but if one of its inner
+                        # ends carries a junction or a label, eeschema keeps
+                        # the run split there, so trim a to meet it instead.
+                        stops = {(round(x, 4), round(y, 4))
+                                 for x, y in self.juncs}
+                        stops |= {(round(x, 4), round(y, 4))
+                                  for (_, _, x, y, _, _) in self.labels}
+                        # ...and any point where a PERPENDICULAR wire ends on
+                        # this line: that is a T, so auto_junctions() will put
+                        # a junction there and eeschema keeps the run split.
+                        for w in self.wires:
+                            if (abs(w[0] - w[2]) < 0.02) == av:
+                                continue                  # parallel, skip
+                            for (ex, ey) in ((w[0], w[1]), (w[2], w[3])):
+                                stops.add((round(ex, 4), round(ey, 4)))
+                        cut = None
+                        for v in (b1, b2):
+                            if not (a1 + 0.02 < v < a2 - 0.02):
+                                continue
+                            pt = ((fixed_c, v) if av else (v, fixed_c))
+                            if (round(pt[0], 4), round(pt[1], 4)) in stops:
+                                cut = v
+                                break
+                        if cut is None:
+                            del self.wires[j]
+                        else:
+                            lo, hi = ((a1, cut) if abs(b2 - a2) < 0.02
+                                      else (cut, a2))
+                            self.wires[i] = ((fixed_c, lo, fixed_c, hi) if av
+                                             else (lo, fixed_c, hi, fixed_c))
+                        trimmed += 1
+                        changed = True
+                        break
+                    # partial overlap: clip whichever end of a lies inside b
+                    lo, hi = (b2, a2) if abs(a1 - b1) < 0.02 else (a1, b1)
+                    if hi - lo <= 0.02:
+                        continue
+                    fixed = a[0] if av else a[1]
+                    self.wires[i] = ((fixed, lo, fixed, hi) if av
+                                     else (lo, fixed, hi, fixed))
+                    trimmed += 1
+                    changed = True
+                    break
+                if changed:
+                    break
+        return trimmed
 
     def merge_collinear(self):
         """Merge abutting collinear segments whose shared endpoint carries

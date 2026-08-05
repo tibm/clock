@@ -175,19 +175,19 @@ def build(s):
     # biasing its own upper ESD diode whenever the divider is disabled.  A
     # Schottky to +3V3 clamps the node at ~3.5 V at the few uA involved.
     # Same BAT42W/SOD-123 as D13.  [REVIEW.md #15]
-    D14 = s.D_schottky("D14", 118.11, 217.17, "BAT42W", fp="SOD123", rot=90)
-    s.pw(D14, "2", ("x", 110.49))                        # anode -> ADC node
-    s.pw(D14, "1", ("dy", 3.81))
-    s.power_at(118.11, 224.79, "+3V3")
+    D14 = s.D_schottky("D14", 142.24, 215.90, "BAT42W", fp="SOD123", rot=270)
+    s.pw(D14, "1", ("y", 209.55))                        # cathode up -> +3V3
+    s.power_at(142.24, 209.55, "+3V3")
+    s.pw(D14, "2", ("x", 129.54), ("y", 213.36), ("x", 102.87))  # anode -> ADC
     Q3 = s.nmos("Q3", 88.90, 228.60, "2N7002")
     s.route(R23, "2", Q3, "3", "V")
     s.gnd(Q3, "2", drop=0)
-    s.pw(Q3, "1", ("x", 73.66), ("y", 219.71), ("x", 78.74))  # gate -> node (R25 taps) -> up/over to the moved label
+    s.pw(Q3, "1", ("x", 81.28), ("y", 219.71), ("x", 78.74))  # gate -> node (R25 taps) -> up/over to the moved label
     s.glabel_at("VBAT_DIV_EN", 78.74, 219.71, 180)
     # gate pulldown (expander hi-Z at POR): divider defaults to disconnected
     R25 = s.R("R25", 67.31, 233.68, "100k",
               refpos=(66.29, 232.28, "right"), valpos=(66.29, 235.08, "right"))
-    s.pw(R25, "1", ("x", 73.66), ("y", 228.60))   # exit pin1 sideways then drop to the net, clear of R25's body
+    s.pw(R25, "1", ("x", 81.28), ("y", 228.60))   # exit pin1 sideways then drop to the net, clear of R25's body
     s.gnd(R25, "2", drop=0)
 
     # ---- CELL_TEST: full-cell vs no-cell discriminator (2026-07-21) ----
