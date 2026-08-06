@@ -176,7 +176,7 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in a0031c9*). `+5V` thin copper 95→40 mm, R 322→235 mΩ; `+12V` 111→99 mΩ. **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted (every thin segment has ≤0.05 mm of headroom). Needs hand re-routing, not a width change — see below |
 | ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
 | 8 | Switcher hot loops — **ground return done, placement not** | 🟠 | **Return half fixed** (*Fixed in `f55b15f`*): 23 vias tie every hot-loop return pad into the GND planes, 7.64 mm worst case → 0.62–2.20 mm. **Placement half needs pcbnew by hand** — every candidate slot for `C100`/`C102`/`C127`/`C128`/`C130`–`C132` fails routing or DRC; measured target coordinates are in §8 |
-| 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
+| ~~9~~ | `C238` 50 mm from U15 | ✅ | **done** (*Fixed in `8441d29`*) — moved to (26.73, 46.18); pad 1 → U15 pin 5 now **1.75 mm** (was 50.50), plus 2 GND vias 0.62 mm from its return pad |
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in a0031c9*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
 | 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
 | 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
@@ -432,6 +432,8 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   **abandoned deliberately** — no candidate slot survives routing + DRC; §8 records the
   coordinates for doing it by hand. Same pass measured that **37 of 191 hot-loop segments
   run over a slot in their return plane**, including both switch nodes.
+- **2026-08-05** (`8441d29`): **#9 done.** `C238` moved next to U15 — 50.50 → **1.75 mm** to
+  the VCC pin, plus 2 GND vias at 0.62 mm. Surfaced the junction-vs-leaf rule above.
 - Three bugs found while building the migration, worth remembering: (a) via clusters were
   committed before the *other* end was known to be placeable, leaving 5 orphan vias; (b) an inner
   stub widened past its original width shorted `M1-2i`, so a stub must keep the original width —
@@ -752,6 +754,21 @@ puts the I²S/I²C lines directly under the highest-dV/dt copper on the board. T
 
 U15 (SN74AHCT1G125) at (28.61, 48.88); C238 at (76.50, 39.50) → **50.5 mm**.
 The buffer driving the whole NeoPixel chain has no local decoupling.
+
+### Fixed 2026-08-05 (`8441d29`)
+
+`C238` → **(26.73, 46.18) rot 180**; pad 1 (+5V) to U15 pin 5 is now **1.75 mm**
+(was 50.50), on a new 0.50 mm B.Cu trace, with **2 GND vias 0.62 mm** from its
+return pad (nearest was 2.68 mm) so the bypass loop closes into the plane rather
+than wandering off across the pour — the same principle as #8.
+
+One subtlety worth recording, because it will bite the next part that moves:
+`C238`'s +5V pad was **not a leaf but a junction**, where the two collinear B.Cu
+tracks (77.28, 44.36)→pad and (77.28, 33.61)→pad met. Cutting both — which is what
+"delete the copper attached to the old position" naively does — split `+5V` into two
+islands and DRC reported 1 unconnected. Tracks that share an endpoint stay connected
+to each other without the pad, so the rule is: **cut only when the pad holds a single
+stub; leave junctions alone.**
 
 It slipped through because `qa_locality()` only checks non-rail nets, and C238's two
 nets are `+5V` and `GND`.
