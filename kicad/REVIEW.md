@@ -173,11 +173,11 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | # | Finding | Sev | What it needs |
 |---|---|---|---|
 | ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
-| 4 | Power widths — **partially done** | 🟠 | `POWER` net class added; every segment widened as far as it fits. **~half of VBAT/PVDD length is still ≤0.3 mm** — the necks are long runs on In2.Cu that #18 blocks. Finishing it means moving those trunks to F.Cu |
+| 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in \<commit Hash\>*). `+5V` thin copper 95→40 mm, R 322→235 mΩ; `+12V` 111→99 mΩ. **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted (every thin segment has ≤0.05 mm of headroom). Needs hand re-routing, not a width change — see below |
 | ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
 | 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
-| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | move power trunks to the empty F.Cu to free inner channels. **Now also blocking #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
+| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in \<commit Hash\>*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
 | 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
 | 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
 | 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **see recommendation below** |
@@ -264,6 +264,45 @@ They cannot widen in place because In2 is packed with the signal routing of **#1
 is the one #4 always pointed at: **move these trunks onto F.Cu**, which is still ~98 % empty
 (118 mm of track on the whole layer). That is a re-route, not a width change, and it closes
 #4 and a good part of #18 together.
+
+#### Trunks moved to F.Cu — 2026-08-05
+
+Four of them, each getting a via cluster at both ends (parallel vias sized to the net's
+peak current — one 0.4 mm via is good for ~1.5 A) and a short stub of the original inner
+copper kept under the cluster so every via is tied on both sides:
+
+| net | run | was | now |
+|---|---|---|---|
+| `+5V` | 57.1 mm, (20.5, 44.7) → (77.6, 44.7) | In2.Cu 0.25 mm | **F.Cu 1.00 mm**, offset −0.40 |
+| `+12V` | 42.8 mm, (30.1, 76.5) → (72.9, 76.5) | In2.Cu 0.60 mm | **F.Cu 1.00 mm** |
+| `+5V` | 23.9 mm, (76.7, 9.2) → (76.7, 33.0) | In1.Cu 0.60 mm | **F.Cu 1.00 mm** |
+| `VBAT` | 27.9 mm, (103.4, 61.0) → (103.4, 88.8) | In1.Cu 0.50 mm | **F.Cu 0.97 mm**, offset −0.25 |
+
+| | before | after |
+|---|---|---|
+| power copper on In1/In2 | 299.6 mm | **160.9 mm** (−46 %) |
+| `+5V` ≤0.3 mm / R | 95.1 mm / 322 mΩ | **39.8 mm / 235 mΩ** |
+| `+12V` R | 111 mΩ | **99 mΩ** |
+| `VBAT` R | 268 mΩ | **260 mΩ** |
+| DRC | 0/0/0 | **0/0/0** |
+
+**`VBAT`'s necks survive, and this is where #4 stops being automatable.** 99.7 mm of VBAT is
+still ≤0.3 mm (≈57 mm on B.Cu, ≈43 mm on In2), and a sweep of every thin power segment on
+the board shows **≤0.05 mm of widening headroom on each** — the widening pass already took
+everything the current placement offers. Three specific dead ends:
+
+- **`VBAT` (51.0, 61.0) → (72.5, 61.0), 21.5 mm at 0.25 mm — the worst one.** Its east end
+  sits inside M1's pad field. There are ~190 free via slots within 3.6 mm of it, but not one
+  has a clear In2 jumper back to the node, so neither moving the trunk nor running a *parallel*
+  F.Cu trunk beside it can be tapped at that end.
+- **`VBAT` (35.6, 59.0) → (48.9, 59.0)** was left alone deliberately. It is already 0.50 mm,
+  and shortening it to a stub puts its end 0.096 mm from an M1-2i diagonal — the full-length
+  track clears, the stub does not. Nothing to gain, a DRC error to lose.
+- The diagonal past (72.5, 61.0) is boxed in by GND copper and takes only 0.31 mm on F.Cu, so
+  extending the chain buys a neck rather than removing one.
+
+Closing the rest means **moving other nets out of the way by hand in pcbnew** — a placement
+and re-route job around M1, not something the width/via passes can reach.
 
 ### ⏸ Deferred — accepted for now, revisit later
 
@@ -380,6 +419,17 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
 - **2026-08-04** (`35ca174`): #19 PVDD bulk → hybrid polymer (BOM-only); #16 comment in
   `b_charger.py` corrected; drawing date bumped. **Schematic declared complete** — see the
   readiness table above.
+- **2026-08-05** (`\<commit Hash\>`): **#4 / #18 — four power trunks moved from the inner planes to
+  F.Cu.** Power copper on In1/In2 **299.6 → 160.9 mm**; `+5V` thin copper 95→40 mm and 322→235 mΩ;
+  `+12V` 111→99 mΩ; `VBAT`'s In1 run re-placed 0.52 → 0.97 mm. DRC 0/0/0, `review_check.py`
+  11/12 with 0 regressions. `VBAT`'s 0.25 mm necks remain and are **not** automatable — see the
+  "Trunks moved to F.Cu" section for the three specific dead ends.
+- Three bugs found while building the migration, worth remembering: (a) via clusters were
+  committed before the *other* end was known to be placeable, leaving 5 orphan vias; (b) an inner
+  stub widened past its original width shorted `M1-2i`, so a stub must keep the original width —
+  it is then safe by construction, being a sub-segment of copper that already passes DRC;
+  (c) `Board.via_clash()` has no spatial pre-filter, so a ring search over it runs for minutes
+  until `Board.local()` is passed in.
 - Fixing #1 surfaced a latent generator bug: `sch2.py::_xf()` mirrored **before** rotating while
   KiCad mirrors **after**, silently swapping the two mirror axes at rot 90/270. Harmless until now
   (BT1 was the only mirrored part, at rot 0); fixed, verified not to move any other net.
