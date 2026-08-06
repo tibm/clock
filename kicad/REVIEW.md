@@ -173,11 +173,11 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | # | Finding | Sev | What it needs |
 |---|---|---|---|
 | ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
-| 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in \<commit Hash\>*). `+5V` thin copper 95→40 mm, R 322→235 mΩ; `+12V` 111→99 mΩ. **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted (every thin segment has ≤0.05 mm of headroom). Needs hand re-routing, not a width change — see below |
+| 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in a0031c9*). `+5V` thin copper 95→40 mm, R 322→235 mΩ; `+12V` 111→99 mΩ. **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted (every thin segment has ≤0.05 mm of headroom). Needs hand re-routing, not a width change — see below |
 | ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
 | 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
 | 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
-| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in \<commit Hash\>*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
+| 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in a0031c9*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
 | 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
 | 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
 | 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **see recommendation below** |
@@ -419,7 +419,7 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
 - **2026-08-04** (`35ca174`): #19 PVDD bulk → hybrid polymer (BOM-only); #16 comment in
   `b_charger.py` corrected; drawing date bumped. **Schematic declared complete** — see the
   readiness table above.
-- **2026-08-05** (`\<commit Hash\>`): **#4 / #18 — four power trunks moved from the inner planes to
+- **2026-08-05** (`a0031c9`): **#4 / #18 — four power trunks moved from the inner planes to
   F.Cu.** Power copper on In1/In2 **299.6 → 160.9 mm**; `+5V` thin copper 95→40 mm and 322→235 mΩ;
   `+12V` 111→99 mΩ; `VBAT`'s In1 run re-placed 0.52 → 0.97 mm. DRC 0/0/0, `review_check.py`
   11/12 with 0 regressions. `VBAT`'s 0.25 mm necks remain and are **not** automatable — see the
