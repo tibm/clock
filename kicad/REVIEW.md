@@ -175,7 +175,7 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
 | 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in a0031c9*). `+5V` thin copper 95→40 mm, R 322→235 mΩ; `+12V` 111→99 mΩ. **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted (every thin segment has ≤0.05 mm of headroom). Needs hand re-routing, not a width change — see below |
 | ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
-| 8 | Switcher hot loops 5–28 mm | 🟠 | LT3652 Cin + D11 return first, then TPS55340 Cout, then TAS GVDD/PVDD |
+| 8 | Switcher hot loops — **ground return done, placement not** | 🟠 | **Return half fixed** (*Fixed in `f55b15f`*): 23 vias tie every hot-loop return pad into the GND planes, 7.64 mm worst case → 0.62–2.20 mm. **Placement half needs pcbnew by hand** — every candidate slot for `C100`/`C102`/`C127`/`C128`/`C130`–`C132` fails routing or DRC; measured target coordinates are in §8 |
 | 9 | `C238` 50 mm from U15 | 🟠 | move next to U15 pin 5 |
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in a0031c9*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
 | 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
@@ -424,6 +424,14 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   `+12V` 111→99 mΩ; `VBAT`'s In1 run re-placed 0.52 → 0.97 mm. DRC 0/0/0, `review_check.py`
   11/12 with 0 regressions. `VBAT`'s 0.25 mm necks remain and are **not** automatable — see the
   "Trunks moved to F.Cu" section for the three specific dead ends.
+- **2026-08-05** (`f55b15f`): **#8 ground return.** 23 GND vias placed hard against every
+  hot-loop return pad. The original §8 table measured only the forward legs and understated
+  the problem: with a pour on all four layers the return is the plane image current, and
+  every capacitor's return pad was 2.07–7.64 mm from the nearest via while the ICs were
+  properly stitched. Now 0.62–2.20 mm. DRC 0/0/0. The placement half was attempted and
+  **abandoned deliberately** — no candidate slot survives routing + DRC; §8 records the
+  coordinates for doing it by hand. Same pass measured that **37 of 191 hot-loop segments
+  run over a slot in their return plane**, including both switch nodes.
 - Three bugs found while building the migration, worth remembering: (a) via clusters were
   committed before the *other* end was known to be placeable, leaving 5 orphan vias; (b) an inner
   stub widened past its original width shorted `M1-2i`, so a stub must keep the original width —
@@ -681,6 +689,64 @@ noise in the amp.
 
 **Fix priority:** LT3652 Cin + D11 ground return, then TPS55340 Cout, then the
 TAS5760M GVDD_REG / PVDD caps.
+
+### Ground return — done 2026-08-05 (`f55b15f`)
+
+The table above measures the *forward* legs, and that framing understated the
+problem. GND is a filled pour on **all four layers**, so each loop's return is the
+plane image current directly under the forward trace — but only once the return pad
+has actually reached the plane. The ICs were stitched; **not one capacitor was**:
+
+| return pad | nearest GND via, before |
+|---|---|
+| `D11` anode (LT3652 catch diode) | **7.64 mm** |
+| `C131` (TPS55340 Cout) | 6.98 mm |
+| `C129` (TPS55340 Cin bulk) | 6.42 mm |
+| `C130` (TPS55340 Cout) | 5.49 mm |
+| `C127` (TPS55340 Cin 10 µF) | 4.52 mm |
+| `C132` / `C100` / `C102` / `C128` / `C172` | 2.07 – 3.79 mm |
+| *(for contrast)* `U2` EP · `U7` EP · `U9` EP | 0.39 · 0.75 · 0.82 mm |
+
+Until that via exists the return current runs sideways along the B.Cu pour to find
+one, and **that detour, not the forward trace, sets the loop area**. 23 vias added
+hard against each return pad → every one now reaches the planes at **0.62–2.20 mm**.
+Holes 698 → 721 (+3.3 %, still far inside the density assessed above). DRC 0/0/0.
+
+### Placement half — NOT done, needs pcbnew by hand
+
+Every candidate slot was searched on a 0.25 mm grid × 4 rotations, filtered for
+courtyard clearance, clear copper under the pads, and B.Cu routability, then gated on
+real DRC. **None survived**, so nothing was moved:
+
+| part | now | best slot found | why it failed |
+|---|---|---|---|
+| `C132`/`C131`/`C130` → D20 K | 12.1 / 14.4 / 17.2 mm | **3.83 mm** at (91.11, 66.51) | routable, but real DRC finds a 0.17 mm hole clearance and a dangling track — 4 candidates, all fail |
+| `C128` → U7 VIN | 10.0 mm | 3.25 mm at (78.40, 60.94) | 120 slots free, **none B.Cu-routable**: `Net-(D20-A)` (the switch node) sits between the slot and VIN |
+| `C127` → U7 VIN | 7.4 mm | 3.50 mm at (78.15, 60.69) | same — boxed in by the switch node |
+| `C100` → U2 VIN | 16.2 mm | 8.19 mm at (107.18, 45.72) | 120 slots free, none B.Cu-routable |
+| `C102` → U2 VIN | 9.0 mm | 6.00 mm at (102.93, 43.47) | 99 slots free, none B.Cu-routable |
+| `D11` → U2 SW pin | 7.9 mm | 7.15 mm | 0.75 mm gain — not worth the re-route |
+
+The slots are real and the distances are worth having; what the automated pass cannot
+do is *push existing copper aside*, which is exactly what pcbnew's interactive router
+does. **Use the coordinates above as placement targets.**
+
+### Return planes are slotted under the hot loops
+
+A second, separate finding from the same pass — **37 of 191 hot-loop segments (19 %)
+run over a break in their adjacent return plane** (B.Cu ↔ In2, F.Cu ↔ In1):
+
+| hot net | inner nets slotting its return plane |
+|---|---|
+| `VBAT` | 10 nets — `+5V`, `I2C_SDA`, `Net-(BT1-Pin_1)`, `Net-(D40-DOUT)`, … |
+| `+12V` | 5 — `I2C_SDA`, `Net-(U8-IO10_BCLK)`, `Net-(U8-IO12_DOUT)`, … |
+| **`Net-(D20-A)`** (boost SW node) | 3 — `I2C_SDA`, `Net-(U8-IO10_BCLK)`, `Net-(U8-IO12_DOUT)` |
+| `Net-(U9-SPK_OUTB+)` | 3 — `PVDD`, both speaker legs |
+| `Net-(D11-K)` (buck SW node) | 1 — `Net-(U8-IO11_LRCLK)` |
+
+The switch nodes are the ones that matter: a slot there both enlarges the loop and
+puts the I²S/I²C lines directly under the highest-dV/dt copper on the board. This is
+**#18's inner-layer signal routing seen from the EMI side** — same fix, same job.
 
 ## 9. `C238` — the level shifter's bypass — is 50 mm from U15
 
