@@ -228,10 +228,10 @@
 		(pin_names (offset 1.016))
 		(exclude_from_sim no)(in_bom yes)(on_board yes)
 		(property "Reference" "U" (at -20.32 38.1 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))
-		(property "Value" "ESP32-S3-WROOM-1-N16R8" (at -20.32 40.64 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))
+		(property "Value" "ESP32-S3-WROOM-1-N8R8" (at -20.32 40.64 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))
 		(property "Footprint" "RF_Module:ESP32-S3-WROOM-1" (at 0 -43.18 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
 		(property "Datasheet" "https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
-		(property "Description" "ESP32-S3-WROOM-1-N16R8, pins grouped by function (clock project)" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
+		(property "Description" "ESP32-S3-WROOM-1-N8R8, pins grouped by function (clock project)" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
 		(symbol "ESP32S3_CLOCK_0_1"
 			(rectangle (start -20.32 35.56)(end 20.32 -35.56)(stroke (width 0.254)(type default))(fill (type background)))
 		)

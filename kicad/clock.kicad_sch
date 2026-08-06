@@ -7206,7 +7206,7 @@
 					(justify left)
 				)
 			)
-			(property "Value" "ESP32-S3-WROOM-1-N16R8"
+			(property "Value" "ESP32-S3-WROOM-1-N8R8"
 				(at -20.32 40.64 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -7239,7 +7239,7 @@
 					)
 				)
 			)
-			(property "Description" "ESP32-S3-WROOM-1-N16R8, pins grouped by function (clock project)"
+			(property "Description" "ESP32-S3-WROOM-1-N8R8, pins grouped by function (clock project)"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -12652,7 +12652,7 @@
 		)
 		(uuid "a9ce12f5-911b-5350-a4cc-b0c1749186e0")
 	)
-	(text "MCU — ESP32-S3-WROOM-1-N16R8 (Wi-Fi + BLE, native USB-JTAG)"
+	(text "MCU — ESP32-S3-WROOM-1-N8R8 (Wi-Fi + BLE, native USB-JTAG)"
 		(exclude_from_sim no)
 		(at 407.5 44.2 0)
 		(effects
@@ -12946,7 +12946,7 @@
 		)
 		(uuid "f90b4cba-2839-5c48-ae82-12eb2d69eeca")
 	)
-	(text "IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high; IO45/46 low via"
+	(text "IO35-37 reserved by the octal PSRAM (N8R8).   Straps: IO0 high; IO45/46 low via"
 		(exclude_from_sim no)
 		(at 407.924 49.022 0)
 		(effects
@@ -57558,7 +57558,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "ESP32-S3-WROOM-1-N16R8"
+		(property "Value" "ESP32-S3-WROOM-1-N8R8"
 			(at 486.918 177.546 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -57602,7 +57602,7 @@
 				)
 			)
 		)
-		(property "MPN" "ESP32-S3-WROOM-1-N16R8"
+		(property "MPN" "ESP32-S3-WROOM-1-N8R8"
 			(at 525.78 139.7 0)
 			(hide yes)
 			(show_name no)
@@ -57624,7 +57624,7 @@
 				)
 			)
 		)
-		(property "Description" "MODULE ESP32-S3 WIFI/BLE 16MB FLASH 8MB PSRAM"
+		(property "Description" "MODULE ESP32-S3 WIFI/BLE 8MB FLASH 8MB PSRAM"
 			(at 525.78 139.7 0)
 			(hide yes)
 			(show_name no)

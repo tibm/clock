@@ -1,6 +1,6 @@
 # ESP32-S3 IO Map
 
-Pin-level allocation for **ESP32-S3-WROOM-1-N16R8** (host). Working draft.
+Pin-level allocation for **ESP32-S3-WROOM-1-N8R8** (host). Working draft.
 All IO are **3.3 V LVCMOS** (module VDD = 3.3 V). Peripheral pins are routed through the
 S3 **GPIO matrix**, so most assignments below are movable — the *fixed* ones are ADC1
 (GPIO1–10), XTAL32K (15/16), native USB (19/20), and the PSRAM-reserved pads (35/36/37).
@@ -22,7 +22,7 @@ S3 **GPIO matrix**, so most assignments below are movable — the *fixed* ones a
 4. **Slow/static lines live on the MCP23017** (I²C), not the host — see the expander map.
 
 **Result: 30 signals (incl. USB D±, 2 wake PWM, NeoPixel data, I²S MCLK) + 2 XTAL = 32 pads;
-IO0 (boot strap) is the only uncommitted pad.** The N16R8 module exposes 36 GPIO pads; 3 are eaten
+IO0 (boot strap) is the only uncommitted pad.** The N8R8 module exposes 36 GPIO pads; 3 are eaten
 by octal PSRAM → **33 usable**, so this design sits at **32/33** — fully allocated. A genuine spare
 GPIO now needs a lever: push a static line onto the expander, or free ENC_SW to the expander
 (costs press latency).
@@ -64,9 +64,9 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `IO19` | 19 | `USB_D−` | USB-Serial-JTAG | AF (USB) | 3.3 V | USB-C · D− | flash + CDC console + **JTAG debug** |
 | `IO20` | 20 | `USB_D+` | USB-Serial-JTAG | AF (USB) | 3.3 V | USB-C · D+ | |
 | `IO21` | 21 | `SD_MISO` | SPI2 | IN / AF | 3.3 V | microSD · DO | |
-| `IO35` | 35 | *reserved* | — | — | — | **octal PSRAM (N16R8)** | not available on this module SKU |
-| `IO36` | 36 | *reserved* | — | — | — | **octal PSRAM (N16R8)** | not available |
-| `IO37` | 37 | *reserved* | — | — | — | **octal PSRAM (N16R8)** | not available |
+| `IO35` | 35 | *reserved* | — | — | — | **octal PSRAM (N8R8)** | not available on this module SKU |
+| `IO36` | 36 | *reserved* | — | — | — | **octal PSRAM (N8R8)** | not available |
+| `IO37` | 37 | *reserved* | — | — | — | **octal PSRAM (N8R8)** | not available |
 | `IO38` | 38 | `STEP_H_AIN1` | MCPWM1_0A | OUT / AF | 3.3 V | TB6612 #2 · hour coil A+ | |
 | `IO39` | 39 | `STEP_H_AIN2` | MCPWM1_0B | OUT / AF | 3.3 V | TB6612 #2 · hour coil A− | also **JTAG MTCK** (ext probe — see below) |
 | `IO40` | 40 | `STEP_H_BIN1` | MCPWM1_1A | OUT / AF | 3.3 V | TB6612 #2 · hour coil B+ | also **JTAG MTDO** |

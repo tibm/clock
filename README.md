@@ -130,7 +130,7 @@ The reflective **Sharp LS032B7DD02** info panel (and its FH34SRJ FPC connector) 
 
 A **single MCU** must drive two stepper shafts, I²S audio, the NeoPixel chain + wake-LED PWM, the I²C sensor bus, microSD, and Wi-Fi + BLE — the **ESP32-S3 single-chip** wins on simplicity + library support (RMT for the SK6812s, MCPWM for the steppers, PCNT for the knob).
 
-The N16R8 module exposes ~33 usable GPIO (octal PSRAM claims 3), and the pin budget is tight, so a **Microchip MCP23017** I²C IO expander (SOIC/SSOP-28, on the shared bus + one INT line) offloads the slow/static lines — amp mute, 12 V-boost enable, stepper STBY, the radio-disable toggle, and PD/charger status. The **knob lives on the host** (A/B → PCNT on IO47/48, press → IO17 with a hard interrupt + tight debounce — *not* the expander). The full pin-level allocation (host + expander) lives in [`esp32.md`](esp32.md) (native USB-JTAG on IO19/20); see also [`datasheet/README.md`](datasheet/README.md) §19.
+The N8R8 module exposes ~33 usable GPIO (octal PSRAM claims 3), and the pin budget is tight, so a **Microchip MCP23017** I²C IO expander (SOIC/SSOP-28, on the shared bus + one INT line) offloads the slow/static lines — amp mute, 12 V-boost enable, stepper STBY, the radio-disable toggle, and PD/charger status. The **knob lives on the host** (A/B → PCNT on IO47/48, press → IO17 with a hard interrupt + tight debounce — *not* the expander). The full pin-level allocation (host + expander) lives in [`esp32.md`](esp32.md) (native USB-JTAG on IO19/20); see also [`datasheet/README.md`](datasheet/README.md) §19.
 
 | Option | Wi-Fi + BLE | Runs motors + audio + LEDs | Low power | Notes | Verdict |
 |--------|-------------|----------------------------|-----------|-------|---------|
@@ -249,7 +249,7 @@ Two subsystems on **two rails** (v0.19): the analog **wake light** (2 PWM channe
 ## 11. Storage (R9, R11)
 
 - **microSD** (SPI mode, 4-wire — saves GPIO vs SDMMC; sole device on SPI2 since v0.19) — user alarm tones / audio assets.
-- **Flash** (module 16 MB + optional external OSPI NOR) — system sounds, OTA, config.
+- **Flash** (module 8 MB + optional external OSPI NOR) — system sounds, OTA, config.
 
 ---
 
@@ -300,7 +300,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 
 | Item | MPN | ~Price | Source |
 |------|-----|--------|--------|
-| SoC dev board (16 MB / 8 MB PSRAM) | ESP32-S3-DevKitC-1-N16R8 | ~$18 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=ESP32-S3-DevKitC-1-N16R8) |
+| SoC dev board (8 MB / 8 MB PSRAM) | ESP32-S3-DevKitC-1-N8R8 | ~$15 | [DigiKey search](https://www.digikey.com/en/products/result?keywords=ESP32-S3-DevKitC-1-N8R8) |
 | Analog movement (dual shaft) | Juken X40.879 | ~$14 | [DigiKey 28528329 ✅](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) |
 | NeoPixels RGBW (status ×5 + dial ×2) | Adafruit 2758 (SK6812 RGBW 5050, 10-pack) | $5.95 | [DigiKey 6134706 ✅](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2758/6134706) |
 | Knob encoder (smooth optical, push) | Bourns EM14A0D-C24-L064S (no detent, 64 CPR, 5 V) | $34.00 | [DigiKey 954403 ✅](https://www.digikey.com/en/products/detail/bourns-inc/EM14A0D-C24-L064S/954403) |
@@ -320,7 +320,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 
 | Status | Block | MPN | Size / pkg | ~Unit | DigiKey ref |
 |:--:|-------|-----|-----------|-------|-------------|
-| ⭐ | SoC module | ESP32-S3-WROOM-1-N16R8 | 18×25.5 mm | ~$6.8 | [DigiKey ✅](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N16R8/16162642) |
+| ⭐ | SoC module | ESP32-S3-WROOM-1-N8R8 | 18×25.5 mm | ~$6.3 | [DigiKey ✅](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N8R8/15295891) |
 | ⭐ | IO expander (I²C, 16-bit) | **Microchip MCP23017** (SPI twin MCP23S17) — offloads SPK_SD / 12 V-EN / stepper STBY / radio-toggle / PD-PG / CHRG / FAULT / FULLCHG_EN / VBAT_DIV_EN / SPK_FAULT; INT→1 GPIO (net −9) | **SSOP-28** — order code **MCP23017-E/SS** *(the board's land is SSOP-28; the SOIC-28W `-E/SO` part does **not** fit — corrected 2026-07-27)* | ~$1.7 | [DigiKey ✅](https://www.digikey.com/en/products/detail/microchip-technology/MCP23017-E-SS/894273) |
 | ⭐ | Status + dial NeoPixels ×7 (5 status + 2 dial) | **SK6812 RGBW 5050** — Adafruit **2758** 10-pack; on-PCB, 5 V, one data line | PLCC-4 5.0×5.0 mm | $5.95 /10 | [DigiKey ✅](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2758/6134706) |
 | ⭐ | NeoPixel data level shifter | **TI SN74AHCT1G125DBVR** (3.3 V → 5 V buffer, single gate) | **SOT-23-5** | ~$0.14 | [DigiKey ✅](https://www.digikey.com/en/products/detail/texas-instruments/SN74AHCT1G125DBVR/376028) |
@@ -468,3 +468,4 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 | 2026-07-20 | **Off-board connectors standardized on JST ZH (1.5 mm)**: J7 sensor + J10 knob = **B6B-ZR** 1×06, J11 toggle = **B2B-ZR** 1×02; J3 speaker + J9 wake strips stay **JST PH** (power) | One cheap pre-crimped cable family — **A06ZR06ZR28H102B**-style ZH↔ZH jumpers (more/fewer pins as needed) — serves sensor board, knob and toggle; ZH is 1 A/50 V, TH top-entry, KiCad-stock footprints. J7 grew 1×05 → 1×06 (pin 6 = spare wire). Replaces the short-lived SH picks (SM06B/SM02B). ZH series datasheet filed (`connector_jst_zh.pdf`) + v0.19 part datasheets rows 30–34 in `datasheet/README.md` |
 | 2026-07-20 | **18650-holder footprint mismatch resolved → Keystone 1043 (TH)** — BT1's footprint had stayed on the SMT **1042** while the BOM said 1043 | **1043 wins on stock + price** ($2.99, **21.9 k** at DigiKey vs the $5.99 SMT 1042) and TH PC pins suit the hand-soldered build + a heavy cell. Custom `BatteryHolder_Keystone_1043_1x18650` drawn in `kicad/clock.pretty`: body/pegs/index identical to the stock 1042 footprint (shared molding), pins on the axis at ±35.8 with Ø2.6 drill / Ø4.2 pad (covers the ±36.11 reading of KiCad MR !2043 too) — verify vs the Keystone drawing before fab |
 | 2026-07-21 | **PCB layout generated** (`kicad/gen/pcb_build.py`, 110×110 mm 4-layer, placement-only — no traces routed); **5 of 7 status/dial NeoPixels moved off-board** onto a new 3-pin JST-PH breakout **J12** (`+5V`/`DATA`/`GND`) | Full component placement + stackup + GND pours + net assignment, built on KiCad's `pcbnew` Python API; see `kicad/PCB_NOTES.md` for the constraint-by-constraint rationale and DRC/clearance verification. The 5-LED status row couldn't get real component spacing on-board without crowding every other functional block, so it moved to off-board wiring (pitch set by the face-plate holes directly); only the 2 dial-wash pixels (renumbered **D40/D41**, chain pos 1–2, closing the ref gap) stay on the PCB, 9 & 3 o'clock either side of the movement |
+| 2026-08-06 | **MCU module N16R8 → ESP32-S3-WROOM-1-N8R8** (16 MB → 8 MB flash; PSRAM, pinout, footprint and price band unchanged) | The 16 MB SKU was picked for the display era and is the harder part to source; **N8R8 is the DevKitC-1 stock variant** and sits at **$6.32 / 1,709 in stock** ([DigiKey 15295891](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N8R8/15295891), active) vs $6.76 for the N16R8. **Pure drop-in:** WROOM-1 Table 3-1 is one pad map for the whole series (41 pads, 18.0×25.5×3.1 mm, `RF_Module:ESP32-S3-WROOM-1` land), and `R8` keeps the **Octal** PSRAM → IO35/36/37 stay reserved and the GPIO budget stays 32/33. No schematic net, footprint or placement changed — MPN/Value/Description only. FW cost: the partition table reflows to 8 MB (2.5 M per OTA slot, ~2.7 M `assets`; was 3 M / ~9 M) — see `FIRMWARE.md` §1 |

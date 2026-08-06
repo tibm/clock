@@ -220,8 +220,8 @@ def esp32s3():
         "ESP32S3_CLOCK", "RF_Module:ESP32-S3-WROOM-1",
         "https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf",
         pins,
-        description="ESP32-S3-WROOM-1-N16R8, pins grouped by function (clock project)",
-        width=40.64, value="ESP32-S3-WROOM-1-N16R8")
+        description="ESP32-S3-WROOM-1-N8R8, pins grouped by function (clock project)",
+        width=40.64, value="ESP32-S3-WROOM-1-N8R8")
 
 
 def build():

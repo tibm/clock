@@ -570,7 +570,7 @@ FRAMES = {
         (405.0, 415.0, 595.0, 579.12),
     'LED - wake COB drivers (12 V, plugged-only)':
         (180.0, 415.68, 395.0, 485.68),
-    'MCU — ESP32-S3-WROOM-1-N16R8 (Wi-Fi + BLE, native USB-JTAG)':
+    'MCU — ESP32-S3-WROOM-1-N8R8 (Wi-Fi + BLE, native USB-JTAG)':
         (405.0, 40.0, 595.0, 215.0),
     'MOTOR — 2x TB6612FNG -> X40.879 dual-shaft stepper':
         (610.0, 405.0, 826.77, 581.66),
@@ -630,7 +630,7 @@ TEXTS = {
         (410.21, 564.206, 0.0),
     'IO EXPANDER (MCP23017 @0x20) + KNOB (EM14)':
         (487.172, 419.1, 0.0),
-    'IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high; IO45/46 low via':
+    'IO35-37 reserved by the octal PSRAM (N8R8).   Straps: IO0 high; IO45/46 low via':
         (407.924, 49.022, 0.0),
     'I_CHG = 1.0 A (R18);  RT1 = NCP18XH103 on the holder, 0..45 C window;  4.4 h timer':
         (204.216, 165.528, 0.0),
@@ -646,7 +646,7 @@ TEXTS = {
         (25.0, 190.0, 0.0),
     'MCU centre, peripherals right.  Power paths and MCU buses (SPI,':
         (20.0, 334.0, 0.0),
-    'MCU — ESP32-S3-WROOM-1-N16R8 (Wi-Fi + BLE, native USB-JTAG)':
+    'MCU — ESP32-S3-WROOM-1-N8R8 (Wi-Fi + BLE, native USB-JTAG)':
         (407.5, 44.2, 0.0),
     'MOTOR — 2x TB6612FNG -> X40.879 dual-shaft stepper':
         (624.078, 408.94, 0.0),

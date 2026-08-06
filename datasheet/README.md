@@ -13,7 +13,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | # | File | Part | Mfr | Package (hand-solder) | Active | ~Price | Interface |
 |---|------|------|-----|-----------------------|--------|--------|-----------|
 | 1 | `display_ls032b7dd02.pdf` | LS032B7DD02 (full device spec) — ⚠ **not in current build** (display dropped v0.19; kept for a future variant) | Sharp | module + FPC | ✅ | ~$38 | 3-wire SPI |
-| 2 | `mcu_esp32-s3-wroom-1-n16r8.pdf` | ESP32-S3-WROOM-1-N16R8 | Espressif | **module (castellated)** | ✅ | ~$6.8 | Wi-Fi/BLE + UART/SPI/I²C/I²S |
+| 2 | `mcu_esp32-s3-wroom-1-n8r8.pdf` | ESP32-S3-WROOM-1-N8R8 | Espressif | **module (castellated)** | ✅ | ~$6.3 | Wi-Fi/BLE + UART/SPI/I²C/I²S |
 | 3 | `speaker_dma58-4.pdf` | DMA58-4 | Dayton Audio | wired (passive) | ✅ | ~$19 | Analog |
 | 4 | `stepper_motor_x40-879.pdf` | **X40.879** (dual-shaft) | Juken / Switec | wired | ✅ | ~$14 | 2-phase bipolar × 2 |
 | 4b | `stepper_motor_x27_base-spec.pdf` | X27 base spec *(companion to #4)* | Juken / Switec | wired | ✅ | — | — |
@@ -76,7 +76,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 | Part | Power rail(s) (abs-max) | Logic level | ESP32-S3 signals (GPIO count) |
 |------|-------------------------|-------------|-------------------------------|
-| **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; **~33 usable GPIO** on **N16R8** (octal PSRAM claims GPIO35/36/37) |
+| **ESP32-S3-WROOM-1** (host) | 3.0–3.6 V (max 3.6) | 3.3 V | — drives everything below; **~33 usable GPIO** on **N8R8** (octal PSRAM claims GPIO35/36/37) |
 | ~~**LS032B7DD02** display~~ *(not in current build — dropped v0.19)* | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | *(was: SPI ×3 + DISP on expander; SPI2 is now microSD-only, IO17 freed → `ENC_SW`)* |
 | **SK6812 RGBW ×7** status + dial NeoPixels (row 31) | **5 V** (3.7–5.5) | data V_IH 0.7·VDD = 3.5 V → **SN74AHCT1G125** buffer (row 32) | **1** data GPIO (IO7 → RMT), whole chain |
 | **EM14A0D-C24-L064S** knob encoder (row 33) | **5 V** ~30 mA | 5 V outputs → **100k/200k dividers** | A/B → **2** (IO47/48 PCNT) + SW → **1** (IO17 IRQ) |
@@ -95,7 +95,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 
 **GPIO tally (v0.19, post-expander):** I²S 4 (incl. MCLK) + shared-I²C 2 + SD SPI 4 + steppers 8 + optical home 1 + Vbat ADC 1 + NeoPixel data 1 + wake PWM 2 + knob A/B 2 + knob SW 1 + sensor INT 1 + expander INT 1 + USB D± 2 = **30 signals** + the 2 dedicated XTAL32K pins = **32/33 pads** (IO0/boot is the only spare — see [`../esp32.md`](../esp32.md)). **PD PG and charger CHRG/FAULT ride the MCP23017** (interrupt-on-change → the single expander INT), not the host — they are slow open-drain status only, and the *hardware* OV/OC/SC safety is autonomous (LT3652 + HY2111), so nothing time-critical depends on those pins.
 
-> ⚠️ **N16R8 budget is tighter than the old "≤36".** The **octal PSRAM claims GPIO35/36/37** (verified in the S3-WROOM-1 datasheet pin table — "not available for other use"), so the module frees only **~33 usable pads**. The v0.19 design sits at **32/33**; the remaining levers are pushing `ENC_SW` onto the expander (costs press latency) or a **quad-PSRAM module (…R2)**, which keeps GPIO35–37 free (trade 8 MB→2 MB PSRAM).
+> ⚠️ **N8R8 budget is tighter than the old "≤36".** The **octal PSRAM claims GPIO35/36/37** (verified in the S3-WROOM-1 datasheet pin table — "not available for other use"), so the module frees only **~33 usable pads**. The v0.19 design sits at **32/33**; the remaining levers are pushing `ENC_SW` onto the expander (costs press latency) or a **quad-PSRAM module (…R2)**, which keeps GPIO35–37 free (trade 8 MB→2 MB PSRAM).
 
 **Peripheral/PWM count is fine (verified vs. the S3 datasheet):** the 8 stepper AIN/BIN go on **MCPWM** (2 units × 3 operators = **12 PWM outputs**; 8 used) — *not* LEDC — leaving **8 LEDC** channels for LED dimming (**2 used** — wake warm/cool). The SK6812 chain rides **RMT** (1 of 4 TX). Knob A/B → **PCNT** (4 units, hardware quadrature, zero CPU). Audio → **I²S0** (of 2). microSD → **SPI2** (sole device since v0.19). Both analog inputs (Vbat, homing) **must land on ADC1 = GPIO1–10** — **ADC2 is unusable while Wi-Fi is active**. **The steppers stay 8 pins** — TB6612FNG driven PWM-on-the-inputs (PWMA/PWMB tied high); the conventional PWM-pin scheme would cost 12.
 
@@ -115,11 +115,12 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 - **Interface:** **3-wire SPI** + DISP/EXTCOMIN/EXTMODE control.
 - **Released:** device spec © 2023 (rev `LD-2023X13`, 01-Nov-2023).
 
-## 2. Espressif ESP32-S3-WROOM-1-N16R8 — Wi-Fi + BLE MCU module *(host)*
+## 2. Espressif ESP32-S3-WROOM-1-N8R8 — Wi-Fi + BLE MCU module *(host)*
 
-- **Product:** ESP32-S3 SoC module, dual-core Xtensa LX7 @ up to 240 MHz, **16 MB flash / 8 MB PSRAM** (`N16R8`), on-board PCB antenna.
-- **Refs:** Part # `ESP32-S3-WROOM-1-N16R8` · Mfr **Espressif** · DigiKey # 16162642.
-- **Price / link:** ~**$6.76** — [DigiKey 16162642](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N16R8/16162642) (active, ships today).
+- **Product:** ESP32-S3 SoC module, dual-core Xtensa LX7 @ up to 240 MHz, **8 MB flash / 8 MB PSRAM** (`N8R8`), on-board PCB antenna.
+- **Refs:** Part # `ESP32-S3-WROOM-1-N8R8` · Mfr **Espressif** · DigiKey # 15295891.
+- **Price / link:** ~**$6.32** — [DigiKey 15295891](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N8R8/15295891) (active, 1,709 in stock 2026-08-06).
+- **Variant note:** the WROOM-1 pad map (Table 3-1) is **identical across every N*/R* SKU** — same 41 pads, same 18.0×25.5×3.1 mm body, same `RF_Module:ESP32-S3-WROOM-1` land. `R8` = 8 MB **Octal** PSRAM, so IO35/36/37 stay reserved exactly as on the ex-N16R8 (datasheet note *b*: "connected to the Octal SPI PSRAM and are not available for other use"), and the R8 ambient range is **−40 ~ 65 °C** (85 °C with PSRAM ECC on, −1/16 usable PSRAM). Only the flash die changes: **16 MB → 8 MB (Quad SPI)**.
 - **Dimensions (W × L × D):** **18.0 × 25.5 × 3.1 mm** (±0.2 / ±0.2 / ±0.15).
 - **Power / IO:**
   - **Voltage:** 3.0–3.6 V (typ 3.3 V). Absolute max 3.6 V, min −0.3 V. External supply ≥ 0.5 A.

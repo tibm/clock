@@ -194,8 +194,14 @@ give them real component spacing without crowding every other block (see
 
 ## Regenerating
 ```
-cd gen && python3 mksym.py && python3 build.py
+cd gen && python3 mksym.py && python3 build.py && python3 stamp_bom.py
 ```
+⚠ **`stamp_bom.py` is not optional.** `build.py` writes the sheet from the
+block code only, which has no BOM fields — every MPN / Manufacturer /
+Package / Description / Notes property is dropped until `stamp_bom.py`
+re-splices them from `parts_db.py` (it also patches the PCB in place, so
+hand-routed copper survives). Skipping it looks like a 7 900-line deletion
+in `git diff clock.kicad_sch`.
 **GUI tuning workflow:** hand-tune symbol/text positions in eeschema, save,
 then `python3 harvest.py` — it re-extracts every symbol's position and
 ref/value text placement into `cosmetics.py`, which `build.py` applies on

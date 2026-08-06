@@ -29,7 +29,7 @@
 
 | Item | Setting |
 |---|---|
-| SoC / module | ESP32-S3-WROOM-1-**N16R8** (16 MB flash, 8 MB octal PSRAM, 3 GPIO consumed by PSRAM) |
+| SoC / module | ESP32-S3-WROOM-1-**N8R8** (8 MB flash, 8 MB octal PSRAM, 3 GPIO consumed by PSRAM) |
 | SDK | ESP-IDF ≥ 5.3 (GCC 13) |
 | Language | C++23, `-fno-exceptions -fno-rtti`; C only inside vendor drivers |
 | Console | **USB-Serial-JTAG only** (IO19/20). No UART is exposed — IO43 carries `I2S_MCLK` |
@@ -85,7 +85,7 @@ CONFIG_BT_NIMBLE_ENABLED=y
 CONFIG_BT_NIMBLE_EXT_ADV=n
 ```
 
-### Partition table (16 MB)
+### Partition table (8 MB)
 
 | Name | Type | Size | Use |
 |---|---|---|---|
@@ -93,9 +93,14 @@ CONFIG_BT_NIMBLE_EXT_ADV=n
 | `nvs_keys` | data/nvs_keys | 4 K | NVS encryption (optional) |
 | `otadata` | data/ota | 8 K | |
 | `phy_init` | data/phy | 4 K | |
-| `ota_0` / `ota_1` | app | 3 M each | A/B OTA with rollback |
 | `coredump` | data/coredump | 128 K | post-mortem, read by `cli` |
-| `assets` | data/littlefs | ~9 M | system sounds, BSEC state, event-trace spill |
+| `ota_0` / `ota_1` | app | 2.5 M each | A/B OTA with rollback |
+| `assets` | data/littlefs | ~2.7 M | system sounds, BSEC state, event-trace spill |
+
+> Resized 2026-08-06 with the **N16R8 → N8R8** module swap (16 MB → 8 MB flash). `coredump`
+> moves ahead of the app slots so `ota_0` starts 64 K-aligned at `0x40000`; the two 2.5 M app
+> slots then run to `0x540000` and `assets` takes the rest of the chip. **An app slot can never
+> be grown by OTA** — if a build approaches 2.5 M, take the space from `assets`, not from `ota_*`.
 
 microSD carries **user** assets only (`/sd/tones/*.wav`); the device must be fully functional with no card.
 

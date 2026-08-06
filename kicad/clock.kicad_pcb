@@ -6745,7 +6745,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "ESP32-S3-WROOM-1-N16R8"
+		(property "Value" "ESP32-S3-WROOM-1-N8R8"
 			(at 0 -14.6 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -6772,7 +6772,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Description" "MODULE ESP32-S3 WIFI/BLE 16MB FLASH 8MB PSRAM"
+		(property "Description" "MODULE ESP32-S3 WIFI/BLE 8MB FLASH 8MB PSRAM"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -6800,7 +6800,7 @@
 				(justify mirror)
 			)
 		)
-		(property "MPN" "ESP32-S3-WROOM-1-N16R8"
+		(property "MPN" "ESP32-S3-WROOM-1-N8R8"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")

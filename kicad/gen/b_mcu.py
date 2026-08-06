@@ -1,4 +1,4 @@
-"""Block: MCU — ESP32-S3-WROOM-1-N16R8 (custom functionally-grouped symbol).
+"""Block: MCU — ESP32-S3-WROOM-1-N8R8 (custom functionally-grouped symbol).
 Straps (EN/IO0 + buttons + PROG header), XTAL32K, decoupling, and labels for
 bus/far nets. SPI/I2S/motor/encoder/INT wires are drawn by their peripheral
 blocks via s.parts["U8"].
@@ -7,10 +7,10 @@ U = 2.54
 
 
 def build(s):
-    s.frame(405, 40, 595, 215, "MCU — ESP32-S3-WROOM-1-N16R8 (Wi-Fi + BLE, native USB-JTAG)")
+    s.frame(405, 40, 595, 215, "MCU — ESP32-S3-WROOM-1-N8R8 (Wi-Fi + BLE, native USB-JTAG)")
 
     U8 = s.comp("U8", "clock:ESP32S3_CLOCK", 525.78, 139.70,
-                value="ESP32-S3-WROOM-1-N16R8",
+                value="ESP32-S3-WROOM-1-N8R8",
                 footprint="RF_Module:ESP32-S3-WROOM-1",
                 refpos=(505.46, 97.79, "left"), valpos=(505.46, 190.50, "left"))
     s.parts["U8"] = U8
@@ -90,5 +90,5 @@ def build(s):
     s.glabel(U8, "26", "WAKE_WARM_PWM")
     s.glabel(U8, "16", "WAKE_COOL_PWM")
 
-    s.text("IO35-37 reserved by the octal PSRAM (N16R8).  Straps: IO0 high; IO45/46 low via", 410, 48, size=1.3)
+    s.text("IO35-37 reserved by the octal PSRAM (N8R8).   Straps: IO0 high; IO45/46 low via", 410, 48, size=1.3)
     s.text("their wake gate nets + internal PD; IO3 internal.  Flash+console+JTAG = USB-CDC (IO19/20).", 410, 53, size=1.3)
