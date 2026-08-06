@@ -180,7 +180,7 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in a0031c9*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
 | 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
 | 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
-| 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **see recommendation below** |
+| 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **placement done** (*Fixed in `3d6d830`*) — `C145` 5.85 → **2.60 mm**, `C146` 5.85 → **1.75 mm**; XTAL_P 9.1 → 5.46 mm, XTAL_N 14.0 → 4.95 mm, B.Cu only, 0 vias, 4 GND vias ringing the pair. Items 2–4 of the recommendation (keep the ABS07, first-article check, FW fallback) still stand |
 
 ### 🔩 Mechanical: hole density and board thickness — assessed 2026-08-04
 
@@ -379,10 +379,28 @@ back-feed. That comment is what would mislead someone into thinking this is safe
 
 **Do the placement fix, keep the part, add a firmware check.** In priority order:
 
-1. **Placement (during the routing pass, ~free).** Move `C145`/`C146` to within ~2 mm of `Y1`'s
-   pins — they are 5.9 mm away today. `Y1` itself is already fine (2.9 / 3.2 mm from the module's
-   XTAL pins). Keep both nets on one layer, no vias, and ring the pair with GND stitching: these
-   are MΩ-impedance nodes and the current layout gives them a large loop next to the switchers.
+1. **Placement (during the routing pass, ~free).** ✅ **Done 2026-08-05 (`3d6d830`).** Move
+   `C145`/`C146` to within ~2 mm of `Y1`'s pins — they are 5.9 mm away today. `Y1` itself is
+   already fine (2.9 / 3.2 mm from the module's XTAL pins). Keep both nets on one layer, no vias,
+   and ring the pair with GND stitching: these are MΩ-impedance nodes and the current layout gives
+   them a large loop next to the switchers.
+
+   | | before | after |
+   |---|---|---|
+   | `C145` pad 2 → `Y1` pin 2 | 5.85 mm | **2.60 mm** |
+   | `C146` pad 2 → `Y1` pin 1 | 5.85 mm | **1.75 mm** |
+   | XTAL_P copper | 9.1 mm | **5.46 mm** |
+   | XTAL_N copper | 14.0 mm | **4.95 mm** |
+   | layers / vias | B.Cu, 0 vias | **B.Cu, 0 vias** ✓ |
+   | GND vias at the caps' return pads | 2.63 / 1.07 mm | **0.62 mm** (4 vias) |
+
+   `C145` sits at (58.90, 18.50) and `C146` at (56.35, 22.11). **This was not two part moves but
+   one delete-place-reroute job**: the XTAL traces were themselves counted as obstacles, yet they
+   existed only to reach the caps' old position, so nothing could fit beside `Y1` until both nets
+   were stripped first. `C145`'s best slot overlapped a hand-drawn 0.1 mm silk mark at
+   (57.00, 16.50)→(58.50, 18.00), so `C145` was nudged clear rather than moving your mark; the
+   reference fields of `Y1`/`C145`/`C146`/`R113` were repositioned into the space the caps vacated,
+   having kept their old offsets.
 2. **Keep the ABS07.** CL 12.5 pF with 18 pF loads gives CL_eff ≈ 12 pF — correct. Its 70 kΩ max
    ESR is *at* Espressif's ceiling, but that is a startup-margin question, not a correctness one,
    and the part is on Espressif's own kind of BOM. Don't respin it speculatively.
@@ -434,6 +452,14 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   run over a slot in their return plane**, including both switch nodes.
 - **2026-08-05** (`8441d29`): **#9 done.** `C238` moved next to U15 — 50.50 → **1.75 mm** to
   the VCC pin, plus 2 GND vias at 0.62 mm. Surfaced the junction-vs-leaf rule above.
+- **2026-08-05** (`3d6d830`): **#24 item 1 done.** Crystal cluster re-placed and re-routed —
+  `C145` 5.85 → 2.60 mm, `C146` 5.85 → 1.75 mm, XTAL_P 9.1 → 5.46 mm, XTAL_N 14.0 → 4.95 mm,
+  B.Cu only with 0 vias, 4 GND vias ringing the pair. Exposed two tooling bugs, both fixed:
+  courtyard collision was tested on **bounding boxes**, and U8's courtyard is a T (module body +
+  antenna keep-out) whose bbox spans x[19.95, 68.05] y[−13.79, 27.50] and swallows the whole
+  crystal corner — every candidate near `Y1` was rejected until it used the real polygon; and a
+  rejected candidate restored the footprint **origin** to the **pad's** coordinates, silently
+  shifting both caps by the pad offset.
 - Three bugs found while building the migration, worth remembering: (a) via clusters were
   committed before the *other* end was known to be placeable, leaving 5 orphan vias; (b) an inner
   stub widened past its original width shorted `M1-2i`, so a stub must keep the original width —
