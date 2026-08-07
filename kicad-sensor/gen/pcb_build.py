@@ -3,6 +3,22 @@ bindings (run under KiCad's bundled interpreter, NOT system python3):
 
     /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 pcb_build.py
 
+╔══════════════════════════════════════════════════════════════════════════╗
+║ HISTORICAL — THIS SCRIPT NO LONGER DESCRIBES sensor.kicad_pcb.           ║
+║ It produced the 2026-07-30 *2-layer, unrouted* placement.  The board on  ║
+║ disk has since been re-placed, taken to **4 layers** and **routed by     ║
+║ hand** (b3fc33e, a020218): 194 track segments, 30 vias, 4 GND pours.     ║
+║ Running this would throw all of that away, so main() refuses to (guard   ║
+║ below, same as ../../kicad/gen/pcb_build.py).                            ║
+║                                                                          ║
+║ The PCB is now HAND-OWNED: make placement/routing changes in pcbnew, and ║
+║ pull schematic edits across with Update PCB from Schematic (F8), which   ║
+║ preserves routing.  The constants below (LAYERS, PLACEMENT,              ║
+║ MOUNTING_HOLES, U2_THERMAL_KEEPOUT, APERTURES) are kept as the record of ║
+║ what was generated, NOT as a description of the current file — see       ║
+║ ../PCB_NOTES.md for the board as built and ../REVIEW.md W1.              ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
 Same contract as the main board (../../kicad/gen/pcb_build.py, see
 ../../kicad/PCB_NOTES.md): the schematic is the single source of truth for
 parts + nets, every part has an explicit hand-chosen position derived from
@@ -761,10 +777,29 @@ def place_ref_labels(fps_all, hard, bodies, labels):
 # B.SilkS is mirrored so it reads correctly when you look at the back.
 BACK_LABELS = [("TO J7", 21.2, 10.3)]
 FRONT_LABELS = [("VENT", 4.3, 7.4), ("ALS", 11.5, 6.6),
-                ("SENSOR v0.19", 22.6, 2.2)]
+                ("SENSE v0.2", 22.6, 2.2)]     # board identity: keep in step
+                                               # with the schematic title
+                                               # block and ../PCB_NOTES.md
 
 
 def main():
+    # ---- DESTRUCTIVE-RUN GUARD (added 2026-08-07, REVIEW.md W1) -----------
+    # CreateEmptyBoard() + board.Save(PCB_OUT) overwrites sensor.kicad_pcb.
+    # Since b3fc33e/a020218 that file has been routed and re-placed by hand
+    # (194 segments, 30 vias, a 4-layer stackup, 4 GND pours) -- none of
+    # which this script can reproduce.  The main board grew the same guard in
+    # its Phase 0; this project never did.
+    if os.environ.get("PCB_BUILD_WIPE_ROUTING") != "1":
+        raise SystemExit(
+            "refusing to run: this would overwrite the routed "
+            "sensor.kicad_pcb.\n"
+            "The board has been routed and re-placed by hand since this "
+            "generator last owned it -- use pcbnew + 'Update PCB from "
+            "Schematic' (F8) instead, which preserves routing.\n"
+            "If you really mean to regenerate the 2-layer placement from "
+            "scratch (and re-route the whole board), re-run with "
+            "PCB_BUILD_WIPE_ROUTING=1.")
+
     net_map = load_netlist(export_netlist())
     parts = load_schematic_parts()
 

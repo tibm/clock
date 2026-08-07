@@ -4,6 +4,11 @@
 `sensor.kicad_sch` md5 `e1f55fe8961e223662f11b4b927c64f0` ·
 `sensor.kicad_pcb` md5 `b02be8381c61b9cc05c338ffa9f0fa76`
 
+> **Status: actioned 2026-08-07 — the board is now v0.2.** See
+> [*Actioned*](#-actioned-2026-08-07--board-is-now-v02) below for what happened
+> to each finding; two of them (#2, #15) did not survive verification and are
+> recorded as such. The rest of this file is the review as originally written.
+
 **Scope:** functional/electrical correctness of the sensor daughterboard's schematic and
 PCB, cross-checked against `datasheet/sensor_imu_bno085.pdf`, `sensor_env_bme688.pdf`,
 `sensor_light_tsl2591.pdf`, `connector_jst_zh.pdf`, and against the main board's J7.
@@ -22,6 +27,54 @@ three groups: **one fail-safe change worth making before the BOM goes out**, a h
 of **fab-package and mechanical items**, and a **documentation gap** — the board was
 hand-routed and moved to 4 layers on 2026-08-02, and `PCB_NOTES.md` / `README.md`
 still describe the 2-layer unrouted board that no longer exists.
+
+---
+
+# ✅ Actioned 2026-08-07 — board is now **v0.2**
+
+Everything below the line is the review **as written on 2026-08-05**; it is
+kept verbatim as the record. This section is what happened to it.
+
+**Verification after the pass:** `kicad-cli sch erc` **0 violations** (with
+*"Global label only appears once"* re-enabled) · `kicad-cli pcb drc
+--severity-all` **0 violations, 0 unconnected, 0 parity** · `gen/pcb_check.py`
+**33/33** (re-baselined — see #6/#9/#15) · `stamp_bom.py` idempotent.
+
+| # | Outcome |
+|---|---|
+| **W1** | ✅ Guard added to `gen/pcb_build.py` — it now refuses to run without `PCB_BUILD_WIPE_ROUTING=1`, with a banner saying the file is historical. |
+| **W2** | ✅ `PCB_NOTES.md` rewritten for the 4-layer routed board; `README.md` re-baselined. |
+| **W3** | ✅ Documented; `build.py` → `stamp_bom.py` re-run and verified idempotent. |
+| **W4** | ✔ Not needed — with `pcb_build.py` retired the path is pcbnew + F8, now written up in both docs. |
+| **1** | ✅ `R3`/`R4`/`R10`/`R11` **0 Ω → 10 k** in `b_imu.py`/`b_env.py`, rebuilt, re-stamped, and the PCB `Value` fields updated to match. Worst case is now 330 µA. |
+| **2** | ⚠ **Checked and deliberately not actioned.** `B6B-ZR-3.4(LF)(SN)` is Active but **not stocked** — DigiKey `455-B6B-ZR-3.4-ND`: made to order, **MOQ 2,000, 16-week lead** — against 9,478 pcs of the 2.7 mm part at MOQ 1 (verified 2026-08-07). It is not the free BOM-line change this finding assumed. 2.7 mm through 1.6 mm leaves 1.1 mm protruding, which is a normal fully-wetted TH joint, so the deviation is **accepted and recorded** in both `parts_db.py`s, `PCB_NOTES.md` ×2 and the root `README.md`. Same for the main board's J7 **and J10/J11**, which this finding did not mention. |
+| **3** | ⏸ Priced-decision deferred; the third operation and the `B6B-ZR-SM4-TF` alternative are now written into `parts_db.py`, `README.md` §Assembly and `PCB_NOTES.md`. |
+| **4** | ⏸ The connector stays 1×06 for v0.2 (see the recommendation at the foot of this file). Mitigations landed: the hazard is now a **warning block on the schematic sheet** next to J1, a ⚠ section in `README.md` covering *both* the reversed cable and the J10 mis-mate, and a note on J10's own BOM line. |
+| **5** | ✅ **Bosch publishes no BME688 HSMI** (verified: `bst-bme688-hs000.pdf` 404s and the product page lists flyer/datasheet/app-note/packaging only). The **BME680 HSMI** — same LGA-8 3×3, same Ø0.35 mm lid vent, same MOX element — is filed as `datasheet/sensor_env_bme68x_hsmi.pdf` (+ the BME68x packaging doc), indexed as rows 44/45, and its rules (MSL 1 · 260 °C 20–40 s · ≤3 reflows · **≥50 µm solder height** · vent covered for any wash · **no siloxanes**) are now in `README.md` §Assembly, on the schematic sheet and in `datasheet/README.md` §12. |
+| **6** | ✅ `PCB_NOTES.md` rewritten from measurements; `pcb_check.py` re-baselined. |
+| **7** | ✅ Island copper **20.98 → 18.21 mm** (17.5 % → 15.2 %); the GND share **8.76 → 5.99 mm**. The daisy-chain that ran 4.74 mm down the inside of the island is gone: C4.2 now goes north into C3.2's pad (1.40 mm inside) and C7.2 takes a 45° exit (0.57 mm inside). ⚠ The suggested fix as written was not possible — a 1 mm eastward move puts C4 inside U1's courtyard and C7 inside Y1's. |
+| **8** | ⏸ **Partly.** C4/C7 moved **+0.175 mm east**, all that U1 (0.245 mm left) and Y1 (0.595 mm) allow. That restored requirement 5 ("nothing on the back behind U2", which had been failing by 0.08 mm) and cut the intrusion to 0.36 / 0.44 mm. Residual accepted: the enclosure vent wants to be an open aperture in front of the board, not a through-feature gasketed flat against the back. |
+| **9** | ✅ Re-baselined, not waived. `pcb_check.py` now judges clearance on **pad-to-pad copper** — the number that decides bridging and rework room — which is **≥ 0.60 mm on every pair**. The six sub-0.22 mm *courtyard* pairs are named, measured and justified individually in `COURTYARD_TIGHT`, and the check fails if a new one appears or if any listed pair's copper closes up. |
+| **10** | ✅ All five hidden references (`TP1`, `U1`, `C8`, `R1`, `C11`) un-hidden and placed; the four stray free silk texts deleted. Only `H1`/`H2` are hidden now, deliberately, and `pcb_check.py` asserts exactly that. |
+| **11** | ✅ One scheme, three places: PCB **title block** added (`rev v0.2`, 2026-08-07), schematic title block `rev "A"` → **`v0.2`**, F.Silk `SENSE v0.1` → **`SENSE v0.2`**. `pcb_check.py` now fails if the three ever disagree. |
+| **12** | ⏸ Recorded as an accepted deviation in `PCB_NOTES.md` for a future re-lay. In1 is the reference plane (one unbroken 339 mm² island); In2 is 38 % under U1. |
+| **13** | ✅ `FIRMWARE.md` §6.5 **R-BOARD-4** — `GPPU.3 = 1` on the MCP23017. Also noted in `b_als.py`, `build.py`'s sheet notes and `README.md`. |
+| **14** | ✅ The `ALS` legend moved out of the window, and U3's silk fixed **properly**: a project-local fork `sensor:AMS_TSL25911FN_ALSWindow` (identical pads/courtyard/F.Fab, no F.Silk outline, pin-1 marker moved outboard) rather than a hand-edit, so *Update Footprints from Library* cannot undo it and DRC does not carry a permanent `lib_footprint_mismatch`. `pcb_check.py` asserts nothing is inside the window, on copper or silk. |
+| **15** | ⚠ **The measurement was wrong — there is no overhang.** `hypot(hole, arc_centre) − arc_r` under-reports, because a rounded corner curves *away* from a part sitting inboard of it. Measured against the real Edge.Cuts geometry, the nearest board edge is **3.00 mm** from each hole centre, so the Ø4.95 mm washer keepout sits **0.53 / 0.52 mm inside the board** and the hole wall is **1.90 mm** from the edge. Nothing to fix; `pcb_check.py` now measures it properly (`edge_distance()`) and checks the wall, the washer and the emptiness of both keepouts. |
+| **16** | ✅ `git rm --cached kicad-sensor/~*.lck`. |
+| **17** | ✅ `single_global_label` back to `warning` in `sensor.kicad_pro`; ERC still 0. |
+| **18** | ✅ Both comments corrected — `CLKSEL0` is a bare wire to GND, in `b_imu.py`'s docstring and `README.md`. No resistor added. |
+| **19** | ✅ `kicad/REVIEW.md` now says **0x77**. |
+
+**New, found during the pass:** a re-route sealed off a 0.3 mm² pocket of B.Cu
+pour and a GND stub dead-ended in it — DRC saw it only as one *unconnected
+item*, and only after a refill. `pcb_check.py` now tests every filled island
+for a pad or via of its own net. Separately, `gen/pcb_fill.py` was silently
+clobbering `sensor.kicad_pro` (and with it the ERC configuration) on every
+run, because `board.Save()` rewrites that file; it now restores it, as
+`pcb_canon.py` already did.
+
+---
 
 ## Verification baseline
 

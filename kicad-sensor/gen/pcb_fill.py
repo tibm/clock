@@ -13,15 +13,29 @@ import sys
 
 import pcbnew
 
-PCB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                   "sensor.kicad_pcb")
+SENSOR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PCB = os.path.join(SENSOR_DIR, "sensor.kicad_pcb")
+PROJECT = os.path.join(SENSOR_DIR, "sensor.kicad_pro")
 
 
 def main():
+    # board.Save() rewrites the sibling .kicad_pro from pcbnew's own model,
+    # dropping every eeschema-only key (ERC severities, bom presets, ngspice).
+    # pcb_build.py merges those back afterwards; run standalone -- which is
+    # now the normal case, since the board is hand-owned -- nothing did, and
+    # the ERC config quietly reverted.  Filling zones changes no project
+    # setting, so keep the file byte-for-byte (same idiom as pcb_canon.py).
+    keep = open(PROJECT, "rb").read() if os.path.exists(PROJECT) else None
+
     board = pcbnew.LoadBoard(PCB)
     zones = board.Zones()
     pcbnew.ZONE_FILLER(board).Fill(zones)
     board.Save(PCB)
+
+    if keep is not None and open(PROJECT, "rb").read() != keep:
+        open(PROJECT, "wb").write(keep)
+        print("  sensor.kicad_pro restored (board.Save rewrote it)")
+
     for z in zones:
         if z.GetIsRuleArea():
             continue

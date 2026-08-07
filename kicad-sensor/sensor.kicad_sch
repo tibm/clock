@@ -6,8 +6,8 @@
 	(paper "A3")
 	(title_block
 		(title "Wooden Smart Clock — sensor board")
-		(date "2026-07-29")
-		(rev "A")
+		(date "2026-08-07")
+		(rev "v0.2")
 	)
 	(lib_symbols
 		(symbol "Connector:TestPoint"
@@ -2638,28 +2638,6 @@
 		)
 		(uuid "fcdc71ab-ae23-5567-a92a-71e05424bc5e")
 	)
-	(text "       harness (B6B-ZR both ends, 1:1).  Rails: +3V3 and GND arrive on the cable; no regulator here."
-		(exclude_from_sim no)
-		(at 154 200.6 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "008df732-9120-534e-9481-1c81803fa23e")
-	)
-	(text ""
-		(exclude_from_sim no)
-		(at 154 205.2 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "04e5a8fe-0212-5790-a195-6e15fbff0d85")
-	)
 	(text "STRETCHES SCL (§1.2.2.1) and would stall the whole shared bus (BME688/TSL2591/MCP23017)."
 		(exclude_from_sim no)
 		(at 161.29 176.5 0)
@@ -2694,38 +2672,105 @@
 		)
 		(uuid "096f3f2f-0c4d-58a1-8e4b-a5ab495393a5")
 	)
-	(text "IRQ    J7.5 SENSOR_INT = BNO085 H_INTN only (push-pull, active low; main-board R97 10k holds it high"
+	(text "J1.5 then receives J7.2 +3V3 while this board's VDDIO is 0 V.  BNO08X abs max (Fig. 6-1) is \"VDDIO"
 		(exclude_from_sim no)
-		(at 154 246.6 0)
+		(at 14 107.4 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.15 1.15)
 			)
 			(justify left)
 		)
-		(uuid "228f78a7-dcac-5a32-baa6-daa9af492ca5")
+		(uuid "0cdd2bf3-35fe-5129-b0e9-37ccb46b2a32")
 	)
-	(text "       when the harness is unplugged).  J7.6 ALS_INT = TSL2591 INT, open drain, pulled up by R12 here —"
+	(text "       Rules are Bosch's HSMI, which §7.7 defers to: ../datasheet/sensor_env_bme68x_hsmi.pdf (no BME688-"
 		(exclude_from_sim no)
-		(at 154 251.2 0)
+		(at 154 243.25 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "3ccf6115-b1e3-5dc1-9c16-6c6f419f702d")
+		(uuid "19139900-8bb8-5c0f-a26e-152afe4db458")
 	)
-	(text "       its pads sit ~0.10-0.13 mm further out than CEVA's drawing.  Numbering/arrangement do match."
+	(text "ASSEMBLY  All three sensors are LEADLESS (LGA-28 / LGA-8 / DFN-6) — this board CANNOT be hand-soldered"
 		(exclude_from_sim no)
-		(at 154 269.6 0)
+		(at 154 212.75 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "50017a64-7a5f-51da-9f19-8e291fa5efc7")
+		(uuid "19b67c99-da3e-59d5-97af-b639b7d60d84")
+	)
+	(text "       reflows — price that before committing, it is usually quoted per board, not per joint."
+		(exclude_from_sim no)
+		(at 154 224.95 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "25306495-9c05-5030-8ac2-44ca06917043")
+	)
+	(text "       fab-assembled (or stencil + hotplate).  The main board's hand-solder-only rule does not apply here."
+		(exclude_from_sim no)
+		(at 154 218.85 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "38cc6c7b-2905-55b0-a37e-f929dd51ad32")
+	)
+	(text "5 V on +3V3 and takes all three sensors at once.  Label both cables; check before first power-up."
+		(exclude_from_sim no)
+		(at 14 116.1 0)
+		(effects
+			(font
+				(size 1.15 1.15)
+			)
+			(justify left)
+		)
+		(uuid "396df1de-6b49-5dec-aeaa-b107310caad9")
+	)
+	(text "BOARD  Small daughterboard on the cube's front/underside, tied to main-board J7 by a 6-way JST ZH"
+		(exclude_from_sim no)
+		(at 154 197.5 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "3a7649b2-0814-55d5-9051-ba89c044d2d1")
+	)
+	(text "HARNESS POLARITY IS A DESTRUCTIVE FAULT"
+		(exclude_from_sim no)
+		(at 14 100 0)
+		(effects
+			(font
+				(size 1.6 1.6)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "4ac95078-c3d7-5901-a83f-ff52e15e88c8")
+	)
+	(text "       baseline forever.  MSL 1 (no bake), peak reflow 260 C (§7.6), and >= 50 um solder height AFTER"
+		(exclude_from_sim no)
+		(at 154 234.1 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "50494914-652d-55dd-99f9-5f9eb23f5473")
 	)
 	(text "Read the BNO085 only when SENSOR_INT is asserted: on a poll with no data ready it"
 		(exclude_from_sim no)
@@ -2738,16 +2783,16 @@
 		)
 		(uuid "518bdb62-a473-5f17-bf13-ac5f32eeee78")
 	)
-	(text "       the main board leaves that pin unconnected today, so it is a wire-in-place-for-later."
+	(text "       16 wk), and 2.7 mm leaves 1.1 mm protruding, which solders fine.  Deviation accepted 2026-08-07."
 		(exclude_from_sim no)
-		(at 154 255.8 0)
+		(at 154 206.65 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "5c2fa9af-37e9-53af-8959-aa169ac9150f")
+		(uuid "52000507-d487-5ce6-ac80-8fb3f767ba99")
 	)
 	(text "AMBIENT LIGHT — TSL2591 (I2C 0x29)"
 		(exclude_from_sim no)
@@ -2761,18 +2806,7 @@
 		)
 		(uuid "5c8c826a-ae4c-550b-9482-8ce6d6930d33")
 	)
-	(text "       Pull-ups: 4.7k on the main board + R1/R2 10k here ~= 3.2k effective."
-		(exclude_from_sim no)
-		(at 154 237.4 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "5f701c3d-14d9-5d3b-84c8-90f8e1e9bba7")
-	)
-	(text "Harness must be 1:1 (pin n <-> pin n), NOT reversed."
+	(text "Harness must be 1:1 (pin n <-> pin n), NOT reversed — see below."
 		(exclude_from_sim no)
 		(at 58 90.5 0)
 		(effects
@@ -2782,6 +2816,28 @@
 			(justify left)
 		)
 		(uuid "5f8101e0-8cc0-53b3-8fd7-c45dc7d44c3a")
+	)
+	(text "       TSL2591 0x29 (fixed).  No clash with the main board's MCP23017 (0x20) or the amp (0x62/0x63)."
+		(exclude_from_sim no)
+		(at 154 255.45 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "6252726b-bc75-512f-9a8a-e032fd959f9a")
+	)
+	(text "I2C    One bus, three addresses: BNO085 0x4A (R3; R4 -> 0x4B) - BME688 0x77 (R10; R11 -> 0x76) -"
+		(exclude_from_sim no)
+		(at 154 252.4 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "637cc602-35e9-5736-97d9-df3c59d5a6e6")
 	)
 	(text "IMU — BNO085 (I2C 0x4A, H_INTN -> SENSOR_INT)"
 		(exclude_from_sim no)
@@ -2795,27 +2851,104 @@
 		)
 		(uuid "65613416-af33-5142-bd63-e68ff93c2d9e")
 	)
-	(text "I2C    One bus, three addresses: BNO085 0x4A (R3; R4 -> 0x4B) - BME688 0x77 (R10; R11 -> 0x76) -"
+	(text ""
 		(exclude_from_sim no)
-		(at 154 228.2 0)
+		(at 154 267.65 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "65870eb9-d68c-509b-b358-202fb4661a7e")
+		(uuid "69ea0480-a4a8-5ec4-b5a5-17cb88e84e3c")
+	)
+	(text "       specific HSMI is published; the BME680 one is the same package, lid vent and MOX element)."
+		(exclude_from_sim no)
+		(at 154 246.3 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "6e2e070a-21a4-530e-8c27-678549dfd9a1")
+	)
+	(text "U2 HANDLING (BME688)  A metal-oxide gas hotplate does not fail when mishandled, it reads a wrong VOC"
+		(exclude_from_sim no)
+		(at 154 231.05 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "766a0e37-4fed-5523-94ae-b580093708d7")
+	)
+	(text "       J1 is the ONLY through-hole part: it needs a third operation (selective/hand solder) after both"
+		(exclude_from_sim no)
+		(at 154 221.9 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "770e2741-fa26-539a-b8ba-970e8de543e6")
+	)
+	(text "       Address straps are 10k, not 0R: R3+R4 or R10+R11 fitted TOGETHER would otherwise short the main"
+		(exclude_from_sim no)
+		(at 154 258.5 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "79fd03e9-ed03-5875-9797-99bea6fc612a")
+	)
+	(text "       harness (B6B-ZR both ends, 1:1).  +3V3 and GND arrive on the cable; there is no regulator here."
+		(exclude_from_sim no)
+		(at 154 200.55 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "806ebd61-876b-55a4-850c-a1ba3a2e0d86")
+	)
+	(text "       Tail: JST specs the 3.4 mm variant for a 1.6 mm board, but B6B-ZR-3.4 is made-to-order (MOQ 2000,"
+		(exclude_from_sim no)
+		(at 154 203.6 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "8593e1cf-30ed-542d-bdc0-eb944e653c3f")
+	)
+	(text "IRQ    J7.5 SENSOR_INT = BNO085 H_INTN only (push-pull, active low; main-board R97 10k holds it high"
+		(exclude_from_sim no)
+		(at 154 270.7 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "86d85163-d539-5a10-97df-999475bb71c3")
 	)
 	(text ""
 		(exclude_from_sim no)
-		(at 154 242 0)
+		(at 154 249.35 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "6ff4fd85-f679-5ca4-a546-9d1f026d6677")
+		(uuid "8d781d20-6b98-5498-947e-3d76ad5f1f88")
 	)
 	(text "Gas sensor: needs ambient air and distance from self-heating parts;"
 		(exclude_from_sim no)
@@ -2839,28 +2972,6 @@
 		)
 		(uuid "8fdd6593-ca6a-5d0d-8752-01ba65983b22")
 	)
-	(text "BOARD  Small daughterboard on the cube's front/underside, tied to main-board J7 by a 6-way JST ZH"
-		(exclude_from_sim no)
-		(at 154 196 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "9894f4aa-5eb9-5c7f-b86c-027ced79cad7")
-	)
-	(text "       fab-assembled (or stencil + hotplate).  The main board's hand-solder-only rule does not apply here."
-		(exclude_from_sim no)
-		(at 154 219 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "9aec3fc9-b478-5ffa-bca8-90685d6ce95f")
-	)
 	(text "HOST LINK  (J1 -> main-board J7, JST ZH 1x06)"
 		(exclude_from_sim no)
 		(at 14.5 30.2 0)
@@ -2873,16 +2984,27 @@
 		)
 		(uuid "9c00d84c-6b86-594b-bc39-3358dd201472")
 	)
-	(text "BEFORE FAB  Check the stock LGA-28 land (generic IPC pattern) against BNO08X datasheet Fig. 7-2:"
+	(text "       with an iron and is the 'path 2b' SMT-assembled daughterboard of datasheet/README.md.  Order it"
 		(exclude_from_sim no)
-		(at 154 265 0)
+		(at 154 215.8 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "a14f3f70-764d-544d-9946-78f8cd5554f2")
+		(uuid "a714130a-2e72-5642-85a2-30f2454b9e82")
+	)
+	(text "       NO aqueous wash, no flux over the port, no conformal coat, no silicone/siloxane exposure.  Bosch's"
+		(exclude_from_sim no)
+		(at 154 240.2 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "a9436d80-af6f-5ec0-813a-35e27a21598e")
 	)
 	(text "Clear window / no shadow over U3; keep it off-axis from the dial LEDs."
 		(exclude_from_sim no)
@@ -2894,6 +3016,17 @@
 			(justify left)
 		)
 		(uuid "aedd4aed-2684-53de-8d8a-4e8f7c048852")
+	)
+	(text "Both ends are ZHR-6 and J1 mirrors J7 1:1, so a cable loaded BACKWARDS plugs in perfectly — and"
+		(exclude_from_sim no)
+		(at 14 104.5 0)
+		(effects
+			(font
+				(size 1.15 1.15)
+			)
+			(justify left)
+		)
+		(uuid "b0b1be86-ce8e-5a35-9f3b-5a0aadf3162a")
 	)
 	(text "CONFIG STRAPS  (BNO_* nets join by name)"
 		(exclude_from_sim no)
@@ -2907,16 +3040,38 @@
 		)
 		(uuid "b0f51847-b021-5d1c-86ea-6ad700ddc7c1")
 	)
-	(text ""
+	(text "       (GPPU.3 = 1) so that pin does not float when this board is unplugged.  See FIRMWARE.md §6.5."
 		(exclude_from_sim no)
-		(at 154 223.6 0)
+		(at 154 279.85 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "bd1c3d55-0684-5672-afc7-e2a5bd894e0d")
+		(uuid "b2f4744f-f13b-5dfc-ab0c-200cf35a7e42")
+	)
+	(text ""
+		(exclude_from_sim no)
+		(at 154 209.7 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "b4467b57-7d8e-58aa-a640-a91cd606f236")
+	)
+	(text "+ 0.3 V at any logic pin\", series-limited only by the main board's R97 10k: assume U1 is destroyed."
+		(exclude_from_sim no)
+		(at 14 110.3 0)
+		(effects
+			(font
+				(size 1.15 1.15)
+			)
+			(justify left)
+		)
+		(uuid "be535633-eb5b-5165-bd59-3b7cf013ad27")
 	)
 	(text "NOTES"
 		(exclude_from_sim no)
@@ -2930,49 +3085,82 @@
 		)
 		(uuid "be68936f-b408-5367-b3a9-b6cc5fe2c868")
 	)
+	(text "       and only here — it lands on main-board MCP23017 GPB3, which must enable its internal pull-up"
+		(exclude_from_sim no)
+		(at 154 276.8 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "d3295ecc-3dd1-589b-ae1e-01b65f9a83f1")
+	)
+	(text "J10 (knob) is the SAME ZH 1x06 header 13.5 mm from J7, with +5 V on pin 2 — that mis-mate puts"
+		(exclude_from_sim no)
+		(at 14 113.2 0)
+		(effects
+			(font
+				(size 1.15 1.15)
+			)
+			(justify left)
+		)
+		(uuid "d59b7248-5c83-55bc-a219-e777e59e1202")
+	)
+	(text "       when the harness is unplugged).  J7.6 ALS_INT = TSL2591 INT, open drain, pulled up by R12 HERE"
+		(exclude_from_sim no)
+		(at 154 273.75 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "d697a603-87ed-5c2f-a1cc-fee17fe107b4")
+	)
+	(text "       Bus pull-ups: 4.7k on the main board + R1/R2 10k here ~= 3.2k effective."
+		(exclude_from_sim no)
+		(at 154 264.6 0)
+		(effects
+			(font
+				(size 1.2 1.2)
+			)
+			(justify left)
+		)
+		(uuid "e1f26580-b707-5909-ac9c-d3742766075a")
+	)
 	(text ""
 		(exclude_from_sim no)
-		(at 154 260.4 0)
+		(at 154 228 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "c32478ea-b55f-5a71-aed3-57d8ac5b61fa")
+		(uuid "e44e39c3-6663-5ff5-aaac-07261f83d28e")
 	)
-	(text "ASSEMBLY  All three sensors are LEADLESS (LGA-28 / LGA-8 / DFN-6) — this board CANNOT be hand-soldered"
+	(text "       board's +3V3 to GND.  Fit exactly one of each pair; the alternates are flagged DNP."
 		(exclude_from_sim no)
-		(at 154 209.8 0)
+		(at 154 261.55 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "c4c9791d-c413-5daf-9002-0e0d5323a948")
+		(uuid "f5d94a1d-6589-5915-86f2-ece8c5cda227")
 	)
-	(text "       TSL2591 0x29 (fixed).  No clash with the main board's MCP23017 (0x20) or the amp (0x62/0x63)."
+	(text "       reflow (§7.7, for mechanical decoupling) — that is a stencil-thickness decision, not a layout one."
 		(exclude_from_sim no)
-		(at 154 232.8 0)
+		(at 154 237.15 0)
 		(effects
 			(font
-				(size 1.3 1.3)
+				(size 1.2 1.2)
 			)
 			(justify left)
 		)
-		(uuid "c87fb4ff-65c9-5d83-a56d-fb8cce33511f")
-	)
-	(text "       with an iron and is the 'path 2b' SMT-assembled daughterboard of datasheet/README.md.  Order it"
-		(exclude_from_sim no)
-		(at 154 214.4 0)
-		(effects
-			(font
-				(size 1.3 1.3)
-			)
-			(justify left)
-		)
-		(uuid "d6c8e204-33c3-5ed3-910e-f669c8f1851a")
+		(uuid "f642e497-90ed-54cb-9a77-7049850a4bee")
 	)
 	(junction
 		(at 226.06 107.95)
@@ -6501,7 +6689,7 @@
 				)
 			)
 		)
-		(property "Package" "JST ZH 1.50mm 6-pos TH vertical"
+		(property "Package" "JST ZH 1.50mm 6-pos TH vertical, 2.7mm tail"
 			(at 95.25 46.99 0)
 			(hide yes)
 			(show_name no)
@@ -6534,7 +6722,7 @@
 				)
 			)
 		)
-		(property "Notes" "Mates main-board J7 1:1 over the 6-way ZH harness (same part both ends). The only through-hole part on this board — hand-solder it after reflow, or have it fitted as a second operation"
+		(property "Notes" "DigiKey 455-B6B-ZR-ND — $0.24, Active, 9,478 pcs (2026-08-07). Mates main-board J7 1:1 over the 6-way ZH harness (same part both ends); ZHR-6 housing + A06ZR pre-crimped cable. JST specs the 3.4 mm tail (B6B-ZR-3.4) for 1.6 mm board thickness, but that variant is made-to-order only (MOQ 2,000, 16 wk) — 2.7 mm leaves 1.1 mm protruding here, which solders fine; deviation accepted, see ../PCB_NOTES.md. The only through-hole part on this board — hand-solder it after reflow, or have it fitted as a third operation"
 			(at 95.25 46.99 0)
 			(hide yes)
 			(show_name no)
@@ -7765,7 +7953,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0R (DNP)"
+		(property "Value" "10k (DNP)"
 			(at 113.476 151.26 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7798,7 +7986,7 @@
 				)
 			)
 		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 111.76 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -7820,7 +8008,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0603JR-070RL"
+		(property "MPN" "RC0603FR-0710KL"
 			(at 111.76 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -7842,7 +8030,7 @@
 				)
 			)
 		)
-		(property "Notes" "DO NOT POPULATE — alternate BME688 address strap — fit INSTEAD OF R10 for 0x76 (both fitted = +3V3 shorted to GND through 0 ohm)"
+		(property "Notes" "DO NOT POPULATE — alternate BME688 address strap — fit INSTEAD OF R10 for 0x76 (both fitted = +3V3 to GND through 20k, 330 uA, wrong address)"
 			(at 111.76 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -8357,7 +8545,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "OptoDevice:AMS_TSL25911FN"
+		(property "Footprint" "sensor:AMS_TSL25911FN_ALSWindow"
 			(at 63.5 228.6 0)
 			(hide yes)
 			(show_name no)
@@ -8711,7 +8899,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0R"
+		(property "Value" "10k"
 			(at 175.706 151.26 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8744,7 +8932,7 @@
 				)
 			)
 		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 173.99 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -8766,7 +8954,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0603JR-070RL"
+		(property "MPN" "RC0603FR-0710KL"
 			(at 173.99 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -11250,7 +11438,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0R (DNP)"
+		(property "Value" "10k (DNP)"
 			(at 163.006 151.26 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11283,7 +11471,7 @@
 				)
 			)
 		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 161.29 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -11305,7 +11493,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0603JR-070RL"
+		(property "MPN" "RC0603FR-0710KL"
 			(at 161.29 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -11327,7 +11515,7 @@
 				)
 			)
 		)
-		(property "Notes" "DO NOT POPULATE — alternate BNO085 address strap — fit INSTEAD OF R3 for 0x4B (both fitted = +3V3 shorted to GND through 0 ohm)"
+		(property "Notes" "DO NOT POPULATE — alternate BNO085 address strap — fit INSTEAD OF R3 for 0x4B (both fitted = +3V3 to GND through 20k, 330 uA, wrong address)"
 			(at 161.29 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -11621,7 +11809,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0R"
+		(property "Value" "10k"
 			(at 100.776 143.64 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11654,7 +11842,7 @@
 				)
 			)
 		)
-		(property "Description" "RES 0 OHM JUMPER 1/10W 0603"
+		(property "Description" "RES 10K OHM 1% 1/10W 0603"
 			(at 99.06 142.24 0)
 			(hide yes)
 			(show_name no)
@@ -11676,7 +11864,7 @@
 				)
 			)
 		)
-		(property "MPN" "RC0603JR-070RL"
+		(property "MPN" "RC0603FR-0710KL"
 			(at 99.06 142.24 0)
 			(hide yes)
 			(show_name no)

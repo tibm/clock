@@ -1105,7 +1105,9 @@ the loop tight if the area is ever re-laid.
   BOOST12_EN, SPK_SD and both wake-LED gates.
 - **I²C** — one 4.7 k pull-up pair on the main board, 10 k on the sensor board →
   3.2 kΩ effective, t_r ≈ 271 ns (inside Fast Mode); no address collisions
-  (0x20 / 0x6C / 0x76 / 0x29 / 0x4A).
+  (0x20 / 0x6C / **0x77** / 0x29 / 0x4A). *(BME688 corrected from 0x76 on
+  2026-08-07 — `R10` straps `SDO` high, so the part answers at 0x77;
+  `kicad-sensor/REVIEW.md` #19. No collision either way.)*
 - **BOM sanity** — BAT46W-E3-08 really is SOD-123; XGL5050 on the XAL5050 land
   (already verified in `parts_db.py`); TCO rated 250 V/15 A; all four J1 VBUS pads and
   all GND pads netted; cap voltage ratings correct (25 V on the 12 V rail, 50 V on the

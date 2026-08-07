@@ -65,5 +65,18 @@ def build(s):
 
     s.text("Rails are fed by the main board — the flags only tell ERC so.",
            58, 86, size=1.3)
-    s.text("Harness must be 1:1 (pin n <-> pin n), NOT reversed.",
+    s.text("Harness must be 1:1 (pin n <-> pin n), NOT reversed — see below.",
            58, 90.5, size=1.3)
+
+    # The one hazard this 6-way connector cannot be keyed out of; it belongs
+    # on the printed sheet, not only in the README (REVIEW.md #4).
+    s.text("HARNESS POLARITY IS A DESTRUCTIVE FAULT", 14, 100, size=1.6,
+           bold=True)
+    for i, t in enumerate([
+        "Both ends are ZHR-6 and J1 mirrors J7 1:1, so a cable loaded BACKWARDS plugs in perfectly — and",
+        "J1.5 then receives J7.2 +3V3 while this board's VDDIO is 0 V.  BNO08X abs max (Fig. 6-1) is \"VDDIO",
+        "+ 0.3 V at any logic pin\", series-limited only by the main board's R97 10k: assume U1 is destroyed.",
+        "J10 (knob) is the SAME ZH 1x06 header 13.5 mm from J7, with +5 V on pin 2 — that mis-mate puts",
+        "5 V on +3V3 and takes all three sensors at once.  Label both cables; check before first power-up.",
+    ]):
+        s.text(t, 14, 104.5 + i * 2.9, size=1.15)

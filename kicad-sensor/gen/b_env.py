@@ -42,10 +42,15 @@ def build(s):
     # R10 fitted -> VDDIO -> 0x77, matching the Adafruit 5046 STEMMA-QT board
     # used for bring-up, so firmware ported from it needs no change.
     # Move to R11 for 0x76 (Bosch's own "default address").
+    # 10k, NOT 0R (v0.2, REVIEW.md #1): R10+R11 fitted together would tie the
+    # MAIN board's +3V3 to GND through 0 ohm.  10k turns that assembly slip
+    # into 330 uA.  SDO is address-select only in I2C mode -- Table 26 lists
+    # it as "GND for default address" and it is never driven -- and 10k is
+    # what the Adafruit 5046 breakout this design copies uses.
     s.pw(U2, "5", ("x", 111.76))
-    R10 = s.R("R10", 99.06, 142.24, "0R")
+    R10 = s.R("R10", 99.06, 142.24, "10k")
     s.rail(R10, "1", "+3V3", rise=2.54)
-    R11 = s.R("R11", 111.76, 149.86, "0R (DNP)")
+    R11 = s.R("R11", 111.76, 149.86, "10k (DNP)")
     s.gnd(R11, "2", drop=0)
 
     s.text("Gas sensor: needs ambient air and distance from self-heating parts;", 15, 176, size=1.3)

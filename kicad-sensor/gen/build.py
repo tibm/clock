@@ -42,32 +42,47 @@ def notes(s):
     s.frame(150, 188, 410, 285, "NOTES")
     L = [
         "BOARD  Small daughterboard on the cube's front/underside, tied to main-board J7 by a 6-way JST ZH",
-        "       harness (B6B-ZR both ends, 1:1).  Rails: +3V3 and GND arrive on the cable; no regulator here.",
+        "       harness (B6B-ZR both ends, 1:1).  +3V3 and GND arrive on the cable; there is no regulator here.",
+        "       Tail: JST specs the 3.4 mm variant for a 1.6 mm board, but B6B-ZR-3.4 is made-to-order (MOQ 2000,",
+        "       16 wk), and 2.7 mm leaves 1.1 mm protruding, which solders fine.  Deviation accepted 2026-08-07.",
         "",
         "ASSEMBLY  All three sensors are LEADLESS (LGA-28 / LGA-8 / DFN-6) — this board CANNOT be hand-soldered",
         "       with an iron and is the 'path 2b' SMT-assembled daughterboard of datasheet/README.md.  Order it",
         "       fab-assembled (or stencil + hotplate).  The main board's hand-solder-only rule does not apply here.",
+        "       J1 is the ONLY through-hole part: it needs a third operation (selective/hand solder) after both",
+        "       reflows — price that before committing, it is usually quoted per board, not per joint.",
+        "",
+        "U2 HANDLING (BME688)  A metal-oxide gas hotplate does not fail when mishandled, it reads a wrong VOC",
+        "       baseline forever.  MSL 1 (no bake), peak reflow 260 C (§7.6), and >= 50 um solder height AFTER",
+        "       reflow (§7.7, for mechanical decoupling) — that is a stencil-thickness decision, not a layout one.",
+        "       NO aqueous wash, no flux over the port, no conformal coat, no silicone/siloxane exposure.  Bosch's",
+        "       Rules are Bosch's HSMI, which §7.7 defers to: ../datasheet/sensor_env_bme68x_hsmi.pdf (no BME688-",
+        "       specific HSMI is published; the BME680 one is the same package, lid vent and MOX element).",
         "",
         "I2C    One bus, three addresses: BNO085 0x4A (R3; R4 -> 0x4B) - BME688 0x77 (R10; R11 -> 0x76) -",
         "       TSL2591 0x29 (fixed).  No clash with the main board's MCP23017 (0x20) or the amp (0x62/0x63).",
-        "       Pull-ups: 4.7k on the main board + R1/R2 10k here ~= 3.2k effective.",
+        "       Address straps are 10k, not 0R: R3+R4 or R10+R11 fitted TOGETHER would otherwise short the main",
+        "       board's +3V3 to GND.  Fit exactly one of each pair; the alternates are flagged DNP.",
+        "       Bus pull-ups: 4.7k on the main board + R1/R2 10k here ~= 3.2k effective.",
         "",
         "IRQ    J7.5 SENSOR_INT = BNO085 H_INTN only (push-pull, active low; main-board R97 10k holds it high",
-        "       when the harness is unplugged).  J7.6 ALS_INT = TSL2591 INT, open drain, pulled up by R12 here —",
-        "       the main board leaves that pin unconnected today, so it is a wire-in-place-for-later.",
-        "",
-        "BEFORE FAB  Check the stock LGA-28 land (generic IPC pattern) against BNO08X datasheet Fig. 7-2:",
-        "       its pads sit ~0.10-0.13 mm further out than CEVA's drawing.  Numbering/arrangement do match.",
+        "       when the harness is unplugged).  J7.6 ALS_INT = TSL2591 INT, open drain, pulled up by R12 HERE",
+        "       and only here — it lands on main-board MCP23017 GPB3, which must enable its internal pull-up",
+        "       (GPPU.3 = 1) so that pin does not float when this board is unplugged.  See FIRMWARE.md §6.5.",
     ]
+    # y starts clear of the frame's own "NOTES" title; 3.05 spacing keeps the
+    # last line (27 of them) inside the frame and off the title block.
     for i, t in enumerate(L):
-        s.text(t, 154, 196 + i * 4.6, size=1.3)
+        s.text(t, 154, 197.5 + i * 3.05, size=1.2)
 
 
 def main():
     cache = SymbolCache(extra_libs={"sensor": SENSOR_SYM})
+    # rev/date are the board identity: keep them in step with the PCB title
+    # block, the F.Silk "SENSE v0.2" and ../PCB_NOTES.md (REVIEW.md #11).
     s = Sch(cache, "sensor", "sensor", paper="A3",
             title="Wooden Smart Clock — sensor board",
-            date="2026-07-29", rev="A", company="")
+            date="2026-08-07", rev="v0.2", company="")
     for name in BLOCKS:
         importlib.import_module(name).build(s)
     notes(s)

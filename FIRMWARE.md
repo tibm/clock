@@ -660,6 +660,17 @@ Also owns **ADC1_CH0 `VBAT_SENSE`**: assert `VBAT_DIV_EN` → settle 1 ms → 64
 > a fresh `PD_PG` read, and treat it as a plugged-only diagnostic.
 > *(review finding #16 — accepted as firmware-enforced, see REVIEW.md)*
 
+> **R-BOARD-4 — set `GPPU.3 = 1` (MCP23017 internal pull-up on GPB3) before enabling
+> `ALS_INT`.** The TSL2591's `INT` is open-drain and its **only** pull-up (`R12`, 10 k)
+> lives on the sensor daughterboard, because the main board had nothing on J7 pin 6 when
+> that board was designed. Since `ALS_INT` landed on GPB3 (`kicad/REVIEW.md` #11), GPB3 is
+> a CMOS input with no pull-up of its own: with the daughterboard unplugged — bench
+> bring-up, service, a main board built before its sensor board arrives — it floats, which
+> costs supply current and, if GPB3 is armed for interrupt-on-change, streams spurious
+> `EXPANDER_INT` events at the `board` task. The expander's own ~100 kΩ pull-up fixes it
+> for free and is harmless when the board *is* plugged in (it parallels R12 to ≈9.1 kΩ).
+> *(`kicad-sensor/REVIEW.md` #13)*
+
 > ⚠ **BSEC licensing.** Bosch's BSEC 2.x is a binary blob under its own license. If that's
 > unacceptable, fall back to the open `BME68x` driver plus a simple gas-resistance baseline — the
 > AO interface (`Ambient`) is identical either way.

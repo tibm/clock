@@ -181,18 +181,38 @@ _REF = {
             "CONN HEADER VERT 2POS 2.00MM", ""),
     "J6":  ("DM3AT-SF-PEJM5", "Hirose Electric", "SMT push-push, 8-pos",
             "CONN MICRO SD CARD PUSH-PULL SMD", ""),
+    # Tail length, checked 2026-08-07 (kicad-sensor/REVIEW.md #2): the ZH
+    # datasheet specifies the 2.7 mm soldering length for 0.6-1.2 mm boards
+    # and 3.4 mm for 1.6 mm, which is this board.  The -3.4 variants are
+    # Active but NOT stocked at DigiKey (455-B6B-ZR-3.4-ND / 455-B2B-ZR-3.4-ND:
+    # made to order, MOQ 2,000, 16-week lead) while the 2.7 mm parts are
+    # $0.24/$0.20 off the shelf.  Deviation accepted: 2.7 mm still leaves
+    # 1.1 mm protruding through a 1.6 mm board, which is a normal fully-wetted
+    # TH joint, and the wafer seats on the board either way.  Same call as the
+    # sensor board's J1 -- these are the two ends of one harness.
     "J7":  ("B6B-ZR(LF)(SN)", "JST Sales America",
-            "JST ZH 1.50mm 6-pos TH vertical",
-            "CONN HEADER VERT 6POS 1.50MM", ""),
+            "JST ZH 1.50mm 6-pos TH vertical, 2.7mm tail",
+            "CONN HEADER VERT 6POS 1.50MM",
+            "2.7 mm tail on a 1.6 mm board — JST specs 3.4 mm (B6B-ZR-3.4) "
+            "for this thickness, but that variant is made-to-order only "
+            "(MOQ 2,000, 16 wk). Accepted deviation, see PCB_NOTES.md. Same "
+            "part as the sensor board's J1: one harness, two identical ends"),
     "J9":  ("B3B-PH-K-S(LF)(SN)", "JST Sales America",
             "JST PH 2.00mm 3-pos TH vertical",
             "CONN HEADER VERT 3POS 2.00MM", ""),
     "J10": ("B6B-ZR(LF)(SN)", "JST Sales America",
-            "JST ZH 1.50mm 6-pos TH vertical",
-            "CONN HEADER VERT 6POS 1.50MM", ""),
+            "JST ZH 1.50mm 6-pos TH vertical, 2.7mm tail",
+            "CONN HEADER VERT 6POS 1.50MM",
+            "Same part and same accepted 2.7 mm-tail deviation as J7 (above). "
+            "MECHANICALLY IDENTICAL TO J7 AND 13.5 mm FROM IT — a ZHR-6 "
+            "swapped between the two puts +5 V on the sensor board's +3V3 "
+            "and destroys all three sensors. Label both harnesses"),
     "J11": ("B2B-ZR(LF)(SN)", "JST Sales America",
-            "JST ZH 1.50mm 2-pos TH vertical",
-            "CONN HEADER VERT 2POS 1.50MM", ""),
+            "JST ZH 1.50mm 2-pos TH vertical, 2.7mm tail",
+            "CONN HEADER VERT 2POS 1.50MM",
+            "Same accepted 2.7 mm-tail deviation as J7 (above); B2B-ZR-3.4 "
+            "is not stocked either. 2 positions, so it cannot mis-mate with "
+            "J7/J10"),
     "J12": ("B3B-PH-K-S(LF)(SN)", "JST Sales America",
             "JST PH 2.00mm 3-pos TH vertical",
             "CONN HEADER VERT 3POS 2.00MM", ""),

@@ -236,12 +236,22 @@ Two traps both tools now handle, worth knowing before writing another:
   a scratch copy called anything other than `clock.kicad_pcb` also silently
   checks against default rules.
 
-### Still open: J7/J10/J11 are `B*B-ZR`, the 2.7 mm-tail version
+### Closed 2026-08-07: J7/J10/J11 stay `B*B-ZR`, the 2.7 mm-tail version
 
 On this 1.6 mm board the pins clear the far side by only ~0.9 mm (measured off
 the STEP export); JST specifies the 2.7 mm tail for 0.6–1.2 mm boards and
-`B*B-ZR-3.4` for 1.6 mm. Same footprint, so it is a BOM-line change only — but
-the same applies to the sensor board's J1.
+`B*B-ZR-3.4` for 1.6 mm. Same footprint, so it would be a BOM-line change —
+**but the -3.4 parts are not procurable in ones.** Verified on DigiKey
+2026-08-07: `455-B6B-ZR-3.4-ND` and `455-B2B-ZR-3.4-ND` are Active but **not
+stocked** (made to order, MOQ 2,000, 16-week lead), while `455-B6B-ZR-ND` is
+$0.24 with 9,478 on the shelf at MOQ 1.
+
+**Deviation accepted.** A 2.7 mm post through a 1.6 mm board still leaves
+1.1 mm protruding, which is a normal fully-wetted through-hole joint
+(IPC-A-610 asks for a visible, wetted lead, not a particular length), and the
+wafer seats on the board either way. Recorded in `gen/parts_db.py` on all
+three references. Same call on the sensor board's J1 — these are the two ends
+of one harness. Revisit only if a production run ever justifies 2,000 pieces.
 
 ## Next steps (not done here)
 

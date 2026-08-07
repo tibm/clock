@@ -16,7 +16,8 @@ the main board's — `J1`/`U1`/`U2`/`U3`/`Y1` exist on both boards and mean
 different parts there.
 
 Sources: `../README.md`, `../../datasheet/README.md` §12/§13/§14b/§16.
-DigiKey stock/price/lifecycle re-verified 2026-08-01.
+DigiKey stock/price/lifecycle re-verified 2026-08-01; J1's tail-length
+variants re-checked 2026-08-07 (see its entry).
 """
 import importlib.util
 import os
@@ -44,12 +45,27 @@ _CASE = _MAIN._CASE    # KiCad footprint name -> BOM package string
 # --- everything else, by reference ------------------------------------------
 _REF = {
     # (mpn, manufacturer, package, description, notes)
+    # Tail length, checked 2026-08-07 (REVIEW.md #2): the ZH datasheet says
+    # 2.7 mm suits 0.6-1.2 mm boards and 3.4 mm suits 1.6 mm, which is this
+    # board -- but B6B-ZR-3.4(LF)(SN) (DigiKey 455-B6B-ZR-3.4-ND, $0.121,
+    # Active) is NOT stocked: made to order, MOQ 2,000, 16-week lead.  The
+    # 2.7 mm part is $0.24 with 9,478 on the shelf and MOQ 1.  Keeping it is
+    # a deliberate deviation: a 2.7 mm post in a 1.6 mm board still leaves
+    # 1.1 mm protruding, which is a normal, fully-wetted TH joint (IPC-A-610
+    # wants the lead visible, not a specific length) -- the wafer seats on
+    # the board either way.  Revisit only if a run ever justifies 2,000 pcs.
     "J1": ("B6B-ZR(LF)(SN)", "JST Sales America",
-           "JST ZH 1.50mm 6-pos TH vertical",
+           "JST ZH 1.50mm 6-pos TH vertical, 2.7mm tail",
            "CONN HEADER VERT 6POS 1.50MM",
-           "Mates main-board J7 1:1 over the 6-way ZH harness (same part both "
-           "ends). The only through-hole part on this board — hand-solder it "
-           "after reflow, or have it fitted as a second operation"),
+           "DigiKey 455-B6B-ZR-ND — $0.24, Active, 9,478 pcs (2026-08-07). "
+           "Mates main-board J7 1:1 over the 6-way ZH harness (same part "
+           "both ends); ZHR-6 housing + A06ZR pre-crimped cable. JST specs "
+           "the 3.4 mm tail (B6B-ZR-3.4) for 1.6 mm board thickness, but "
+           "that variant is made-to-order only (MOQ 2,000, 16 wk) — 2.7 mm "
+           "leaves 1.1 mm protruding here, which solders fine; deviation "
+           "accepted, see ../PCB_NOTES.md. The only through-hole part on "
+           "this board — hand-solder it after reflow, or have it fitted as "
+           "a third operation"),
 
     "U1": ("BNO085", "CEVA Technologies", "LGA-28 5.2x3.8x1.1mm, 0.5mm pitch",
            "IC IMU 9-AXIS SH-2 FUSION I2C LGA-28",
@@ -88,13 +104,15 @@ EXCLUDE_FROM_BOM = {
 
 # **Do not populate.** Both are the *alternate* I2C-address strap, drawn next
 # to the fitted one; the value string says "(DNP)" but nothing in the files did
-# until stamp_bom.py set the flags, so an assembly house would have fitted them
-# — and each pair fitted together ties +3V3 to GND through 0 ohm.
+# until stamp_bom.py set the flags, so an assembly house would have fitted
+# them.  Since v0.2 the straps are 10k rather than 0R, so that slip costs
+# 330 uA instead of shorting the main board's +3V3 rail to GND — the flags
+# below are still the primary guard, the value is the fail-safe under them.
 DNP = {
     "R4":  "alternate BNO085 address strap — fit INSTEAD OF R3 for 0x4B "
-           "(both fitted = +3V3 shorted to GND through 0 ohm)",
+           "(both fitted = +3V3 to GND through 20k, 330 uA, wrong address)",
     "R11": "alternate BME688 address strap — fit INSTEAD OF R10 for 0x76 "
-           "(both fitted = +3V3 shorted to GND through 0 ohm)",
+           "(both fitted = +3V3 to GND through 20k, 330 uA, wrong address)",
 }
 
 # No Value-field corrections / Value-text moves are needed on this board; the

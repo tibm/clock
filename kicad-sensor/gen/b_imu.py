@@ -3,7 +3,9 @@
 Wired per the datasheet's own I2C reference design (Fig. 1-11 + notes 1-8,
 §1.2.1/§1.2.2), with three deliberate deviations, all called out below:
   * pin 18 H_CSN is pulled to VDDIO instead of being left floating,
-  * CLKSEL0 is strapped low with a 0R instead of a host GPIO,
+  * CLKSEL0 is tied straight to GND -- a bare wire, no strap resistor --
+    instead of being driven by a host GPIO (Fig. 1-8: "0 or unconnected"
+    selects the crystal),
   * NRST gets an RC power-on reset because J7 has no spare host line.
 
 Config straps live in their own row under the symbol and reach the pins by
@@ -102,8 +104,16 @@ def build(s):
 
     # SA0 (pin 17) sets the I2C address LSB: R3 fitted = 0x4A (the CEVA
     # reference's R3/R4 pair, same DNI convention).  Move to R4 for 0x4B.
-    pu("R4", 161.29, "0R (DNP)", "BNO_SA0")
-    pd("R3", 173.99, "0R", "BNO_SA0")
+    # 10k, NOT the reference's 0R (v0.2, REVIEW.md #1): fitting both halves
+    # of the pair is the assembly slip this layout invites, and through 0R
+    # that shorts the MAIN board's +3V3 to GND -- the rail this board is fed
+    # from, on a daughterboard with no LED and no silk hint.  Through 10k the
+    # same slip costs 330 uA, the clock still boots, and the part enumerates
+    # at a wrong-but-visible address.  SA0 is a CMOS input sampled at reset
+    # (§1.2.2.1): 10k gives >=3.29 V / <=1 mV against V_IH = 0.55*VDDIO
+    # = 1.82 V, so the strap is just as unambiguous as a jumper.
+    pu("R4", 161.29, "10k (DNP)", "BNO_SA0")
+    pd("R3", 173.99, "10k", "BNO_SA0")
     # H_CSN (pin 18) is unused in I2C mode.  Fig. 1-11 leaves it open; we tie
     # it to the inactive level so no CMOS input floats on a battery product.
     pu("R5", 186.69, "10k", "BNO_CSN")
