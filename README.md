@@ -269,7 +269,7 @@ Two subsystems on **two rails** (v0.19): the analog **wake light** (2 PWM channe
 
 - Press after *volume* (or a 5th press) → all LEDs off, settings committed, hands return to the time.
 - **Timeout:** ≥5 s without rotation → exit to normal (LEDs off, hands back to time).
-- **Radio-disable toggle** (rear, on **J11**, expander GPA3): hardware switch to shut down Wi-Fi/BLE (bedroom EMI preference); firmware obeys it as a hard override.
+- **Radio-disable toggle** (rear, on **J11**, expander GPA3): hardware switch to shut down Wi-Fi/BLE (bedroom EMI preference); firmware obeys it as a hard override. Part locked 2026-08-06 = **E-Switch `100SP1T2B1M1QEH`** (miniature SPDT On-On bat toggle, 1/4-40 bushing, solder lugs) — wired as an SPST to GND; see §16b/§16d for the wiring, the panel counterbore it needs, and the dry-circuit caveat.
 - **Tap-to-snooze** via accel (top-tap) — no other buttons anywhere.
 
 ---
@@ -326,7 +326,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 | ⭐ | NeoPixel data level shifter | **TI SN74AHCT1G125DBVR** (3.3 V → 5 V buffer, single gate) | **SOT-23-5** | ~$0.14 | [DigiKey ✅](https://www.digikey.com/en/products/detail/texas-instruments/SN74AHCT1G125DBVR/376028) |
 | ⭐ | Knob encoder (top face, off-board) | **Bourns EM14A0D-C24-L064S** — **optical**, **no detent**, 64 CPR (×4 → 256/rev), integral push switch, 1/4″ flatted shaft, **5 V ~30 mA**; A/B 5 V out → 100k/200k dividers | vertical TH, PC pins | $34.00 | [DigiKey ✅](https://www.digikey.com/en/products/detail/bourns-inc/EM14A0D-C24-L064S/954403) |
 | ⭐ | Aluminum knob | **Kilo International OEJNI-90-1-5** — machined, Ø23.5 × 15.9 mm, clear gloss, **1/4″ bore + 6-32 set screw** (mates the EM14 shaft) | solid aluminum | $13.43 | [DigiKey ✅](https://www.digikey.com/en/products/detail/kilo-international/OEJNI-90-1-5/5970396) |
-| ⭐ | Sensor-board connector (J7, off-board I²C + power: GND/3V3/SDA/SCL/INT + 1 rsvd) | **JST B6B-ZR(LF)(SN)** header ×2 (one per board, TH vertical, shrouded/keyed, 1 A) + **A06ZR06ZR28H102B** pre-crimped cable ×1 (ZH, 6-pos, socket↔socket, 28 AWG, 102 mm) — **same ZH family + cable as the knob J10** | **TH, 6-pos, 1.5 mm** | ~$0.24 ×2 + ~$1.54 | [DigiKey ✅](https://www.digikey.com/en/products/detail/jst-sales-america-inc/B6B-ZR(LF)(SN)/455-1661-ND/926568) [DigiKey ✅](https://www.digikey.com/en/products/result?keywords=A06ZR06ZR28H102B) |
+| ⭐ | Sensor-board connector (J7, off-board I²C + power: GND/3V3/SDA/SCL/INT + 1 rsvd) | **JST B6B-ZR(LF)(SN)** header ×2 (one per board, TH vertical, shrouded/keyed, 1 A) + **A06ZR06ZR28H152B** pre-crimped cable ×1 (ZH, 6-pos, socket↔socket, 28 AWG, **152 mm** — was 102 mm until 2026-08-06; the enclosure needs ≥120 mm) — same ZH family as the knob J10, whose harness is a **pigtail** (§16d) | **TH, 6-pos, 1.5 mm** | ~$0.24 ×2 + ~$1.54 | [DigiKey ✅](https://www.digikey.com/en/products/detail/jst-sales-america-inc/B6B-ZR(LF)(SN)/455-1661-ND/926568) [DigiKey ✅](https://www.digikey.com/en/products/result?keywords=A06ZR06ZR28H102B) |
 | ⭐ | Analog movement | Juken X40.879 (dual shaft) — **solders directly to the PCB** (custom footprint `clock.pretty`, shafts through a board hole; no connector) | vertical, compact | ~$20 | [MiniTools ✅](https://store.minitools.com/en/sei-x40-879-juken-x40-879-stepper-motor.html) |
 | ⭐ | Motor driver ×2 | TB6612FNG,C,8,EL | **SSOP-24** | ~$2.1 x 2 | [DigiKey ✅](https://www.digikey.com/en/products/detail/toshiba-semiconductor-and-storage/TB6612FNG-C-8-EL/1730070) |
 | ⭐ | Hand homing ×1 (optical, reflective — **no magnets**) | onsemi QRE1113GR (single sensor, sequential homing; analog out → 1 ADC; replaces the unavailable ITR8307) | **≈3.6×2.9×1.7 mm**, 4-lead | ~$1.2 | [DigiKey ✅](https://www.digikey.com/en/products/detail/onsemi/QRE1113GR/965451) |
@@ -353,9 +353,10 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 | ⭐ | Amp PVDD rail-mux (12 V↔5 V) | **LTC4412** low-loss PowerPath + P-FET — 12 V (plugged) / 5 V (battery) | **SOT-23-6** | ~$5.2 | [DigiKey ✅](https://www.digikey.com/en/products/detail/analog-devices-inc/LTC4412ES6-TRPBF/960173) |
 | ⭐ | microSD socket | **Hirose DM3AT-SF-PEJM5** (push-push, 8-pos) | push-push, SMT R/A | ~$2.9 | [DigiKey ✅](https://www.digikey.com/en/products/detail/hirose-electric-co-ltd/DM3AT-SF-PEJM5/2533565) |
 | ⭐ | USB-C recept (**vertical**, power+CC+D±) | **GCT USB4160-03-0230-C** (USB 3.2 Gen2 Type-C, 24-pin, **vertical SMT + 4 soldered stakes**, H 7.46 mm — stands on the PCB → port exits the back wall; only the USB 2.0 subset wired, SS pads unconnected). *Replaces the horizontal USB4105 + Adafruit 6069 extension; rejected along the way: USB4140 (no D±), UJ20-C-V-C-1 (0.8 mm-PCB legs), UJ20-C-V-C-2 (backorder); USB4145-03-0170-C = 16-pin same-land alt.* | SMT vertical, 0.5 mm pitch + stake slots | ~$1.22 (5.7 k stock) | [DigiKey ✅](https://www.digikey.com/en/products/result?keywords=USB4160-03-0230-C) |
-| ⭐ | Knob connector (J10) | **JST B6B-ZR(LF)(SN)** (ZH 1×06: GND·+5V·A·B·SW·GND — the EM14 needs 5 V) + the same pre-crimped **A06ZR06ZR28H102B** ZH↔ZH cable as the sensor board | ZH 1.5 mm, TH vertical | ~$0.24 | [DigiKey ✅](https://www.digikey.com/en/products/detail/jst-sales-america-inc/B6B-ZR-LF-SN/926568) |
-| ⭐ | Radio-toggle connector (J11) | **JST B2B-ZR(LF)(SN)** (ZH 1×02: SIG·GND) → rear toggle switch; pre-crimped A02ZR-style cable | ZH 1.5 mm, TH vertical | ~$0.2 | [DigiKey ✅](https://www.digikey.com/en/products/result?keywords=B2B-ZR%28LF%29%28SN%29) |
-| ⭐ | Speaker driver | Dayton DMA58-4 (2″ FR) | 56×56×32 mm | ~$19 | [PartsExpress ✅](https://www.parts-express.com/Dayton-Audio-DMA58-4-2-Dual-Magnet-Aluminum-Cone-Full-Range-Driver-4-Ohm-295-582?quantity=1) |
+| ⭐ | Knob connector (J10) | **JST B6B-ZR(LF)(SN)** (ZH 1×06: GND·+5V·A·B·SW·GND — the EM14 needs 5 V) + a **ZHR-6 + 6× ASZHSZH28K152** pigtail (152 mm; §16d) — the EM14 end solders, so J10 is not a ZH↔ZH cable like J7 | ZH 1.5 mm, TH vertical | ~$0.24 | [DigiKey ✅](https://www.digikey.com/en/products/detail/jst-sales-america-inc/B6B-ZR-LF-SN/926568) |
+| ⭐ | Radio-disable toggle switch (rear panel, off-board on J11) | **E-Switch `100SP1T2B1M1QEH`** — 100-series miniature bat toggle. Decodes as **SP1** SPDT *On-None-On* · **T2** short 5.08 mm bat · **B1** 1/4-40UNS threaded bushing, **8.89 mm long** · **M1** solder lug · **Q** silver contacts · **E** epoxy-sealed · **H** mounting hardware included. Wired **SPST**: lug 2 (common) → J11.1 `RADIO_OFF`, lug 1 *or* 3 → J11.2 GND, third lug open. ⚠️ **8.89 mm bushing vs a ~10–12 mm walnut wall → counterbore the inside of the rear panel to ≤6 mm** at the hole (§16d) | Ø6.35 mm panel hole; body 12.70 × 6.86 × 8.89 mm | $4.27 (883 stk) | [DigiKey ✅](https://www.digikey.com/en/products/detail/e-switch/100SP1T2B1M1QEH/378828) |
+| ⭐ | Radio-toggle connector (J11) | **JST B2B-ZR(LF)(SN)** (ZH 1×02: SIG·GND) → the toggle above; **ZHR-2 + 2× ASZHSZH28K152** pigtail (152 mm; §16d) | ZH 1.5 mm, TH vertical | ~$0.2 | [DigiKey ✅](https://www.digikey.com/en/products/result?keywords=B2B-ZR%28LF%29%28SN%29) |
+| ⭐ | Speaker driver | Dayton DMA58-4 (2″ FR) — **4 Ω, not the 8 Ω DMA58-8** (the −4.1 dBFS limiter ceiling, 12 V PVDD budget and L5/L6 Isat sizing all assume 4 Ω). **Ships with bare solder tabs — no wire, no connector**; J3 harness in §16d | 56×56×32 mm | ~$19 | [PartsExpress ✅](https://www.parts-express.com/Dayton-Audio-DMA58-4-2-Dual-Magnet-Aluminum-Cone-Full-Range-Driver-4-Ohm-295-582?quantity=1) |
 | ➕ | CO₂ *(improvement)* | Sensirion SCD41-D-R2 | — | ~$24 | [search](https://www.digikey.com/en/products/result?keywords=SCD41-D-R2) |
 | ➕ | PM2.5 *(improvement)* | Sensirion SPS30 | — | ~$38 | [search](https://www.digikey.com/en/products/result?keywords=SPS30) |
 | ➕ | Passive radiator *(improvement)* | Dayton DMA58-PR (2″) | — | ~$8 | *(Parts Express)* |
@@ -381,6 +382,68 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 **Core electronics subtotal (excl. speaker/cell/PCB): ~$140–165** — the v0.19 redesign removes ~$47 of display lines (LS032B7DD02 ~$38 + FPC + panel extension + Cree string) and adds ~$55 of UI parts (EM14 optical encoder **$34** + Kilo knob **$13.43** + NeoPixel 10-pack $5.95 + buffer + SH connectors) → roughly a wash vs v0.18; power electronics ≈ +$20–22 (LT3652 is the priciest line); the 2a sensor chain is 3 Adafruit **breakout modules** — BME688 + TSL2591 + LIS3DH ≈ **$31**. With speaker + user-supplied 18650 + holder + 4-layer PCB + passives ≈ **~$210–250**. +CO₂/PM ≈ +$62. *(Cell is user-supplied; safety HW is non-negotiable — see [`power.md`](power.md).)*
 
 **Cost/space levers:** budget movement (VID28-05, −$10, off-DigiKey) + optical homing; a mechanical encoder (PEC11R-4015F, −$31) if the optical EM14 feels extravagant; skip CO₂/PM; the EM14 + movement are now the big electronics line items — the enclosure (walnut + machined aluminum plate + knob + glass) dominates overall cost instead. *(Amp DSP is free — it runs in firmware.)*
+
+### 16d. Off-board harnesses — JST cables + housings (verified 2026-08-06)
+
+> The PCB-side headers are listed in §16b; **this table is the mating half** — what actually
+> gets ordered to wire the off-board parts. All runs are **152.4 mm (6″)** — the shortest
+> stocked length above the ~120 mm the enclosure needs.
+>
+> JST **pre-crimped leads are socket-to-socket**: one 152 mm wire with a crimp contact on
+> *both* ends. Insert one contact into the housing, snip + strip the far end and solder it to
+> the off-board part → you keep the full 152 mm. Only **J7** is a true board-to-board run, so
+> it is the only ready-made double-ended cable.
+
+| Ref | PCB header (§16b) | Mating half to order | DigiKey PN | Qty | ~Unit |
+|---|---|---|---|--:|--:|
+| **J7** sensor board | B6B-ZR(LF)(SN) ×2 | **A06ZR06ZR28H152B** — ZH 6-pos cable, socket↔socket, 28 AWG, 152 mm *(supersedes the 102 mm `…H102B` quoted in §16b)* | [455-3039-ND](https://www.digikey.com/en/products/detail/jst-sales-america-inc/A06ZR06ZR28H152B/6009439) | 1 | $1.89 |
+| **J10** knob (EM14) | B6B-ZR(LF)(SN) | **ZHR-6** housing + 6× **ASZHSZH28K152** lead | [527361](https://www.digikey.com/en/products/detail/jst-sales-america-inc/ZHR-6/527361) · [455-3079-ND](https://www.digikey.com/en/products/detail/jst-sales-america-inc/ASZHSZH28K152/6009453) | 1 + 6 | $0.11 · $0.42 |
+| **J11** radio toggle | B2B-ZR(LF)(SN) | **ZHR-2** housing + 2× **ASZHSZH28K152** lead | [566476](https://www.digikey.com/en/products/detail/jst-sales-america-inc/ZHR-2/566476) · 455-3079-ND | 1 + 2 | $0.10 · $0.42 |
+| **J9** wake COB strips | B3B-PH-K-S(LF)(SN) | **PHR-3** housing + 3× **ASPHSPH24K152** lead | [527357](https://www.digikey.com/en/products/detail/jst-sales-america-inc/PHR-3/527357) · [455-3082-ND](https://www.digikey.com/en/products/detail/jst-sales-america-inc/ASPHSPH24K152/6009458) | 1 + 3 | $0.10 · $0.38 |
+| **J12** status NeoPixels | B3B-PH-K-S(LF)(SN) | **PHR-3** housing + 3× **ASPHSPH24K152** lead | 527357 · 455-3082-ND | 1 + 3 | $0.10 · $0.38 |
+| **J3** speaker | B2B-PH-K-S(LF)(SN) | **PHR-2** housing + 2× **ASPHSPH24K152** lead — **the DMA58-4 ships with bare solder tabs, no wire and no connector** | [608607](https://www.digikey.com/en/products/detail/jst-sales-america-inc/PHR-2/608607) · 455-3082-ND | 1 + 2 | $0.10 · $0.38 |
+
+**Consolidated cart (with 2 spare leads per family) ≈ $10.40:**
+`A06ZR06ZR28H152B` ×1 · `ZHR-6` ×1 · `ZHR-2` ×1 · `ASZHSZH28K152` ×10 · `PHR-3` ×2 · `PHR-2` ×1 · `ASPHSPH24K152` ×10.
+
+**Why these mate / carry the current:**
+- **ZH (1.5 mm):** `ZHR-n` housings mate the `B*B-ZR` headers; `ASZHSZH…` carries **SZH** contacts at **28 AWG** — inside the SZH 28–26 AWG window.
+- **PH (2.0 mm):** `PHR-n` housings mate the `B*B-PH-K-S` headers; `ASPHSPH…` carries **SPH** contacts at **24 AWG** — top of the SPH 28–24 AWG window; PH is rated 2 A/contact.
+- Current per harness: **J9 ≈ 0.6 A** (2× ~1 ft of 3.6 W/ft COB @ 12 V), **J12 ≈ 0.4 A** (5 px all-white), **J3 ≈ 1.4 A rms / 2.0 A pk** at the 8 W firmware cap ([`FIRMWARE.md`](FIRMWARE.md) §6.2) — 24 AWG over 152 mm adds ~25 mΩ round-trip (0.6 % of a 4 Ω load). J7/J10/J11 are signal-level.
+- Side benefit for the **J7/J10 mis-mate hazard** (both ZH 1×06, 13.5 mm apart — [`kicad/REVIEW.md`](kicad/REVIEW.md) §10): J7's harness has *two* connectors, J10's has *one*, so they are physically unmistakable on the bench.
+
+**J11 rear toggle — `100SP1T2B1M1QEH` build notes (part bought 2026-08-06).** Datasheet:
+[E-Switch 100 series](https://configured-product-images.s3.amazonaws.com/Datasheets/100.pdf).
+
+- **Wiring — it is an SPDT used as an SPST.** `SP1` = *On-None-On*, so there is **no off position**;
+  per the function table, POS.1 closes **2-3** and POS.3 closes **2-1**, i.e. **lug 2 is the common**.
+  Land **lug 2 → J11.1 (`RADIO_OFF`, expander GPA3)** and **lug 1 *or* 3 → J11.2 (GND)**, leaving the
+  opposite lug unconnected. One bat position then shorts GPA3 to GND, the other floats it up to the
+  MCP23017's internal pull-up. **Polarity to lock in firmware: closed/low = radios OFF** — a broken
+  harness therefore reads high = radios enabled, which stays diagnosable over Wi-Fi/BLE instead of
+  silently killing NTP and OTA. Nothing else is needed on the harness (no RC — `IOC` + the AO's
+  entry-action re-check in [`FIRMWARE.md`](FIRMWARE.md) §6.7 already handle a slow, static input).
+- ⚠️ **Mechanical — the bushing is shorter than the wall.** `B1` is **8.89 mm** of 1/4-40UNS, and the
+  supplied nut + lockwasher consume ~2.4 mm of it, so the **maximum panel thickness is ~6 mm**. A
+  ~120 mm walnut cube wall is typically 10–12 mm → **counterbore the inside face of the rear panel to
+  leave ≤6 mm of wood at the Ø6.35 mm switch hole**, or the nut will never bite. Fix this with the
+  enclosure drawing, not at assembly. With a 5 mm residual wall the bat tip lands ~9 mm proud of the
+  wood — flippable, but the `T2` actuator is the **short 5.08 mm** bat by design (`T1` is 10.41 mm if
+  the built prototype turns out to be fiddly).
+- ⚠️ **Contact material is `Q` = silver, and J11 is a dry circuit.** E-Switch rates silver at
+  5 A @ 120 VAC/28 VDC but publishes a **low-level rating only for the `R` gold option** (0.4 VA max
+  @ 20 V). J11 switches nothing but the MCP23017's ~100 kΩ internal pull-up: **~33 µA at 3.3 V**, far
+  under any wetting current, and a preference toggle gets flipped rarely so the contacts never wipe.
+  The `E` epoxy seal plus a benign indoor environment is the mitigation actually in play — and the
+  gold `100SP1T2B1M1REH` is **non-stocked at DigiKey (12-week lead)**, so the silver part stands.
+  **If the read ever proves intermittent:** stuff an external 4.7–10 kΩ pull-up on the harness
+  (0.3–0.7 mA, ~10–20× the wetting current, still nowhere near any rating) before replacing the switch.
+
+**Speaker impedance — buy the 4 Ω `DMA58-4` (Parts Express 295-582), not the 8 Ω DMA58-8.** The
+whole audio chain is dimensioned for 4 Ω: TAS5760M PBTL off the 12 V boost, the firmware limiter
+ceiling (−4.1 dBFS = 8 W into 4 Ω), and the L5/L6 XAL4040 Isat-3.0 A sizing all derive from it.
+8 Ω would halve output to ~4 W (−3 dB SPL), invalidate those firmware constants, and be too quiet
+as an alarm on battery (PVDD muxed down to 5 V).
 
 ---
 
@@ -469,3 +532,5 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 | 2026-07-20 | **18650-holder footprint mismatch resolved → Keystone 1043 (TH)** — BT1's footprint had stayed on the SMT **1042** while the BOM said 1043 | **1043 wins on stock + price** ($2.99, **21.9 k** at DigiKey vs the $5.99 SMT 1042) and TH PC pins suit the hand-soldered build + a heavy cell. Custom `BatteryHolder_Keystone_1043_1x18650` drawn in `kicad/clock.pretty`: body/pegs/index identical to the stock 1042 footprint (shared molding), pins on the axis at ±35.8 with Ø2.6 drill / Ø4.2 pad (covers the ±36.11 reading of KiCad MR !2043 too) — verify vs the Keystone drawing before fab |
 | 2026-07-21 | **PCB layout generated** (`kicad/gen/pcb_build.py`, 110×110 mm 4-layer, placement-only — no traces routed); **5 of 7 status/dial NeoPixels moved off-board** onto a new 3-pin JST-PH breakout **J12** (`+5V`/`DATA`/`GND`) | Full component placement + stackup + GND pours + net assignment, built on KiCad's `pcbnew` Python API; see `kicad/PCB_NOTES.md` for the constraint-by-constraint rationale and DRC/clearance verification. The 5-LED status row couldn't get real component spacing on-board without crowding every other functional block, so it moved to off-board wiring (pitch set by the face-plate holes directly); only the 2 dial-wash pixels (renumbered **D40/D41**, chain pos 1–2, closing the ref gap) stay on the PCB, 9 & 3 o'clock either side of the movement |
 | 2026-08-06 | **MCU module N16R8 → ESP32-S3-WROOM-1-N8R8** (16 MB → 8 MB flash; PSRAM, pinout, footprint and price band unchanged) | The 16 MB SKU was picked for the display era and is the harder part to source; **N8R8 is the DevKitC-1 stock variant** and sits at **$6.32 / 1,709 in stock** ([DigiKey 15295891](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-S3-WROOM-1-N8R8/15295891), active) vs $6.76 for the N16R8. **Pure drop-in:** WROOM-1 Table 3-1 is one pad map for the whole series (41 pads, 18.0×25.5×3.1 mm, `RF_Module:ESP32-S3-WROOM-1` land), and `R8` keeps the **Octal** PSRAM → IO35/36/37 stay reserved and the GPIO budget stays 32/33. No schematic net, footprint or placement changed — MPN/Value/Description only. FW cost: the partition table reflows to 8 MB (2.5 M per OTA slot, ~2.7 M `assets`; was 3 M / ~9 M) — see `FIRMWARE.md` §1 |
+| 2026-08-06 | **Off-board harnesses specified → new §16d** (mating housings + JST pre-crimped leads for J3/J7/J9/J10/J11/J12, all **152.4 mm**); **J7 cable 102 mm → `A06ZR06ZR28H152B`**; speaker impedance re-confirmed **4 Ω** | §16b listed only the PCB-side headers, so the actual purchase (housings + wire) was undefined. 152 mm is the shortest stocked length clearing the ~120 mm the enclosure needs. Only **J7** is board-to-board → the only double-ended cable; J3/J9/J10/J11/J12 all land on solder tabs/pins, so they are **housing + socket-to-socket pre-crimped leads** (insert one contact, snip/strip/solder the other end → full 152 mm, no length lost). Gauges match the contact windows (ZH/SZH 28 AWG, PH/SPH 24 AWG) and clear the loads (J9 0.6 A, J12 0.4 A, J3 1.4 A rms / 2.0 A pk). Cart ≈ **$10.40**. The **DMA58-4 ships with bare solder tabs — no wire, no connector**, hence J3's line; 8 Ω rejected because the −4.1 dBFS limiter ceiling, the 12 V PVDD budget and the L5/L6 Isat sizing are all derived from 4 Ω |
+| 2026-08-06 | **Rear radio-disable toggle locked = E-Switch `100SP1T2B1M1QEH`** (bought); §16b row + §16d build notes added | Miniature SPDT *On-None-On* bat, 1/4-40 bushing, solder lugs, epoxy-sealed, $4.27/883 stk. **Used as an SPST** — lug 2 is the common → J11.1 `RADIO_OFF`, lug 1 or 3 → J11.2 GND, third lug open; polarity fixed as **closed/low = radios off** so a broken harness fails to radios-*enabled* and stays remotely diagnosable. Two flags carried forward: **(a)** the `B1` bushing is only **8.89 mm** (≈6 mm max panel with the supplied nut) against a 10–12 mm walnut wall → **the rear panel must be counterbored to ≤6 mm at the Ø6.35 mm hole**, an enclosure-drawing change, not an assembly fix; **(b)** `Q` = **silver** contacts on a **~33 µA dry circuit** (MCP internal pull-up only) — the gold `…REH` is the textbook part but is non-stocked/12-week, so silver + the epoxy seal stands, with an external 4.7–10 kΩ pull-up as the fallback if reads go intermittent |
