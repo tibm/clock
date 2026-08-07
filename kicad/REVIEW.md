@@ -173,13 +173,15 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | # | Finding | Sev | What it needs |
 |---|---|---|---|
 | ~~1, 2, 11, 15~~ | PCB side of the fixes above | ✅ | **done** — synced and routed, 0 errors / 0 unconnected |
-| 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in a0031c9*). `+5V` thin copper 95→40 mm, R 322→235 mΩ; `+12V` 111→99 mΩ. **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted (every thin segment has ≤0.05 mm of headroom). Needs hand re-routing, not a width change — see below |
-| ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18 (two inner-layer signals cross its pad); revisit if `R18` goes to 2 A |
+| 4 | Power widths — **mostly done** | 🟠 | `POWER` net class + widening + **4 trunks moved to F.Cu** (*Fixed in a0031c9*); **`+3V3` widened 2026-08-06** (837 → 555 mΩ, ESP32 feed 258 → **169 mΩ**). **`VBAT` is the remainder**: 99.7 mm still ≤0.3 mm and in-place widening is exhausted — **re-verified 2026-08-06**, every thin segment on every power net has ≤0.10 mm of headroom and the three worst (21.5/14.9/6.7 mm on In2) have **0.00**. Needs hand re-routing, not a width change — see below |
+| ~~5~~ | Thermal vias | ✅ | **done** — 49 GND vias: U7 **14**, U9 **33**, U2 **2**. U2 is capped by #18; **re-verified 2026-08-06 with the paste-aperture bug fixed: exactly 0 free 0.6/0.3 slots remain inside U2's EP**, so 2 is the honest maximum until #18 moves. Fine at `R18` = 1 A (~0.7 W); revisit if `R18` goes to 2 A |
 | 8 | Switcher hot loops — **ground return done, placement not** | 🟠 | **Return half fixed** (*Fixed in `f55b15f`*): 23 vias tie every hot-loop return pad into the GND planes, 7.64 mm worst case → 0.62–2.20 mm. **Placement half needs pcbnew by hand** — every candidate slot for `C100`/`C102`/`C127`/`C128`/`C130`–`C132` fails routing or DRC; measured target coordinates are in §8 |
 | ~~9~~ | `C238` 50 mm from U15 | ✅ | **done** (*Fixed in `8441d29`*) — moved to (26.73, 46.18); pad 1 → U15 pin 5 now **1.75 mm** (was 50.50), plus 2 GND vias 0.62 mm from its return pad |
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in a0031c9*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
 | 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
-| 23 | U9 exposed-pad land vs TI drawing | 🟡 | fab cross-check before ordering |
+| ~~23~~ | U9 exposed-pad land vs TI drawing | ✅ | **checked 2026-08-06 against DAP0032C sheet 4223691/A.** EP copper **5.2 × 11 mm = TI exactly**. Pin lands 1.90 × 0.40 vs TI's 1.50 × 0.45 — an IPC-7351 alternate, which TI's note 6 permits, and the extra toe/heel + wider gap is *better* for hand soldering. **The one deviation is the mask/paste window: 4.11 × 4.36 mm vs TI's SMD-defined 3.04 × 3.74** (≈58 % more area). **Reviewed and confirmed correct by the board owner 2026-08-06 — no change.** See the pre-fab audit below |
+| ~~—~~ | PCB had no title block | ✅ | **fixed 2026-08-06** — gerbers carried no title/rev/company/date. Now `rev "0.3"`, matching the schematic and the silkscreen. The old "title block reads rev A" finding was **wrong and has been withdrawn** |
+| 26 | `R1` pad 2 hung on a 0.049 mm sliver | ✅ | **found and fixed 2026-08-06** — latent open left by the #13 0603→1206 land swap. See the pre-fab audit below |
 | 24 | 32.768 kHz load caps 5.9 mm from Y1 | 🟡 | **placement done** (*Fixed in `3d6d830`*) — `C145` 5.85 → **2.60 mm**, `C146` 5.85 → **1.75 mm**; XTAL_P 9.1 → 5.46 mm, XTAL_N 14.0 → 4.95 mm, B.Cu only, 0 vias, 4 GND vias ringing the pair. Items 2–4 of the recommendation (keep the ABS07, first-article check, FW fallback) still stand |
 
 ### 🔩 Mechanical: hole density and board thickness — assessed 2026-08-04
@@ -304,6 +306,158 @@ everything the current placement offers. Three specific dead ends:
 Closing the rest means **moving other nets out of the way by hand in pcbnew** — a placement
 and re-route job around M1, not something the width/via passes can reach.
 
+### 🔎 Pre-fab audit — 2026-08-06
+
+A DFM/latent-defect sweep over the routed board, looking specifically for things
+`kicad-cli drc` structurally cannot report. **Baseline: DRC 0 errors / 0 warnings /
+0 unconnected, ERC 0, `review_check.py` 11/12 with 0 regressions, zone fills verified
+current (a headless refill changes 0 of 4).**
+
+#### 26. `R1` pad 2 was hanging on 0.049 mm of copper — FIXED
+
+The one real defect found. `Net-(U1-VDD)` reached `R1` pad 2 through a **0.049 mm-wide
+strip**, well inside any fab's etch tolerance:
+
+| | |
+|---|---|
+| cause | the #13 0603 → 1206 land swap. The track ended at x = 98.675, dead centre of the **old** 0603 pad. The 1206 pad's outer edge sits at x = 98.600, so the centreline missed it by 0.075 mm and only the track's 0.125 mm end cap still overlapped |
+| why DRC was silent | connectivity is a boolean. Any overlap ≥ 1 nm reads as connected — 0 unconnected items, no warning |
+| what it would have done | `R1` feeds the CH224K's shunt-regulated VDD. Open it and there is no PD negotiation → no 15 V → no charging and no 12 V rail. A board that looks fine and doesn't work |
+| fix | one added B.Cu segment, (98.675, 35.092) → the pad centre (98.037, 35.092). It lies entirely inside the pad plus the existing end cap, so **no copper exists anywhere it did not already exist** — DRC-neutral by construction |
+
+**A full sweep for the same class of defect found nothing else.** Every pad on the board
+and every free track end was scored on how much copper actually bridges the joint:
+**0 pads and 0 track ends now below 0.12 mm** (was 1 and 1, both `R1`). Worth keeping as a
+standing check — footprint swaps are exactly what produces these.
+
+#### `+3V3` widened — the rail the #4 pass never covered
+
+`+3V3` was never in the `POWER` net class, so `a20faef` skipped it and **100 % of its
+423 mm was still 0.25 mm**, making it the highest-resistance rail on the board. Same
+method as `a20faef` (width-only, no endpoint moves, no re-routing), capped at 0.80 mm on
+the outer layers and 0.60 mm on In1/In2:
+
+| from `L3` (3V3 buck out) to | before | after |
+|---|---|---|
+| **`U8` ESP32 3V3 pin** | 258 mΩ | **169 mΩ** |
+| `U9` DVDD / AVDD | 569 / 512 mΩ | **393 / 346 mΩ** |
+| `U13` MCP23017 | 405 mΩ | **273 mΩ** |
+| `U11` motor driver VCC | 388 mΩ | **270 mΩ** |
+| `J7` sensor board | 413 mΩ | **285 mΩ** |
+| net total copper R | 837 mΩ | **555 mΩ** (−34 %) |
+
+97 of 164 segments widened. The two that mattered were the **42.9 mm In2 run at y = 9.83
+feeding the MCU (0.25 → 0.60)** and the **22.8 mm In1 run at x = 102.62 (0.25 → 0.60)**.
+Only the MCU number has real headroom consequences: at a 500 mA Wi-Fi TX peak the DC droop
+at U8's pin goes **129 mV → 85 mV** against 300 mV of margin to the 3.0 V floor. Everything
+else on the rail draws single-digit mA and was never in trouble — the win there is noise
+coupling, not droop.
+
+Widening an inner-layer trace does not meaningfully worsen #18: **a slot's return-path cost
+is set by its length, not its width**, and these slots already existed at full length.
+
+**Two segments' worth of the pass had to be given back, and the reason is worth recording:
+`U9` carries a local clearance override of 0.2 mm** — twice the board rule, the same trap
+the `f480ced` routing pass hit. The width solver modelled the board default and produced 3
+clearance errors plus 1 starved thermal on `C161`. All 12 `+3V3` segments within 2.5 mm of
+a `U9` pad (and 2 near `C161`'s GND pad) were reset to 0.25 mm; DRC back to 0/0/0.
+
+#### The 2026-08-06 manual edits, assessed
+
+| edit | verdict |
+|---|---|
+| `Y1` reference moved to (0.885, −1.9) | fine, cosmetic |
+| `PVDD` (102.68, 83.12)→(102.68, 81.63) redrawn | identical geometry, new UUID. No-op |
+| **`VBAT` stub out of `Q2` pad 3 re-drawn as a 5-segment chain at 0.30 mm** (was one 0.96 mm diagonal at 0.25 mm) | path kept, **width reverted to 0.25 mm** — and the combination beats both originals |
+
+At 0.30 mm the chain bought **~0.1 mΩ** (0.96 mm going 0.25 → 0.30 on a net that totals
+261 mΩ) and cost **0.014 mm of clearance to `Q2` pad 2**: 0.1169 mm before → 0.1029 mm after,
+the second-tightest gap on the board. `Q2` pad 2 is `Net-(BT1-Pin_1)`, the **raw cell
+terminal** — the one pair where a short bypasses the reverse-polarity FET and defeats
+`CELL_TEST`, i.e. exactly where the safety section says to assume the worst.
+
+**Reverted to 0.25 mm on 2026-08-06, keeping the re-routed path.** That was the right pairing:
+the kink walks the trace away from pad 2, so at 0.25 mm it clears by **0.150 mm** — better
+than the widened chain (0.1029) *and* better than the straight diagonal it replaced (0.1169).
+The re-route was worth doing; only the width was not. Two 15.5 µm segments remain in the
+chain — router artefacts, harmless, left alone rather than risk re-drawing the path.
+
+| `Q2` pad 2 ↔ `VBAT` | clearance |
+|---|---|
+| original straight diagonal, 0.25 mm | 0.1169 mm |
+| re-routed chain, 0.30 mm | 0.1029 mm |
+| **re-routed chain, 0.25 mm (now)** | **0.1500 mm** |
+
+#### Fab risk, measured
+
+| | value | verdict |
+|---|---|---|
+| DRC / ERC / unconnected | 0 / 0 / 0 | clean |
+| min track | 0.25 mm | standard |
+| clearance rule | 0.10 mm | **at the floor of a standard 4-layer process** |
+| pairs at exactly 0.100 mm | **16** | no margin at those 16 spots — **unchanged by this session's edits** |
+| pairs below 0.127 mm (5 mil) | **347** | fine at JLC/PCBWay standard, not at a 5-mil-only shop |
+| min annular ring | 0.15 mm (0.3/0.6), 0.20 on the 0.4/0.8 power vias | standard |
+| smallest drill | **0.20 mm ×12** (ESP32 EP array) → **8:1** aspect at 1.6 mm | at the standard-tier limit; **10:1 if the board goes to 2.0 mm** |
+| min hole-to-hole (edge) | 0.274 mm | above the 0.25 rule, tight |
+| min copper to board edge | 1.175 mm | comfortable |
+| zone fills | current | gerbers will match the editor |
+
+**Nothing here blocks fabrication.** The residual risk is not electrical — it is the three
+items that have never been checked against a vendor drawing (#25 Juken `AN-JST-001`, the
+Keystone 1043 footprint's own "VERIFY vs the drawing before fab" note, and the GCT USB-C
+land) plus the two MPNs that still need a DigiKey stock check. Those are paperwork, and they
+are the ones that scrap a whole board rather than cost a bodge wire.
+
+#### Checked and found clean (no action)
+
+- **Bypass-cap locality, board-wide.** Every 2-pad cap on `<rail, GND>` measured to its
+  intended pin. The outliers are exactly the ones §8 already lists (`C161`/`C163` at
+  10.2/11.7 mm from U9's DVDD/AVDD, `C140`/`C141` at 8.7/8.8 mm from U8) — the #9 sweep
+  surfaced nothing new. `C142`/`C143` at 4.7/4.8 mm from U8's 3V3 pin is mediocre for an RF
+  module but boxed in by the antenna keep-out and the crystal cluster.
+- **Copper stubs.** One 1.05 mm dangling fragment existed, on `Net-(U1-VDD)` — it was the
+  #26 track, now landed. Every other free end terminates on a pad, via, track or pour.
+- **Courtyards.** 0 footprints missing one (the DRC config ignores `missing_courtyard`, so
+  this was worth confirming independently).
+- **Board outline.** 8 Edge.Cuts shapes, closed, 110 × 110 mm with R6 corners.
+- **Li-ion labelling.** `BT1`'s footprint already carries `Li-ion 18650 only 2.5-4.2V` on
+  silk, plus `CELL+`/`CELL-`. The safety-labelling requirement is met.
+- **Exposed-pad zone connection.** All four GND pours use thermal relief (0.4 mm spokes,
+  0.3 mm gap), including under U7/U9/U2's EPs. **Considered switching the EPs to a solid
+  connection and declined**: the 49 vias already bond them to three full planes, so the
+  extra B.Cu coupling is second-order, while a solid pour connection makes a PowerPAD
+  materially harder to hand-solder — and hand-assembly is a hard project constraint.
+- **`U1` (CH224K) EP has 1 via and room for ~15 more. Declined for the same reason** — it
+  dissipates well under 0.15 W, so the only effect of via-in-pad there would be solder
+  wicking on a part that does not need the heat path.
+
+#### Revision stamping — settled 2026-08-06
+
+**There was never a "rev A".** That claim, repeated twice in this document, was wrong:
+`gen/build.py` has set `rev="0.3"` all along and the schematic title block reads
+`(rev "0.3")`, matching the `Tibo - Wooden Clock v0.3` on F.Silkscreen. The two statements
+below and in the schematic-readiness section have been corrected.
+
+The real gap was the other file: **`clock.kicad_pcb` had no `title_block` at all**, so
+gerbers and the fab drawing carried no title, revision, company or date. Added, matching
+the schematic:
+
+```
+(title "Wooden Clock - main board") (rev "0.3") (company "Tibo") (date "2026-08-06")
+```
+
+The PCB's date is deliberately 2026-08-06, not the schematic's 2026-08-04 — the board
+changed today and the schematic did not.
+
+#### `U9` mask/paste window (#23) — closed 2026-08-06
+
+Cross-checked against TI's drawing (above) and **confirmed correct by the board owner**;
+no change. For the record, if a stencil is ever ordered: 7 of the 33 thermal vias sit
+inside the current 4.11 × 4.36 mm aperture and will wick. Shrinking it to TI's
+3.04 × 3.74 mm is a footprint-only edit that touches no copper. Hand-soldering the EP it
+makes no difference, which is the build method that matters here.
+
 ### ⏸ Deferred — accepted for now, revisit later
 
 | # | Finding | Why deferred | Revisit when |
@@ -343,10 +497,10 @@ U13 GPA4-7 spare + 2 NC pins · U16 VBUS (deliberate — the 15 V PD rail exceed
 
 **Two things that are not blockers but are decisions you own:**
 
-1. **Revision letter.** The title block still reads **rev A** while the schematic has changed
-   materially since the routed PCB was produced (a new part, a footprint change, 7 value changes
-   and 4 net changes). Bump it before release so the fab package is unambiguous — the date is
-   now 2026-08-04, but the letter is your numbering scheme, not mine to pick.
+1. ~~**Revision letter.**~~ **Withdrawn 2026-08-06 — this finding was simply wrong.** The
+   title block never read "rev A"; `gen/build.py` sets `rev="0.3"` and the schematic has
+   carried `(rev "0.3")` throughout, consistent with the silkscreen. The genuine gap was that
+   the *PCB* had no title block; that is now fixed. See the pre-fab audit above.
 2. **Two MPNs need a DigiKey stock check** before ordering — they are the only items in the BOM
    I could not verify offline: `R1` = `RC1206FR-071KL` (#13) and `C172` = `EEH-ZA1E101P` (#19).
    Both have a written substitution rule in `parts_db.py`, so a swap stays checkable.
@@ -460,6 +614,31 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   crystal corner — every candidate near `Y1` was rejected until it used the real polygon; and a
   rejected candidate restored the footprint **origin** to the **pad's** coordinates, silently
   shifting both caps by the pad offset.
+- **2026-08-06 — pre-fab audit.** **#26 found and fixed**: `R1` pad 2 was reachable only
+  through a **0.049 mm** strip of copper — a latent open left by the #13 0603→1206 land swap,
+  invisible to DRC because connectivity is a boolean. Sweeping the same class board-wide found
+  **nothing else**: 0 pads and 0 free track ends below 0.12 mm of bridging copper. Also in
+  this pass: **`+3V3` widened in place** (837 → 555 mΩ; ESP32 feed 258 → **169 mΩ**, 500 mA TX
+  droop 129 → 85 mV) — it had never been in the `POWER` class so `a20faef` skipped it, leaving
+  100 % of 423 mm at 0.25 mm. **#23 cross-checked against TI's DAP0032C drawing and confirmed
+  by the board owner.** **#4 and #5 re-verified and both are genuinely exhausted** — every thin
+  power segment has ≤0.10 mm of headroom (the three worst have 0.00), and U2's EP has exactly
+  0 free via slots once paste apertures are excluded from the obstacle set. The PCB's missing
+  `title_block` was added at `rev "0.3"`, and the "title block reads rev A" finding was
+  **withdrawn as incorrect**. DRC 0/0/0, ERC 0, `review_check.py` 11/12 with 0 regressions.
+- **2026-08-06** — the `+3V3` widening pass tripped **`U9`'s local 0.2 mm clearance override**
+  (twice the board rule) for the second time in this project's history; `f480ced` hit it too.
+  Any geometry solver run against this board must read the footprint-local override, not the
+  netclass. 12 `+3V3` segments near `U9`/`C161` were reset to 0.25 mm to clear it.
+- **2026-08-06** — the owner's `Q2` stub re-route was kept and only its **width** reverted
+  0.30 → 0.25 mm. Worth recording as a general result: **the kinked path at 0.25 mm clears
+  `Q2` pad 2 by 0.150 mm, beating both the 0.30 mm chain (0.1029) and the original straight
+  diagonal it replaced (0.1169)** — the re-route was the good half of that edit.
+- **2026-08-06 — tooling note.** `pcb_io.save_board()` does **not** protect
+  `clock.kicad_prl`: pcbnew's settings manager rewrites it when the interpreter exits, i.e.
+  *after* `save_board` has restored it. Any script run against the board silently resets the
+  editor's active layer and visible-layer mask. Harmless (it is pure UI state, no design data)
+  but it shows up as a spurious dirty file in `git status` and has to be put back by hand.
 - Three bugs found while building the migration, worth remembering: (a) via clusters were
   committed before the *other* end was known to be placeable, leaving 5 orphan vias; (b) an inner
   stub widened past its original width shorted `M1-2i`, so a stub must keep the original width —
