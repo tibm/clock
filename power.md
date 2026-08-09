@@ -78,7 +78,7 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 
 **LT3652 (charger)** — autonomous, resistor/cap-programmed (no I²C): **float divider → 4.05 V** (health cap; a **976 k ∥ R_FB2 switched by a 2N7002** gives a **4.2 V "full" mode** — gate `FULLCHG_EN` on the IO expander), **R_SENSE → ICHG ≈ 1–1.75 A** (0.3–0.5 C, gentle/cool), **CTIMER cap → safety timer**, **NTC** on the holder for temp-qualified charge. **CHRG/FAULT** open-drain pins → 2 GPIO. The **BAT node feeds the rail converters** and is regulated to 4.05 V when plugged (runs with no cell, ≤2 A).
 
-**HY2111 + AOSD32334C (protector)** — no config (thresholds fixed by the part-number suffix → **HY2111-GB = OV 4.28 V (release 4.08 V) / OD 2.90 V / OC 150 mV**, SOT-23-6). Wire the **AOSD32334C dual N-FET** (charge + discharge FETs) in the cell − path between the 18650 and PACK−, gated by the HY2111 **OC/OD** pins; support network per its datasheet §10: **R1 100 Ω** cell+→VDD, **C1 0.1 µF** VDD–VSS, **R2 2 kΩ** CS→PACK− — all delays are internal. Independent of the charger — the redundant OV/OD/OC/SC cutoff. *(Replaced the NRND/obsolete **AP9101CK6-BX** 2026-07-17 — same pin arrangement (1 OD · 2 CS · 3 OC · 4 NC · 5 VDD · 6 VSS), nets unchanged. The exact-threshold quality twins — ABLIC S-8261ABMMD, Nisshinbo R5478N — are reel-only/3000 MOQ at DigiKey, so the HY2111-GB comes from **LCSC C82747** like the CH224K.)*
+**HY2111 + AOSD32334C (protector)** — no config (thresholds fixed by the part-number suffix → **HY2111-HB = OV 4.28 V (release 4.08 V) / OD 2.90 V / OC 200 mV**, SOT-23-6). Wire the **AOSD32334C dual N-FET** (charge + discharge FETs) in the cell − path between the 18650 and PACK−, gated by the HY2111 **OC/OD** pins; support network per its datasheet §10: **R1 100 Ω** cell+→VDD, **C1 0.1 µF** VDD–VSS, **R2 2 kΩ** CS→PACK− — all delays are internal. Independent of the charger — the redundant OV/OD/OC/SC cutoff. *(Replaced the NRND/obsolete **AP9101CK6-BX** 2026-07-17 — same pin arrangement (1 OD · 2 CS · 3 OC · 4 NC · 5 VDD · 6 VSS), nets unchanged. The exact-threshold quality twins — ABLIC S-8261ABMMD, Nisshinbo R5478N — are reel-only/3000 MOQ at DigiKey, so the HY2111-GB comes from **LCSC C82747** like the CH224K.)*
 
 **Reverse P-FET** — P-ch MOSFET (e.g. AO3401A / DMP3013), source = holder +, drain = system +, gate → GND via resistor (+ small zener clamp). Correct polarity → on; reversed cell → blocked.
 
@@ -93,7 +93,7 @@ Two hardening additions (2026-07-21): **D13 (BAT42W, SOD-123)** clamps the divid
 | PD sink | **CH224K** | ESSOP-10 | ~$0.4 | LCSC C970725 *(not DK)* |
 | Charger (1S buck, BAT-node path) | **LT3652EMSE#PBF** | MSOP-12E | ~$9.9 | DK 2225686 ✅ |
 | Fuel gauge | *(none — ESP32 ADC divider)* | — | ~$0 | — |
-| Cell protector | **HY2111-GB** + **AOSD32334C** dual-N FET | SOT-23-6 + SO-8 | ~$0.9 | ✅ (HYCON via LCSC / AOS via DigiKey) |
+| Cell protector | **HY2111-HB** + **AOSD32334C** dual-N FET | SOT-23-6 + SO-8 | ~$0.9 | ✅ (HYCON via LCSC / AOS via DigiKey) |
 | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ |
 | Cell temp | 10 k NTC (Murata NCP18XH103) | 0603 | ~$0.1 | ✅ |
 | **One-shot TCO (~77 °C)** | thermal fuse in cell − path (e.g. SEFUSE SF/Bourns bimetal ~77 °C) | radial/tab | ~$0.4 | ⚠ pick + file datasheet |

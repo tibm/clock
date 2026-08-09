@@ -107,7 +107,7 @@ symbol (standalone, RGBW-compatible pinout).
    ~6 kHz BW with the zero at 624 Hz ≈ BW/10 and the C135 pole at ~620 kHz —
    matches the datasheet method. Optional bench Bode/transient tune only
    (three 0603s, trivially swappable); **not a fab blocker**.
-3. **Protector ↔ FET gates** *(re-verified 2026-07-17 for the HY2111-GB
+3. **Protector ↔ FET gates** *(re-verified 2026-07-17 for the HY2111-HB
    that replaced the NRND AP9101C)*: HYCON pin table is arrangement-identical
    (SOT-23-6: 1 OD · 2 CS · 3 OC · 4 NC · 5 VDD · 6 VSS) — OD→G1 with S1 on
    the cell− side (discharge FET), OC→G2 with S2 on the pack− side (charge
@@ -118,8 +118,9 @@ symbol (standalone, RGBW-compatible pinout).
 Remaining bench work is bring-up tuning, not schematic risk: QRE1113GR
 threshold (10 k load), LT3652 NTC window, TPS55340 loop response, speaker
 EQ, EM14 divider levels (100k/200k → ~3.2 V) on a scope. Protector is
-**HY2111-GB** since 2026-07-17 (AP9101C went NRND/obsolete; sourcing
-rationale in the root README decision log).
+**HY2111-HB** since 2026-08-08 (the -GB replaced the NRND AP9101C on
+2026-07-17; the -GB→-HB suffix change is the discharge-OC trip only —
+`REVIEW.md` #6. Sourcing rationale in the root README decision log).
 
 ### v0.19 cube redesign (2026-07-19)
 Display (J5 + FH34), panel LED string (J8 + Q5) and BTN1–3 removed;

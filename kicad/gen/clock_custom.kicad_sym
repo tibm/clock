@@ -124,7 +124,7 @@
 		(pin_names (offset 1.016))
 		(exclude_from_sim no)(in_bom yes)(on_board yes)
 		(property "Reference" "U" (at -7.62 6.35 0)(show_name no)(effects (font (size 1.27 1.27))(justify left)))
-		(property "Value" "HY2111-GB" (at 7.62 6.35 0)(show_name no)(effects (font (size 1.27 1.27))))
+		(property "Value" "HY2111-HB" (at 7.62 6.35 0)(show_name no)(effects (font (size 1.27 1.27))))
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
 		(property "Datasheet" "https://www.hycontek.com/hy_battery/DS-HY2111_EN.pdf" (at 0 1.27 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))
 		(property "Description" "HYCON 1-cell Li+ protection IC, external dual-N FET, SOT-23-6" (at 0 0 0)(show_name no)(hide yes)(effects (font (size 1.27 1.27))))

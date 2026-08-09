@@ -32,7 +32,7 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 
 ## Safety (NON-NEGOTIABLE)
 Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be **safe for ANY 18650** ("if it fits, it must be safe") — assume unprotected/reversed/wrong-SoC/hot cell; do **not** rely on the cell's PCM.
-- **Double-redundant** OV/OD/OC/SC = charger **LT3652** (CV 4.05 V via FB divider, NTC temp-qual, safety timer) **+ independent protector HY2111-GB (SOT-23-6, LCSC — AP9101C family went NRND 2026-07-17) + AOSD32334C dual-FET (SO-8)** (OV 4.28 V). Industry-standard for 1S — simple, not over-built.
+- **Double-redundant** OV/OD/OC/SC = charger **LT3652** (CV 4.05 V via FB divider, NTC temp-qual, safety timer) **+ independent protector HY2111-HB (SOT-23-6, LCSC — AP9101C family went NRND 2026-07-17; -HB not -GB since 2026-08-08, discharge-OC 200 mV so a loud plugged alarm does not trip it) + AOSD32334C dual-FET (SO-8)** (OV 4.28 V). Industry-standard for 1S — simple, not over-built.
 - **Reverse-polarity P-FET** on BAT+ (bare cell can't be keyed).
 - **NTC temp-qualified charge** (LT3652 NTC pin: no charge <0/>45 °C — single hot/cold window, not multi-zone JEITA); cell voltage-qualified on insert (ADC).
 - **Charge-cap ~80 % (4.05 V)** — fixed in HW by the LT3652 float divider (no I²C; SoC/faults via ADC + CHRG/FAULT); **runs with no cell** on USB (BAT node feeds rails).

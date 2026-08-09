@@ -258,9 +258,21 @@ _REF = {
             "Not stocked at DigiKey - LCSC C970725"),
     "U2":  ("LT3652EMSE#PBF", "Analog Devices", "12-MSOP-EP",
             "IC BATT CHARGER LI-ION 2A 12MSOP-EP", ""),
-    "U3":  ("HY2111-GB", "HYCON Technology", "SOT-23-6",
+    # -HB, not -GB (2026-08-08, REVIEW.md #6).  Datasheet p.190-201: the two
+    # suffixes are identical on every threshold -- OV 4.28 V, release 4.08 V,
+    # OD 2.90 V, release 3.00 V -- and differ only in the discharge
+    # over-current trip, V_DIP 200+/-25 mV vs 150+/-25 mV.  Across the
+    # AOSD32334C pair (50-66 mOhm) that moves the worst-case trip from 1.89 A
+    # to 2.65 A, which is what makes a loud plugged alarm (audio + sunrise
+    # LEDs, ~2.3 A out of the cell once the LT3652 has contributed its 1 A)
+    # sit inside the protector instead of on top of it.  Same SOT-23-6, same
+    # pinout, same support network -- a BOM line, no schematic or PCB change.
+    "U3":  ("HY2111-HB", "HYCON Technology", "SOT-23-6",
             "IC BATT PROTECTION 1S 4.28V SOT-23-6",
-            "Not stocked at DigiKey - LCSC C82747"),
+            "-HB suffix: discharge-OC V_DIP 200mV (the -GB's 150mV trips on a "
+            "loud plugged alarm, REVIEW.md #6). All other thresholds identical "
+            "to -GB. Not stocked at DigiKey - LCSC C82747 is the -GB; order "
+            "the -HB variant explicitly and CHECK THE MARKING on arrival"),
     "U4":  ("AOSD32334C", "Alpha & Omega Semiconductor", "8-SOIC",
             "MOSFET 2 N-CH 30V 8A SO-8", ""),
     "U5":  ("TPS61023DRLR", "Texas Instruments", "SOT-563",

@@ -580,10 +580,37 @@ V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^
   a quieter value and rejects a louder one with the reason. Default moves **−1.0 → −4.1 dBFS**.
 - **Recompute `kLimitCeilDbfs` if A_GAIN or the 12 V setpoint changes.** A gain bump silently
   re-scales the watts behind the same dBFS number.
-- **On battery** the ceiling is not the binding limit: PVDD drops to ~4.96 V (LTC4412 mux), the rail
-  clips at 3.5 V rms ≈ **3.1 W**, peak inductor current ~1.25 A. The hard-clip guard handles it.
+- **On battery** the *inductor* ceiling is not the binding limit: PVDD drops to ~4.96 V (LTC4412
+  mux), the rail clips at 3.5 V rms ≈ **3.1 W**, peak inductor current ~1.25 A. The hard-clip
+  guard handles it. **The binding limit on battery is the cell protector** — see R-AUDIO-1.
 - The 8 W cap does **not** replace the shared-rail budget: 8 W acoustic ≈ 9.4 W off the 12 V boost,
   and wake LEDs + audio must still stay ≤ ~12 W total (`power_values.md` §5) during a sunrise alarm.
+
+> **R-AUDIO-1 — the cell protector, not the amp, is what limits a loud alarm.**
+> The rails are fed from the BAT node, and `R18` caps the LT3652's contribution to **~1 A**
+> (`kicad/REVIEW.md` #7). Everything above that comes out of the cell **even while plugged in**,
+> through the `HY2111-HB` + `AOSD32334C` pair. Trip is `V_DIP` / R_FET = 175–225 mV / 50–66 mΩ →
+> **2.65 A worst case**, and `T_DIP` is only 5–15 ms, so a held bass note trips it just as well as
+> a DC load — a high-crest-factor asset lowers *average* draw but not the trip risk.
+>
+> | case | audio | + wake LEDs | BAT-node draw | from the cell | vs 2.65 A trip |
+> |---|---|---|---|---|---|
+> | plugged, alarm only | 8 W | — | ~2.6 A | **~1.6 A** | comfortable |
+> | plugged, sunrise alarm | 8 W | ~2.6 W | ~3.3 A | **~2.3 A** | **~15 % margin** |
+> | battery, alarm | 3.1 W | *(gated off)* | — | **~1.9 A peak** | comfortable |
+>
+> Two firmware obligations follow, neither optional:
+> 1. **Never ramp the sunrise LEDs and the alarm peak together on purpose.** The margin above is
+>    15 %, which is the tolerance stack, not headroom. Reach full LED brightness *before* the
+>    audio ramp starts, or hold the LEDs at partial output while audio is above ~half scale.
+> 2. **A protector trip is self-clearing and looks like a spontaneous reboot** — the load
+>    disappears, the protector releases, the board comes back. If `board` sees an unexplained
+>    brown-out during an alarm, log it as a *suspected OC trip* with the audio and LED duty at
+>    that instant; do not silently retry at the same level.
+>
+> ⚠ This budget assumes the **-HB** protector. The **-GB** (fitted until 2026-08-08) trips at
+> **1.89 A** worst case, i.e. below the plugged sunrise-alarm case *and* marginal on battery.
+> If a board is ever built with a -GB, the audio ceiling must drop to ~4 W plugged.
 - ⚠ Bench-confirm before trusting it: current probe on L5 at max volume with the real alarm sample,
   looking for the current peaks going non-linear (core saturation), not just for the dBFS number.
 

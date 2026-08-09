@@ -485,7 +485,8 @@ makes no difference, which is the build method that matters here.
 
 | # | Finding | Why deferred | Revisit when |
 |---|---|---|---|
-| 6, 7 | Protector OC trip / battery IR drop below the 12 W target | Mostly a *plugged + wake-LEDs* case; battery audio runs off the 5 V rail (~3.1 W into 4 Ω) | If battery-mode alarm power is ever raised, or if 8 Ω is adopted (halves it) |
+| ~~6~~ | Protector OC trip | ✅ **Fixed 2026-08-08 by part change: `HY2111-GB` → `HY2111-HB`.** Same SOT-23-6, same pinout, same support network, every threshold identical except discharge-OC `V_DIP` (200 ±25 mV vs 150 ±25 mV) — worst-case trip **1.89 A → 2.65 A**, which clears both the battery case and the plugged sunrise-alarm case. Speaker stays 4 Ω. Firmware side is `FIRMWARE.md` **R-AUDIO-1** | Only if the audio ceiling or the LED budget is raised |
+| 7 | Battery IR drop / `R18` caps the wall at ~1 A | Still deferred. The **cell supplies the balance even while plugged**, which is why #6 mattered — now covered by the -HB trip with ~15 % margin on the sunrise-alarm case | `R18` 0.1 → 0.05 Ω doubles the wall's share, but needs thermal vias under U2 (#5, blocked by #18) |
 | 14 | Ungated always-on loads (~70 mA idle) | **Mostly wall-powered**, so backup runtime is good enough | If battery runtime becomes a goal — gate the EM14 (26 mA) and QRE1113 LED (14 mA); GPA4-6/GPB3 are free |
 | 16 | `CELL_TEST` on battery cuts power | Self-recovering reset loop, **not damage**; firmware-enforced instead | If a hardware interlock against `PD_PG` is ever wanted |
 
@@ -733,6 +734,26 @@ driver (halves audio peak current — also change `L5`/`L6` to 22 µH per TI's f
 table, same XAL40xx land); or swap to **HY2111-HB**, which is the same family with
 identical OV 4.28 V / OD 2.90 V thresholds but `V_DIP` = 200 mV instead of 150 mV
 (≈ +33 % trip) — a drop-in part change.
+
+> ### ✅ Fixed 2026-08-08 — `HY2111-GB` → `HY2111-HB`
+>
+> The third option was taken, and the 8 Ω driver was **rejected**: at 4 Ω the plugged
+> ceiling is `L5`/`L6` saturation, not the rail, so 8 Ω would give the *same* ~8 W
+> plugged and cost 3 dB on battery for nothing. Datasheet p.190–201 confirms the two
+> suffixes differ only in `V_DIP`; worst case (175 mV / 66 mΩ) the trip moves
+> **1.89 A → 2.65 A**.
+>
+> | case | from the cell | vs 2.65 A |
+> |---|---|---|
+> | plugged, alarm only | ~1.6 A | comfortable |
+> | plugged, sunrise alarm (12 W) | ~2.3 A | ~15 % margin |
+> | battery, alarm | ~1.9 A peak | comfortable |
+>
+> The 15 % on the sunrise-alarm row is tolerance stack, not headroom, so the firmware
+> must not ramp LEDs and audio to peak simultaneously — written up as **R-AUDIO-1** in
+> `FIRMWARE.md` §6.2, together with the "a trip looks like a spontaneous reboot"
+> logging requirement. Schematic, PCB and BOM updated (`sync_pcb.py` carried the value
+> across); ERC 0, DRC 0, `review_check.py` 11/12 unchanged.
 
 ## 7. Battery IR drop starves the 12 V boost
 

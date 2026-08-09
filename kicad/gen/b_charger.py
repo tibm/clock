@@ -247,9 +247,15 @@ def build(s):
     s.pwr_flag(114.30, 257.81)                       # PACK- drives the GND net
 
     # HY2111 protector IC (replaced NRND AP9101CK6-BX 2026-07-17; same
-    # pinout, R1/R2/C1 values per HYCON datasheet §10)
+    # pinout, R1/R2/C1 values per HYCON datasheet §10).
+    # -HB suffix since 2026-08-08 (was -GB): identical OV 4.28 V / release
+    # 4.08 V / OD 2.90 V / release 3.00 V, but discharge-OC V_DIP is
+    # 200 +/-25 mV instead of 150, which lifts the worst-case trip across the
+    # AOSD32334C pair from 1.89 A to 2.65 A.  Without it a loud alarm while
+    # plugged in trips the protector -- the LT3652 can only contribute ~1 A
+    # (R18), so the cell supplies the rest.  REVIEW.md #6.
     U3 = s.comp("U3", "clock:HY2111", 80.01, 276.86,
-                value="HY2111-GB",
+                value="HY2111-HB",
                 footprint="Package_TO_SOT_SMD:SOT-23-6")
     # VDD via R20 from cell+ (junction on the holder+ wire)
     # 200R (HYCON's max for R1; typ 100R).  The protector's VDD sits on the
