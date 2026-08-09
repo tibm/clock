@@ -9,6 +9,15 @@ cross-checked against the datasheets in `datasheet/`. Mechanical/3D fit, the cus
 footprints vs. vendor drawings, silkscreen legibility, and the sensor board's own
 internals are **not** covered.
 
+> **Pruned 2026-08-08.** The write-ups of findings that are **fully closed**
+> have been deleted from this file — the fix is in the design files, and the
+> reasoning that outlived it is in `PCB_NOTES.md`. Gone: **#1, #2, #3** (Q4,
+> PBTL pairing, `C104`), **#5** (thermal vias), **#9** (`C238`), **#10–#13,
+> #15, #17, #19–#21, #23**, and the Phase-2 PCB work order. The status tables
+> below still list every one of them with its commit. What is kept in full is
+> the work that is **still live** — #4, #6, #7, #8, #14, #16, #18, #22, #24,
+> #25 — plus the "checked and found correct" record.
+
 ## Verification baseline
 
 ```
@@ -54,7 +63,7 @@ all routing.**
 | 1 | Q4 PVDD-mux P-FET source/drain reversed | `1f3736a` | schematic only — **PCB re-route still open** |
 | 2 | TAS5760M PBTL outputs paralleled wrong pairs | `1f3736a`, refined `1cf1629` | schematic only — **PCB re-route still open** |
 | 3 | LT3652 `C104` → 26 min charge timeout | `1f3736a` | 1 µF, same 0603 land, existing BOM line |
-| 10 | J7/J10 identical connectors, incompatible pinouts | `637be57` | connector kept; **`SENSOR` + `KNOB` silkscreen added** on B.SilkS |
+| 10 | J7/J10 identical connectors, incompatible pinouts | `637be57` | connector kept; **`SENSOR` + `KNOB` silkscreen added** on B.SilkS. **Re-opened and closed again 2026-08-08**: a 1×07 J7, which would have made the mis-mate physically impossible, was proposed in `kicad-sensor/REVIEW.md` and **rejected** — a footprint swap on both boards plus re-routing J7's fan-out here, for a connector plugged once at build time inside a sealed box. **The silk is the keying**; label both harnesses to match it |
 | 11 | J7 pin 6 (`ALS_INT`) was NC | `727dbfd` | → expander GPB3; **PCB trace still open** |
 | 12 | J7 value string said LIS3DH | `727dbfd` sch · `3cc15da` fw | schematic **and** `FIRMWARE.md` now say BNO085 — see note below |
 | 13 | `R1` 137 mW in a 100 mW 0603 | `637be57` | → **1206**, `RC1206FR-071KL` (¼ W); **PCB land swap still open** |
@@ -98,7 +107,7 @@ from `+3V3` (it carries a few µA, so the longer leg is free).
 
 | net | connection |
 |---|---|
-| `+5V` | Q4.3 → +5V (must hop on F.Cu — see #1) |
+| `+5V` | Q4.3 → +5V (had to hop on F.Cu: Q4 pads 1/2 leave a 0.43 mm gap and a 0.25 mm track needs 0.45) |
 | `PVDD` | Q4.2 → PVDD |
 | `Net-(U9-SPK_OUTA+)` | U9.26 → leg A · C181.2 → leg A · C180.2 → leg A |
 | `Net-(U9-SPK_OUTB+)` | U9.20 ↔ U9.23 · C182.2 · C183.2 · L6.1 |
@@ -649,118 +658,6 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   KiCad mirrors **after**, silently swapping the two mirror axes at rot 90/270. Harmless until now
   (BT1 was the only mirrored part, at rot 0); fixed, verified not to move any other net.
 
-### Phase 2 work order (PCB) — measured, not estimated
-
-The U9 fan-out is genuinely full: in the 5.7 × 8.0 mm box around it, **B.Cu 47.5 mm / 8 nets,
-In1 60.3 mm / 5 nets, In2 24.7 mm / 3 nets, 8 vias, 8 pads — and F.Cu completely empty (0 mm)**.
-F.Cu is the escape layer.
-
-| # | connection | from | to | note |
-|---|---|---|---|---|
-| 2 | `U9.20` → leg B | (100.15, 75.63) | leg B at (101.55, 77.58) | PVDD via at (101.56, 76.81) blocks the direct diagonal |
-| 2 | `U9.26` → leg A | (100.15, 79.53) | leg A via at (101.36, 81.05) | PVDD knot at (101.16–101.58, 80.08–80.52) blocks B.Cu |
-| 2 | `C181.2` → leg A | (103.50, 81.83) | `C180.2` (103.50, 78.18) | straight vertical, x = 103.50 |
-| 2 | `C182.2` → leg B | (106.00, 78.18) | `C183.2` (106.00, 81.83) | straight vertical, x = 106.00 |
-| 1 | `Q4.3` → `+5V` | (100.92, 71.10) | +5V at (100.91, 68.26) | **must not** go straight up: pads 1/2 leave a 0.43 mm gap and a 0.25 mm track needs 0.45 mm. Hop on F.Cu with vias at (100.91, 68.26) and (100.92, 70.16) — both verified clear of all three Q4 pads |
-| 1 | `Q4.2` → `PVDD` | (101.88, 69.22) | PVDD at (103.74, 71.10) | direct B.Cu diagonal, clear |
-| 13 | `R1` land | 0603 | **1206** | 4.6 mm of clear space around it |
-| 15 | `D14` | — | `VBAT_SENSE` + `+3V3` | new SOD-123 to place near D13 (99.09, 104.30) |
-| 11 | `ALS_INT` | `J7.6` | `U13.4` | new net, both parts already placed |
-
-Segments to delete first (they sit on pads whose net changed): `Q4` 281, 934;
-`U9` 539, 540, 541, 543, 1743, 1744, 1745, 1747.
-
----
-
-# 🔴 Stop — fix before fab
-
-## 1. Q4 (PVDD mux P-FET) is source/drain reversed → 12 V back-feeds the 5 V rail
-
-**Evidence.** `Q4` pad 2 (**S**) = `+5V`, pad 3 (**D**) = `PVDD` — verified in both
-`.kicad_sch` and `.kicad_pcb`. AO3401A SOT-23 is 1 = G, 2 = S, 3 = D
-(`datasheet/reverse_pfet_ao3401a.pdf`, top-view figure).
-
-**Symptom.** A P-FET's body diode conducts **drain → source**. With the drain on
-PVDD, the moment `BOOST12_EN` goes high the diode is forward-biased with ~7 V across
-it and dumps 12 V into `+5V`. LTC4412 datasheet, *Operation*:
-
-> "Note that the external MOSFET is wired so that the drain to source diode will
-> momentarily forward bias when power is first applied to VIN and will become
-> **reverse biased when an auxiliary supply is applied**."
-
-Correct wiring is **drain → +5V, source → PVDD**.
-
-**Blast radius** — abs-max of everything on `+5V`:
-
-| part | V(abs max) | at ~11.4 V |
-|---|---|---|
-| U6 TLV62569 (VIN/EN) | 6 V | destroyed |
-| U5 TPS61023 (VIN/VOUT/SW) | 7 V | destroyed |
-| U15 SN74AHCT1G125 | 7 V | destroyed |
-| EM14 encoder (VCC) | 5.25 V | destroyed |
-| D40/D41 SK6812 | ~6 V | destroyed |
-| U11/U12 TB6612 (VM) | 15 V | survives |
-
-**Fix.** Swap the nets on Q4 pads 2 and 3 — i.e. in `gen/b_audio.py` the pin numbers
-in the two `s.pw(Q4, …)` calls trade places, so pad **3** goes left to `+5V` and pad
-**2** goes right to `PVDD`. Mirror the symbol (`rot=270` → `rot=90`) at the same time
-so the two wires don't have to cross.
-
-On the PCB this is two short traces at Q4 (100.92, 70.16) — rip up and re-route.
-(A 180° footprint rotation does *not* achieve the swap on SOT-23: pads 1+2 share one
-side and pad 3 is alone on the other.)
-
-## 2. TAS5760M PBTL outputs are paralleled in the wrong pairs
-
-**Evidence.** PCB pad nets:
-
-```
-U9.29 (OUTA+) -> Net-(U9-SPK_OUTA+)   U9.20 (OUTB+) -> Net-(U9-SPK_OUTA+)
-U9.26 (OUTA-) -> Net-(U9-SPK_OUTA-)   U9.23 (OUTB-) -> Net-(U9-SPK_OUTA-)
-```
-
-TI SLOS772F **Figure 64** (*Mono PBTL using Software Control, 32-pin DAP*) and
-**Figure 65** both tie **OUTA+ ∥ OUTA−** as one leg and **OUTB+ ∥ OUTB−** as the
-other. The datasheet calls it *"pre-filter Parallel Bridge Tied Load"* — in PBTL the
-two A half-bridges switch **in phase** as one leg, and the two B half-bridges as the
-other.
-
-**Symptom.** As wired, two **anti-phase** half-bridges are shorted together: a hard
-PVDD → PGND path through 2 × 120 mΩ every switching cycle at 384/768 kHz. OCP will
-latch a fault (`SPK_FAULT` low); the amp never produces audio, and the output stage
-may not survive the first cycles.
-
-**Fix — net swap only, no re-placement.** Swap pin 20 ↔ pin 26, and swap
-C182 ↔ C181, giving:
-
-```
-node A = { U9.29, U9.26, C180 (BSTRPA+ p30), C181 (BSTRPA- p25) } -> L5
-node B = { U9.20, U9.23, C182 (BSTRPB+ p19), C183 (BSTRPB- p24) } -> L6
-```
-
-**Firmware note.** In PBTL the amp takes its source from the **right** channel of
-SDIN (or invert LRCK in the I²S master).
-
-## 3. LT3652 `C104` = 100 nF → 26-minute charge timeout, 3.3-minute bad-battery timeout
-
-**Evidence.** LT3652 datasheet: `tEOC(hr) = C_TIMER × 4.4e6`,
-`tPRE = C_TIMER × 5.5e5`, *"A 0.68 µF capacitor is typically used, which generates a
-timer EOC at three hours, and a precondition limit time of 22.5 minutes."*
-
-| C_TIMER | tEOC | tPRE (bad-battery) |
-|---|---|---|
-| 0.68 µF (datasheet nominal) | 3.0 h | 22.5 min |
-| **0.1 µF (as built)** | **0.44 h = 26 min** | **3.3 min** |
-
-**Symptom.** A 3000 mAh cell needs ~3 h at 1 A, so normal cycles terminate early and
-re-trigger repeatedly. Worse: a deeply-discharged cell cannot clear the 2.84 V
-precondition threshold at 150 mA in 3.3 min → **latched "bad battery" fault,
-charging refused.**
-
-`power_values.md:19` already carries `⚠️ verify vs. TIMER eq.` — this is the result.
-
-**Fix.** `C104 = 0.68 µF` (0603 X7R, ≥16 V). Value change only, same land.
-
 ---
 
 # 🟠 Will bite you
@@ -787,23 +684,6 @@ End-to-end resistances (Dijkstra over the actual routed copper):
 **Fix.** Add a `POWER` net class (≥1.0 mm) covering `VBAT`, `+12V`, `PVDD`, `+5V`,
 `VBUS`, and the amp outputs `Net-(U9-SPK_OUTA+/-)`; ≥3 vias per layer crossing on
 `VBAT`. F.Cu is 98 % empty (85 mm routed total) — that's the budget.
-
-## 5. No thermal vias in any exposed pad
-
-| part | EP size | vias inside | dissipation |
-|---|---|---|---|
-| U7 TPS55340 (12 V boost) | 3.4 × 5.0 mm | **0** | ~2 W at 12 W out |
-| U9 TAS5760M (amp) | 5.2 × 11 mm | **0** | ~1.5 W at 10 W out |
-| U2 LT3652 (charger) | 1.65 × 2.85 mm | **0** | ~0.7 W at 1 A |
-| U1 CH224K | 2.1 × 3.3 mm | 1 | low |
-| U8 ESP32-S3 | — | 12 ✓ | — |
-
-All sit on B.Cu so they touch the B.Cu pour, but the path to In1/In2/F.Cu is absent.
-`CLAUDE.md` explicitly assumes *"PowerPAD (amp/charger) OK **with a thermal-via
-array**"*. U7 is the one that will hit thermal shutdown first.
-
-**Fix.** 0.3 mm via arrays (~1.2 mm pitch): 9–12 under U7, 12–15 under U9, 4–6 under
-U2. Tented on B.Cu so hand-soldering paste doesn't wick through.
 
 ## 6. Battery protector over-current trips below the design's own peak load
 
@@ -955,84 +835,20 @@ The switch nodes are the ones that matter: a slot there both enlarges the loop a
 puts the I²S/I²C lines directly under the highest-dV/dt copper on the board. This is
 **#18's inner-layer signal routing seen from the EMI side** — same fix, same job.
 
-## 9. `C238` — the level shifter's bypass — is 50 mm from U15
-
-U15 (SN74AHCT1G125) at (28.61, 48.88); C238 at (76.50, 39.50) → **50.5 mm**.
-The buffer driving the whole NeoPixel chain has no local decoupling.
-
-### Fixed 2026-08-05 (`8441d29`)
-
-`C238` → **(26.73, 46.18) rot 180**; pad 1 (+5V) to U15 pin 5 is now **1.75 mm**
-(was 50.50), on a new 0.50 mm B.Cu trace, with **2 GND vias 0.62 mm** from its
-return pad (nearest was 2.68 mm) so the bypass loop closes into the plane rather
-than wandering off across the pour — the same principle as #8.
-
-One subtlety worth recording, because it will bite the next part that moves:
-`C238`'s +5V pad was **not a leaf but a junction**, where the two collinear B.Cu
-tracks (77.28, 44.36)→pad and (77.28, 33.61)→pad met. Cutting both — which is what
-"delete the copper attached to the old position" naively does — split `+5V` into two
-islands and DRC reported 1 unconnected. Tracks that share an endpoint stay connected
-to each other without the pad, so the rule is: **cut only when the pad holds a single
-stub; leave junctions alone.**
-
-It slipped through because `qa_locality()` only checks non-rail nets, and C238's two
-nets are `+5V` and `GND`.
-
-**Fix.** Move C238 adjacent to U15 pin 5. Also consider extending the locality QA to
-2-pad rail-only parts.
-
 ---
 
 # 🟡 Worth a pass
-
-**10. J7 / J10 mis-mate hazard.** Both JST ZH 1×06 vertical, same pre-crimped
-A06ZR cable, **13.5 mm apart** on the PCB, incompatible pinouts. J10 pin 2 = `+5V`,
-J7 pin 2 = `+3V3` → plugging the sensor board into J10 destroys the
-BNO085 / BME688 / TSL2591. Key them (different series, or make one a 1×05).
-
-> **Closed 2026-08-08 — accepted, mitigated by marking.** Re-keying was
-> re-proposed as a 1×07 J7 (`kicad-sensor/REVIEW.md`) and **rejected**: it costs
-> a footprint swap on both boards plus re-routing J7's fan-out on an
-> already-routed board, for a connector that is plugged once, at build time,
-> inside a sealed wooden box. The mitigation that shipped instead is on the
-> **board**, not just on paper: `637be57` put **`SENSOR` and `KNOB` on B.SilkS**
-> beside the two headers, so the right cable is named at the point of use. The
-> hazard is additionally on the sensor board's schematic sheet, in
-> `kicad-sensor/README.md`, on J10's BOM line and in the root `README.md` §16b.
-> Label both harnesses to match the silk before first power-up.
-
-**11. J7 pin 6 mismatch.** The sensor board drives `ALS_INT` (TSL25911 INT, pulled
-up by its R12) on J1.6; the main board leaves J7.6 `NC` ("spare wire in the cable").
-Harmless electrically, but the light-sensor interrupt is unusable.
-
-**12. J7 value string.** Reads `Sensor board (BME688+TSL2591+LIS3DH)`; the sensor
-board actually carries a **BNO085**. Fix the string in `gen/b_io.py`.
-
-**13. `R1` (CH224K VDD feed) is overloaded.** 1 kΩ 0603 from the **15 V** contract
-into a shunt-regulated 3.3 V pin ⇒ (15 − 3.3)² / 1 k = **137 mW** in a 100 mW part
-(CH224K VDD abs max 3.6 V, internal shunt sinks up to 30 mA). WCH's reference value
-is drawn generically. Use an 0805/1206, or 2.2 k (still ≥ 5 mA at 15 V).
 
 **14. Ungated always-on loads.** EM14 encoder **26 mA max** on `+5V`, QRE1113 homing
 LED **14 mA** on `+3V3` (R98 = 150 R straight from the rail), plus ~5–7 mA of SK6812
 idle — none switchable. ≈ 70 mA from the cell at idle → ~34 h on 2400 mAh usable.
 Spare expander pins (GPA4-6, GPB3) exist to gate both through a small FET.
 
-**15. `VBAT_SENSE` floats above the 3.3 V rail** when `VBAT_DIV_EN` is low: R23's
-bottom is opened, so R22 (100 k) pulls IO1 to ~4 V through the ESP32's upper ESD
-clamp (~3 µA — harmless, but outside abs-max). Clamp to `+3V3`, or switch the top leg
-instead of the bottom.
-
 **16. `CELL_TEST` on battery = hard power cut.** Q2's body diode is oriented
 VBAT → cell+, so it cannot back-feed. Asserting CELL_TEST unplugged kills the rails,
 which drops the MCP23017, which releases CELL_TEST → Q2 back on → boot loop. The
 comment in `gen/b_charger.py` ("on battery Q2's body diode keeps the system alive but
 drops ~0.4 V") is **wrong**. Consider gating CELL_TEST with `PD_PG` in hardware.
-
-**17. Encoder A/B divider is high-impedance.** 100 k / 200 k ⇒ **66.7 kΩ** source
-running ~40 mm past two stepper drivers and a class-D amp into PCNT. 10 k / 20 k
-costs 0.25 mA and is 10× stiffer. Levels are fine either way: EM14 V_OH ≥ 4.0 V →
-2.67 V worst case vs. S3 V_IH 2.48 V — but only 0.2 V of margin.
 
 **18. The inner "solid GND planes" carry ~3 m of signal routing.**
 
@@ -1048,32 +864,9 @@ rather than a split-plane problem — but it does undercut `PCB_NOTES.md` constr
 #16 for an RF + 2-stepper + class-D board. F.Cu is nearly empty; moving power trunks
 there frees inner-layer channels.
 
-**19. PVDD bulk is thin for a 10 W class-D.** `C172` = 100 µF/25 V Rubycon TZV,
-**300 mA @ 100 kHz** ripple rating; TI's PBTL reference shows 470 µF. Add
-2 × 22 µF/25 V 1210 right at the PVDD pins.
-
-**20. Reverse-cell protection leans entirely on the protector FETs.** Q2's body
-diode (drain = VBAT) forward-biases into a reversed cell; only the AOSD32334C being
-off breaks the loop. During reverse insertion the HY2111 sees VDD ~3.7 V *below* VSS
-through R20 = 100 Ω (~37 mA into its ESD structures). R20 = 100 Ω is HYCON's own
-recommendation (§10: R1 100 Ω typ, 200 Ω max), so this is defence-in-depth to note,
-not a value error.
-
-**21. MCP23017 INTA/INTB are tied together.** Safe at POR (both deasserted) and safe
-with `IOCON.MIRROR = 1`, which the schematic text calls out — but firmware must set
-MIRROR (or ODR) **before** enabling any per-bank interrupt, else two push-pull
-outputs fight.
-
 **22. No UART console.** IO43/IO44 are consumed by MCLK and the expander INT; the
 PROG header J2 is 3V3/GND/EN/IO0 only. All bring-up depends on USB-Serial-JTAG.
 (Boot-log TX is still probeable on IO43.)
-
-**23. U9 exposed-pad land needs a fab cross-check.** KiCad's
-`HTSSOP-32-1EP_6.1x11mm_P0.65mm_EP5.2x11mm_Mask4.11x4.36mm` declares 5.2 × 11 mm
-copper with a solder-mask-defined **4.11 × 4.36 mm** opening; TI's DAP-32 land drawing
-is SMD with a (5.2) dimension. Since this is the amp's only heat path, verify against
-the TI mechanical drawing. (Same open item as the Juken / Keystone / GCT footprints
-already listed in `PCB_NOTES.md`.)
 
 **24. 32.768 kHz crystal loading.** ABS07-32.768KHZ-T (CL 12.5 pF, ESR 70 kΩ max)
 with 18 pF loads ⇒ CL_eff ≈ 12 pF ✓. Y1 is 2.9 / 3.2 mm from the XTAL pins ✓, but
