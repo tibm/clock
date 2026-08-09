@@ -193,7 +193,7 @@ exactly on U2 at (4.5, 10.0) and **Ø4.0 window** centred exactly on U3 at
 | **C4 and C7 poke 0.36 / 0.44 mm into the Ø5.2 vent circle** (on the back) | v0.2 moved both **+0.175 mm east**, which is all U1's courtyard (0.245 mm left) and Y1's (0.595 mm) allow — a 1 mm move as first suggested is geometrically impossible. That restored *"nothing on the back behind U2"* and bought 0.08 / 0.17 mm of vent margin. The residue means the enclosure vent wants to be an **open aperture in front of the board**, not a through-feature with a gasket pressed flat on the back face. |
 | **In2.Cu is spent partly on routing** | SDA/SCL take an inner-layer detour (1.88× / 1.50× their minimum spanning tree), so In2 is 38 % filled under U1 rather than solid. In1 carries the continuous plane 0.48 mm further out. If the board is ever re-laid, pull SDA/SCL back onto F.Cu/B.Cu and take In2 back as a plane. |
 | **One TH part on an all-SMD board** | J1 forces a third operation after both reflows. `B6B-ZR-SM4-TF` (same ZHR-6 housing, SMT with brass reinforcement) would remove it, at the cost of pull-out strength. Price the third operation before committing — it is usually quoted per board, not per joint. |
-| **6-way connector, not 1×07** | A 1×07 would make the J7/J10 mis-mate physically impossible *and* give `NRST` a host line (`FIRMWARE.md` R-BOARD-3). Deferred to the next spin — see `REVIEW.md`. Until then the guard is the warning block on the schematic sheet and a labelled harness. |
+| **6-way connector — final** | A 1×07 would have made the J7/J10 mis-mate physically impossible *and* given `NRST` a host line (`FIRMWARE.md` R-BOARD-3). **Proposed and rejected 2026-08-08**: it costs a footprint swap on two boards plus re-routing J7's fan-out on an already-routed main board, against three problems that are all procedural or already accepted. J1 stays `B6B-ZR` (ZH 1×06) on the `A06ZR` harness. The guard is the warning block on the schematic sheet plus labelled cables; R-BOARD-3 is permanently accepted. See `REVIEW.md`. |
 
 ## Fixed while laying this out
 
@@ -247,5 +247,8 @@ python3 ../kicad/gen/models3d.py sensor.kicad_pcb
    the back side; check the axis mapping against the datasheet's Fig. 6-6
    frame once the mounting orientation in the cube is decided. Also
    **R-BOARD-4**: enable the MCP23017's pull-up on GPB3 (`GPPU.3 = 1`).
-4. **Next spin**: the 1×07 connector (see `REVIEW.md`) — one change closes the
-   J7/J10 mis-mate, the reversed-harness hazard and R-BOARD-3.
+4. **Build the harnesses and label them.** J7 and J10 are the same ZH 1×06
+   header 13.5 mm apart and J10 carries +5 V on pin 2, so the labels *are* the
+   keying — the 1×07 that would have made the mis-mate impossible was
+   considered and **rejected** (`REVIEW.md`). The main board already silkscreens
+   `SENSOR` and `KNOB` beside the two headers; match the cable labels to those.

@@ -67,11 +67,13 @@ from J7**, with **+5 V on pin 2** — that mis-mate puts 5 V on `+3V3` and takes
 out all three sensors at once (abs max: BNO085 VDDIO 3.63 V, TSL2591 3.8 V,
 BME688 4.25 V).
 
-Neither is keyed out today. **Label both harnesses and check the cable before
-first power-up.** The permanent fix is a **1×07** connector on the next spin
-(a 6-way ZHR housing cannot enter a 7-way header, and the spare pin gives
-`NRST` a host line) — see [`REVIEW.md`](REVIEW.md). The warning is also
-printed on the schematic sheet, next to J1.
+Neither is keyed out, and **the connector is not going to change** — a 1×07
+was proposed and rejected on 2026-08-08 ([`REVIEW.md`](REVIEW.md)). The guard
+is marking, and it has to be followed: the main board carries **`SENSOR` and
+`KNOB` on B.Silk** beside J7 and J10, so **label both harnesses to match, and
+check the cable before first power-up.** The reversed-cable warning is also
+printed on the schematic sheet next to J1 and on J10's BOM line, so it is in
+front of whoever assembles the clock rather than only in this file.
 
 ## Design notes (all traceable to a datasheet line)
 

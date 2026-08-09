@@ -990,6 +990,17 @@ A06ZR cable, **13.5 mm apart** on the PCB, incompatible pinouts. J10 pin 2 = `+5
 J7 pin 2 = `+3V3` → plugging the sensor board into J10 destroys the
 BNO085 / BME688 / TSL2591. Key them (different series, or make one a 1×05).
 
+> **Closed 2026-08-08 — accepted, mitigated by marking.** Re-keying was
+> re-proposed as a 1×07 J7 (`kicad-sensor/REVIEW.md`) and **rejected**: it costs
+> a footprint swap on both boards plus re-routing J7's fan-out on an
+> already-routed board, for a connector that is plugged once, at build time,
+> inside a sealed wooden box. The mitigation that shipped instead is on the
+> **board**, not just on paper: `637be57` put **`SENSOR` and `KNOB` on B.SilkS**
+> beside the two headers, so the right cable is named at the point of use. The
+> hazard is additionally on the sensor board's schematic sheet, in
+> `kicad-sensor/README.md`, on J10's BOM line and in the root `README.md` §16b.
+> Label both harnesses to match the silk before first power-up.
+
 **11. J7 pin 6 mismatch.** The sensor board drives `ALS_INT` (TSL25911 INT, pulled
 up by its R12) on J1.6; the main board leaves J7.6 `NC` ("spare wire in the cable").
 Harmless electrically, but the light-sensor interrupt is unusable.

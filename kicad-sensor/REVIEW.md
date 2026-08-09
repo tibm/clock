@@ -49,7 +49,7 @@ kept verbatim as the record. This section is what happened to it.
 | **1** | ✅ `R3`/`R4`/`R10`/`R11` **0 Ω → 10 k** in `b_imu.py`/`b_env.py`, rebuilt, re-stamped, and the PCB `Value` fields updated to match. Worst case is now 330 µA. |
 | **2** | ⚠ **Checked and deliberately not actioned.** `B6B-ZR-3.4(LF)(SN)` is Active but **not stocked** — DigiKey `455-B6B-ZR-3.4-ND`: made to order, **MOQ 2,000, 16-week lead** — against 9,478 pcs of the 2.7 mm part at MOQ 1 (verified 2026-08-07). It is not the free BOM-line change this finding assumed. 2.7 mm through 1.6 mm leaves 1.1 mm protruding, which is a normal fully-wetted TH joint, so the deviation is **accepted and recorded** in both `parts_db.py`s, `PCB_NOTES.md` ×2 and the root `README.md`. Same for the main board's J7 **and J10/J11**, which this finding did not mention. |
 | **3** | ⏸ Priced-decision deferred; the third operation and the `B6B-ZR-SM4-TF` alternative are now written into `parts_db.py`, `README.md` §Assembly and `PCB_NOTES.md`. |
-| **4** | ⏸ The connector stays 1×06 for v0.2 (see the recommendation at the foot of this file). Mitigations landed: the hazard is now a **warning block on the schematic sheet** next to J1, a ⚠ section in `README.md` covering *both* the reversed cable and the J10 mis-mate, and a note on J10's own BOM line. |
+| **4** | ⏸ **Mitigated; the connector is final.** The 1×07 proposed at the foot of this file was **rejected 2026-08-08** — J1/J7/J10 stay `B6B-ZR` on the `A06ZR` harness. Mitigations landed instead: the hazard is a **warning block on the schematic sheet** next to J1, a ⚠ section in `README.md` covering *both* the reversed cable and the J10 mis-mate, a note on J10's own BOM line, and a line in the root `README.md`. `kicad/REVIEW.md` #10 closed the same way. |
 | **5** | ✅ **Bosch publishes no BME688 HSMI** (verified: `bst-bme688-hs000.pdf` 404s and the product page lists flyer/datasheet/app-note/packaging only). The **BME680 HSMI** — same LGA-8 3×3, same Ø0.35 mm lid vent, same MOX element — is filed as `datasheet/sensor_env_bme68x_hsmi.pdf` (+ the BME68x packaging doc), indexed as rows 44/45, and its rules (MSL 1 · 260 °C 20–40 s · ≤3 reflows · **≥50 µm solder height** · vent covered for any wash · **no siloxanes**) are now in `README.md` §Assembly, on the schematic sheet and in `datasheet/README.md` §12. |
 | **6** | ✅ `PCB_NOTES.md` rewritten from measurements; `pcb_check.py` re-baselined. |
 | **7** | ✅ Island copper **20.98 → 18.21 mm** (17.5 % → 15.2 %); the GND share **8.76 → 5.99 mm**. The daisy-chain that ran 4.74 mm down the inside of the island is gone: C4.2 now goes north into C3.2's pad (1.40 mm inside) and C7.2 takes a 45° exit (0.57 mm inside). ⚠ The suggested fix as written was not possible — a 1 mm eastward move puts C4 inside U1's courtyard and C7 inside Y1's. |
@@ -113,41 +113,44 @@ tracks, vias, zone fills, courtyards), and the vendor datasheets.
 
 ## Status overview
 
-**Legend** — ⏳ open · ⏸ deferred (accepted risk) · ✔ accepted (no change)
+**Legend** — ✅ **DONE** (v0.2, 2026-08-07) · ⏸ deferred (accepted risk) ·
+✔ closed, no change needed · ❌ **rejected** (checked, the finding was wrong or
+the fix is worse than the problem). Struck-through text is what the finding
+said before it was actioned; see [*Actioned*](#-actioned-2026-08-07--board-is-now-v02).
 
 ### 🔴 Fix before the BOM goes out
 
-| # | Finding | Cost |
+| # | Finding | Status |
 |---|---|---|
-| 1 | 0 Ω address straps: fitting both halves of either pair shorts the main board's +3V3 to GND | 2 BOM values |
+| 1 | ~~0 Ω address straps: fitting both halves of either pair shorts the main board's +3V3 to GND~~ | ✅ **DONE** — straps are **10 k**; worst case 330 µA |
 
 ### 🟠 Will bite you
 
-| # | Finding | Where |
+| # | Finding | Status |
 |---|---|---|
-| 2 | `J1` = **B6B-ZR** (2.7 mm tail) on a **1.6 mm** board — JST specifies **B6B-ZR-3.4** | BOM (**and the main board's J7**) |
-| 3 | One through-hole part on an all-SMD double-reflow board forces a third process step | assembly / BOM |
-| 4 | A reversed harness is destructive to the BNO085; the only guard is a sentence in the README | cross-board |
-| 5 | The BME688's handling rules are not in the fab package (Bosch's HSMI doc isn't in `datasheet/`) | assembly notes |
-| 6 | Three load-bearing claims in `PCB_NOTES.md` are now false | docs |
+| 2 | ~~`J1` = **B6B-ZR** (2.7 mm tail) on a **1.6 mm** board — JST specifies **B6B-ZR-3.4**~~ | ❌ **REJECTED** — `B6B-ZR-3.4` is made-to-order (MOQ 2,000, 16 wk). 2.7 mm still leaves 1.1 mm protruding = a normal TH joint. Deviation documented, J1/J7/J10/J11 all keep the stocked part |
+| 3 | One through-hole part on an all-SMD double-reflow board forces a third process step | ⏸ **deferred** — the third operation is now written into the BOM note and README; price it before ordering. **The connector stays `B6B-ZR`** (see #4) |
+| 4 | A reversed harness is destructive to the BNO085; the only guard is a sentence in the README | ⏸ **mitigated, connector unchanged** — warning block on the schematic sheet + README + J10's BOM line. **A 1×07 was proposed and rejected 2026-08-08: the connector is not changing** |
+| 5 | ~~The BME688's handling rules are not in the fab package (Bosch's HSMI doc isn't in `datasheet/`)~~ | ✅ **DONE** — HSMI + packaging docs filed (rows 44/45); rules on the sheet, in README and `datasheet/README.md` |
+| 6 | ~~Three load-bearing claims in `PCB_NOTES.md` are now false~~ | ✅ **DONE** — `PCB_NOTES.md` rewritten from measurements, `README.md` re-baselined |
 
 ### 🟡 Worth a pass
 
-| # | Finding |
-|---|---|
-| 7 | 21 mm of track now runs inside the BME688 thermal island; the avoidable part is C4/C7's GND stubs |
-| 8 | C4/C7 pads intrude 0.53 / 0.61 mm into the Ø5.2 vent aperture |
-| 9 | Six courtyard pairs are below the documented 0.22 mm floor |
-| 10 | Seven reference designators are hidden; four are replaced by free silk text 2–3.5 mm off the part |
-| 11 | Three revision markers disagree, and the PCB has no title block at all |
-| 12 | In2.Cu is void under U1's bottom pad row — In1 is the real reference plane, not F.Cu |
-| 13 | `ALS_INT` floats at the main board's MCP23017 GPB3 whenever the harness is unplugged |
-| 14 | F.Silk outline + the `ALS` legend sit inside the Ø4.0 optical window |
-| 15 | H1/H2's fastener keepout overhangs the rounded board corners |
-| 16 | Three `~*.lck` files are committed despite `.gitignore` |
-| 17 | ERC suppresses *"Global label only appears once"* |
-| 18 | `README.md` and `b_imu.py` both say `CLKSEL0` is strapped low "via a 0 Ω" — it is a bare wire to GND |
-| 19 | `kicad/REVIEW.md:731` lists the BME688 at **0x76**; the board and every other doc say **0x77** |
+| # | Finding | Status |
+|---|---|---|
+| 7 | ~~21 mm of track now runs inside the BME688 thermal island; the avoidable part is C4/C7's GND stubs~~ | ✅ **DONE** — 21.0 → **18.2 mm**, GND share 8.8 → **6.0 mm**. (The suggested 1 mm move was impossible: U1 and Y1 are in the way) |
+| 8 | ~~C4/C7 pads intrude 0.53 / 0.61 mm into the Ø5.2 vent aperture~~ | ⏸ **improved, residue accepted** — moved the 0.175 mm that U1/Y1 allow → 0.36 / 0.44 mm; restored *"nothing on the back behind U2"* |
+| 9 | ~~Six courtyard pairs are below the documented 0.22 mm floor~~ | ✅ **DONE** — clearance now judged on **pad-to-pad copper** (≥ 0.60 mm everywhere); the six courtyard pairs are named and justified in `COURTYARD_TIGHT` |
+| 10 | ~~Seven reference designators are hidden; four are replaced by free silk text 2–3.5 mm off the part~~ | ✅ **DONE** — five un-hidden and placed, four free texts deleted; only H1/H2 hidden, and asserted |
+| 11 | ~~Three revision markers disagree, and the PCB has no title block at all~~ | ✅ **DONE** — `v0.2` in the PCB title block, the schematic title block and the silk; a check fails if they diverge |
+| 12 | In2.Cu is void under U1's bottom pad row — In1 is the real reference plane, not F.Cu | ⏸ **deferred** — recorded as an accepted deviation; In1 is a solid 339 mm² plane. Fix only if the board is ever re-laid |
+| 13 | ~~`ALS_INT` floats at the main board's MCP23017 GPB3 whenever the harness is unplugged~~ | ✅ **DONE** — `FIRMWARE.md` **R-BOARD-4** (`GPPU.3 = 1`) |
+| 14 | ~~F.Silk outline + the `ALS` legend sit inside the Ø4.0 optical window~~ | ✅ **DONE** — legend moved; U3 on a project-local footprint fork with the silk trimmed |
+| 15 | ~~H1/H2's fastener keepout overhangs the rounded board corners~~ | ❌ **REJECTED** — it does not. Measured against real Edge.Cuts geometry the keepout sits **0.53 / 0.52 mm inside** the board; the finding's shortcut under-reports |
+| 16 | ~~Three `~*.lck` files are committed despite `.gitignore`~~ | ✅ **DONE** — `git rm --cached` |
+| 17 | ~~ERC suppresses *"Global label only appears once"*~~ | ✅ **DONE** — back to `warning`; ERC still 0 |
+| 18 | ~~`README.md` and `b_imu.py` both say `CLKSEL0` is strapped low "via a 0 Ω" — it is a bare wire to GND~~ | ✅ **DONE** — both comments corrected, no resistor added |
+| 19 | ~~`kicad/REVIEW.md:731` lists the BME688 at **0x76**~~ | ✅ **DONE** — now **0x77** |
 
 ---
 
@@ -507,7 +510,29 @@ noted here because that is where it will mislead someone.
 
 ---
 
-## Recommendation — go to a **1×07** connector on the next revision
+## ~~Recommendation — go to a **1×07** connector on the next revision~~ ❌ REJECTED 2026-08-08
+
+> **Decision: the connector does not change. J1/J7/J10 stay `B6B-ZR` (ZH 1×06),
+> and the harness stays the pre-crimped `A06ZR` ZHR-6 cable.** Not deferred, not
+> "next spin" — closed.
+>
+> The three items below therefore keep their existing resolutions, which are
+> good enough:
+>
+> | item | how it is handled instead |
+> |---|---|
+> | J7/J10 mis-mate (+5 V onto +3V3) | **Marking, already on the board.** `kicad/REVIEW.md` #10 closed with **`SENSOR` and `KNOB` on B.SilkS** beside the two headers (`637be57`) — the right cable is named at the point of use. Plus the hazard on the schematic sheet, in `README.md`, on J10's BOM line and in the root `README.md`. The two connectors are plugged once, at build time, inside a wooden box. |
+> | reversed harness kills the BNO085 | Same — plus the warning block is now printed next to J1 on the sheet, where whoever assembles it is actually looking. |
+> | **R-BOARD-3** — firmware cannot reset the BNO085 | **Permanently accepted.** The `R6`/`C9` POR covers cold start and a full rail collapse; the residual case is a rail dip that recovers inside ~1 ms, whose remedy is a power cycle. `FIRMWARE.md` already specifies degrading gracefully. |
+>
+> Cost avoided: a footprint swap on **two** boards, re-routing J7's fan-out on
+> an already-routed 1884-segment main board, a new MCP23017 net, and a new
+> cable part — against three problems that are all either procedural or
+> already accepted.
+>
+> The original argument is kept below, unedited, because it is the reason this
+> was considered at all — and because if the main board is ever re-spun for
+> another reason, this is the case to re-read.
 
 Three separate open items collapse into one change, and it is worth doing them together
 rather than one at a time:
@@ -533,27 +558,30 @@ that is the same BOM line.
 **Not urgent** — nothing here blocks building the current board and bringing it up. It
 is the thing to fold into the next spin.
 
+*(…and it was not folded in: see the decision at the top of this section. The
+connector stays 1×06.)*
+
 ---
 
-## Work order
+## Work order — **worked 2026-08-07/08**
 
-| # | Change | Files | Impact |
+| # | Change | Files | Status |
 |---|---|---|---|
-| **W1** | Add the destructive-run guard from `kicad/gen/pcb_build.py:982` | `gen/pcb_build.py` | **do this first** |
-| **1** | `R3`/`R4`/`R10`/`R11` 0 Ω → **10 k** | `gen/b_imu.py`, `gen/b_env.py`, then `build.py` + `stamp_bom.py` | value-only, no PCB impact |
-| **2** | J1 MPN → `B6B-ZR-3.4(LF)(SN)`; same for main-board J7 | `gen/parts_db.py`, `kicad/gen/parts_db.py` | BOM line only |
-| **5** | Fetch Bosch's HSMI into `datasheet/`; write the assembly note (MSL 1, 260 °C peak, ≥ 50 µm solder height, cleaning/siloxane rules) | `datasheet/`, `README.md` | before ordering |
-| **13** | `GPPU.3 = 1` on the MCP23017 | `FIRMWARE.md` §6.5 | firmware, free |
-| **7, 8** | Move `C4` and `C7` east past x = 7.5 | pcbnew (hand) | ~2 parts + their GND stubs |
-| **10, 14** | Un-hide `TP1`'s label (or move the free text onto the pad); move the `ALS` legend out of the window | pcbnew (hand) | silk only |
-| **11** | Reconcile silk / title block / docs revision; add a PCB title block | pcbnew + `gen/build.py` | before the fab package |
-| **16** | `git rm --cached kicad-sensor/~*.lck` | repo | housekeeping |
-| **17** | Re-enable the global-label ERC check | `sensor.kicad_pro` | free |
-| **18, 6** | Correct the CLKSEL0 comments; rewrite `PCB_NOTES.md` and `README.md` for the 4-layer routed board; re-baseline the 4 stale `pcb_check.py` checks | docs, `gen/pcb_check.py` | |
-| **9, 15** | Decide: open the four 0603 pairs and pull the holes inboard, **or** relax the QA floors deliberately | pcbnew / `gen/pcb_check.py` | your call |
-| **12** | If the board is ever re-laid: SDA/SCL back onto F.Cu, take In2 back as a plane | pcbnew | optional |
-| **3** | Price the third assembly operation; consider `B6B-ZR-SM4-TF` | BOM / footprint | optional |
-| **4** | Next revision: 1×07 connector — see above | both boards | next spin |
+| **W1** | ~~Add the destructive-run guard from `kicad/gen/pcb_build.py:982`~~ | `gen/pcb_build.py` | ✅ **DONE** |
+| **1** | ~~`R3`/`R4`/`R10`/`R11` 0 Ω → **10 k**~~ | `gen/b_imu.py`, `gen/b_env.py`, then `build.py` + `stamp_bom.py` | ✅ **DONE** |
+| **2** | ~~J1 MPN → `B6B-ZR-3.4(LF)(SN)`; same for main-board J7~~ | `gen/parts_db.py`, `kicad/gen/parts_db.py` | ❌ **REJECTED** — not stocked (MOQ 2,000, 16 wk); deviation documented on J1/J7/J10/J11 |
+| **5** | ~~Fetch Bosch's HSMI into `datasheet/`; write the assembly note~~ | `datasheet/`, `README.md` | ✅ **DONE** (BME680 HSMI — no BME688 one exists) |
+| **13** | ~~`GPPU.3 = 1` on the MCP23017~~ | `FIRMWARE.md` §6.5 | ✅ **DONE** — R-BOARD-4 |
+| **7, 8** | ~~Move `C4` and `C7` east past x = 7.5~~ | pcbnew (hand) | ✅ **DONE** as far as U1/Y1 allow (+0.175 mm) — the GND stubs were re-routed instead, which is what actually mattered |
+| **10, 14** | ~~Un-hide `TP1`'s label; move the `ALS` legend out of the window~~ | pcbnew (hand) | ✅ **DONE** — all five refs un-hidden; U3 on a footprint fork with the silk trimmed |
+| **11** | ~~Reconcile silk / title block / docs revision; add a PCB title block~~ | pcbnew + `gen/build.py` | ✅ **DONE** — `v0.2`, and a check enforces it |
+| **16** | ~~`git rm --cached kicad-sensor/~*.lck`~~ | repo | ✅ **DONE** |
+| **17** | ~~Re-enable the global-label ERC check~~ | `sensor.kicad_pro` | ✅ **DONE** |
+| **18, 6** | ~~Correct the CLKSEL0 comments; rewrite `PCB_NOTES.md`/`README.md`; re-baseline `pcb_check.py`~~ | docs, `gen/pcb_check.py` | ✅ **DONE** — 33/33 |
+| **9, 15** | ~~Decide: open the four 0603 pairs and pull the holes inboard, **or** relax the QA floors~~ | pcbnew / `gen/pcb_check.py` | ✅ **DONE** — neither: the checks were measuring the wrong thing. Copper gap is ≥ 0.60 mm and the holes were never out of bounds |
+| **12** | If the board is ever re-laid: SDA/SCL back onto F.Cu, take In2 back as a plane | pcbnew | ⏸ **deferred** |
+| **3** | Price the third assembly operation; consider `B6B-ZR-SM4-TF` | BOM | ⏸ **deferred** — pricing only; the footprint stays `B6B-ZR` |
+| **4** | ~~Next revision: 1×07 connector~~ | both boards | ❌ **REJECTED 2026-08-08 — the connector is not changing.** Mitigated procedurally instead |
 
 ---
 

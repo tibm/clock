@@ -718,8 +718,9 @@ unchanged, but the driver is a different class of thing and the estimate should 
 > liveness check (no packet within N seconds of an expected one → mark the sensor failed), publish
 > the failure, and **degrade gracefully**: tap-to-snooze stops working, nothing else does. Do not
 > let a silent BNO085 stall `board` or wedge the I²C bus for the other three devices.
-> *(If a host reset line is ever wanted, it needs a spare expander pin and a wire on J7 — J7.6 is
-> now taken by `ALS_INT`.)*
+> *(A host reset line would need a 7th wire on J7, and the 1×07 connector that would have carried
+> it was **rejected on 2026-08-08** — `kicad-sensor/REVIEW.md`. So this is permanent, not a
+> placeholder: build the liveness check and the graceful degradation, they are the remedy.)*
 
 ### 6.6 `ui` — the knob HSM + all light output
 
