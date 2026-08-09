@@ -73,11 +73,38 @@ _REF = {
            "16 wk factory lead (2026-08-01). Land pattern is the vendor one in "
            "sensor.pretty (verified against BNO08X Fig. 7-2), NOT KiCad's "
            "generic LGA-28"),
+    # The handling rules are in the BOM line on purpose (2026-08-08): this is
+    # the one part on the board that a routine, correctly-executed assembly
+    # process can permanently ruin, and it does not fail when it happens -- a
+    # washed or siloxane-exposed hotplate just reads a wrong VOC baseline for
+    # ever, which no electrical test at the assembler would catch.  Putting it
+    # in Notes means it travels with the exported CSV to the assembly house
+    # instead of living only in a README they will never open.  Bosch
+    # publishes no BME688-specific HSMI (checked 2026-08-07); the BME680 one
+    # governs -- same LGA-8 3x3 package, same 0.35 mm lid vent, same MOX
+    # element -- and is filed as datasheet/sensor_env_bme68x_hsmi.pdf.
     "U2": ("BME688", "Bosch Sensortec", "LGA-8 3.0x3.0x0.93mm",
            "SENSOR TEMP/RH/PRESSURE/GAS I2C LGA-8",
            "DigiKey 828-BME688CT-ND — $8.99 single, Active, 9.3k pcs "
            "(2026-08-01; datasheet/README.md §12's ~$5 is the 3k reel price). "
-           "Gas sensor: do not conformal-coat, keep the vent clear"),
+           "*** HANDLING IS CONTRACTUAL — GAS SENSOR, SEE BOSCH HSMI "
+           "(BST-BME680-HS000-06, supplied with this package). "
+           "(1) MSL 1, no bake. "
+           "(2) Peak reflow 260 C for 20-40 s, MAX 3 REFLOW CYCLES — this "
+           "board is double-sided, so U2 already sees two. "
+           "(3) MINIMUM 50 um SOLDER HEIGHT AFTER REFLOW — this is a stencil "
+           "thickness decision and must be confirmed BEFORE the run; it is "
+           "what mechanically decouples the die from the board. "
+           "(4) NO AQUEOUS WASH and no flux over the vent hole; if any "
+           "cleaning step is used the vent must first be covered with a "
+           "silicone-free protective layer. No-clean process preferred. "
+           "(5) NO SILICONE / SILOXANE ANYWHERE NEAR THIS PART — gloves, "
+           "adhesives, coatings, packaging. Permanent VOC poisoning. "
+           "(6) No conformal coat, no underfill, no ultrasonic welding, "
+           "nothing sharp in the vent, no rear-side handling. "
+           "A part that has been washed, fluxed over or siloxane-exposed "
+           "does NOT fail electrically — it reads a wrong gas baseline for "
+           "ever, so incoming test will not catch it. ***"),
     "U3": ("TSL25911FN", "ams-OSRAM", "WFDFN-6 2.0x2.0mm",
            "SENSOR OPTICAL AMBIENT LIGHT I2C WFDFN-6",
            "DigiKey TSL25911FNTR-ND (product 4162547) — $1.74, Active, 29k pcs "

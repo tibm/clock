@@ -3,7 +3,7 @@
 	(generator "clock_gen")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "Keystone 1043 THM holder for one 18650 Li-ion cell (leaf springs, PC pins). Body 77.1x20.7mm shared with the SMT 1042: identical diagonal Ø3.45 pegs at (±27.6, ∓8) and Ø2.39 index post at (-36.13, -8) — taken from the stock KiCad 1042 footprint. PC pins Ø1.19 on the battery axis at the ends: catalog THM mounting detail span 2.822in/71.6mm → ±35.8 (the stalled KiCad MR !2043 used ±36.11); drill enlarged to Ø2.6 (pad Ø4.2) so the pin fits under either reading. Pad 1 = same end as the 1042's pad 1 (left). VERIFY vs the Keystone 1043 drawing before fab.")
+	(descr "Keystone 1043 THM holder for one 18650 Li-ion cell (leaf springs, PC pins). Body 77.1x20.7mm shared with the SMT 1042: identical diagonal Ø3.45 pegs at (±27.6, ∓8) and Ø2.39 index post at (-36.13, -8) — taken from the stock KiCad 1042 footprint. PC pins Ø1.19 on the battery axis at the ends: catalog THM mounting detail span 2.822in/71.6mm → ±35.8 (the stalled KiCad MR !2043 used ±36.11); drill enlarged to Ø2.6 (pad Ø4.2) so the pin fits under either reading. Pad 1 = same end as the 1042's pad 1 (left). VERIFIED against the Keystone 1043 drawing by the board owner 2026-08-08 — pegs, index post and PC-pin span all confirmed; the Ø2.6 drill covers both published readings of the 2.822in span.")
 	(tags "battery holder 18650 Keystone 1043 through hole leaf spring")
 	(property "Reference" "REF**"
 		(at 0 -12 0)

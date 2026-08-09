@@ -164,6 +164,13 @@ the BME680 HSMI is filed as nearest-applicable — same LGA-8 3×3 package, same
 Ø0.35 mm lid vent, same MOX element: **`../datasheet/sensor_env_bme68x_hsmi.pdf`**
 (+ `…_bme68x_packaging.pdf`).
 
+**These rules are in `U2`'s `Notes` field**, so they travel with the exported
+BOM CSV to the assembly house instead of living only here — an assembler who
+never opens this repo still gets them on the line they are quoting. Send
+`../datasheet/sensor_env_bme68x_hsmi.pdf` with the fab package and get the
+≥ 50 µm solder height agreed **before** the run: it is a stencil-thickness
+decision, not something that can be fixed afterwards.
+
 | Rule | |
 |---|---|
 | **MSL 1** | no bake needed |

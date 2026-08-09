@@ -267,12 +267,16 @@ of one harness. Revisit only if a production run ever justifies 2,000 pieces.
    the rim holes), USB D± (FS only — relaxed), SW-node loops on U2/U5/U6/U7,
    PVDD/5V/12V/VBAT trunks on F.Cu, then signals. The ≥0.65 mm placement
    gaps and the empty F.Cu are the routing budget.
-3. **Fab check** of the custom footprints against vendor drawings
-   (`GCT_USB4160`, `Keystone_1043`, `Juken_X40-879`) — unchanged since
-   they were authored, but the vendor STEPs now in `3d/` corroborate all
-   three (USB stakes, holder pegs/post, motor pegs+shafts all land in their
-   holes); plus the CH224K EP note above. (The `QRE1113GR` pad pitch was the
-   one real error this turned up — fixed, see above.)
+3. ~~**Fab check** of the custom footprints against vendor drawings~~ —
+   **done 2026-08-08.** `GCT_USB4160`, `Keystone_1043` and `Juken_X40-879`
+   were each validated against the vendor drawing by the board owner; the
+   vendor STEPs in `3d/` had already corroborated all three (USB stakes,
+   holder pegs/post, motor pegs+shafts all land in their holes), and the
+   drawings confirm it. The `Keystone_1043` footprint's own "VERIFY vs the
+   drawing before fab" note has been replaced with the verification. The
+   `QRE1113GR` pad pitch was the one real error the exercise turned up —
+   fixed, see above. Still outstanding from this group: the CH224K EP note
+   above.
 4. Confirm 0.1 mm clearance / 0.2 mm drill against the fab's advanced-tier
    capabilities before finalising trace widths.
 5. Off-board NeoPixel chain (J12): confirm wire gauge/length for IR drop

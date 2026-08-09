@@ -187,7 +187,7 @@ U7 went 6 → 14 and U9 20 → 33 once they were excluded. U2 went 0 → 2 for t
 | 8 | Switcher hot loops — **ground return done, placement not** | 🟠 | **Return half fixed** (*Fixed in `f55b15f`*): 23 vias tie every hot-loop return pad into the GND planes, 7.64 mm worst case → 0.62–2.20 mm. **Placement half needs pcbnew by hand** — every candidate slot for `C100`/`C102`/`C127`/`C128`/`C130`–`C132` fails routing or DRC; measured target coordinates are in §8 |
 | ~~9~~ | `C238` 50 mm from U15 | ✅ | **done** (*Fixed in `8441d29`*) — moved to (26.73, 46.18); pad 1 → U15 pin 5 now **1.75 mm** (was 50.50), plus 2 GND vias 0.62 mm from its return pad |
 | 18 | ~3 m of signal routing on the inner GND planes | 🟡 | **power copper on In1/In2 halved, 299.6 → 160.9 mm** (*Fixed in a0031c9*) — the four longest slots are gone. Signal routing on the inner layers is untouched, and still **blocks #5**: two inner-layer signals cross U2's exposed pad, capping it at 2 thermal vias instead of 4-6 |
-| 25 | `AN-JST-001` (Juken mounting app-note) not on file | 🟡 | X27 §3.2/§3.4 defer hole sizes, snap-peg length and insertion force to it. The 3× 3.0 mm peg holes and 4.6 mm shaft hole came from somewhere else — get the note and check them **before fab**, and certainly before changing board thickness |
+| ~~25~~ | `AN-JST-001` (Juken mounting app-note) not on file | ✅ | **Closed 2026-08-08 — the footprint was validated against the vendor drawing by the board owner.** The 3× Ø3.0 mm peg holes and Ø4.6 mm shaft hole are confirmed, so the app note is no longer a gate. It remains the reference for **insertion force** and for snap-peg length vs board thickness, so re-open this if the 1.6 mm stackup is ever changed |
 | ~~23~~ | U9 exposed-pad land vs TI drawing | ✅ | **checked 2026-08-06 against DAP0032C sheet 4223691/A.** EP copper **5.2 × 11 mm = TI exactly**. Pin lands 1.90 × 0.40 vs TI's 1.50 × 0.45 — an IPC-7351 alternate, which TI's note 6 permits, and the extra toe/heel + wider gap is *better* for hand soldering. **The one deviation is the mask/paste window: 4.11 × 4.36 mm vs TI's SMD-defined 3.04 × 3.74** (≈58 % more area). **Reviewed and confirmed correct by the board owner 2026-08-06 — no change.** See the pre-fab audit below |
 | ~~—~~ | PCB had no title block | ✅ | **fixed 2026-08-06** — gerbers carried no title/rev/company/date. Now `rev "0.3"`, matching the schematic and the silkscreen. The old "title block reads rev A" finding was **wrong and has been withdrawn** |
 | 26 | `R1` pad 2 hung on a 0.049 mm sliver | ✅ | **found and fixed 2026-08-06** — latent open left by the #13 0603→1206 land swap. See the pre-fab audit below |
@@ -228,9 +228,11 @@ Thickness is therefore the only lever left on this axis.
    or past most fabs' standard limit and moves the order into a premium tier. The 0.3 mm
    vias are fine either way (5.3:1 → 6.7:1).
 2. **The Juken motor's snap pegs.** X27 §3.2/§3.4 defer hole sizes and insertion force to
-   application note **AN-JST-001, which is not in `datasheet/`** (finding #25). Snap pegs are
-   moulded for a specific board thickness — this is the one change that could stop the motor
-   seating at all.
+   application note **AN-JST-001, which is not in `datasheet/`** (finding #25). The *hole
+   sizes* were validated against the vendor drawing on 2026-08-08 and are settled — but
+   snap pegs are moulded for a specific board thickness, and the note is still the only
+   source for **insertion force** and peg length. At 1.6 mm this is closed; **a thickness
+   change re-opens it**, and it is the one change that could stop the motor seating at all.
 3. **Through-hole connector retention** — J1's USB-C shell pegs in particular. (BT1 is
    surface-mount, so the holder itself is unaffected.)
 
@@ -417,6 +419,18 @@ items that have never been checked against a vendor drawing (#25 Juken `AN-JST-0
 Keystone 1043 footprint's own "VERIFY vs the drawing before fab" note, and the GCT USB-C
 land) plus the two MPNs that still need a DigiKey stock check. Those are paperwork, and they
 are the ones that scrap a whole board rather than cost a bodge wire.
+
+> ### ✅ All three closed 2026-08-08
+>
+> **Validated against the vendor drawings by the board owner:** the **Juken
+> X40.879** land (peg holes and shaft hole), the **Keystone 1043** holder
+> (pegs, index post, PC-pin span — the footprint's own `VERIFY` note has been
+> replaced with the verification), and the **GCT USB4160** USB-C land.
+>
+> That clears the whole "scraps a board" class. What is left before ordering is
+> the two **stock** checks below (`R1` `RC1206FR-071KL`, `C172` `EEH-ZA1E101P`),
+> which gate *assembly*, not bare-board fab — and neither board has been through
+> a fab's DFM yet, since no Gerbers have been exported from either project.
 
 #### Checked and found clean (no action)
 
