@@ -52,6 +52,42 @@ Status s_knob(char* out, std::size_t cap) {
     return Status::Ok;
 }
 
+Status s_hands(char* out, std::size_t cap) {
+    // The mechanism's view, not the firmware's: `pos` is what was commanded, and on real
+    // hardware there is no way to read the other one.  In clocksim there is, which is the
+    // single most useful thing about clocksim while tuning the homing sweep.
+    const auto h = hal::motor::state(hal::motor::Hand::Hour);
+    const auto m = hal::motor::state(hal::motor::Hand::Minute);
+    std::snprintf(out, cap, "h=%" PRId32 " m=%" PRId32 " v=%" PRId32 "/%" PRId32 " mov=%d%d", h.pos,
+                  m.pos, h.vel, m.vel, h.moving ? 1 : 0, m.moving ? 1 : 0);
+    return Status::Ok;
+}
+
+Status s_imu(char* out, std::size_t cap) {
+    const auto s = hal::imu::read();
+    if (!s.ok()) return s.st;
+    std::snprintf(out, cap, "yaw=%.1f pitch=%.1f roll=%.1f taps=%u",
+                  static_cast<double>(s.v.yaw_deg), static_cast<double>(s.v.pitch_deg),
+                  static_cast<double>(s.v.roll_deg), s.v.taps);
+    return Status::Ok;
+}
+
+Status s_exp(char* out, std::size_t cap) {
+    // Both ports as bit strings in esp32.md's own order, plus the two signals a human is
+    // actually watching.  Twelve `name=level` pairs would be 120 characters and would not
+    // survive a 96-byte stream sample; the full decode belongs in `board exp` (§9.3).
+    char bits[hal::expander::kSigCount + 1] = {};
+    for (std::size_t i = 0; i < hal::expander::kSigCount; ++i) {
+        const auto v = hal::expander::get(static_cast<hal::expander::Sig>(i));
+        if (!v.ok()) return v.st;
+        bits[i] = v.v ? '1' : '0';
+    }
+    std::snprintf(out, cap, "gpa=%.4s gpb=%.8s radio=%s stby=%d", bits, bits + 4,
+                  bits[static_cast<int>(hal::expander::Sig::RadioOff)] == '0' ? "OFF" : "on",
+                  bits[static_cast<int>(hal::expander::Sig::StepStby)] == '1' ? 1 : 0);
+    return Status::Ok;
+}
+
 Status s_clk(char* out, std::size_t cap) {
     // The real slow-clock source check (§7.1) arrives with `chrono`; for now this reports
     // the monotonic base the whole system schedules on, which is the thing you would be
@@ -71,12 +107,13 @@ Status s_needs_driver(char*, std::size_t) { return Status::NotPresent; }
 constexpr SensorSpec kSensors[] = {
     {"homing", board::Dev::Opto, 200, true, "QRE1113 opto: mV + normalised", s_homing},
     {"knob", board::Dev::Knob, 50, true, "PCNT count, delta, ENC_SW", s_knob},
+    {"hands", board::Dev::Motor, 100, true, "microstep position + velocity", s_hands},
     {"vbat", board::Dev::Vbat, 10, true, "cell mV, SoC, charger state", s_vbat},
     {"clk", board::Dev::Xtal32k, 1, true, "slow-clock source, sim time", s_clk},
+    {"imu", board::Dev::Imu, 20, true, "BNO085 orientation + taps", s_imu},
+    {"exp", board::Dev::Expander, 20, true, "MCP23017 ports", s_exp},
     {"als", board::Dev::Als, 10, false, "TSL2591 lux", s_needs_driver},
     {"env", board::Dev::Env, 1, false, "BME688 T/RH/P/IAQ", s_needs_driver},
-    {"imu", board::Dev::Imu, 1, false, "BNO085 taps", s_needs_driver},
-    {"exp", board::Dev::Expander, 20, false, "MCP23017 ports", s_needs_driver},
     {"amp", board::Dev::Amp, 10, false, "TAS5760M faults", s_needs_driver},
 };
 const SensorSpec* find_sensor(const char* n) {

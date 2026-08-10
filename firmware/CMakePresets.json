@@ -15,6 +15,13 @@
       "cacheVariables": { "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer" }
     },
     {
+      "name": "host-tsan",
+      "displayName": "host + ThreadSanitizer",
+      "inherits": "host-dev",
+      "binaryDir": "${sourceDir}/build/host-tsan",
+      "cacheVariables": { "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer" }
+    },
+    {
       "name": "host-release",
       "inherits": "host-dev",
       "binaryDir": "${sourceDir}/build/host-release",
@@ -24,10 +31,12 @@
   "buildPresets": [
     { "name": "host-dev", "configurePreset": "host-dev" },
     { "name": "host-asan", "configurePreset": "host-asan" },
+    { "name": "host-tsan", "configurePreset": "host-tsan" },
     { "name": "host-release", "configurePreset": "host-release" }
   ],
   "testPresets": [
     { "name": "host-dev", "configurePreset": "host-dev", "output": { "outputOnFailure": true } },
-    { "name": "host-asan", "configurePreset": "host-asan", "output": { "outputOnFailure": true } }
+    { "name": "host-asan", "configurePreset": "host-asan", "output": { "outputOnFailure": true } },
+    { "name": "host-tsan", "configurePreset": "host-tsan", "output": { "outputOnFailure": true } }
   ]
 }

@@ -42,6 +42,7 @@ enum class Dev : uint16_t {
     Imu,
     Sd,
     Xtal32k,
+    Motor,  // the X40.879 + both TB6612s, as one fitted-or-not unit
     count
 };
 inline constexpr int kDevCount = static_cast<int>(Dev::count);

@@ -1,0 +1,74 @@
+// What active objects say to each other.                       [FIRMWARE.md §4.1, §3.5]
+//
+// A variant of small trivially-copyable structs (D2).  Events carry COPIES -- rule 4 -- so
+// there is no shared mutable state to reason about and an event can sit in a mailbox as long
+// as it likes without anybody having to keep something alive for it.
+#pragma once
+
+#include <cstdint>
+#include <variant>
+
+namespace clk {
+
+// Hand positions are always absolute microsteps, never "step N times" (§6.1).  That is what
+// makes the deep-sleep cadence (D7) a free parameter and what makes every target idempotent.
+struct HandTarget {
+    int32_t hour_usteps;
+    int32_t minute_usteps;
+    bool preview;  // knob is being turned: go now, do not smooth
+};
+
+struct HomeRequest {};
+
+struct HomeDone {
+    bool ok;
+    uint32_t took_ms;  // sim time
+};
+
+struct HandState {
+    int32_t hour_usteps;
+    int32_t minute_usteps;
+    bool moving;
+    bool homed;
+};
+
+struct KnobDelta {
+    int32_t counts;  // PCNT counts since the last read; 256 per revolution
+};
+
+struct KnobPress {
+    bool down;
+    uint32_t held_ms;  // valid on release
+};
+
+struct Tap {};
+
+// Jump the knob HSM straight to a mode.  `ui mode <x>` and the app's buttons; a person can
+// only ever get there by pressing, which is the point of having both.
+struct ModeSet {
+    uint8_t mode;
+};
+
+struct TimeChanged {
+    int64_t epoch_ms;
+};
+
+struct PowerState {
+    uint16_t vbat_mv;
+    uint8_t soc_pct;
+    bool plugged;
+};
+
+struct Stop {};  // shutdown, posted by stop()
+
+using Event = std::variant<std::monostate, HandTarget, HomeRequest, HomeDone, HandState, KnobDelta,
+                           KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
+
+// std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
+// abort, and get_if reads better in a handler that only cares about three of these.
+template <class T>
+[[nodiscard]] const T* as(Event const& e) noexcept {
+    return std::get_if<T>(&e);
+}
+
+}  // namespace clk

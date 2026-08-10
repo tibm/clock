@@ -101,6 +101,15 @@ bool parseLevel(std::string_view, Level&) noexcept;  // any unique prefix: v, i,
 void write(Mod, Level, const char* fmt, ...) noexcept __attribute__((format(printf, 3, 4)));
 void vwrite(Mod, Level, const char* fmt, std::va_list) noexcept;
 
+// ---- second consumer --------------------------------------------------------------------
+// One extra reader of the formatted line, for a transport that is not the console --
+// clocksim's UI bridge today, `sys ev` and BLE log forwarding later.  Called on the
+// PRODUCING thread right after formatting, so it must not block, must not allocate and must
+// not itself log.  Set once during init; nullptr disables.
+using Tap = void (*)(Mod, Level, const char* text);
+inline std::atomic<Tap> g_tap{nullptr};
+inline void set_tap(Tap t) noexcept { g_tap.store(t, std::memory_order_relaxed); }
+
 namespace detail {
 // Backend hook, so `sys debug idf warn` can reach esp_log_level_set("*") without core/
 // including any IDF header.

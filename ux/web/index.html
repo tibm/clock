@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clock ux</title>
+<link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+
+<header>
+  <h1>clock <span>ux</span></h1>
+  <div class="pills">
+    <span class="pill" id="conn"><i></i>connecting</span>
+    <span class="pill" id="pill-clock">--:--:--</span>
+    <span class="pill" id="pill-sim">sim —</span>
+    <span class="pill" id="pill-warp">warp —</span>
+    <span class="pill" id="pill-motion">—</span>
+    <span class="pill" id="pill-mode">—</span>
+  </div>
+</header>
+
+<main>
+  <!-- ------------------------------------------------------------------ the plate -->
+  <section class="plate-pane">
+    <svg id="plate" xmlns="http://www.w3.org/2000/svg"></svg>
+    <p class="hint">drag a hand to move it physically &mdash; that is the error homing has to find</p>
+  </section>
+
+  <!-- --------------------------------------------------------------------- panel -->
+  <section class="panel">
+
+    <div class="card">
+      <h2>knob<small>EM14, 256 counts/rev</small></h2>
+      <div class="knob-row">
+        <svg id="knob" viewBox="-50 -50 100 100">
+          <circle class="knob-body" cx="0" cy="0" r="42"/>
+          <circle class="knob-rim" cx="0" cy="0" r="42"/>
+          <g id="knob-dial"><line class="knob-mark" x1="0" y1="-38" x2="0" y2="-22"/></g>
+          <circle class="knob-cap" cx="0" cy="0" r="12"/>
+        </svg>
+        <div class="knob-side">
+          <button id="press" class="big">press &amp; hold</button>
+          <div class="kv"><span>count</span><b id="k-count">0</b></div>
+          <div class="kv"><span>switch</span><b id="k-sw">up</b></div>
+          <p class="hint">drag or scroll the knob &middot; &larr;/&rarr; &middot; space = press</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>mechanism<small>X40.879 &middot; 17 280 &micro;steps/rev</small></h2>
+      <div class="grid2">
+        <div class="kv"><span>hour</span><b id="m-h">—</b></div>
+        <div class="kv"><span>minute</span><b id="m-m">—</b></div>
+        <div class="kv"><span>&micro;step h/m</span><b id="m-pos">—</b></div>
+        <div class="kv"><span>velocity</span><b id="m-vel">—</b></div>
+      </div>
+      <div class="meter"><i id="opto-bar"></i><span id="opto-txt">opto —</span></div>
+      <div class="btnrow">
+        <button data-cmd="motion home" class="go">home</button>
+        <button data-cmd="motion stop">stop</button>
+        <button data-cmd="sim opto auto">opto auto</button>
+        <button data-cmd="sim hand h 137">scramble h</button>
+        <button data-cmd="sim hand m 41">scramble m</button>
+      </div>
+      <label class="slider">slew v_max <b id="v-vmax">6000</b>
+        <input type="range" id="r-vmax" min="500" max="17280" step="100" value="6000"></label>
+      <label class="slider">sweep v_home <b id="v-vhome">1200</b>
+        <input type="range" id="r-vhome" min="100" max="6000" step="50" value="1200"></label>
+      <label class="slider">backlash <b id="v-backlash">0</b>
+        <input type="range" id="r-backlash" min="0" max="600" step="10" value="0"></label>
+    </div>
+
+    <div class="card">
+      <h2>clock<small>chrono &middot; ui HSM</small></h2>
+      <div class="grid2">
+        <div class="kv"><span>alarm</span><b id="c-alarm">—</b></div>
+        <div class="kv"><span>volume</span><b id="c-vol">—</b></div>
+      </div>
+      <div class="btnrow">
+        <button data-cmd="chrono time set 07:38">set 07:38</button>
+        <button data-cmd="chrono follow on">follow</button>
+        <button data-cmd="chrono follow off">release</button>
+      </div>
+      <label class="slider">counts per minute <b id="v-cpm">4</b>
+        <input type="range" id="r-cpm" min="1" max="32" step="1" value="4"></label>
+    </div>
+
+    <div class="card">
+      <h2>pixels<small>SK6812 RGBW &middot; 2 dial + 5 status</small></h2>
+      <div class="swatches" id="swatches"></div>
+      <div class="grid2">
+        <div class="kv"><span>wake</span><b id="s-wake">0 / 0 %</b></div>
+        <div class="kv"><span>speaker</span><b id="s-spk" class="spk">off</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>controls</h2>
+      <div class="btnrow">
+        <button id="t-radio" class="toggle">radio off</button>
+        <button id="t-plug" class="toggle on">plugged</button>
+        <button data-cmd="sim tap">tap</button>
+        <button data-cmd="sim reset" class="warn">reset</button>
+      </div>
+      <label class="slider">accel yaw <b id="v-yaw">0&deg;</b>
+        <input type="range" id="r-yaw" min="0" max="360" step="1" value="0"></label>
+      <label class="slider">battery <b id="v-vbat">4021 mV</b>
+        <input type="range" id="r-vbat" min="2900" max="4200" step="10" value="4021"></label>
+      <label class="slider">warp <b id="v-warp">1.0&times;</b>
+        <input type="range" id="r-warp" min="0" max="100" step="1" value="25"></label>
+    </div>
+
+  </section>
+</main>
+
+<!-- ---------------------------------------------------------------------- console -->
+<section class="console">
+  <div class="log" id="log"></div>
+  <form id="cli-form" autocomplete="off">
+    <span class="prompt">&gt;</span>
+    <input id="cli" placeholder="any CLI line — help, sim status, motion goto 07:30 …" spellcheck="false">
+  </form>
+</section>
+
+<script type="module" src="/web/app.js"></script>
+</body>
+</html>

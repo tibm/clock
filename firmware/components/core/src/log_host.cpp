@@ -28,6 +28,7 @@ void vwrite(Mod m, Level l, const char* fmt, std::va_list ap) noexcept {
     std::vsnprintf(body, sizeof body, fmt, ap);
     std::fprintf(stderr, "%s%c (%u) %s: %s\033[0m\n", kColor[i], kLetter[i], millis(), name(m),
                  body);
+    if (const auto t = g_tap.load(std::memory_order_relaxed)) t(m, l, body);
 }
 
 namespace detail {

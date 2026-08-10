@@ -1,0 +1,193 @@
+/* A bench instrument, not a product page: dark chrome so the plate and the lit pixels are
+   the only bright things on screen. */
+:root {
+    --bg: #14161a;
+    --panel: #1c2026;
+    --panel2: #232830;
+    --line: #333a44;
+    --fg: #d8dde3;
+    --dim: #838d99;
+    --accent: #6fb2ff;
+    --warn: #ff7a59;
+    --ok: #62d09a;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    height: 100vh;
+}
+
+/* ---- header ------------------------------------------------------------------------ */
+header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+h1 span { color: var(--dim); font-weight: 400; }
+.pills { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.pill {
+    font: 11px/1 var(--mono);
+    padding: 6px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--dim);
+    white-space: nowrap;
+}
+.pill i {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--warn); margin-right: 6px; vertical-align: baseline;
+}
+.pill.up { color: var(--ok); border-color: #2c5a45; }
+.pill.up i { background: var(--ok); }
+
+/* ---- layout ------------------------------------------------------------------------ */
+main {
+    display: grid;
+    grid-template-columns: minmax(300px, 1fr) minmax(360px, 460px);
+    /* An explicit row is what gives the plate pane a definite height to divide up; without
+       it the row sizes to content and the SVG runs off the bottom of the window. */
+    grid-template-rows: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+}
+@media (max-width: 860px) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow: auto; }
+}
+
+.plate-pane { display: flex; flex-direction: column; align-items: center; min-height: 0; }
+#plate { flex: 1 1 auto; min-height: 0; width: 100%; max-width: 620px; }
+.hint { color: var(--dim); font-size: 11px; margin: 6px 0 0; text-align: center; }
+
+.panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: auto; }
+.card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+}
+.card h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--dim); margin: 0 0 10px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+}
+.card h2 small { font: 10px var(--mono); text-transform: none; letter-spacing: 0; opacity: 0.7; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.kv span { color: var(--dim); }
+.kv b { font: 12px var(--mono); font-weight: 500; }
+.kv b.spk.on { color: var(--ok); }
+
+/* ---- knob -------------------------------------------------------------------------- */
+.knob-row { display: flex; gap: 14px; align-items: center; }
+#knob { width: 116px; height: 116px; flex: none; cursor: grab; touch-action: none; }
+#knob:active { cursor: grabbing; }
+.knob-body { fill: #9aa1a6; }
+.knob-rim { fill: none; stroke: #6d7478; stroke-width: 1.5; }
+.knob-cap { fill: #4a5055; }
+.knob-mark { stroke: #20242a; stroke-width: 4; stroke-linecap: round; }
+.knob-side { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+/* ---- buttons ----------------------------------------------------------------------- */
+button {
+    font: 11px/1 inherit;
+    color: var(--fg);
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 9px;
+    cursor: pointer;
+}
+button:hover { border-color: #4a5462; }
+button:active { background: #2c323c; }
+button.big { padding: 10px; font-size: 12px; }
+button.big.down { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+button.toggle.on { background: #1f4030; border-color: #2c5a45; color: var(--ok); }
+button.warn:hover { border-color: var(--warn); color: var(--warn); }
+button.go { border-color: #2f5680; color: var(--accent); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* ---- meter + sliders --------------------------------------------------------------- */
+.meter {
+    position: relative; height: 18px; margin-top: 10px;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 4px;
+    overflow: hidden;
+}
+.meter i {
+    position: absolute; inset: 0 auto 0 0; width: 0;
+    background: linear-gradient(90deg, #6a3a22, #ff7a3d);
+    transition: width 60ms linear;
+}
+.meter span {
+    position: relative; font: 10px/18px var(--mono); padding-left: 7px; color: var(--fg);
+    mix-blend-mode: difference;
+}
+.slider { display: block; margin-top: 10px; font-size: 11px; color: var(--dim); }
+.slider b { color: var(--fg); font: 11px var(--mono); float: right; }
+.slider input { width: 100%; margin-top: 4px; accent-color: var(--accent); }
+
+/* ---- pixels ------------------------------------------------------------------------ */
+.swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.sw { text-align: center; }
+.sw i {
+    display: block; height: 26px; border-radius: 4px;
+    border: 1px solid var(--line); background: #000;
+}
+.sw span { display: block; font: 9px var(--mono); color: var(--dim); margin-top: 3px; }
+
+/* ---- plate labels ------------------------------------------------------------------ */
+.icon-label { font: 2.9px var(--mono); fill: #3c4247; letter-spacing: -0.08px; }
+.hand-body { fill: #cfd4d8; stroke: #7d858b; stroke-width: 0.12; }
+.hand-spec { stroke: #ffffff; stroke-width: 0.35; opacity: 0.55; }
+.hand { cursor: grab; }
+.hand:active { cursor: grabbing; }
+.hand:hover .hand-body { fill: #eef1f3; }
+
+/* ---- console ----------------------------------------------------------------------- */
+.console {
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    display: grid;
+    grid-template-rows: clamp(90px, 16vh, 170px) auto;
+}
+.log {
+    overflow: auto;
+    padding: 8px 12px;
+    font: 11px/1.5 var(--mono);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.log div { color: var(--dim); }
+.log .error { color: var(--warn); }
+.log .warn { color: #e8c56a; }
+.log .info { color: var(--fg); }
+.log .cmd { color: var(--accent); }
+.log .res { color: #a9b4c0; }
+.log .mod { color: #6d7a88; }
+
+#cli-form {
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--line); padding: 0 12px;
+}
+.prompt { color: var(--accent); font: 13px var(--mono); }
+#cli {
+    flex: 1; background: none; border: 0; outline: 0;
+    color: var(--fg); font: 12px var(--mono); padding: 10px 0;
+}

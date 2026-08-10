@@ -48,6 +48,40 @@ struct State {
 Result<State> read() noexcept;
 }  // namespace knob
 
+// ---- movement (X40.879 dual shaft, 2x TB6612) ------------------------------------------
+// A velocity-controlled microstep axis with a stop target.  That is the lowest level the
+// host can honestly stand on: on target the GPTimer ISR advances a Q16.16 phase accumulator,
+// indexes the quarter-sine LUT and writes 8 MCPWM comparators (D5); on the host the position
+// is integrated lazily in sim time and nothing runs between calls.
+//
+// The trapezoidal velocity profile is deliberately NOT here -- it is the part that carries
+// the bugs, so it lives above the HAL in `motion` and is identical on both.  The caller
+// re-issues run() every control tick with a new velocity and the same `stop_at`, which is
+// what makes the landing exact whatever the tick rate.
+namespace motor {
+enum class Hand : uint8_t { Hour, Minute };
+inline constexpr int32_t kUstepsPerRev = 17280;  // 1080 full steps x16 -- verify `motion spr`
+
+Status enable(bool on) noexcept;  // STEP_STBY (expander GPA1); coils dead when false
+bool enabled() noexcept;
+
+// Signed velocity: + is clockwise.  Stops on reaching `stop_at`, which is an absolute
+// UNWRAPPED position -- wrapping is the caller's, so "go the long way round" is expressible.
+Status run(Hand, int32_t usteps_per_s, int32_t stop_at) noexcept;
+Status hold(Hand) noexcept;  // stop here, coils still energized
+
+// Redefine the current position without moving the hand -- the result of homing.  Implies
+// hold(): adopting a coordinate mid-slew would leave the pending target in the old frame.
+Status adopt(Hand, int32_t pos) noexcept;
+
+struct Axis {
+    int32_t pos;  // unwrapped microsteps
+    int32_t vel;  // microsteps/s, signed; 0 when parked
+    bool moving;
+};
+Axis state(Hand) noexcept;
+}  // namespace motor
+
 // ---- SK6812 chain (SPI3 + DMA on target) -----------------------------------------------
 namespace pixels {
 struct Rgbw {
@@ -76,6 +110,83 @@ Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept;
 Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept;
 Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept;
 }  // namespace i2c
+
+// ---- IMU (BNO085) ----------------------------------------------------------------------
+// Orientation is here for the bench and for clocksim; nothing in the firmware may BRANCH on
+// it -- R14 (orientation-awareness) was retired in v0.19, the cube is fixed upright.  The
+// tap counter is the one that matters: tap-to-snooze (README §12).  Monotonic and diffed by
+// the caller, exactly like the PCNT knob count, because that is what an event queue drained
+// by an AO actually behaves like.
+namespace imu {
+struct State {
+    float yaw_deg, pitch_deg, roll_deg;
+    uint16_t taps;  // monotonic, wraps
+};
+Result<State> read() noexcept;
+}  // namespace imu
+
+// ---- MCP23017 expander -----------------------------------------------------------------
+// Named signals rather than registers.  §11.2 wants a register-level device model behind
+// hal::i2c and that is still the destination -- but the `Mcp23017` driver does not exist
+// yet, and the vocabulary the rest of the system already speaks is the named pin
+// (`ExpanderSet{ExpanderPin, bool}`, §5).  This moves to the driver when the driver lands.
+namespace expander {
+enum class Sig : uint8_t {
+    SpkSd,      // GPA0 out  TAS5760M mute/shutdown
+    StepStby,   // GPA1 out  both TB6612 STBY, idle-low at boot
+    Boost12En,  // GPA2 out  TPS55340 12 V gate -- plugged-only
+    RadioOff,   // GPA3 in   rear toggle J11; closed/low = radios off
+    PdPg,       // GPB0 in   CH224K power-good
+    Chrg,       // GPB1 in   LT3652 charge status
+    Fault,      // GPB2 in   LT3652 fault
+    AlsInt,     // GPB3 in   TSL2591 INT via J7.6
+    FullchgEn,  // GPB4 out  LT3652 4.2 V full-charge FET
+    VbatDivEn,  // GPB5 out  Vbat-divider disconnect FET
+    SpkFault,   // GPB6 in   TAS5760M fault
+    CellTest,   // GPB7 out  full-cell vs no-cell discriminator
+    count
+};
+inline constexpr std::size_t kSigCount = static_cast<std::size_t>(Sig::count);
+
+inline constexpr const char* kSigNames[] = {
+    "spk_sd", "step_stby", "boost12_en", "radio_off", "pd_pg",     "chrg",
+    "fault",  "als_int",   "fullchg_en", "vbat_div",  "spk_fault", "cell_test",
+};
+static_assert(sizeof(kSigNames) / sizeof(kSigNames[0]) == kSigCount);
+
+// Inputs are read-only -- set() answers BadArg, which is the honest reply to "drive the
+// rear toggle from firmware".
+inline constexpr bool is_output(Sig s) noexcept {
+    switch (s) {
+        case Sig::SpkSd:
+        case Sig::StepStby:
+        case Sig::Boost12En:
+        case Sig::FullchgEn:
+        case Sig::VbatDivEn:
+        case Sig::CellTest:
+            return true;
+        default:
+            return false;
+    }
+}
+inline constexpr const char* name(Sig s) noexcept {
+    return static_cast<std::size_t>(s) < kSigCount ? kSigNames[static_cast<std::size_t>(s)] : "?";
+}
+
+Result<bool> get(Sig) noexcept;
+Status set(Sig, bool level) noexcept;
+}  // namespace expander
+
+// ---- audio (TAS5760M + I2S) ------------------------------------------------------------
+// Enough to answer "is the speaker making noise", which is all anything branches on today.
+// The WAV path, the HPF/limiter chain and the pop-free amp sequencing arrive with the
+// `audio` AO (§6.2) and sit on top of this.
+namespace audio {
+Status enable(bool on) noexcept;  // I2S clocks + amp out of shutdown
+bool active() noexcept;
+Status set_volume_pct(uint8_t) noexcept;
+uint8_t volume_pct() noexcept;
+}  // namespace audio
 
 // ---- power -----------------------------------------------------------------------------
 namespace power {

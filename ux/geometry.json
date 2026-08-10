@@ -1,0 +1,50 @@
+{
+  "_source": "cad/clock_plate.svg, 1 SVG unit = 0.264583 mm (110.26456 mm / 416.748 units)",
+  "_angles": "degrees, 0 = 12 o'clock, clockwise positive. The homing index sits at 0.",
+  "_units": "mm",
+
+  "plate": { "size": 110.26, "corner_screw_d": 4.0, "corner_screw_inset": 5.13 },
+
+  "dial": {
+    "opening_d": 90.0,
+    "_opening_note": "README §3. Not drawn in clock_plate.svg -- the SVG has the plate outline and the cutouts only.",
+    "hub_d": 5.0
+  },
+
+  "ticks": {
+    "count": 12,
+    "r_inner": 35.14,
+    "r_outer": 40.85,
+    "width": 1.70,
+    "_note": "The CAD has 12 rectangular batons, not the 12 dots README §3 and CLAUDE.md describe."
+  },
+
+  "homing": {
+    "r": 23.5,
+    "window_w": 3.5,
+    "window_h": 2.5,
+    "angle": 0.0,
+    "_note": "Both hands sweep over this radius; the hour hand is 25 mm, so it just covers it."
+  },
+
+  "hands": {
+    "minute": { "length": 40.0, "width": 2.4, "tail": 7.0 },
+    "hour":   { "length": 25.0, "width": 3.2, "tail": 6.0 },
+    "_note": "The 40 mm minute hand reaches into the baton band (35.14-40.85 mm)."
+  },
+
+  "status_leds": {
+    "count": 5,
+    "hole_d": 4.0,
+    "pitch": 11.0,
+    "y": 48.0,
+    "_y_note": "Below the dial centre. Provisional: the LED holes are in README §3/§9 but not yet in the CAD.",
+    "icons": ["bell", "alarm-clock", "clock", "volume-1", "battery"],
+    "_icons_note": "Lucide names, as etched on the plate (README §3).",
+    "labels": ["bell", "alarm", "clock", "vol", "batt"],
+    "_labels_note": "What fits under an 11 mm pitch; matches the firmware's px_names.",
+    "pixel_index": [2, 3, 4, 5, 6]
+  },
+
+  "dial_pixels": { "pixel_index": [0, 1], "angle": [270.0, 90.0], "r": 30.0 }
+}

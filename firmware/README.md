@@ -3,8 +3,10 @@
 ESP32-S3 firmware for the wooden smart clock. **Design doc: [`../FIRMWARE.md`](../FIRMWARE.md)** —
 it is the source of truth; this file is only how to build.
 
-Status: **scaffold**. Logging, the CLI registry and both build systems are real and tested.
-The nine active objects, the HAL and the drivers are directories with READMEs.
+Status: **early**. Logging, the CLI registry, both build systems, the fake HAL and the first
+three active objects (`motion`, `chrono`, `ui`) are real and tested. `audio`, `storage`,
+`board`, `net`, `supervisor`, the drivers and the ESP-side HAL are still directories with
+READMEs.
 
 ## First time
 
@@ -67,10 +69,25 @@ Needs only cmake + ninja. No IDF, no hardware.
 cmake --preset host-dev
 cmake --build --preset host-dev
 ctest  --preset host-dev
-./build/host-dev/apps/clocksim/clocksim
+./build/host-dev/apps/clocksim/clocksim            # console + the ux/ bridge on 4747
+./build/host-dev/apps/clocksim/clocksim --no-ui    # console only
 ```
 
-`host-asan` is the same with ASan + UBSan.
+`host-asan` is the same with ASan + UBSan, `host-tsan` with ThreadSanitizer — worth running
+whenever you touch `core/ao`, `core/port` or the fake HAL's locking, since the active objects
+are the only real concurrency in the host build.
+
+## Seeing it
+
+```sh
+python3 ../ux/uxapp.py        # opens http://127.0.0.1:8787 and attaches to clocksim
+```
+
+The plate, both hands, the seven pixels, the wake light and the speaker, plus controls for
+the knob, the rear radio toggle, tap and power. It is a display and an input device — it
+holds no clock logic, and everything it sends is a line of CLI text you could have typed.
+See [`../ux/README.md`](../ux/README.md) and
+[`apps/clocksim/README.md`](apps/clocksim/README.md) for the protocol.
 
 ## What works right now
 
@@ -82,10 +99,17 @@ clock-sim 0.1.0  (hal=fake, board=host, profile=dev)  type `help`
 > unsafe on
 > ui led bell red                # chain pos 3 = index 2; dial is 0-1
 pixel 2  r=255 g=0 b=0 w=0
-> sim opto 0.42                  # drive the fake homing sensor
-> sensor homing read
-homing  mv=1376 norm=0.420
-> sim noise 30
+> sim hand h 137                 # reach in and move the hands: the firmware is not told
+> sim hand m 41
+> sim warp 20
+> motion home                    # the real homing FSM, against the real fake mechanism
+motion: home: sweeping the minute hand to find the index
+motion: home: minute parked, sweeping the hour hand
+motion: home: hour edge -> 0
+motion: home: minute edge -> 0
+motion: home: verified, edge repeats within -22 usteps
+motion: homed in 35564 ms of sim time
+> chrono time set 07:38          # and now the hands follow the clock
 > sensor homing stream 100 5 --csv > opto.csv
 > sim unplug
 > ui wake 40 10

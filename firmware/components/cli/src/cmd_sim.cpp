@@ -29,18 +29,145 @@ long arg_l(Args const& a, int i, long dflt) {
     return p ? std::strtol(p, nullptr, 10) : dflt;
 }
 
+bool arg_on(Args const& a, int i, bool& out) {
+    const char* v = a.arg(i);
+    if (!v) return false;
+    if (std::strcmp(v, "on") == 0 || std::strcmp(v, "1") == 0) {
+        out = true;
+        return true;
+    }
+    if (std::strcmp(v, "off") == 0 || std::strcmp(v, "0") == 0) {
+        out = false;
+        return true;
+    }
+    return false;
+}
+
+bool parse_hand(const char* s, hal::motor::Hand& out) {
+    if (!s) return false;
+    if (std::strcmp(s, "h") == 0 || std::strcmp(s, "hour") == 0) {
+        out = hal::motor::Hand::Hour;
+        return true;
+    }
+    if (std::strcmp(s, "m") == 0 || std::strcmp(s, "minute") == 0) {
+        out = hal::motor::Hand::Minute;
+        return true;
+    }
+    return false;
+}
+
 Status cmd_opto(Args const& a, Sink& out) {
     if (a.count() == 0) {
-        out.printf("opto %.3f", sim::opto());
+        out.printf("opto %.3f  (%s)", sim::opto(),
+                   sim::opto_auto() ? "auto, from the hands" : "held");
+        return Status::Ok;
+    }
+    if (std::strcmp(a.arg(0), "auto") == 0) {
+        sim::set_opto_auto(true);
+        out.printf("opto %.3f  -- derived from the hands again", sim::opto());
         return Status::Ok;
     }
     const double v = arg_d(a, 0, -1);
     if (v < 0.0 || v > 1.0) {
-        out.line("usage: sim opto <0..1>   (0 = dark, 1 = full reflection)");
+        out.line("usage: sim opto <0..1>|auto   (0 = dark, 1 = full reflection)");
+        out.line("  a value HOLDS the sensor there; `auto` derives it from the hand angles");
         return Status::BadArg;
     }
     sim::set_opto(static_cast<float>(v));
-    out.printf("opto %.3f", sim::opto());
+    out.printf("opto %.3f  (held -- `sim opto auto` to follow the hands)", sim::opto());
+    return Status::Ok;
+}
+
+// The hands as the MECHANISM has them, which is not what the firmware thinks: that gap is
+// the whole reason homing exists.  Setting an angle is reaching in and moving a hand.
+Status cmd_hand(Args const& a, Sink& out) {
+    if (a.count() == 0) {
+        for (auto h : {hal::motor::Hand::Hour, hal::motor::Hand::Minute}) {
+            const auto ax = hal::motor::state(h);
+            out.printf("%-6s %6.1f deg   pos=%" PRId32 " usteps  vel=%" PRId32 "  err=%+.1f deg",
+                       h == hal::motor::Hand::Hour ? "hour" : "minute",
+                       static_cast<double>(sim::hand_angle(h)), ax.pos, ax.vel,
+                       static_cast<double>(sim::hand_offset(h)));
+        }
+        out.printf("motor %s   (err is what `motion home` has to discover)",
+                   hal::motor::enabled() ? "energized" : "standby");
+        return Status::Ok;
+    }
+    hal::motor::Hand h{};
+    if (!parse_hand(a.arg(0), h)) {
+        out.line("usage: sim hand [<h|m> <deg>]   (0 = 12 o'clock, clockwise)");
+        return Status::BadArg;
+    }
+    if (a.count() < 2) {
+        out.printf("%s %.1f deg", a.arg(0), static_cast<double>(sim::hand_angle(h)));
+        return Status::Ok;
+    }
+    sim::set_hand_angle(h, static_cast<float>(arg_d(a, 1, 0.0)));
+    out.printf("%s now points at %.1f deg  (opto %.3f)", a.arg(0),
+               static_cast<double>(sim::hand_angle(h)), sim::opto());
+    return Status::Ok;
+}
+
+Status cmd_motor(Args const& a, Sink& out) {
+    bool on = false;
+    if (!arg_on(a, 0, on)) {
+        out.line("usage: sim motor <on|off>   (STEP_STBY; off freezes the hands)");
+        return Status::BadArg;
+    }
+    const Status st = hal::motor::enable(on);
+    if (st != Status::Ok) {
+        out.printf("motor %s", cmd::name(st));
+        return st;
+    }
+    out.printf("STEP_STBY %s", on ? "high (coils live)" : "low (coils dead, hands frozen)");
+    return Status::Ok;
+}
+
+Status cmd_imu(Args const& a, Sink& out) {
+    if (a.count() == 0) {
+        const auto s = hal::imu::read();
+        if (!s.ok()) {
+            out.printf("imu %s", cmd::name(s.st));
+            return s.st;
+        }
+        out.printf("yaw %.1f  pitch %.1f  roll %.1f  taps %u", static_cast<double>(s.v.yaw_deg),
+                   static_cast<double>(s.v.pitch_deg), static_cast<double>(s.v.roll_deg), s.v.taps);
+        return Status::Ok;
+    }
+    sim::set_orientation(static_cast<float>(arg_d(a, 0, 0.0)), static_cast<float>(arg_d(a, 1, 0.0)),
+                         static_cast<float>(arg_d(a, 2, 0.0)));
+    out.printf("yaw %.1f deg", arg_d(a, 0, 0.0));
+    return Status::Ok;
+}
+
+Status cmd_tap(Args const&, Sink& out) {
+    sim::tap();
+    out.line("top-tap (BNO085 tap counter +1)");
+    return Status::Ok;
+}
+
+Status cmd_radio(Args const& a, Sink& out) {
+    bool off = false;
+    if (!arg_on(a, 0, off)) {
+        out.line("usage: sim radio <on|off>   (the rear J11 toggle; on = radios DISABLED)");
+        return Status::BadArg;
+    }
+    // Polarity is the hardware's: the pin idles high through the expander pull-up and the
+    // toggle pulls it low, so a broken harness fails to radios-enabled (README §16d).
+    sim::set_expander_in(hal::expander::Sig::RadioOff, !off);
+    out.printf("RADIO_OFF %s -- radios %s", off ? "low (asserted)" : "high (open)",
+               off ? "disabled" : "enabled");
+    return Status::Ok;
+}
+
+Status cmd_speaker(Args const& a, Sink& out) {
+    bool on = false;
+    if (!arg_on(a, 0, on)) {
+        out.line("usage: sim speaker <on|off>   (stands in for the `audio` AO)");
+        return Status::BadArg;
+    }
+    sim::set_speaker(on);
+    out.printf("speaker %s  vol %u%%", on ? "on" : "off", hal::audio::volume_pct());
     return Status::Ok;
 }
 
@@ -93,9 +220,11 @@ Status cmd_turn(Args const& a, Sink& out) {
 Status cmd_press(Args const& a, Sink& out) {
     const char* w = a.arg(0);
     uint32_t ms = 200;  // a realistic human press
-    if (w && std::strcmp(w, "hold") == 0)
+    // `down`/`up` are the edge form the UI sends -- a mouse button held over the knob is a
+    // press whose length nobody knows in advance, which is exactly a long-press.
+    if (w && (std::strcmp(w, "hold") == 0 || std::strcmp(w, "down") == 0))
         ms = kHoldForever;
-    else if (w && std::strcmp(w, "release") == 0)
+    else if (w && (std::strcmp(w, "release") == 0 || std::strcmp(w, "up") == 0))
         ms = 0;
     else if (w)
         ms = static_cast<uint32_t>(std::strtoul(w, nullptr, 10));
@@ -103,9 +232,27 @@ Status cmd_press(Args const& a, Sink& out) {
     if (ms == 0)
         out.line("ENC_SW released");
     else if (ms == kHoldForever)
-        out.line("ENC_SW held (until `sim press release`)");
+        out.line("ENC_SW held (until `sim press up`)");
     else
         out.printf("ENC_SW pressed for %" PRIu32 " ms of sim time", ms);
+    return Status::Ok;
+}
+
+// Raw PCNT counts rather than detents: a knob being dragged in the UI produces a continuous
+// angle, and 256 counts/rev is fine enough that rounding it to detents would be visible.
+Status cmd_knob(Args const& a, Sink& out) {
+    const long c = arg_l(a, 0, 0);
+    if (c == 0) {
+        out.line("usage: sim knob <+/-counts>   (256 counts/rev; `sim turn` for detents)");
+        return Status::BadArg;
+    }
+    sim::turn_counts(static_cast<int32_t>(c));
+    const auto k = hal::knob::read();
+    if (k.ok())
+        out.printf("knob count=%" PRId32 " (%+ld counts = %+.1f deg)", k.v.count, c,
+                   static_cast<double>(c) * 360.0 / 256.0);
+    else
+        out.printf("knob %s", cmd::name(k.st));
     return Status::Ok;
 }
 
@@ -181,16 +328,21 @@ Status cmd_reset(Args const&, Sink& out) {
 Status cmd_status(Args const&, Sink& out) {
     char px[16];
     sim::render_pixels(px, sizeof px);
-    const auto p = hal::power::read();
-    out.printf("time   sim_ms=%" PRIu32 "  warp=%.2fx", hal::clock_::millis(), sim::warp());
-    out.printf("opto   %.3f", sim::opto());
-    if (p.ok())
-        out.printf("power  %u mV  soc %u%%  plugged=%d  chrg=%d", p.v.vbat_mv, p.v.soc_pct,
-                   p.v.plugged ? 1 : 0, p.v.charging ? 1 : 0);
-    const auto k = hal::knob::read();
-    if (k.ok()) out.printf("knob   count=%" PRId32 " sw=%d", k.v.count, k.v.sw ? 1 : 0);
-    out.printf("pixels [%s]  refreshed=%d", px, sim::refreshed() ? 1 : 0);
-    out.printf("wake   warm=%u%% cool=%u%%", hal::wake::warm(), hal::wake::cool());
+    const auto s = sim::snapshot();
+    out.printf("time   sim_ms=%" PRIu32 "  warp=%.2fx", hal::clock_::millis(), s.warp);
+    out.printf("hands  h=%.1f deg m=%.1f deg  pos=%" PRId32 "/%" PRId32 "  motor=%s%s",
+               static_cast<double>(s.hand_deg[0]), static_cast<double>(s.hand_deg[1]),
+               s.hand_pos[0], s.hand_pos[1], s.motor_on ? "on" : "off",
+               (s.hand_moving[0] || s.hand_moving[1]) ? "  MOVING" : "");
+    out.printf("opto   %.3f  (%s)", static_cast<double>(s.opto), s.opto_auto ? "auto" : "held");
+    out.printf("power  %u mV  soc %u%%  plugged=%d  chrg=%d", s.vbat_mv, s.soc_pct,
+               s.plugged ? 1 : 0, s.charging ? 1 : 0);
+    out.printf("knob   count=%" PRId32 " sw=%d", s.knob_count, s.knob_sw ? 1 : 0);
+    out.printf("imu    yaw=%.1f taps=%u", static_cast<double>(s.yaw_deg), s.taps);
+    out.printf("pixels [%s]  refreshed=%d", px, s.refreshed ? 1 : 0);
+    out.printf("wake   warm=%u%% cool=%u%%", s.warm_pct, s.cool_pct);
+    out.printf("sound  speaker=%s vol=%u%%", s.spk_active ? "on" : "off", s.vol_pct);
+    out.printf("radio  %s", s.radio_off ? "OFF (rear toggle asserted)" : "enabled");
     return Status::Ok;
 }
 
@@ -198,12 +350,19 @@ constexpr uint16_t kHost = static_cast<uint16_t>(HostOnly);
 
 constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "status", "", "everything the fakes currently hold", kHost, cmd_status},
-    {"sim", nullptr, "opto", "[<0..1>]", "homing reflectance", kHost, cmd_opto},
+    {"sim", nullptr, "opto", "[<0..1>|auto]", "homing reflectance", kHost, cmd_opto},
+    {"sim", nullptr, "hand", "[<h|m> <deg>]", "where the hands physically are", kHost, cmd_hand},
+    {"sim", nullptr, "motor", "<on|off>", "STEP_STBY -- off freezes the hands", kHost, cmd_motor},
+    {"sim", nullptr, "imu", "[<yaw> [<pitch> <roll>]]", "orientation", kHost, cmd_imu},
+    {"sim", nullptr, "tap", "", "one top-tap (tap-to-snooze)", kHost, cmd_tap},
+    {"sim", nullptr, "radio", "<on|off>", "rear J11 toggle; on = radios off", kHost, cmd_radio},
+    {"sim", nullptr, "speaker", "<on|off>", "amp out of shutdown", kHost, cmd_speaker},
     {"sim", nullptr, "vbat", "<mV>", "cell voltage", kHost, cmd_vbat},
     {"sim", nullptr, "noise", "<mV>", "ADC noise, deterministic", kHost, cmd_noise},
     {"sim", nullptr, "seed", "<n>", "reseed the noise PRNG", kHost, cmd_seed},
     {"sim", nullptr, "turn", "<+/-detents>", "rotate the knob", kHost, cmd_turn},
-    {"sim", nullptr, "press", "[<ms>|hold|release]", "press ENC_SW", kHost, cmd_press},
+    {"sim", nullptr, "knob", "<+/-counts>", "rotate the knob, raw PCNT counts", kHost, cmd_knob},
+    {"sim", nullptr, "press", "[<ms>|down|up]", "press ENC_SW", kHost, cmd_press},
     {"sim", nullptr, "plug", "", "PD_PG high", kHost, cmd_plug},
     {"sim", nullptr, "unplug", "", "PD_PG low -- wake light gates off", kHost, cmd_plug},
     {"sim", nullptr, "warp", "[<factor>]", "scale sim time against wall time", kHost, cmd_warp},

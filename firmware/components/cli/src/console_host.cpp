@@ -5,12 +5,22 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 
 #include "clk/cli/console.hpp"
+#include "clk/cli/host_dispatch.hpp"
 #include "clk/cli/registry.hpp"
 #include "clk/log.hpp"
 
 namespace clk::cli {
+
+namespace host {
+std::timed_mutex& dispatch_mutex() noexcept {
+    static std::timed_mutex mx;
+    return mx;
+}
+}  // namespace host
+
 namespace {
 
 uint32_t host_millis() noexcept {
@@ -46,6 +56,7 @@ void console_run() {
         if (!std::fgets(line, sizeof line, stdin)) break;  // EOF / ^D
         line[std::strcspn(line, "\r\n")] = '\0';
         if (std::strcmp(line, "quit") == 0 || std::strcmp(line, "exit") == 0) break;
+        std::lock_guard lk{host::dispatch_mutex()};
         dispatch_line(line, sink);
     }
     std::printf("\nbye\n");

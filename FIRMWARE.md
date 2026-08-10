@@ -6,7 +6,7 @@
 > [`esp32.md`](esp32.md) (pin map). Where the two disagree, `esp32.md` wins on pins and this file
 > wins on software structure — with the standing exceptions in **§15**.
 
-**Status:** v1.1 · **Owner:** you · **Created:** 2026-07-26 · **Updated:** 2026-08-09
+**Status:** v1.2 · **Owner:** you · **Created:** 2026-07-26 · **Updated:** 2026-08-10
 **Toolchain:** ESP-IDF **v5.5.5** (pinned, GCC 14.2, C++23) — §1.1
 **Interim hardware:** **ESP32-S3-DevKitC-1U-N8R8** (DigiKey `1965-ESP32-S3-DEVKITC-1U-N8R8-ND`,
 arrives 2026-08-10) — the whole firmware except the motor, amp and sensor daughterboard can be
@@ -286,15 +286,16 @@ firmware/
 │  │         idf_component.yml    # managed deps at exact versions
 │  └─ clocksim/                   # ← D14. native binary, zero IDF
 │      CMakeLists.txt  main.cpp   # same services, host port, fake HAL, CLI on stdin
+│      uibridge.{hpp,cpp}         # the loopback socket ux/ attaches to — see below
 ├─ components/
 │  ├─ core/                       # ← 100 % host-testable, zero IDF
-│  │   event.hpp  active.hpp  hsm.hpp  bus.hpp  timer.hpp
+│  │   event.hpp  ao.hpp  hsm.hpp  bus.hpp  timer.hpp
 │  │   result.hpp units.hpp static_vector.hpp ring.hpp trace.hpp
 │  │   log.hpp                    # §9.4 per-module levels — the backend is a seam
-│  │   port/esp/  port/host/      # task, queue, monotonic clock: two implementations
+│  │   port.hpp port_{esp,host}.cpp  # thread, mutex, signal, monotonic clock: two impls
 │  ├─ command/                    # ← host-testable: the Command/Response surface (§5)
-│  ├─ domain/                     # ← host-testable: alarm scheduler, hand math,
-│  │                              #    sunrise curve, DSP biquad+limiter, gamma
+│  ├─ domain/                     # ← host-testable: hand math, and later the alarm
+│  │                              #    scheduler, sunrise curve, DSP, gamma
 │  ├─ board_cfg/                  # ← zero IDF: pin map + device-presence bitmask per BOARD (D15)
 │  │   board_rev0_3.hpp  board_devkit.hpp  board_host.hpp  present.hpp
 │  ├─ clk_hal/                    # NOT `hal/` -- that name is taken by ESP-IDF itself
@@ -312,13 +313,20 @@ firmware/
 └─ test/
    ├─ host/                       # GoogleTest, native compiler, fakes for hal/  (§11.1)
    └─ target/                     # Unity, on-device peripheral tests            (§11.3)
+
+../ux/                            # ← the clock on screen. NOT firmware, holds no logic
+   uxapp.py  geometry.json  web/  # stdlib HTTP + WebSocket bridge onto uibridge
 ```
+
+`uibridge` lives in `apps/clocksim/` and **not** under `components/`, on purpose: `apps/clock`
+puts `components/` on `EXTRA_COMPONENT_DIRS`, so anything there is a component the target
+build can see. In the app it is structurally impossible to link into the firmware.
 
 **Dependency rule (enforced by CMake `REQUIRES`, so violations fail the build):**
 
 ```
 apps/clock     → services, transport, cli, clk_hal/esp  (+ IDF)
-apps/clocksim  → services, transport, cli, clk_hal/host (no IDF at all)
+apps/clocksim  → services, transport, cli, clk_hal/host (no IDF at all) + uibridge
 services       → { command, domain, drivers, core, board_cfg }
 drivers        → { hal/api, core, board_cfg }    services never touch hal for an owned peripheral
 cli, transport → command                          never services, never hal
@@ -329,6 +337,12 @@ core, domain, command, board_cfg → nothing        (no IDF headers → host bui
 `hal/api` **declares**, `hal/esp` and `hal/host` **define**. The choice is made by CMake, never by
 `#ifdef` in a driver — a driver cannot discover which implementation it was linked against, which is
 what keeps `clocksim` honest.
+
+> **Where the CLI actually sits today.** `cli → command, never services, never hal` is the
+> destination and it arrives with `command::dispatch` (§5). Until then the `cli` rows reach
+> `services` and `hal` directly. Every row is still a *view*: it posts an event to the owning
+> AO and reads a snapshot, and no row drives a peripheral an AO owns (rule 1). The
+> `REQUIRES` graph currently records the scaffold, not the destination.
 
 ### Rules of the road
 
@@ -1353,15 +1367,16 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · `sys reboot [ota\|dfu]` · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
-| `motion` | `motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · ⚠`motion sweep` · `motion stop` · `motion zero <h\|m> [<n>]` · `motion spr [<n>]` · `motion backlash [<n>]` · ⚠`motion power <on\|off>` |
-| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · `ui led bright <0-100>` · ⚠`ui wake <warm%> <cool%>` · `ui knob` ☰ · ⚠`ui mode <idle\|alarm\|setalarm\|setclock\|volume>` |
+| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_home` `v_verify` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
+| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono follow <on\|off>` — the rest of the row below arrives with the alarm table |
+| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|alarm\|setalarm\|setclock\|volume>]` · `ui knob [<knob> <value>]` (`counts` `threshold` `factor` `timeout` `longpress` `bright`) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
 | `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · `net ble status` · `net ble pair` · `net ble unbond` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
-| `sim` | `sim press [long]` · `sim turn <±n>` · `sim tap` · `sim alarm` · `sim sunrise <pct>` · `sim batt <mV>` · `sim plug\|unplug` · `sim fault <name>` · *(host-only)* `sim opto <0..1>` · `sim warp <x>` |
+| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts>` · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw>]` · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
 | *(top)* | ▲`help [<group> [<verb>]]` · ▲`?` · `unsafe <on\|off>` |
 
 > Anything reachable here is reachable over BLE and vice versa (rule 6) — including `sys debug`,
@@ -1564,8 +1579,10 @@ Covers everything that actually carries bugs, because all of it is pure:
 | Under test | Cases that matter |
 |---|---|
 | `ui` HSM | Scripted event lists → assert mode, pixels, hand targets. Every timeout path |
+| Homing FSM | Homes from an arbitrary unknown hand position; faults when there is no index and recovers on a re-home; a target arriving mid-home is held, not obeyed |
+| Motion profile | Lands *exactly* on an absolute target; takes the short way at the 12:00 wrap; de-energises 2 s after the last move; `run()` rejects a velocity pointing away from its target |
 | Alarm scheduler | DST spring-forward (skipped local time), fall-back (doubled time), TZ change mid-week, dow masks, leap day, alarm set to "now" |
-| Hand math | Wrap at 12:00, shortest-path direction, backlash overshoot, `steps_per_rev` trim, angle↔time round-trip for all 43 200 minute positions |
+| Hand math | Wrap at 12:00, shortest-path direction, backlash overshoot, `steps_per_rev` trim, angle↔time round-trip for all 43 200 minute positions ✅ |
 | DSP | Biquad impulse response vs a reference; limiter never exceeds ceiling for a full-scale square wave; `audio dsp limit` above `kLimitCeilDbfs` is rejected, and a config restored from NVS is re-clamped; no NaN on denormals |
 | `Command` dispatch | Authorization matrix per `Origin`; malformed TLV; every command round-trips CLI text → `Command` → BLE TLV → `Command` |
 | Config migration | Every version N → N+1, plus corrupt/truncated blobs |
@@ -1584,30 +1601,59 @@ task API) and `hal/host` (fakes). Roughly 400 lines of port + 600 of fakes buys 
 develop and demo the entire product with no silicon — which for the next three weeks is the whole
 game, and afterwards is still the fastest way to reproduce a bug.
 
+Real as of 2026-08-10 — the alarm lines are still the sketch:
+
 ```
-$ ./build/clocksim
+$ ./build/host-dev/apps/clocksim/clocksim
 clock-sim 0.1.0  (hal=fake, board=host, profile=dev)  type `help`
-> sim opto 0.42
+> unsafe on
+> sim hand h 137 ; sim hand m 41    # the hands are somewhere. the firmware does not know
+> sim warp 20
 > motion home
-motion: park minute → sweep hour → edge @ 3120us → verify → homed (1.9 s sim time)
-> chrono time set 2026-08-09T06:59:30
-> chrono alarm set 0 07:00 mon-fri ; chrono alarm arm 0
-> sim warp 60                       # 60x — 30 s of wall time in 0.5 s
+motion: home: sweeping the minute hand to find the index
+motion: home: minute parked, sweeping the hour hand
+motion: home: hour edge -> 0
+motion: home: minute edge -> 0
+motion: home: verified, edge repeats within -22 usteps
+motion: homed in 35564 ms of sim time
+> chrono time set 07:38             # and the hands follow the clock from here
+chrono: time set to 07:38:00
+> chrono alarm set 0 07:00 mon-fri ; chrono alarm arm 0     # ← not yet
 ALARM 0 fires   dial h=07:00 m=07:00   pixels [..R....]   audio: forest.wav -6.0dBFS
 > sim tap
 ui: Ringing → Snoozed (9 min)
 ```
 
+`python3 ux/uxapp.py` watches the same session in a browser (§12.0.3).
+
 | Faked | How faithfully | Not faked |
 |---|---|---|
-| `Adc` (opto, VBAT) | scriptable value + noise | real ADC nonlinearity |
-| `Pcnt` + `ENC_SW` | `sim turn/press` drive the same counts | contact/optical timing |
+| `Adc` (opto, VBAT) | scriptable value + noise; **the opto is derived from where the hands actually are** | real ADC nonlinearity |
+| `Pcnt` + `ENC_SW` | `sim turn/knob/press` drive the same counts | contact/optical timing |
 | `LedStrip` | renders `[..R....]` + exact RGBW per pixel | SK6812 timing, the level shifter |
-| `I2cBus` | register-level device models (MCP23017, TSL2591, TAS5760M) | clock stretching, bus errors |
+| `I2cBus` | address map + presence; register-level device models still to come | clock stretching, bus errors |
 | `I2sTx` | consumes blocks on a timer, writes a WAV file | DMA underrun timing |
-| Mcpwm + GPTimer | commutation runs in sim time, counts µsteps | coil current, torque, missed steps |
+| The movement | a velocity-controlled µstep axis integrated in sim time, plus **an unknown mechanical offset** so homing has something to find | coil current, torque, missed steps |
 | `Nvs` | file-backed | flash wear, power-loss corruption |
 | Wall clock | `sim warp <x>` accelerates it | SNTP jitter |
+
+**The seam for the movement is `hal::motor`: run at a signed velocity, stop at an absolute
+µstep target.** On the target that is the GPTimer ISR's phase accumulator, the quarter-sine
+LUT and 8 MCPWM comparators (D5); on the host it is integrated lazily in sim time. The
+trapezoidal profile, the backlash policy and the homing FSM stay above it in `motion`,
+identical on both — which is a small deviation from §6.1's sketch (it put commutation in the
+driver) in exchange for a seam the host can stand on.
+
+Two consequences worth knowing before they surprise you:
+
+- **The fake models an unknown hand position.** At power-on the hands are somewhere the
+  firmware has no idea about, `sim hand <h\|m> <deg>` is reaching in and moving one, and
+  `motion adopt` (after a homing edge) renames the coordinate without moving anything.
+  Without this, `motion home` would be a no-op and the FSM would be tested by nothing.
+- **A sweep can alias past the index, and that is deliberate.** The opto is continuous and
+  the ADC is not, so sampling too slowly relative to the sweep speed misses the 3° window
+  entirely. It is a real failure mode, it is the fastest way to find the right `v_home`, and
+  it is also the ceiling on how far you can warp a homing run (~20× at a 10 ms control tick).
 
 **What `clocksim` is explicitly not for:** timing, DMA, electrical behaviour, or anything on the
 "Not faked" side above. Those are §11.3. A green `clocksim` is not permission to skip the bench —
@@ -1668,10 +1714,10 @@ no board at all.
 > ships, which is exactly the set of things you do not want to be debugging while also debugging
 > a freshly hand-soldered board.
 
-### 12.0.1 What exists as of 2026-08-09
+### 12.0.1 What exists as of 2026-08-10
 
-The scaffold in `firmware/` is real and both builds are green. Everything else in §12.1 is
-still a directory with a README.
+Both builds are green. Three of the nine AOs are real; the rest of §12.1 is still a
+directory with a README.
 
 | | |
 |---|---|
@@ -1679,9 +1725,23 @@ still a directory with a README.
 | Target build | `tools/build.sh dev devkit` and `release rev0_3` both link. **App = 296 KB of the 2.5 MB slot (89 % free)** — D10's premise, measured rather than assumed |
 | Partition table | Flashed layout matches §1.2 byte for byte (`nvs` 64 K … `assets` 2816 K) |
 | Host build | `cmake --preset host-dev` → `clocksim` + `test_host`, ~2 s from cold |
-| Implemented | `core/log` (§9.4, per-module levels + globs + ceiling), `core/status` (`Status`/`Result`), `command` (Sink), `board_cfg` (pin map + runtime presence, D15), `clk_hal` (api + **host fakes** + honest esp stubs), `cli` (CmdSpec table, generated `help`, wildcard objects, alias expansion, `unsafe` window, did-you-mean, bounded streaming), groups `sys` · `sensor` · `ui` · `sim`, both console front-ends |
-| Tested | **210 host checks**; clean under **ASan/UBSan** and under **ThreadSanitizer** (the stream ring is hand-rolled SPSC, so it gets checked rather than trusted) |
-| Not yet | the nine AOs, `drivers`, `domain`, `transport`, BLE — and the ESP-side HAL, which is stubbed (see §12.0.2) |
+| Implemented | `core/log` (§9.4), `core/status`, **`core/ao` + `core/port`** (the AO loop, both ports), `command` (Sink), `board_cfg` (pin map + runtime presence, D15), `clk_hal` (api + **host fakes incl. the movement** + honest esp stubs), **`domain/hand`** (wrap, shortest path, backlash approach), **`services`: `motion` · `chrono` · `ui`**, `cli` (CmdSpec table, generated `help`, wildcard objects, alias expansion, `unsafe` window, did-you-mean, bounded streaming), groups `sys` · `sensor` · `ui` · `motion` · `chrono` · `sim`, both console front-ends, and the **`ux/` bridge** |
+| Tested | **355 host checks**; clean under **ASan/UBSan** and under **ThreadSanitizer** (the stream ring is hand-rolled SPSC, so it gets checked rather than trusted) |
+| Not yet | `audio` · `storage` · `board` · `net` · `supervisor`, `drivers`, `transport`, BLE — and the ESP-side HAL, which is stubbed (see §12.0.2) |
+
+**The clock keeps time and the hands follow it, with no hardware at all.** `motion home`
+runs the real §6.1 FSM against a mechanism whose hand positions the firmware genuinely does
+not know, `chrono` turns wall time into absolute hand targets, and `ui` runs README §12's
+press cycle off the fake PCNT. What is missing from the §11.2 sketch is now the alarm and
+the audio, not the movement.
+
+Three bugs the AO work turned up, all of them the kind that would have cost an evening on
+the bench rather than a minute here: `sim reset` used to rewind sim time, which strands every
+deadline an AO has already computed (a re-based RTC would do the same, so `ActiveObject` now
+also survives a clock that moves backwards); `motion` cached "the coils are live" instead of
+asking, so a driver reset behind its back left the hands quietly stationary; and the control
+loop's ramp used its *nominal* period rather than measured sim time, which under warp
+accelerated fifty times too slowly.
 
 Two things the scaffolding caught on its own, which is the argument for building it first:
 `main` was missing `nvs_flash` from its `REQUIRES` and the build refused to link (the §2
@@ -1699,8 +1759,11 @@ and a wrong model is worse than none.
 
 | Faked | Scriptable via | Honest about |
 |---|---|---|
-| ADC (opto, VBAT) | `sim opto 0..1` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` | Calibration constants (200/3000 mV) are **placeholders** until milestone 3 |
-| Knob | `sim turn ±n` · `sim press [ms\|hold\|release]` | 4 counts/detent is real; contact/optical timing is not modelled |
+| ADC (opto, VBAT) | `sim opto 0..1\|auto` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` | Calibration constants (200/3000 mV) are **placeholders** until milestone 3 |
+| **The movement** | `sim hand <h\|m> <deg>` · `sim motor <on\|off>` | Velocity + stop target, integrated in sim time; the index window is 3° wide and **can be stepped over** |
+| Knob | `sim turn ±n` · `sim knob ±counts` · `sim press [ms\|down\|up]` | 4 counts/detent is real; contact/optical timing is not modelled |
+| IMU | `sim imu <yaw>` · `sim tap` | A tap counter and an orientation, nothing else — R14 is retired, so nothing may branch on yaw |
+| Expander | `sim radio <on\|off>` | Named signals at their **electrical** levels, not an MCP23017 register model |
 | Pixels | read back as `[..R....]`, exact RGBW per pixel | SK6812 wire timing and the level shifter are not modelled — that is milestone 4b |
 | Wake light | `sim plug` / `sim unplug` | **Enforces the §6.8 plugged-only interlock** — a service that forgets it fails in `clocksim`, not on a bench |
 | Power | `sim vbat` → SoC, CHRG, PD_PG | SoC is a straight line 3.30→4.05 V; a real OCV curve comes with `board` |
@@ -1721,8 +1784,28 @@ board host        name     state     last
   absent = not fitted on this board · no-drv = fitted, but no driver reads it yet
 ```
 
-**Still missing from the §11.2 sketch:** `motion home`, `chrono alarm`, the ALARM-fires line.
-Those need the active objects, not the HAL — the fakes they will run against exist now.
+**Still missing from the §11.2 sketch:** `chrono alarm` and the ALARM-fires line. `motion
+home` is real, and so is the clock behind it.
+
+### 12.0.3 `ux/` — the clock on screen (2026-08-10)
+
+A browser page and a ~200-line stdlib-only Python bridge, in [`ux/`](ux/). It shows the
+plate, both hands at their **true** angles, the seven pixels in place, the wake wash and the
+speaker, and it drives the knob, the rear toggle, tap, the IMU and power.
+
+The protocol is deliberately asymmetric and is documented in
+[`apps/clocksim/README.md`](firmware/apps/clocksim/README.md):
+
+- **ux → clocksim: one line of CLI text per newline.** Not JSON. So there is no parser in the
+  firmware, every input the app can produce is one a human can reproduce at the console
+  (D9, D13), and `nc 127.0.0.1 4747` is a working client.
+- **clocksim → ux: newline-delimited JSON** — one `hello`, `state` at 50 Hz, plus `log` (via
+  a new `log::set_tap`) and `res` per command.
+
+**The page holds no clock logic**, which is the whole point: what you are tuning when you
+drag a hand or spin the knob is the C++ that ships. State is read through
+`hal::host::snapshot()` rather than the `hal::` calls, because `knob::read()` consumes its
+delta and a viewer that ate the `ui` AO's deltas would be changing what it was watching.
 
 ### 12.1 Milestones
 

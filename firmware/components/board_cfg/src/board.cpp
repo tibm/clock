@@ -6,8 +6,8 @@ namespace clk::board {
 namespace {
 
 constexpr const char* kDevNames[] = {
-    "opto", "vbat", "knob", "pixels", "wake", "expander",
-    "amp",  "als",  "env",  "imu",    "sd",   "xtal32k",
+    "opto", "vbat", "knob", "pixels", "wake",    "expander", "amp",
+    "als",  "env",  "imu",  "sd",     "xtal32k", "motor",
 };
 static_assert(sizeof(kDevNames) / sizeof(kDevNames[0]) == static_cast<std::size_t>(Dev::count));
 
@@ -15,7 +15,8 @@ constexpr uint16_t bit(Dev d) { return static_cast<uint16_t>(1u << static_cast<i
 
 constexpr uint16_t kAll = bit(Dev::Opto) | bit(Dev::Vbat) | bit(Dev::Knob) | bit(Dev::Pixels) |
                           bit(Dev::WakeLed) | bit(Dev::Expander) | bit(Dev::Amp) | bit(Dev::Als) |
-                          bit(Dev::Env) | bit(Dev::Imu) | bit(Dev::Sd) | bit(Dev::Xtal32k);
+                          bit(Dev::Env) | bit(Dev::Imu) | bit(Dev::Sd) | bit(Dev::Xtal32k) |
+                          bit(Dev::Motor);
 
 #if defined(CONFIG_CLOCK_BOARD_REV0_3)
 constexpr const char* kBoard = "rev0_3";

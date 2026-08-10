@@ -31,6 +31,7 @@ void vwrite(Mod m, Level l, const char* fmt, std::va_list ap) noexcept {
     std::vsnprintf(body, sizeof body, fmt, ap);
     esp_log_write(kEspLevel[i], name(m), "%c (%" PRIu32 ") %s: %s\n", kLetter[i],
                   esp_log_timestamp(), name(m), body);
+    if (const auto t = g_tap.load(std::memory_order_relaxed)) t(m, l, body);
 }
 
 namespace detail {

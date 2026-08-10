@@ -14,6 +14,8 @@ add_subdirectory(components/core)
 add_subdirectory(components/command)
 add_subdirectory(components/board_cfg)
 add_subdirectory(components/clk_hal)
+add_subdirectory(components/domain)
+add_subdirectory(components/services)
 add_subdirectory(components/cli)
 add_subdirectory(apps/clocksim)
 

@@ -11,6 +11,10 @@
 //   wake    -> ledc, ~1 kHz, gamma applied above this layer
 //   knob    -> pcnt unit0 + glitch filter, ENC_SW as a GPIO IRQ
 //   i2c     -> i2c_master at 400 kHz, generous timeouts (the BNO085 clock-stretches)
+//   motor   -> 2x MCPWM + GPTimer0: Q16.16 phase accumulator, quarter-sine LUT, 8
+//              comparators, comparator target latches the stop                        (D5)
+//   expander-> MCP23017 over i2c; today it is named signals, it becomes the driver     (§11.2)
+//   imu     -> BNO085 SHTP/SH-2 over i2c, SENSOR_INT on IO42
 // Each one is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
 #include "esp_timer.h"
@@ -20,6 +24,7 @@
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
+#include "clk/port.hpp"
 
 namespace clk::hal {
 
@@ -39,6 +44,15 @@ Result<float> read_opto_norm() noexcept { return Result<float>::bad(Status::NotP
 namespace knob {
 Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
 }  // namespace knob
+
+namespace motor {
+Status enable(bool) noexcept { return Status::NotPresent; }
+bool enabled() noexcept { return false; }
+Status run(Hand, int32_t, int32_t) noexcept { return Status::NotPresent; }
+Status hold(Hand) noexcept { return Status::NotPresent; }
+Status adopt(Hand, int32_t) noexcept { return Status::NotPresent; }
+Axis state(Hand) noexcept { return Axis{}; }
+}  // namespace motor
 
 namespace pixels {
 Status set(std::size_t, Rgbw) noexcept { return Status::NotPresent; }
@@ -63,11 +77,28 @@ Result<uint8_t> read_reg(uint8_t, uint8_t) noexcept {
 Status write_reg(uint8_t, uint8_t, uint8_t) noexcept { return Status::NotPresent; }
 }  // namespace i2c
 
+namespace imu {
+Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
+}  // namespace imu
+
+namespace expander {
+Result<bool> get(Sig) noexcept { return Result<bool>::bad(Status::NotPresent); }
+Status set(Sig, bool) noexcept { return Status::NotPresent; }
+}  // namespace expander
+
+namespace audio {
+Status enable(bool) noexcept { return Status::NotPresent; }
+bool active() noexcept { return false; }
+Status set_volume_pct(uint8_t) noexcept { return Status::NotPresent; }
+uint8_t volume_pct() noexcept { return 0; }
+}  // namespace audio
+
 namespace power {
 Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
 }  // namespace power
 
 Status init() noexcept {
+    port::set_clock(&clock_::micros);  // core/ owns no clock of its own (§2)
     CLK_LOGI(sys, "hal: board=%s, peripherals not implemented yet (see hal/esp)",
              board::board_name());
     return Status::Ok;

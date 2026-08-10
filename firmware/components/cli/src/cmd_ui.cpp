@@ -7,6 +7,7 @@
 #include "clk/board.hpp"
 #include "clk/cli/registry.hpp"
 #include "clk/hal/hal.hpp"
+#include "clk/services/ui.hpp"
 
 namespace clk::cli {
 namespace {
@@ -132,8 +133,13 @@ Status cmd_led(Args const& a, Sink& out) {
         }
     }
     if (const Status st = hal::pixels::refresh(); st != Status::Ok) return st;
-    out.printf("pixel%s %d%s%d  r=%u g=%u b=%u w=%u", lo == hi ? "" : "s", lo, lo == hi ? "" : "-",
-               hi, c.r, c.g, c.b, c.w);
+    char id[40];
+    if (lo == hi) {
+        std::snprintf(id, sizeof id, "pixel %d", lo);
+    } else {
+        std::snprintf(id, sizeof id, "pixels %d-%d", lo, hi);
+    }
+    out.printf("%s  r=%u g=%u b=%u w=%u", id, c.r, c.g, c.b, c.w);
     return Status::Ok;
 }
 
@@ -175,7 +181,75 @@ Status cmd_wake(Args const& a, Sink& out) {
     return st;
 }
 
+Status cmd_mode(Args const& a, Sink& out) {
+    const char* w = a.arg(0);
+    using M = svc::Ui::Mode;
+    struct Named {
+        const char* n;
+        M m;
+    };
+    constexpr Named kModes[] = {{"idle", M::Idle},
+                                {"alarm", M::Alarm},
+                                {"setalarm", M::SetAlarm},
+                                {"setclock", M::SetClock},
+                                {"volume", M::Volume}};
+    if (!w) {
+        const auto s = svc::ui().snapshot();
+        out.printf("mode %s   alarm %02d:%02d %s   vol %u%%", s.mode_name, s.alarm_hour,
+                   s.alarm_minute, s.alarm_armed ? "armed" : "disarmed", s.volume);
+        if (s.idle_in_ms) {
+            out.printf("  back to idle in %" PRIu32 " ms without input", s.idle_in_ms);
+        }
+        return Status::Ok;
+    }
+    for (auto const& m : kModes) {
+        if (std::strcmp(m.n, w) == 0) {
+            svc::ui().set_mode(m.m);
+            out.printf("mode %s", w);
+            return Status::Ok;
+        }
+    }
+    out.line("usage: ui mode <idle|alarm|setalarm|setclock|volume>");
+    return Status::BadArg;
+}
+
+Status cmd_knob(Args const& a, Sink& out) {
+    auto t = svc::ui().tuning();
+    if (a.count() < 2) {
+        out.printf("counts_per_minute=%" PRId32 " accel_threshold=%" PRId32 " accel_factor=%" PRId32
+                   " timeout_ms=%" PRIu32 " long_press_ms=%" PRIu32 " bright=%u%%",
+                   t.counts_per_minute, t.accel_threshold, t.accel_factor, t.timeout_ms,
+                   t.long_press_ms, t.brightness);
+        out.line("  ui knob <counts|threshold|factor|timeout|longpress|bright> <value>");
+        return a.count() == 0 ? Status::Ok : Status::BadArg;
+    }
+    const char* k = a.arg(0);
+    const auto v = static_cast<int32_t>(std::strtol(a.arg(1), nullptr, 10));
+    if (std::strcmp(k, "counts") == 0) {
+        t.counts_per_minute = v > 0 ? v : 1;
+    } else if (std::strcmp(k, "threshold") == 0) {
+        t.accel_threshold = v;
+    } else if (std::strcmp(k, "factor") == 0) {
+        t.accel_factor = v > 0 ? v : 1;
+    } else if (std::strcmp(k, "timeout") == 0) {
+        t.timeout_ms = static_cast<uint32_t>(v);
+    } else if (std::strcmp(k, "longpress") == 0) {
+        t.long_press_ms = static_cast<uint32_t>(v);
+    } else if (std::strcmp(k, "bright") == 0) {
+        t.brightness = static_cast<uint8_t>(v < 0 ? 0 : (v > 100 ? 100 : v));
+    } else {
+        out.printf("no such knob '%s'", k);
+        return Status::BadArg;
+    }
+    svc::ui().set_tuning(t);
+    out.printf("%s = %" PRId32, k, v);
+    return Status::Ok;
+}
+
 Status cmd_status(Args const&, Sink& out) {
+    const auto u = svc::ui().snapshot();
+    out.printf("mode   %s   alarm %02d:%02d %s   vol %u%%", u.mode_name, u.alarm_hour,
+               u.alarm_minute, u.alarm_armed ? "armed" : "disarmed", u.volume);
     char px[hal::pixels::kCount + 1] = {};
     for (std::size_t i = 0; i < hal::pixels::kCount; ++i) {
         const auto c = hal::pixels::get(i);
@@ -199,7 +273,11 @@ Status cmd_status(Args const&, Sink& out) {
 }
 
 constexpr CmdSpec kRows[] = {
-    {"ui", nullptr, "status", "", "pixels, wake duty, knob", ReleaseOk, cmd_status},
+    {"ui", nullptr, "status", "", "mode, pixels, wake duty, knob", ReleaseOk, cmd_status},
+    {"ui", nullptr, "mode", "[<idle|alarm|setalarm|setclock|volume>]", "the knob HSM", None,
+     cmd_mode},
+    {"ui", nullptr, "knob", "[<knob> <value>]", "sensitivity, timeouts, brightness", None,
+     cmd_knob},
     {"ui", "led", "test", "", "walk the chain head to tail", Unsafe, cmd_led_test},
     {"ui", "led", "", "<id> <color|r g b w>", "set pixel(s)", Unsafe, cmd_led},
     {"ui", nullptr, "wake", "<warm%> <cool%>", "wake light duty (plugged-only)", Unsafe, cmd_wake},

@@ -12,6 +12,7 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 - `power_values.md` — schematic-ready FB/comp/passive values per converter + support networks.
 - `firmware/` — the code + build (`firmware/README.md` = how to build; host `clocksim` + tests need no hardware).
 - `FIRMWARE.md` — FW architecture (source of truth for software): ESP-IDF + C++23 active objects, 9-task model, HSMs, Command surface (CLI ⇄ BLE), CLI, test/bring-up plan.
+- `ux/` — the clock on screen: SVG plate + hands + pixels, and controls for the knob/toggle/IMU. Attaches to `clocksim` over a loopback socket (`ux/README.md`, protocol in `firmware/apps/clocksim/README.md`). **Display only — every algorithm stays in C++.**
 
 ## Locked BOM (core)
 | Block | Part | Rail | Notes |
