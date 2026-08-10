@@ -29,6 +29,12 @@ vendored:
   sh2:        { repo: "https://github.com/ceva-dsp/sh2",      tag: "v1.4.0" }   # BNO085 SH-2/SHTP  [§6.5.1]
   googletest: { repo: "https://github.com/google/googletest", tag: "v1.17.0" }  # host tests only
 
+# Host dev tools -- nothing here ends up in a firmware image, but the version still matters:
+# clang-format's output drifts between majors, so an unpinned one turns every commit into a
+# reformat war.  tools/format.sh warns (does not fail) on a mismatch.
+tools:
+  clang-format: "22"     # brew install llvm
+
 # Not redistributable -- fetched by hand, SHA-256 verified by tools/fetch-bsec.sh.
 # The build degrades to open BME68x + a gas baseline when vendor/bsec/ is absent.  [§6.5]
 manual:

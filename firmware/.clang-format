@@ -1,0 +1,32 @@
+# Formatting is not a matter of opinion here -- `tools/format.sh` and the pre-commit hook
+# rewrite the tree, so this file is the only place style is decided.  [firmware/README.md]
+#
+# Google style, with four deliberate deviations.  Everything else is left at the upstream
+# default on purpose: the point of a stock base style is that nobody has to argue about it.
+---
+Language: Cpp
+BasedOnStyle: Google
+
+# 1. Four-space indent -- what the tree was written with, and the pin map / register tables
+#    read better with wider steps.
+IndentWidth: 4
+AccessModifierOffset: -4
+
+# 2. 100 columns.  Google's 80 wraps the peripheral calls and the `[FIRMWARE.md §x]` trailing
+#    citations into unreadable ladders; 100 fits a side-by-side diff on a laptop.
+ColumnLimit: 100
+
+# 3. Pointers bind to the type, always.  Google *derives* this per file, which means one
+#    stray `char *p` silently flips a whole file the next time it is formatted.
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# 4. Include blocks stay as written.  The tree separates <system> / "idf" / "clk" with blank
+#    lines, and Regroup would merge them into Google's own categories -- which also reorders
+#    IDF headers that care about include order.  Sorting still happens *within* each block.
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+
+Standard: Latest
+InsertNewlineAtEOF: true

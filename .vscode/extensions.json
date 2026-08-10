@@ -1,0 +1,5 @@
+{
+    // ms-vscode.cpptools provides the clang-format integration the [cpp] format-on-save in
+    // settings.json points at. Without it, saving a .cpp does nothing.
+    "recommendations": ["ms-vscode.cpptools"]
+}

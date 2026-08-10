@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Formats the staged C++ before it becomes a commit.  [firmware/.clang-format]
+#
+# Enabled by `git config core.hooksPath .githooks` -- which is why this lives in the repo and
+# not in .git/hooks: a hook nobody can clone is a hook that only works on one machine.
+#
+#   git commit --no-verify      skips it
+#   CLANG_FORMAT=/path/to/bin   overrides the binary (see firmware/tools/format.sh)
+set -euo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"
+FMT="$REPO/firmware/tools/format.sh"
+[ -x "$FMT" ] || exit 0
+
+# Staged, still-existing C++ files (ACMR skips deletions -- a deleted path cannot be read).
+staged=()
+while IFS= read -r f; do
+    [ -f "$REPO/$f" ] && staged+=("$REPO/$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n' |
+         grep -E '\.(cpp|cc|hpp|h|c)$' || true)
+[ ${#staged[@]} -eq 0 ] && exit 0
+
+# A partially-staged file has hunks in the index that are NOT in the working tree copy.
+# Formatting the working tree and re-adding it would smuggle the unstaged hunks into the
+# commit, so those files are reported and left alone -- surprising the author is worse than
+# an unformatted line.
+fmt=()
+skipped=()
+for f in "${staged[@]}"; do
+    if git diff --quiet -- "$f"; then fmt+=("$f"); else skipped+=("$f"); fi
+done
+
+if [ ${#fmt[@]} -gt 0 ]; then
+    before="$(git hash-object "${fmt[@]}")"
+    "$FMT" "${fmt[@]}" >/dev/null
+    after="$(git hash-object "${fmt[@]}")"
+    if [ "$before" != "$after" ]; then
+        git add -- "${fmt[@]}"
+        echo "pre-commit: reformatted and re-staged:"
+        paste <(echo "$before") <(echo "$after") <(printf '%s\n' "${fmt[@]}") |
+            awk -v r="$REPO/" '$1 != $2 { sub(r, "", $3); print "  " $3 }'
+    fi
+fi
+
+if [ ${#skipped[@]} -gt 0 ]; then
+    echo "pre-commit: partially staged, NOT formatted (stage the whole file, or run" \
+         "firmware/tools/format.sh):" >&2
+    for f in "${skipped[@]}"; do echo "  ${f#"$REPO/"}" >&2; done
+fi

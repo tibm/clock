@@ -17,6 +17,35 @@ rollback is a `toolchain.lock` edit, not a re-download). On macOS it also instal
 `python@3.13`, because IDF 5.5's `detect_python.sh` takes the first `python3` on PATH and is
 not tested above 3.13.
 
+## Formatting
+
+`clang-format`, Google style with four deviations (4-space indent, 100 cols, left-bound
+pointers, include blocks preserved) — all of it in [`.clang-format`](.clang-format).
+
+```sh
+tools/format.sh                 # rewrite every C++ file under firmware/
+tools/format.sh --check         # exit 1 + list what is unformatted
+tools/format.sh a.cpp b.hpp     # just these
+```
+
+Needs `brew install llvm` (keg-only, so the script looks it up rather than trusting PATH;
+`$CLANG_FORMAT` overrides). The major is pinned in `toolchain.lock` because clang-format's
+output drifts between releases — a mismatch warns, it does not fail.
+
+Two things run it for you:
+
+- **VS Code** — format-on-save for `.c/.cpp/.h/.hpp` via `.vscode/settings.json`. Needs the
+  `ms-vscode.cpptools` extension (it is in `.vscode/extensions.json`, so VS Code offers it).
+- **pre-commit hook** — formats and re-stages the staged C++. It ships in `.githooks/`, which
+  git does not read on its own; **once per clone**:
+
+  ```sh
+  git config core.hooksPath .githooks
+  ```
+
+  A *partially* staged file is reported and left alone — reformatting the working tree and
+  re-adding it would drag the unstaged hunks into the commit. `--no-verify` skips the hook.
+
 ## Target build
 
 ```sh

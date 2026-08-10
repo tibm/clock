@@ -1,0 +1,22 @@
+{
+    // Format-on-save for C/C++ only -- the rest of the repo (markdown specs, KiCad-generator
+    // python) is left to whatever the editor already does.
+    // Style comes from firmware/.clang-format; see firmware/tools/format.sh for the CLI path.
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "file",
+
+    // cpptools bundles its own (older) clang-format. Point it at the same binary the script
+    // and the hook use, or save-vs-commit will fight over the odd line break.
+    // `brew install llvm`; keg-only, hence the explicit path.
+    "C_Cpp.clang_format_path": "/opt/homebrew/opt/llvm/bin/clang-format",
+    "C_Cpp.clang_format_fallbackStyle": "Google"
+}

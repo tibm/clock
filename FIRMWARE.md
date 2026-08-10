@@ -74,6 +74,8 @@ components:                       # ESP-IDF Component Manager (registry), exact 
 vendored:                         # git submodules under firmware/vendor/
   sh2:      { repo: ceva-dsp/sh2, tag: v1.4.0 }    # BNO085 SH-2/SHTP driver (§6.5.1)
   googletest: { repo: google/googletest, tag: v1.17.0 }   # host tests only
+tools:                            # host-side only, but still pinned — see the note below
+  clang-format: "22"              # major only; output drifts between majors
 manual:                           # license-gated, not fetchable — see §6.5
   bosch/BSEC: "2.6.1.0"
 ```
@@ -84,6 +86,7 @@ manual:                           # license-gated, not fetchable — see §6.5
 | **Managed components** | Exact `==` versions in `main/idf_component.yml`; **`dependencies.lock` is committed** | `idf.py update-dependencies`, review the lock diff, commit it. CI fails if the lock is dirty after a build |
 | **Vendored C sources** (`sh2`, GoogleTest) | git submodules at a tag | `git -C vendor/sh2 checkout <tag>` + commit the pointer |
 | **Bosch BSEC** | Not redistributable. `tools/fetch-bsec.sh` prints the download URL and verifies a **SHA-256** into `vendor/bsec/` | Optional: the build falls back to open `BME68x` + a gas baseline when `vendor/bsec/` is absent (§6.5) |
+| **clang-format** | `tools.clang-format` above (major only). Style in `firmware/.clang-format`, applied by `tools/format.sh`, VS Code format-on-save and the `.githooks/pre-commit` hook | Bump the major, run `tools/format.sh`, commit the reformat **on its own** — mixing a restyle into a behaviour change makes both unreviewable. A skew only warns: it must not block a commit |
 
 - `tools/idf-setup.sh` is **idempotent** and verifies the checked-out tag matches `toolchain.lock`
   before doing anything, so a stale shell cannot silently build against the wrong SDK.
@@ -272,6 +275,7 @@ firmware/
 │  ├─ env.sh                      # source pinned IDF, assert the tag, fix the python PATH (§1.1)
 │  ├─ idf-setup.sh                # clone + install the pinned IDF; idempotent
 │  ├─ build.sh                    # PROFILE=/BOARD= → sdkconfig fragment list → idf.py
+│  ├─ format.sh                   # clang-format the tree; --check for CI + the pre-commit hook
 │  ├─ fetch-bsec.sh               # license-gated blob, SHA-256 verified (§6.5)
 │  └─ gen_cmd_docs.py             # CmdSpec table → the §9.3 table; CI fails if they differ
 ├─ apps/
