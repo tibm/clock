@@ -21,36 +21,36 @@ namespace {
 // ---- calibration placeholders ----------------------------------------------------------
 // Real numbers arrive at milestone 3 with a probe on the QRE1113.  They live here rather
 // than in a driver so the fake and the eventual real calibration share one definition.
-constexpr uint16_t kOptoDarkMv   = 200;
+constexpr uint16_t kOptoDarkMv = 200;
 constexpr uint16_t kOptoBrightMv = 3000;
-constexpr uint16_t kVbatEmptyMv  = 3300;
-constexpr uint16_t kVbatFullMv   = 4050;   // the LT3652 float cap, not 4.2 (README §10)
+constexpr uint16_t kVbatEmptyMv = 3300;
+constexpr uint16_t kVbatFullMv = 4050;  // the LT3652 float cap, not 4.2 (README §10)
 
 struct State {
     // time
-    double   warp          = 1.0;
-    uint64_t sim_base_us   = 0;
-    uint64_t real_base_us  = 0;
+    double warp = 1.0;
+    uint64_t sim_base_us = 0;
+    uint64_t real_base_us = 0;
     // analog
-    float    opto          = 0.10f;
-    uint16_t vbat_mv       = 4021;
-    uint16_t noise_mv      = 0;
-    uint32_t rng           = 0x1234'5678u;
+    float opto = 0.10f;
+    uint16_t vbat_mv = 4021;
+    uint16_t noise_mv = 0;
+    uint32_t rng = 0x1234'5678u;
     // knob
-    int32_t  count         = 0;
-    int32_t  last_read     = 0;
-    uint64_t sw_until_us   = 0;
+    int32_t count = 0;
+    int32_t last_read = 0;
+    uint64_t sw_until_us = 0;
     // power
-    bool     plugged       = true;
+    bool plugged = true;
     // outputs
     pixels::Rgbw px[pixels::kCount]{};
-    bool     refreshed     = false;
-    uint8_t  warm_pct      = 0;
-    uint8_t  cool_pct      = 0;
+    bool refreshed = false;
+    uint8_t warm_pct = 0;
+    uint8_t cool_pct = 0;
 };
 
 std::mutex g_mx;
-State      g_st;
+State g_st;
 
 uint64_t real_us() noexcept {
     using namespace std::chrono;
@@ -61,12 +61,12 @@ uint64_t real_us() noexcept {
 // Caller holds g_mx.
 uint64_t sim_us_locked() noexcept {
     const uint64_t now = real_us();
-    const uint64_t d   = now - g_st.real_base_us;
+    const uint64_t d = now - g_st.real_base_us;
     return g_st.sim_base_us + static_cast<uint64_t>(static_cast<double>(d) * g_st.warp);
 }
 
 void rebase_locked() noexcept {
-    g_st.sim_base_us  = sim_us_locked();
+    g_st.sim_base_us = sim_us_locked();
     g_st.real_base_us = real_us();
 }
 
@@ -74,15 +74,15 @@ void rebase_locked() noexcept {
 int32_t noise_locked() noexcept {
     if (g_st.noise_mv == 0) return 0;
     uint32_t x = g_st.rng;
-    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
     g_st.rng = x;
     const int32_t span = static_cast<int32_t>(g_st.noise_mv) * 2 + 1;
     return static_cast<int32_t>(x % static_cast<uint32_t>(span)) - g_st.noise_mv;
 }
 
-uint16_t clamp_mv(int32_t v) noexcept {
-    return static_cast<uint16_t>(std::clamp(v, 0, 3300));
-}
+uint16_t clamp_mv(int32_t v) noexcept { return static_cast<uint16_t>(std::clamp(v, 0, 3300)); }
 
 }  // namespace
 
@@ -98,9 +98,7 @@ uint32_t millis() noexcept { return static_cast<uint32_t>(micros() / 1000); }
 
 // Real time on purpose: this paces the console and the stream producer, and warping it
 // would make `sensor ... stream 100` sample at 6 kHz when warp is 60.
-void sleep_ms(uint32_t ms) noexcept {
-    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-}
+void sleep_ms(uint32_t ms) noexcept { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
 }  // namespace clock_
 
@@ -113,13 +111,14 @@ Result<uint16_t> read_mv(Ch ch) noexcept {
         case Ch::Opto: {
             if (!board::present(board::Dev::Opto)) return Result<uint16_t>::bad(Status::NotPresent);
             const float span = static_cast<float>(kOptoBrightMv - kOptoDarkMv);
-            const int32_t mv = static_cast<int32_t>(kOptoDarkMv + g_st.opto * span) + noise_locked();
+            const int32_t mv =
+                static_cast<int32_t>(kOptoDarkMv + g_st.opto * span) + noise_locked();
             return Result<uint16_t>::good(clamp_mv(mv));
         }
         case Ch::Vbat: {
             if (!board::present(board::Dev::Vbat)) return Result<uint16_t>::bad(Status::NotPresent);
-            return Result<uint16_t>::good(static_cast<uint16_t>(
-                std::clamp<int32_t>(g_st.vbat_mv + noise_locked(), 0, 5000)));
+            return Result<uint16_t>::good(
+                static_cast<uint16_t>(std::clamp<int32_t>(g_st.vbat_mv + noise_locked(), 0, 5000)));
         }
     }
     return Result<uint16_t>::bad(Status::BadArg);
@@ -129,7 +128,8 @@ Result<float> read_opto_norm() noexcept {
     const auto mv = read_mv(Ch::Opto);
     if (!mv.ok()) return Result<float>::bad(mv.st);
     const float span = static_cast<float>(kOptoBrightMv - kOptoDarkMv);
-    return Result<float>::good(std::clamp((static_cast<float>(mv.v) - kOptoDarkMv) / span, 0.0f, 1.0f));
+    return Result<float>::good(
+        std::clamp((static_cast<float>(mv.v) - kOptoDarkMv) / span, 0.0f, 1.0f));
 }
 
 }  // namespace adc
@@ -143,7 +143,7 @@ Result<State> read() noexcept {
     State s{};
     s.count = g_st.count;
     s.delta = g_st.count - g_st.last_read;
-    s.sw    = sim_us_locked() < g_st.sw_until_us;
+    s.sw = sim_us_locked() < g_st.sw_until_us;
     g_st.last_read = g_st.count;
     return Result<State>::good(s);
 }
@@ -199,21 +199,27 @@ Status set(uint8_t warm_pct, uint8_t cool_pct) noexcept {
     return Status::Ok;
 }
 
-uint8_t warm() noexcept { std::lock_guard lk{g_mx}; return g_st.warm_pct; }
-uint8_t cool() noexcept { std::lock_guard lk{g_mx}; return g_st.cool_pct; }
+uint8_t warm() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.warm_pct;
+}
+uint8_t cool() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.cool_pct;
+}
 
 }  // namespace wake
 
 // ============================ hal::i2c ===================================================
 namespace i2c {
 namespace {
-struct Slave { uint8_t addr; board::Dev dev; };
+struct Slave {
+    uint8_t addr;
+    board::Dev dev;
+};
 constexpr Slave kBus[] = {
-    { 0x20, board::Dev::Expander },
-    { 0x29, board::Dev::Als      },
-    { 0x4A, board::Dev::Imu      },
-    { 0x6C, board::Dev::Amp      },
-    { 0x77, board::Dev::Env      },
+    {0x20, board::Dev::Expander}, {0x29, board::Dev::Als}, {0x4A, board::Dev::Imu},
+    {0x6C, board::Dev::Amp},      {0x77, board::Dev::Env},
 };
 }  // namespace
 
@@ -254,12 +260,12 @@ Result<State> read() noexcept {
     if (!board::present(board::Dev::Vbat)) return Result<State>::bad(Status::NotPresent);
     State s{};
     s.vbat_mv = g_st.vbat_mv;
-    const int32_t pct = (static_cast<int32_t>(s.vbat_mv) - kVbatEmptyMv) * 100 /
-                        (kVbatFullMv - kVbatEmptyMv);
-    s.soc_pct  = static_cast<uint8_t>(std::clamp(pct, 0, 100));
-    s.plugged  = g_st.plugged;
+    const int32_t pct =
+        (static_cast<int32_t>(s.vbat_mv) - kVbatEmptyMv) * 100 / (kVbatFullMv - kVbatEmptyMv);
+    s.soc_pct = static_cast<uint8_t>(std::clamp(pct, 0, 100));
+    s.plugged = g_st.plugged;
     s.charging = g_st.plugged && s.vbat_mv < kVbatFullMv;
-    s.fault    = false;
+    s.fault = false;
     return Result<State>::good(s);
 }
 
@@ -280,7 +286,10 @@ void set_warp(double f) noexcept {
     rebase_locked();
     g_st.warp = std::clamp(f, 0.01, 10000.0);
 }
-double warp() noexcept { std::lock_guard lk{g_mx}; return g_st.warp; }
+double warp() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.warp;
+}
 
 void advance(uint64_t us) noexcept {
     std::lock_guard lk{g_mx};
@@ -288,22 +297,46 @@ void advance(uint64_t us) noexcept {
     g_st.sim_base_us += us;
 }
 
-void set_opto(float n) noexcept { std::lock_guard lk{g_mx}; g_st.opto = std::clamp(n, 0.0f, 1.0f); }
-float opto() noexcept           { std::lock_guard lk{g_mx}; return g_st.opto; }
+void set_opto(float n) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.opto = std::clamp(n, 0.0f, 1.0f);
+}
+float opto() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.opto;
+}
 
-void set_vbat_mv(uint16_t mv) noexcept  { std::lock_guard lk{g_mx}; g_st.vbat_mv = mv; }
-void set_noise_mv(uint16_t p) noexcept  { std::lock_guard lk{g_mx}; g_st.noise_mv = p; }
-void set_seed(uint32_t s) noexcept      { std::lock_guard lk{g_mx}; g_st.rng = s ? s : 1; }
+void set_vbat_mv(uint16_t mv) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.vbat_mv = mv;
+}
+void set_noise_mv(uint16_t p) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.noise_mv = p;
+}
+void set_seed(uint32_t s) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.rng = s ? s : 1;
+}
 
-void turn(int32_t detents) noexcept     { std::lock_guard lk{g_mx}; g_st.count += detents * 4; }
+void turn(int32_t detents) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.count += detents * 4;
+}
 
 void press(uint32_t hold_ms) noexcept {
     std::lock_guard lk{g_mx};
     g_st.sw_until_us = sim_us_locked() + static_cast<uint64_t>(hold_ms) * 1000u;
 }
 
-void set_plugged(bool p) noexcept { std::lock_guard lk{g_mx}; g_st.plugged = p; }
-bool plugged() noexcept           { std::lock_guard lk{g_mx}; return g_st.plugged; }
+void set_plugged(bool p) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.plugged = p;
+}
+bool plugged() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.plugged;
+}
 
 void render_pixels(char* out, std::size_t cap) noexcept {
     std::lock_guard lk{g_mx};
@@ -312,22 +345,35 @@ void render_pixels(char* out, std::size_t cap) noexcept {
         const auto& p = g_st.px[i];
         char c = '.';
         const uint8_t mx = std::max({p.r, p.g, p.b, p.w});
-        if (mx == 0)                              c = '.';
-        else if (p.r == mx && p.g == mx && p.b == mx) c = 'W';
-        else if (p.w == mx)                       c = 'W';
-        else if (p.r == mx && p.g == mx)          c = 'Y';
-        else if (p.r == mx && p.b == mx)          c = 'M';
-        else if (p.g == mx && p.b == mx)          c = 'C';
-        else if (p.r == mx)                       c = 'R';
-        else if (p.g == mx)                       c = 'G';
-        else if (p.b == mx)                       c = 'B';
-        else                                      c = 'o';
+        if (mx == 0)
+            c = '.';
+        else if (p.r == mx && p.g == mx && p.b == mx)
+            c = 'W';
+        else if (p.w == mx)
+            c = 'W';
+        else if (p.r == mx && p.g == mx)
+            c = 'Y';
+        else if (p.r == mx && p.b == mx)
+            c = 'M';
+        else if (p.g == mx && p.b == mx)
+            c = 'C';
+        else if (p.r == mx)
+            c = 'R';
+        else if (p.g == mx)
+            c = 'G';
+        else if (p.b == mx)
+            c = 'B';
+        else
+            c = 'o';
         out[n++] = c;
     }
     out[n] = '\0';
 }
 
-bool refreshed() noexcept { std::lock_guard lk{g_mx}; return g_st.refreshed; }
+bool refreshed() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.refreshed;
+}
 
 void reset() noexcept {
     std::lock_guard lk{g_mx};

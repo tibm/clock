@@ -13,26 +13,29 @@
 namespace clk::cli {
 namespace {
 
-constexpr std::size_t kRing     = 128;
-constexpr std::size_t kTextLen  = 96;
+constexpr std::size_t kRing = 128;
+constexpr std::size_t kTextLen = 96;
 
 struct Sample {
     uint32_t t_ms;
-    char     text[kTextLen];
+    char text[kTextLen];
 };
 
 // Single-producer / single-consumer ring.  Overflow drops the NEW sample and counts it --
 // dropping the oldest would silently rewrite history in the middle of a scope trace.
 struct Ring {
-    Sample                s[kRing];
-    std::atomic<uint32_t> head{0};      // producer
-    std::atomic<uint32_t> tail{0};      // consumer
+    Sample s[kRing];
+    std::atomic<uint32_t> head{0};  // producer
+    std::atomic<uint32_t> tail{0};  // consumer
     std::atomic<uint32_t> dropped{0};
 
     bool push(Sample const& v) {
         const uint32_t h = head.load(std::memory_order_relaxed);
         const uint32_t t = tail.load(std::memory_order_acquire);
-        if (h - t >= kRing) { dropped.fetch_add(1, std::memory_order_relaxed); return false; }
+        if (h - t >= kRing) {
+            dropped.fetch_add(1, std::memory_order_relaxed);
+            return false;
+        }
         s[h % kRing] = v;
         head.store(h + 1, std::memory_order_release);
         return true;
@@ -57,15 +60,19 @@ void split_kv(const char* text, char* keys, std::size_t kcap, char* vals, std::s
         if (!*p) break;
         const char* eq = std::strchr(p, '=');
         const char* sp = std::strchr(p, ' ');
-        if (!eq || (sp && eq > sp)) { p = sp ? sp : p + std::strlen(p); continue; }
+        if (!eq || (sp && eq > sp)) {
+            p = sp ? sp : p + std::strlen(p);
+            continue;
+        }
         const char* end = sp ? sp : p + std::strlen(p);
         if (!first) {
             if (kn + 1 < kcap) keys[kn++] = ',';
             if (vn + 1 < vcap) vals[vn++] = ',';
         }
-        for (const char* q = p;  q < eq  && kn + 1 < kcap; ++q) keys[kn++] = *q;
+        for (const char* q = p; q < eq && kn + 1 < kcap; ++q) keys[kn++] = *q;
         for (const char* q = eq + 1; q < end && vn + 1 < vcap; ++q) vals[vn++] = *q;
-        keys[kn] = '\0'; vals[vn] = '\0';
+        keys[kn] = '\0';
+        vals[vn] = '\0';
         first = false;
         p = end;
     }
@@ -120,17 +127,23 @@ Status run_stream(const char* name, SampleFn sample, StreamOpts const& o, Sink& 
         stop.store(true, std::memory_order_relaxed);
     });
 
-    bool     header_done = false;
-    uint32_t printed     = 0;
+    bool header_done = false;
+    uint32_t printed = 0;
 
     auto emit = [&](Sample const& s) {
         char keys[kTextLen], vals[kTextLen];
         if (o.csv) {
             split_kv(s.text, keys, sizeof keys, vals, sizeof vals);
-            if (!header_done) { out.printf("# t_ms,%s", keys); header_done = true; }
+            if (!header_done) {
+                out.printf("# t_ms,%s", keys);
+                header_done = true;
+            }
             out.printf("%" PRIu32 ",%s", s.t_ms, vals);
         } else {
-            if (!header_done) { out.printf("# %-9s %s", "t_ms", "sample"); header_done = true; }
+            if (!header_done) {
+                out.printf("# %-9s %s", "t_ms", "sample");
+                header_done = true;
+            }
             out.printf("  %-9" PRIu32 " %s", s.t_ms, s.text);
         }
         ++printed;
@@ -138,12 +151,15 @@ Status run_stream(const char* name, SampleFn sample, StreamOpts const& o, Sink& 
 
     for (;;) {
         Sample s{};
-        if (ring.pop(s)) { emit(s); continue; }
+        if (ring.pop(s)) {
+            emit(s);
+            continue;
+        }
         if (stop.load(std::memory_order_relaxed)) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
     producer.join();
-    for (Sample s{}; ring.pop(s); ) emit(s);   // whatever landed during the join
+    for (Sample s{}; ring.pop(s);) emit(s);  // whatever landed during the join
 
     if (!o.keep_logs) {
         for (std::size_t i = 0; i < log::kModCount; ++i) {
@@ -152,8 +168,8 @@ Status run_stream(const char* name, SampleFn sample, StreamOpts const& o, Sink& 
     }
 
     const uint32_t dropped = ring.dropped.load(std::memory_order_relaxed);
-    out.printf("stream ended (%" PRIu32 "s, %" PRIu32 " samples, %" PRIu32 " dropped)",
-               o.secs, printed, dropped);
+    out.printf("stream ended (%" PRIu32 "s, %" PRIu32 " samples, %" PRIu32 " dropped)", o.secs,
+               printed, dropped);
     return Status::Ok;
 }
 

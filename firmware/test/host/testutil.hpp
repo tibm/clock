@@ -12,12 +12,15 @@
 class RecordingSink final : public clk::cmd::Sink {
 public:
     std::vector<std::string> lines;
-    clk::Status              status   = clk::Status::Ok;
-    bool                     finished = false;
+    clk::Status status = clk::Status::Ok;
+    bool finished = false;
 
     void line(const char* t) override { lines.emplace_back(t); }
     void kv(const char* k, const char* v) override { lines.emplace_back(std::string(k) + "=" + v); }
-    void done(clk::Status s) override { status = s; finished = true; }
+    void done(clk::Status s) override {
+        status = s;
+        finished = true;
+    }
 
     [[nodiscard]] bool contains(const char* needle) const {
         for (auto const& l : lines) {
@@ -27,7 +30,10 @@ public:
     }
     [[nodiscard]] std::string joined() const {
         std::string s;
-        for (auto const& l : lines) { s += l; s += '\n'; }
+        for (auto const& l : lines) {
+            s += l;
+            s += '\n';
+        }
         return s;
     }
 };

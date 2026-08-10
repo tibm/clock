@@ -18,10 +18,10 @@ namespace clk::cli {
 
 // Tokenise + resolve aliases + look up + authorize + run.  This is the whole CLI.
 Status dispatch(int argc, const char* const* argv, Sink&) noexcept;
-Status dispatch_line(char* line, Sink&) noexcept;   // mutates `line` while tokenising
+Status dispatch_line(char* line, Sink&) noexcept;  // mutates `line` while tokenising
 
 // `unsafe on|off`, auto-expiring 60 s after the last unsafe command.  [§9.6]
-void   unsafe_set(bool on) noexcept;
+void unsafe_set(bool on) noexcept;
 [[nodiscard]] bool unsafe_active() noexcept;
 
 // Monotonic milliseconds -- supplied by the platform so core stays IDF-free.
@@ -36,9 +36,9 @@ struct BuildInfo {
     const char* app_version;
     const char* git_sha;
     const char* build_utc;
-    const char* profile;   // "dev" | "release"
-    const char* board;     // "devkit" | "rev0_3" | "host"
-    const char* sdk;       // "v5.5.5" | "host"
+    const char* profile;  // "dev" | "release"
+    const char* board;    // "devkit" | "rev0_3" | "host"
+    const char* sdk;      // "v5.5.5" | "host"
 };
 [[nodiscard]] BuildInfo const& build_info() noexcept;
 

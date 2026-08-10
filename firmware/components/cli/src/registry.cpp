@@ -10,11 +10,11 @@ namespace clk::cli {
 // Each group's rows live in their own .cpp and are collected here.  Adding a group is one
 // extern + one row in kAllTables; there is no registration call anywhere else (rule 10).
 extern const CmdTable kTableSys;
-extern const CmdTable kTableTop;      // help / unsafe
+extern const CmdTable kTableTop;  // help / unsafe
 extern const CmdTable kTableSensor;
 extern const CmdTable kTableUi;
 #if CLK_HAVE_SIM
-extern const CmdTable kTableSim;      // host only -- drives the fake HAL
+extern const CmdTable kTableSim;  // host only -- drives the fake HAL
 #endif
 
 namespace {
@@ -29,15 +29,14 @@ const CmdTable* const kAllTables[] = {
 // ---- aliases -------------------------------------------------------------------------
 // `hand goto 7:15` -> `motion goto 7:15`.  Typing cost stays low without giving up the
 // one-vocabulary rule (D13).  Multi-token expansions are allowed: `led 3 red` -> `ui led 3 red`.
-struct Alias { const char* from; const char* to[2]; };
+struct Alias {
+    const char* from;
+    const char* to[2];
+};
 constexpr Alias kAliases[] = {
-    { "hand", { "motion", nullptr } },
-    { "snd",  { "audio",  nullptr } },
-    { "fs",   { "storage", nullptr } },
-    { "led",  { "ui",     "led"   } },
-    { "time", { "chrono", "time"  } },
-    { "i2c",  { "board",  "i2c"   } },
-    { "?",    { "help",   nullptr } },
+    {"hand", {"motion", nullptr}}, {"snd", {"audio", nullptr}},  {"fs", {"storage", nullptr}},
+    {"led", {"ui", "led"}},        {"time", {"chrono", "time"}}, {"i2c", {"board", "i2c"}},
+    {"?", {"help", nullptr}},
 };
 
 constexpr int kMaxArgs = 16;
@@ -47,7 +46,7 @@ bool eq(const char* a, const char* b) noexcept { return a && b && std::strcmp(a,
 uint32_t millis_stub() noexcept { return 0; }
 MillisFn g_millis = millis_stub;
 
-bool     g_unsafe_on      = false;
+bool g_unsafe_on = false;
 uint32_t g_unsafe_last_ms = 0;
 constexpr uint32_t kUnsafeWindowMs = 60u * 1000u;
 
@@ -73,11 +72,11 @@ int edit_distance(std::string_view a, std::string_view b) noexcept {
 
 void suggest(Sink& out, const char* const* argv, int argc) noexcept {
     char want[64];
-    std::snprintf(want, sizeof want, "%s%s%s", argv[0],
-                  argc > 1 ? " " : "", argc > 1 ? argv[1] : "");
+    std::snprintf(want, sizeof want, "%s%s%s", argv[0], argc > 1 ? " " : "",
+                  argc > 1 ? argv[1] : "");
 
     const CmdSpec* best[3] = {};
-    int            bestd[3] = { 99, 99, 99 };
+    int bestd[3] = {99, 99, 99};
 
     std::size_t nt = 0;
     const CmdTable* const* t = &kAllTables[0];
@@ -87,12 +86,17 @@ void suggest(Sink& out, const char* const* argv, int argc) noexcept {
             const CmdSpec& r = t[ti]->rows[ri];
             char full[64];
             const char* obj = r.object ? (eq(r.object, kAnyObject) ? "<name>" : r.object) : "";
-            std::snprintf(full, sizeof full, "%s %s%s%s", r.group, obj, r.object ? " " : "", r.verb);
+            std::snprintf(full, sizeof full, "%s %s%s%s", r.group, obj, r.object ? " " : "",
+                          r.verb);
             const int d = edit_distance(want, full);
             for (int k = 0; k < 3; ++k) {
                 if (d < bestd[k]) {
-                    for (int m = 2; m > k; --m) { bestd[m] = bestd[m - 1]; best[m] = best[m - 1]; }
-                    bestd[k] = d; best[k] = &r;
+                    for (int m = 2; m > k; --m) {
+                        bestd[m] = bestd[m - 1];
+                        best[m] = best[m - 1];
+                    }
+                    bestd[k] = d;
+                    best[k] = &r;
                     break;
                 }
             }
@@ -102,8 +106,8 @@ void suggest(Sink& out, const char* const* argv, int argc) noexcept {
     for (int k = 0; k < 3; ++k) {
         if (best[k] && bestd[k] <= 6) {
             out.printf("  did you mean:  %s %s%s%s", best[k]->group,
-                       best[k]->object ? best[k]->object : "",
-                       best[k]->object ? " " : "", best[k]->verb);
+                       best[k]->object ? best[k]->object : "", best[k]->object ? " " : "",
+                       best[k]->verb);
         }
     }
     out.line("  `help` lists the groups");
@@ -113,7 +117,9 @@ void suggest(Sink& out, const char* const* argv, int argc) noexcept {
 
 // ---- public ---------------------------------------------------------------------------
 
-void set_millis_fn(MillisFn f) noexcept { if (f) g_millis = f; }
+void set_millis_fn(MillisFn f) noexcept {
+    if (f) g_millis = f;
+}
 
 void unsafe_set(bool on) noexcept {
     g_unsafe_on = on;
@@ -143,10 +149,14 @@ const CmdSpec* find(int argc, const char* const* argv, int& first) noexcept {
                 if (want == 3) {
                     if (r.object && eq(r.verb, argv[2]) &&
                         (eq(r.object, argv[1]) || eq(r.object, kAnyObject))) {
-                        first = 3; return &r;
+                        first = 3;
+                        return &r;
                     }
                 } else {
-                    if (!r.object && eq(r.verb, argv[1])) { first = 2; return &r; }
+                    if (!r.object && eq(r.verb, argv[1])) {
+                        first = 2;
+                        return &r;
+                    }
                 }
             }
         }
@@ -158,7 +168,8 @@ const CmdSpec* find(int argc, const char* const* argv, int& first) noexcept {
             for (std::size_t ri = 0; ri < kAllTables[ti]->count; ++ri) {
                 const CmdSpec& r = kAllTables[ti]->rows[ri];
                 if (eq(r.group, argv[0]) && r.object && eq(r.object, argv[1]) && eq(r.verb, "")) {
-                    first = 2; return &r;
+                    first = 2;
+                    return &r;
                 }
             }
         }
@@ -167,7 +178,10 @@ const CmdSpec* find(int argc, const char* const* argv, int& first) noexcept {
     for (std::size_t ti = 0; ti < nt; ++ti) {
         for (std::size_t ri = 0; ri < kAllTables[ti]->count; ++ri) {
             const CmdSpec& r = kAllTables[ti]->rows[ri];
-            if (eq(r.group, argv[0]) && !r.object && eq(r.verb, "")) { first = 1; return &r; }
+            if (eq(r.group, argv[0]) && !r.object && eq(r.verb, "")) {
+                first = 1;
+                return &r;
+            }
         }
     }
     return nullptr;
@@ -191,8 +205,8 @@ void help(Sink& out, const char* group, const char* verb) noexcept {
         }
         out.line(buf);
         out.line("        help [<group> [<verb>]]      unsafe <on|off>");
-        out.printf("        profile=%s  board=%s  unsafe=%s",
-                   b.profile, b.board, unsafe_active() ? "ON" : "OFF");
+        out.printf("        profile=%s  board=%s  unsafe=%s", b.profile, b.board,
+                   unsafe_active() ? "ON" : "OFF");
         return;
     }
 
@@ -217,7 +231,10 @@ void help(Sink& out, const char* group, const char* verb) noexcept {
 }
 
 Status dispatch(int argc, const char* const* argv, Sink& out) noexcept {
-    if (argc < 1) { out.done(Status::Ok); return Status::Ok; }
+    if (argc < 1) {
+        out.done(Status::Ok);
+        return Status::Ok;
+    }
 
     // Alias expansion, one level.
     const char* expanded[kMaxArgs];
@@ -246,9 +263,9 @@ Status dispatch(int argc, const char* const* argv, Sink& out) noexcept {
         out.done(Status::Denied);
         return Status::Denied;
     }
-    if (spec->flags & Unsafe) unsafe_set(true);   // sliding window
+    if (spec->flags & Unsafe) unsafe_set(true);  // sliding window
 
-    Args args{ argc, argv, first, nullptr };
+    Args args{argc, argv, first, nullptr};
     if (spec->object && first >= 2) args.obj = argv[1];
     const Status st = spec->run(args, out);
     out.done(st);
@@ -263,7 +280,10 @@ Status dispatch_line(char* line, Sink& out) noexcept {
         while (*p == ' ' || *p == '\t') ++p;
         if (!*p) break;
         char quote = 0;
-        if (*p == '"' || *p == '\'') { quote = *p; ++p; }
+        if (*p == '"' || *p == '\'') {
+            quote = *p;
+            ++p;
+        }
         argv[argc++] = p;
         while (*p && (quote ? *p != quote : (*p != ' ' && *p != '\t'))) ++p;
         if (*p) *p++ = '\0';

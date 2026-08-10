@@ -13,7 +13,7 @@ namespace {
 
 void fresh() {
     sim::reset();
-    cli::unsafe_set(true);        // most of ui/ is gated; the gate itself is tested in test_cli
+    cli::unsafe_set(true);  // most of ui/ is gated; the gate itself is tested in test_cli
 }
 
 }  // namespace
@@ -24,7 +24,7 @@ void test_opto() {
     fresh();
     sim::set_opto(0.0f);
     auto mv = hal::adc::read_mv(hal::adc::Ch::Opto);
-    CHECK(mv.ok() && mv.v == 200);                    // dark end of the calibration span
+    CHECK(mv.ok() && mv.v == 200);  // dark end of the calibration span
 
     sim::set_opto(1.0f);
     mv = hal::adc::read_mv(hal::adc::Ch::Opto);
@@ -34,7 +34,7 @@ void test_opto() {
     const auto n = hal::adc::read_opto_norm();
     CHECK(n.ok() && n.v > 0.49f && n.v < 0.51f);
 
-    sim::set_opto(5.0f);                              // clamped, not rejected
+    sim::set_opto(5.0f);  // clamped, not rejected
     CHECK(sim::opto() == 1.0f);
     sim::set_opto(-1.0f);
     CHECK(sim::opto() == 0.0f);
@@ -66,7 +66,7 @@ void test_presence_gates_reads() {
     board::set_present(board::Dev::Opto, false);
     const auto r = hal::adc::read_mv(hal::adc::Ch::Opto);
     CHECK(!r.ok());
-    CHECK(r.st == Status::NotPresent);                // D16: absence is not an error
+    CHECK(r.st == Status::NotPresent);  // D16: absence is not an error
 
     board::set_present(board::Dev::Opto, true);
     CHECK(hal::adc::read_mv(hal::adc::Ch::Opto).ok());
@@ -79,11 +79,11 @@ void test_knob() {
 
     sim::turn(+5);
     k = hal::knob::read();
-    CHECK(k.v.count == 20);                           // 4 PCNT counts per detent
+    CHECK(k.v.count == 20);  // 4 PCNT counts per detent
     CHECK(k.v.delta == 20);
 
     k = hal::knob::read();
-    CHECK(k.v.delta == 0);                            // delta is since the last read
+    CHECK(k.v.delta == 0);  // delta is since the last read
 
     sim::turn(-3);
     k = hal::knob::read();
@@ -99,17 +99,17 @@ void test_pixels() {
     fresh();
     CHECK(hal::pixels::set(0, {1, 2, 3, 4}) == Status::Ok);
     CHECK(hal::pixels::get(0) == hal::pixels::Rgbw{1, 2, 3, 4});
-    CHECK(!sim::refreshed());                         // nothing lights until refresh()
+    CHECK(!sim::refreshed());  // nothing lights until refresh()
     CHECK(hal::pixels::refresh() == Status::Ok);
     CHECK(sim::refreshed());
 
-    CHECK(hal::pixels::set(hal::pixels::kCount, {}) == Status::BadArg);   // 7 pixels, 0..6
+    CHECK(hal::pixels::set(hal::pixels::kCount, {}) == Status::BadArg);  // 7 pixels, 0..6
 
     hal::pixels::set_all({});
     hal::pixels::set(2, {255, 0, 0, 0});
     char buf[16];
     sim::render_pixels(buf, sizeof buf);
-    CHECK_STREQ(buf, "..R....");                      // bell is chain position 3 = index 2
+    CHECK_STREQ(buf, "..R....");  // bell is chain position 3 = index 2
 }
 
 void test_wake_is_plugged_only() {
@@ -122,7 +122,7 @@ void test_wake_is_plugged_only() {
     // battery.  A service that forgets the gate fails here rather than on a bench.
     sim::set_plugged(false);
     CHECK(hal::wake::set(40, 10) == Status::Denied);
-    CHECK(hal::wake::set(0, 0) == Status::Ok);        // turning it off is always allowed
+    CHECK(hal::wake::set(0, 0) == Status::Ok);  // turning it off is always allowed
     CHECK(hal::wake::set(101, 0) == Status::BadArg);
 }
 
@@ -135,9 +135,9 @@ void test_time() {
 
     sim::set_warp(60.0);
     CHECK(sim::warp() == 60.0);
-    CHECK(hal::clock_::micros() >= t1);               // re-basing never goes backwards
+    CHECK(hal::clock_::micros() >= t1);  // re-basing never goes backwards
 
-    sim::set_warp(1e9);                               // clamped
+    sim::set_warp(1e9);  // clamped
     CHECK(sim::warp() <= 10000.0);
 }
 
@@ -145,7 +145,7 @@ void test_i2c_scan_follows_presence() {
     fresh();
     uint8_t addr[8];
     auto r = hal::i2c::scan(addr, sizeof addr);
-    CHECK(r.ok() && r.v == 5);                        // expander, als, imu, amp, env
+    CHECK(r.ok() && r.v == 5);  // expander, als, imu, amp, env
 
     board::set_present(board::Dev::Imu, false);
     r = hal::i2c::scan(addr, sizeof addr);
@@ -195,7 +195,7 @@ void test_sensor_grammar() {
     RecordingSink l;
     CHECK(run("sensor list", l) == Status::Ok);
     CHECK(l.contains("homing"));
-    CHECK(l.contains("no-drv"));                      // als/env/imu: fitted, no driver yet
+    CHECK(l.contains("no-drv"));  // als/env/imu: fitted, no driver yet
 
     // absent hardware and a missing driver must not read the same
     RecordingSink nodrv;
@@ -218,14 +218,14 @@ void test_sensor_stream_is_bounded() {
     CHECK(run("sensor homing stream 20 1", s) == Status::Ok);
     CHECK(s.contains("stream ended"));
     CHECK(s.contains("0 dropped"));
-    CHECK(s.lines.size() > 5);                        // header + samples + summary
+    CHECK(s.lines.size() > 5);  // header + samples + summary
 
     RecordingSink csv;
     run("sensor homing stream 20 1 --csv", csv);
     CHECK(csv.contains("# t_ms,mv,norm"));
 
     RecordingSink over;
-    run("sensor homing stream 9999 1", over);         // clamped to the sensor's max_hz
+    run("sensor homing stream 9999 1", over);  // clamped to the sensor's max_hz
     CHECK(over.contains("tops out at 200"));
 
     RecordingSink bad;
@@ -248,7 +248,7 @@ void test_ui_led() {
     run("ui led dial white", s);
     CHECK(hal::pixels::get(0).w == 255);
     CHECK(hal::pixels::get(1).w == 255);
-    CHECK(hal::pixels::get(2).r == 255);              // bell untouched
+    CHECK(hal::pixels::get(2).r == 255);  // bell untouched
 
     RecordingSink dim;
     run("ui led 3 red@20", dim);

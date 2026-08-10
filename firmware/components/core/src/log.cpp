@@ -7,16 +7,14 @@ namespace {
 
 // Order must match enum Mod exactly.  The static_assert below is the guard.
 constexpr const char* kModNames[] = {
-    "sys", "cli", "cmd", "trace", "sim",
-    "idf",
-    "motion", "audio", "storage", "chrono", "board", "ui", "net", "sup",
-    "drv.step", "drv.opto", "drv.led", "drv.amp", "drv.exp",
-    "drv.imu", "drv.als", "drv.env", "drv.sd", "drv.chg",
+    "sys",     "cli",     "cmd",     "trace",   "sim",     "idf",     "motion",   "audio",
+    "storage", "chrono",  "board",   "ui",      "net",     "sup",     "drv.step", "drv.opto",
+    "drv.led", "drv.amp", "drv.exp", "drv.imu", "drv.als", "drv.env", "drv.sd",   "drv.chg",
 };
 static_assert(std::size(kModNames) == kModCount, "kModNames out of sync with enum Mod");
 
 // Index by Level.  "off" first so a prefix search finds it.
-constexpr const char* kLevelNames[] = { "off", "error", "warn", "info", "debug", "verbose" };
+constexpr const char* kLevelNames[] = {"off", "error", "warn", "info", "debug", "verbose"};
 static_assert(std::size(kLevelNames) == static_cast<std::size_t>(Level::Verbose) + 1);
 
 constexpr bool starts_with(std::string_view s, std::string_view prefix) noexcept {
@@ -45,7 +43,7 @@ void init(Level dflt) noexcept {
     g_level[static_cast<std::size_t>(Mod::trace)].store(static_cast<uint8_t>(Level::Off),
                                                         std::memory_order_relaxed);
     g_level[static_cast<std::size_t>(Mod::sim)].store(static_cast<uint8_t>(Level::Off),
-                                                       std::memory_order_relaxed);
+                                                      std::memory_order_relaxed);
 }
 
 void set(Mod m, Level l) noexcept {
@@ -61,7 +59,10 @@ Level get(Mod m) noexcept {
 
 bool parseMod(std::string_view s, Mod& out) noexcept {
     for (std::size_t i = 0; i < kModCount; ++i) {
-        if (s == kModNames[i]) { out = static_cast<Mod>(i); return true; }
+        if (s == kModNames[i]) {
+            out = static_cast<Mod>(i);
+            return true;
+        }
     }
     return false;
 }
@@ -71,7 +72,7 @@ bool parseLevel(std::string_view s, Level& out) noexcept {
     int hit = -1;
     for (std::size_t i = 0; i < std::size(kLevelNames); ++i) {
         if (starts_with(kLevelNames[i], s)) {
-            if (hit >= 0) return false;          // ambiguous prefix
+            if (hit >= 0) return false;  // ambiguous prefix
             hit = static_cast<int>(i);
         }
     }
@@ -83,18 +84,27 @@ bool parseLevel(std::string_view s, Level& out) noexcept {
 int setGlob(std::string_view pat, Level l) noexcept {
     int n = 0;
     if (pat == "all" || pat == "*") {
-        for (std::size_t i = 0; i < kModCount; ++i) { set(static_cast<Mod>(i), l); ++n; }
+        for (std::size_t i = 0; i < kModCount; ++i) {
+            set(static_cast<Mod>(i), l);
+            ++n;
+        }
         return n;
     }
     if (!pat.empty() && pat.back() == '*') {
         const auto prefix = pat.substr(0, pat.size() - 1);
         for (std::size_t i = 0; i < kModCount; ++i) {
-            if (starts_with(kModNames[i], prefix)) { set(static_cast<Mod>(i), l); ++n; }
+            if (starts_with(kModNames[i], prefix)) {
+                set(static_cast<Mod>(i), l);
+                ++n;
+            }
         }
         return n;
     }
     Mod m{};
-    if (parseMod(pat, m)) { set(m, l); return 1; }
+    if (parseMod(pat, m)) {
+        set(m, l);
+        return 1;
+    }
     return 0;
 }
 

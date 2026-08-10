@@ -35,15 +35,15 @@ void console_run() {
     set_millis_fn(host_millis);
 
     const auto& b = build_info();
-    std::printf("clock-sim %s  (hal=fake, board=%s, profile=%s)  type `help`\n",
-                b.app_version, b.board, b.profile);
+    std::printf("clock-sim %s  (hal=fake, board=%s, profile=%s)  type `help`\n", b.app_version,
+                b.board, b.profile);
 
     StdioSink sink;
     char line[256];
     while (true) {
         std::printf("> ");
         std::fflush(stdout);
-        if (!std::fgets(line, sizeof line, stdin)) break;      // EOF / ^D
+        if (!std::fgets(line, sizeof line, stdin)) break;  // EOF / ^D
         line[std::strcspn(line, "\r\n")] = '\0';
         if (std::strcmp(line, "quit") == 0 || std::strcmp(line, "exit") == 0) break;
         dispatch_line(line, sink);

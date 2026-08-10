@@ -7,8 +7,8 @@
 
 namespace clk::cmd {
 
-using clk::Status;
 using clk::name;
 using clk::Result;
+using clk::Status;
 
 }  // namespace clk::cmd

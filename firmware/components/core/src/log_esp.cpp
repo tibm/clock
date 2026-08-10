@@ -15,7 +15,7 @@
 namespace clk::log {
 namespace {
 
-constexpr char kLetter[] = { ' ', 'E', 'W', 'I', 'D', 'V' };
+constexpr char kLetter[] = {' ', 'E', 'W', 'I', 'D', 'V'};
 
 constexpr esp_log_level_t kEspLevel[] = {
     ESP_LOG_NONE, ESP_LOG_ERROR, ESP_LOG_WARN, ESP_LOG_INFO, ESP_LOG_DEBUG, ESP_LOG_VERBOSE,
@@ -29,8 +29,8 @@ void vwrite(Mod m, Level l, const char* fmt, std::va_list ap) noexcept {
     // message cannot be split by a higher-priority task mid-line.
     char body[192];
     std::vsnprintf(body, sizeof body, fmt, ap);
-    esp_log_write(kEspLevel[i], name(m), "%c (%" PRIu32 ") %s: %s\n",
-                  kLetter[i], esp_log_timestamp(), name(m), body);
+    esp_log_write(kEspLevel[i], name(m), "%c (%" PRIu32 ") %s: %s\n", kLetter[i],
+                  esp_log_timestamp(), name(m), body);
 }
 
 namespace detail {

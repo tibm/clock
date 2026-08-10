@@ -27,7 +27,7 @@ const char* name(Status) noexcept;
 template <class T>
 struct Result {
     Status st = Status::Ok;
-    T      v{};
+    T v{};
 
     [[nodiscard]] constexpr bool ok() const noexcept { return st == Status::Ok; }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return ok(); }

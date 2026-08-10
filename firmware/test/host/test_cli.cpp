@@ -56,7 +56,7 @@ void test_debug_command_sets_levels() {
     CHECK(g.contains("10 modules"));
 
     RecordingSink p;
-    CHECK(run("sys debug ui v", p) == Status::Ok);          // prefix level
+    CHECK(run("sys debug ui v", p) == Status::Ok);  // prefix level
     CHECK(log::get(log::Mod::ui) == log::Level::Verbose);
 
     RecordingSink bad;
@@ -68,14 +68,14 @@ void test_debug_command_sets_levels() {
     CHECK(nomod.contains("no module matches"));
 
     RecordingSink list;
-    CHECK(run("sys debug", list) == Status::Ok);            // bare form lists the table
+    CHECK(run("sys debug", list) == Status::Ok);  // bare form lists the table
     CHECK(list.contains("motion"));
     CHECK(list.contains("ceiling"));
 }
 
 void test_aliases() {
     RecordingSink s;
-    run("?", s);                                            // ? -> help
+    run("?", s);  // ? -> help
     CHECK(s.contains("groups"));
 }
 
@@ -88,10 +88,10 @@ void test_unsafe_gate() {
     cli::unsafe_set(true);
     CHECK(cli::unsafe_active());
 
-    g_fake_ms = 59'000;                 // still inside the 60 s window
+    g_fake_ms = 59'000;  // still inside the 60 s window
     CHECK(cli::unsafe_active());
 
-    g_fake_ms = 61'000;                 // expired
+    g_fake_ms = 61'000;  // expired
     CHECK(!cli::unsafe_active());
 }
 

@@ -48,8 +48,16 @@ Status cmd_unsafe(Args const& a, Sink& out) {
         out.printf("unsafe=%s", unsafe_active() ? "ON" : "OFF");
         return Status::Ok;
     }
-    if (v == "on")  { unsafe_set(true);  out.line("unsafe ON  (expires 60 s after the last use)"); return Status::Ok; }
-    if (v == "off") { unsafe_set(false); out.line("unsafe OFF"); return Status::Ok; }
+    if (v == "on") {
+        unsafe_set(true);
+        out.line("unsafe ON  (expires 60 s after the last use)");
+        return Status::Ok;
+    }
+    if (v == "off") {
+        unsafe_set(false);
+        out.line("unsafe OFF");
+        return Status::Ok;
+    }
     out.line("usage: unsafe <on|off>");
     return Status::BadArg;
 }
@@ -73,11 +81,11 @@ Status cmd_debug(Args const& a, Sink& out) {
             char buf[80];
             if (i + 1 < log::kModCount) {
                 const auto m1 = static_cast<Mod>(i + 1);
-                std::snprintf(buf, sizeof buf, "%-11s %-10s %-11s %-10s",
-                              log::name(m0), log::name(log::get(m0)),
-                              log::name(m1), log::name(log::get(m1)));
+                std::snprintf(buf, sizeof buf, "%-11s %-10s %-11s %-10s", log::name(m0),
+                              log::name(log::get(m0)), log::name(m1), log::name(log::get(m1)));
             } else {
-                std::snprintf(buf, sizeof buf, "%-11s %-10s", log::name(m0), log::name(log::get(m0)));
+                std::snprintf(buf, sizeof buf, "%-11s %-10s", log::name(m0),
+                              log::name(log::get(m0)));
             }
             out.line(buf);
         }
@@ -106,7 +114,8 @@ Status cmd_debug(Args const& a, Sink& out) {
 
 Status cmd_stat(Args const&, Sink& out) {
     // Placeholder: fills in as each AO lands (FIRMWARE.md §9.7).
-    out.printf("clock %s  %s/%s  sdk=%s", kBuild.app_version, kBuild.profile, kBuild.board, kBuild.sdk);
+    out.printf("clock %s  %s/%s  sdk=%s", kBuild.app_version, kBuild.profile, kBuild.board,
+               kBuild.sdk);
     out.printf("unsafe=%s", unsafe_active() ? "ON" : "OFF");
     out.line("hands  -   (motion AO not implemented yet)");
     out.line("ui     -   (ui AO not implemented yet)");
@@ -122,28 +131,27 @@ Status cmd_notyet(Args const&, Sink& out) {
 // ---- tables ---------------------------------------------------------------------------
 
 constexpr CmdSpec kTop[] = {
-    { "help",   nullptr, "", "[<group> [<verb>]]", "list groups, or a group's commands",
-      ReleaseOk, cmd_help },
-    { "unsafe", nullptr, "", "[on|off]",           "gate hardware-touching commands",
-      None,      cmd_unsafe },
+    {"help", nullptr, "", "[<group> [<verb>]]", "list groups, or a group's commands", ReleaseOk,
+     cmd_help},
+    {"unsafe", nullptr, "", "[on|off]", "gate hardware-touching commands", None, cmd_unsafe},
 };
 
 constexpr CmdSpec kSys[] = {
-    { "sys", nullptr, "stat",     "",       "one-screen: what is it doing right now", ReleaseOk, cmd_stat },
-    { "sys", nullptr, "ver",      "",       "app / build / sdk identity",             ReleaseOk, cmd_ver },
-    { "sys", nullptr, "debug",    "[<module|glob|all> <level>]",
-                                            "show or set per-module log levels",      ReleaseOk, cmd_debug },
-    { "sys", nullptr, "top",      "",       "per-task CPU, stack high-water, core",   ReleaseOk, cmd_notyet },
-    { "sys", nullptr, "heap",     "",       "internal + PSRAM, largest block, min",   ReleaseOk, cmd_notyet },
-    { "sys", nullptr, "reboot",   "[ota|dfu]", "restart",                             None,      cmd_notyet },
-    { "sys", "coredump", "info",  "",       "is there a coredump, and from what",     ReleaseOk, cmd_notyet },
-    { "sys", "ev",   "dump",      "",       "print the 256-entry RTC event ring",     ReleaseOk, cmd_notyet },
+    {"sys", nullptr, "stat", "", "one-screen: what is it doing right now", ReleaseOk, cmd_stat},
+    {"sys", nullptr, "ver", "", "app / build / sdk identity", ReleaseOk, cmd_ver},
+    {"sys", nullptr, "debug", "[<module|glob|all> <level>]", "show or set per-module log levels",
+     ReleaseOk, cmd_debug},
+    {"sys", nullptr, "top", "", "per-task CPU, stack high-water, core", ReleaseOk, cmd_notyet},
+    {"sys", nullptr, "heap", "", "internal + PSRAM, largest block, min", ReleaseOk, cmd_notyet},
+    {"sys", nullptr, "reboot", "[ota|dfu]", "restart", None, cmd_notyet},
+    {"sys", "coredump", "info", "", "is there a coredump, and from what", ReleaseOk, cmd_notyet},
+    {"sys", "ev", "dump", "", "print the 256-entry RTC event ring", ReleaseOk, cmd_notyet},
 };
 
 }  // namespace
 
-extern const CmdTable kTableTop{ kTop, sizeof(kTop) / sizeof(kTop[0]) };
-extern const CmdTable kTableSys{ kSys, sizeof(kSys) / sizeof(kSys[0]) };
+extern const CmdTable kTableTop{kTop, sizeof(kTop) / sizeof(kTop[0])};
+extern const CmdTable kTableSys{kSys, sizeof(kSys) / sizeof(kSys[0])};
 
 BuildInfo const& build_info() noexcept { return kBuild; }
 

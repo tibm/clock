@@ -4,26 +4,26 @@
 #include <cstring>
 
 inline int g_checks = 0;
-inline int g_fails  = 0;
+inline int g_fails = 0;
 
 // Variadic so a braced initialiser can appear inside: CHECK(x == Rgbw{1, 2, 3, 4}).
 // The preprocessor would otherwise read those commas as argument separators.
-#define CHECK(...)                                                                    \
-    do {                                                                              \
-        ++g_checks;                                                                   \
-        if (!(__VA_ARGS__)) {                                                         \
-            ++g_fails;                                                                \
-            std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #__VA_ARGS__);         \
-        }                                                                             \
+#define CHECK(...)                                                             \
+    do {                                                                       \
+        ++g_checks;                                                            \
+        if (!(__VA_ARGS__)) {                                                  \
+            ++g_fails;                                                         \
+            std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #__VA_ARGS__); \
+        }                                                                      \
     } while (0)
 
-#define CHECK_STREQ(a, b)                                                             \
-    do {                                                                              \
-        ++g_checks;                                                                   \
-        if (std::strcmp((a), (b)) != 0) {                                             \
-            ++g_fails;                                                                \
+#define CHECK_STREQ(a, b)                                                                \
+    do {                                                                                 \
+        ++g_checks;                                                                      \
+        if (std::strcmp((a), (b)) != 0) {                                                \
+            ++g_fails;                                                                   \
             std::printf("FAIL %s:%d  \"%s\" != \"%s\"\n", __FILE__, __LINE__, (a), (b)); \
-        }                                                                             \
+        }                                                                                \
     } while (0)
 
 inline int check_summary(const char* what) {

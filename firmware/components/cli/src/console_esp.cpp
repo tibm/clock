@@ -17,9 +17,7 @@
 namespace clk::cli {
 namespace {
 
-uint32_t esp_millis() noexcept {
-    return static_cast<uint32_t>(esp_timer_get_time() / 1000);
-}
+uint32_t esp_millis() noexcept { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 
 class ConsoleSink final : public Sink {
 public:
@@ -38,13 +36,28 @@ int forward(int argc, char** argv) {
 
 // Every distinct group name in the table, plus the aliases, gets one esp_console entry.
 constexpr const char* kGroups[] = {
-    "help", "?", "unsafe", "sys",
+    "help",
+    "?",
+    "unsafe",
+    "sys",
     // as groups land they are added here; the CmdSpec table stays authoritative for the
     // verbs, this list only tells linenoise which first words exist.
-    "motion", "hand", "ui", "led", "audio", "snd", "board", "i2c",
-    "chrono", "time", "storage", "fs", "net", "sensor",
+    "motion",
+    "hand",
+    "ui",
+    "led",
+    "audio",
+    "snd",
+    "board",
+    "i2c",
+    "chrono",
+    "time",
+    "storage",
+    "fs",
+    "net",
+    "sensor",
 #if CLK_HAVE_SIM
-    "sim",          // host-only today: the fake-HAL rows do not exist on target
+    "sim",  // host-only today: the fake-HAL rows do not exist on target
 #endif
 };
 
@@ -55,10 +68,10 @@ void console_run() {
 
     esp_console_repl_t* repl = nullptr;
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
-    repl_cfg.prompt          = "clock>";
+    repl_cfg.prompt = "clock>";
     repl_cfg.max_cmdline_length = 256;
-    repl_cfg.task_stack_size = 6 * 1024;      // §3.2: the cli AO stack
-    repl_cfg.task_priority   = 3;
+    repl_cfg.task_stack_size = 6 * 1024;  // §3.2: the cli AO stack
+    repl_cfg.task_priority = 3;
 
     esp_console_dev_usb_serial_jtag_config_t dev_cfg =
         ESP_CONSOLE_DEV_USB_SERIAL_JTAG_CONFIG_DEFAULT();
@@ -68,9 +81,9 @@ void console_run() {
     for (const char* g : kGroups) {
         const esp_console_cmd_t cmd{
             .command = g,
-            .help    = nullptr,          // `help` generates it from the CmdSpec table
-            .hint    = nullptr,
-            .func    = &forward,
+            .help = nullptr,  // `help` generates it from the CmdSpec table
+            .hint = nullptr,
+            .func = &forward,
             .argtable = nullptr,
             .func_w_context = nullptr,
             .context = nullptr,

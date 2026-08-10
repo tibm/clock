@@ -26,8 +26,8 @@ void init_nvs() {
 
 void banner() {
     const auto& b = clk::cli::build_info();
-    CLK_LOGI(sys, "clock %s %s  %s/%s  idf %s",
-             b.app_version, b.git_sha, b.profile, b.board, b.sdk);
+    CLK_LOGI(sys, "clock %s %s  %s/%s  idf %s", b.app_version, b.git_sha, b.profile, b.board,
+             b.sdk);
     CLK_LOGI(sys, "reset reason %d", static_cast<int>(esp_reset_reason()));
 }
 

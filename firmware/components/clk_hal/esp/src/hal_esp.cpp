@@ -27,42 +27,44 @@ namespace clock_ {
 
 uint64_t micros() noexcept { return static_cast<uint64_t>(esp_timer_get_time()); }
 uint32_t millis() noexcept { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
-void     sleep_ms(uint32_t ms) noexcept { vTaskDelay(pdMS_TO_TICKS(ms)); }
+void sleep_ms(uint32_t ms) noexcept { vTaskDelay(pdMS_TO_TICKS(ms)); }
 
 }  // namespace clock_
 
 namespace adc {
-Result<uint16_t> read_mv(Ch) noexcept          { return Result<uint16_t>::bad(Status::NotPresent); }
-Result<float>    read_opto_norm() noexcept     { return Result<float>::bad(Status::NotPresent); }
+Result<uint16_t> read_mv(Ch) noexcept { return Result<uint16_t>::bad(Status::NotPresent); }
+Result<float> read_opto_norm() noexcept { return Result<float>::bad(Status::NotPresent); }
 }  // namespace adc
 
 namespace knob {
-Result<State> read() noexcept                  { return Result<State>::bad(Status::NotPresent); }
+Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
 }  // namespace knob
 
 namespace pixels {
-Status set(std::size_t, Rgbw) noexcept         { return Status::NotPresent; }
-Status set_all(Rgbw) noexcept                  { return Status::NotPresent; }
-Status refresh() noexcept                      { return Status::NotPresent; }
-Rgbw   get(std::size_t) noexcept               { return Rgbw{}; }
+Status set(std::size_t, Rgbw) noexcept { return Status::NotPresent; }
+Status set_all(Rgbw) noexcept { return Status::NotPresent; }
+Status refresh() noexcept { return Status::NotPresent; }
+Rgbw get(std::size_t) noexcept { return Rgbw{}; }
 }  // namespace pixels
 
 namespace wake {
-Status  set(uint8_t, uint8_t) noexcept         { return Status::NotPresent; }
-uint8_t warm() noexcept                        { return 0; }
-uint8_t cool() noexcept                        { return 0; }
+Status set(uint8_t, uint8_t) noexcept { return Status::NotPresent; }
+uint8_t warm() noexcept { return 0; }
+uint8_t cool() noexcept { return 0; }
 }  // namespace wake
 
 namespace i2c {
 Result<std::size_t> scan(uint8_t*, std::size_t) noexcept {
     return Result<std::size_t>::bad(Status::NotPresent);
 }
-Result<uint8_t> read_reg(uint8_t, uint8_t) noexcept { return Result<uint8_t>::bad(Status::NotPresent); }
-Status          write_reg(uint8_t, uint8_t, uint8_t) noexcept { return Status::NotPresent; }
+Result<uint8_t> read_reg(uint8_t, uint8_t) noexcept {
+    return Result<uint8_t>::bad(Status::NotPresent);
+}
+Status write_reg(uint8_t, uint8_t, uint8_t) noexcept { return Status::NotPresent; }
 }  // namespace i2c
 
 namespace power {
-Result<State> read() noexcept                  { return Result<State>::bad(Status::NotPresent); }
+Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
 }  // namespace power
 
 Status init() noexcept {
