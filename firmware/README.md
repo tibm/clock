@@ -101,14 +101,12 @@ clock-sim 0.1.0  (hal=fake, board=host, profile=dev)  type `help`
 pixel 2  r=255 g=0 b=0 w=0
 > sim hand h 137                 # reach in and move the hands: the firmware is not told
 > sim hand m 41
-> sim warp 20
 > motion home                    # the real homing FSM, against the real fake mechanism
-motion: home: sweeping the minute hand to find the index
+motion: home: sweeping the minute hand for the index
+motion: home: minute zero confirmed, coarse was off by -12 usteps
 motion: home: minute parked, sweeping the hour hand
-motion: home: hour edge -> 0
-motion: home: minute edge -> 0
-motion: home: verified, edge repeats within -22 usteps
-motion: homed in 35564 ms of sim time
+motion: home: hour zero confirmed, coarse was off by -8 usteps
+motion: homed in 8694 ms of sim time
 > chrono time set 07:38          # and now the hands follow the clock
 > sensor homing stream 100 5 --csv > opto.csv
 > sim unplug

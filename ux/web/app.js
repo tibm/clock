@@ -308,7 +308,7 @@ function wireControls() {
     live('r-yaw', 'v-yaw', (v) => `${v}°`, (v) => `sim imu ${v}`);
     live('r-vbat', 'v-vbat', (v) => `${v} mV`, (v) => `sim vbat ${v}`);
     live('r-vmax', 'v-vmax', (v) => `${v}`, (v) => `motion tune v_max ${v}`);
-    live('r-vhome', 'v-vhome', (v) => `${v}`, (v) => `motion tune v_home ${v}`);
+    live('r-vcoarse', 'v-vcoarse', (v) => `${v}`, (v) => `motion tune v_coarse ${v}`);
     live('r-backlash', 'v-backlash', (v) => `${v}`, (v) => `motion tune backlash ${v}`);
     live('r-cpm', 'v-cpm', (v) => `${v}`, (v) => `ui knob counts ${v}`);
     // Warp is logarithmic: 0.1x to 1000x reads naturally on a linear slider only in a log

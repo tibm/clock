@@ -6,7 +6,7 @@ All pinned to core 1 except `net`. One owner per peripheral; no AO handler block
 
 | | |
 |---|---|
-| `motion` ✅ | Trapezoidal profile on a 10 ms control tick, backlash (every move finishes clockwise), absolute targets only, and the §6.1 homing FSM: park-minute → sweep-hour → park-hour → sweep-minute → verify, with a budget that faults rather than sweeping forever |
+| `motion` ✅ | Trapezoidal profile on a 10 ms control tick, backlash (every move finishes clockwise), absolute targets only, and the §6.1 homing FSM: clear → coarse-minute → fine-minute → park-minute → coarse-hour → fine-hour, with a budget that faults rather than sweeping forever. `clear` exists because a hand parked on the index holds the sensor lit and there is then no edge to find at all |
 | `chrono` ✅ | Wall clock as an offset from the monotonic base — so `sim warp` warps the clock with it — turned into a `HandTarget` whenever the minute changes. Alarm table, TZ/DST and the SNTP re-home policy still to come |
 | `ui` ✅ | README §12's press cycle (bell → set-alarm → set-clock → volume → commit), the 5 s timeout, counts-per-minute plus an acceleration curve, and all pixel output. Zero emission when idle is enforced here |
 | `audio` `storage` `board` `net` `supervisor` | still to come |

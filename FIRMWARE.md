@@ -746,21 +746,38 @@ stateDiagram-v2
     Uninit --> Homing : PowerOn and not RTC-valid
     Uninit --> Idle : RTC hand position valid
     state Homing {
-        [*] --> ParkMinute
-        ParkMinute --> SweepHour : minute 180 deg off index
-        SweepHour --> ParkHour : opto edge detected
-        ParkHour --> SweepMinute : hour 180 deg off index
-        SweepMinute --> Verify : opto edge detected
-        Verify --> [*] : re-approach at quarter speed, both edges agree
+        [*] --> Clear
+        Clear --> Clear : still lit after 45 deg, so try the other hand
+        Clear --> CoarseMinute : sensor dark, both hands off the mark
+        CoarseMinute --> FineMinute : edge at v_coarse
+        FineMinute --> ParkMinute : back off, re-approach at v_fine, edge repeats
+        ParkMinute --> CoarseHour : minute 90 deg off the now-known index
+        CoarseHour --> FineHour : edge at v_coarse
+        FineHour --> [*] : edge repeats
     }
     Homing --> Idle : HomeDone
-    Homing --> Fault : timeout or no edge found
+    Homing --> Fault : timeout, no edge found, or the sensor never goes dark
     Idle --> Moving : HandTarget
     Moving --> Idle : target reached, hold 2 s then de-energize
     Moving --> Moving : HandTarget supersedes
     Idle --> Homing : ReHome
     Fault --> Homing : ReHome from CLI or BLE
 ```
+
+Two things this sequence has that the original did not, both of them from watching it run
+(§12.0.3):
+
+- **`Clear` first.** The original assumed the sensor starts dark. A hand already parked on
+  the index holds it lit, so there is never a rising edge and the run simply fails — and
+  with *both* hands there, which one is responsible is not knowable. So `Clear` does not
+  guess: it moves the hour hand **45°** (fifteen window-widths, sampled every tick of the
+  way) and if the sensor is still lit it has *proved* the hour hand was not the cause, and
+  moves the minute hand instead. Still lit after that is a real sensor fault, and says so.
+- **Two speeds, and one sweep fewer.** Each hand is found fast (`v_coarse`) then confirmed
+  slow (`v_fine`); the coarse pass only has to establish which revolution the index is in.
+  And once the minute hand's zero is known, parking it is an exact 90° move rather than a
+  second search. Together: **~35 s → ~9 s**, and the fine back-off scales with the measured
+  control period, so it widens automatically under `sim warp`.
 
 **Re-home policy** (owned by `chrono`, executed here): cold boot · after an SNTP step > 2 s ·
 after 24 h of continuous running · on user request · after any `Fault`.
@@ -1367,7 +1384,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · `sys reboot [ota\|dfu]` · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
-| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_home` `v_verify` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
+| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono follow <on\|off>` — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|alarm\|setalarm\|setclock\|volume>]` · `ui knob [<knob> <value>]` (`counts` `threshold` `factor` `timeout` `longpress` `bright`) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
@@ -1608,14 +1625,12 @@ $ ./build/host-dev/apps/clocksim/clocksim
 clock-sim 0.1.0  (hal=fake, board=host, profile=dev)  type `help`
 > unsafe on
 > sim hand h 137 ; sim hand m 41    # the hands are somewhere. the firmware does not know
-> sim warp 20
 > motion home
-motion: home: sweeping the minute hand to find the index
+motion: home: sweeping the minute hand for the index
+motion: home: minute zero confirmed, coarse was off by -12 usteps
 motion: home: minute parked, sweeping the hour hand
-motion: home: hour edge -> 0
-motion: home: minute edge -> 0
-motion: home: verified, edge repeats within -22 usteps
-motion: homed in 35564 ms of sim time
+motion: home: hour zero confirmed, coarse was off by -8 usteps
+motion: homed in 8694 ms of sim time
 > chrono time set 07:38             # and the hands follow the clock from here
 chrono: time set to 07:38:00
 > chrono alarm set 0 07:00 mon-fri ; chrono alarm arm 0     # ← not yet
@@ -1652,8 +1667,9 @@ Two consequences worth knowing before they surprise you:
   Without this, `motion home` would be a no-op and the FSM would be tested by nothing.
 - **A sweep can alias past the index, and that is deliberate.** The opto is continuous and
   the ADC is not, so sampling too slowly relative to the sweep speed misses the 3° window
-  entirely. It is a real failure mode, it is the fastest way to find the right `v_home`, and
-  it is also the ceiling on how far you can warp a homing run (~20× at a 10 ms control tick).
+  entirely. It is a real failure mode, it is the fastest way to find the right `v_coarse`,
+  and it is also the ceiling on how far you can warp a homing run (~20× at a 10 ms control
+  tick, since the AO's poll bound is real milliseconds).
 
 **What `clocksim` is explicitly not for:** timing, DMA, electrical behaviour, or anything on the
 "Not faked" side above. Those are §11.3. A green `clocksim` is not permission to skip the bench —
@@ -1735,13 +1751,21 @@ not know, `chrono` turns wall time into absolute hand targets, and `ui` runs REA
 press cycle off the fake PCNT. What is missing from the §11.2 sketch is now the alarm and
 the audio, not the movement.
 
-Three bugs the AO work turned up, all of them the kind that would have cost an evening on
-the bench rather than a minute here: `sim reset` used to rewind sim time, which strands every
-deadline an AO has already computed (a re-based RTC would do the same, so `ActiveObject` now
-also survives a clock that moves backwards); `motion` cached "the coils are live" instead of
-asking, so a driver reset behind its back left the hands quietly stationary; and the control
-loop's ramp used its *nominal* period rather than measured sim time, which under warp
-accelerated fifty times too slowly.
+Five bugs the AO work turned up, all of them the kind that would have cost an evening on
+the bench rather than a minute here:
+
+1. `sim reset` used to rewind sim time, which strands every deadline an AO has already
+   computed. A re-based RTC would do the same, so `ActiveObject` now also survives a clock
+   that moves backwards.
+2. `motion` cached "the coils are live" instead of asking, so a driver reset behind its back
+   left the hands quietly stationary.
+3. The control loop's ramp used its *nominal* period rather than measured sim time, which
+   under warp accelerated fifty times too slowly.
+4. **Homing could not start with a hand already on the index** — the sensor is held lit,
+   there is no rising edge, and the run fails outright. Now `Clear` runs first (§6.1).
+5. `Clear`'s first draft branched on the *previous* tick's opto reading, so a `sim hand`
+   landing in the same tick as `motion home` made it move the wrong hand. Deciding on stale
+   sensor data is a mistake the bench version could make just as easily.
 
 Two things the scaffolding caught on its own, which is the argument for building it first:
 `main` was missing `nvs_flash` from its `REQUIRES` and the build refused to link (the §2

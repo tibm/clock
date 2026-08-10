@@ -4,6 +4,7 @@
 // that takes 35 s of sim time finishes in under two seconds of wall time, so the thing under
 // test is the real FSM against the real fake, not a re-implementation of either.
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 
 #include "check.hpp"
@@ -126,10 +127,44 @@ void test_motion_homes_from_an_unknown_position() {
     CHECK(s.faults == 0);
     CHECK(s.home_ms > 0);
 
-    // The firmware now believes the minute hand is at 0.  It had better be nearly there --
-    // the residue is the rising-edge offset, which is one `motion zero` trim, not an error.
-    const float err = sim::hand_angle(Hand::Minute);
-    CHECK(err < 5.0f || err > 355.0f);
+    // The property homing establishes is that the firmware's belief about EACH hand now
+    // matches where it physically is -- not that either hand ends up anywhere in
+    // particular.  The residue is the rising-edge offset (the edge sits a mark-width short
+    // of centre), which is identical for both hands and is one `motion zero` trim on the
+    // bench, not an error between them.
+    for (auto h : {Hand::Hour, Hand::Minute}) {
+        const float off = sim::hand_offset(h);
+        CHECK(off < 5.0f || off > 350.0f);
+    }
+}
+
+// The case §6.1's sequence quietly assumed away: a hand already parked ON the index holds
+// the sensor lit, so there is never a rising edge to find and the run used to fail outright.
+// Each of the three ways it can happen has to home like any other.
+void test_motion_homes_with_a_hand_on_the_sensor() {
+    struct Case {
+        const char* what;
+        float hour_deg;
+        float minute_deg;
+    };
+    const Case cases[] = {
+        {"hour on the mark", 0.5f, 200.0f},
+        {"minute on the mark", 200.0f, 0.5f},
+        {"both on the mark", 0.0f, 0.8f},
+    };
+
+    for (auto const& c : cases) {
+        fresh_motion();
+        sim::set_hand_angle(Hand::Hour, c.hour_deg);
+        sim::set_hand_angle(Hand::Minute, c.minute_deg);
+        CHECK(sim::opto() > 0.5f);  // the premise: the sensor is lit before we start
+
+        mo().home();
+        const bool ok = wait_until([] { return mo().snapshot().homed; }, 12000);
+        if (!ok) std::printf("  (case: %s)\n", c.what);
+        CHECK(ok);
+        CHECK(mo().snapshot().faults == 0);
+    }
 }
 
 // A sweep that finds nothing must fault rather than spin forever, and a fault must be
@@ -309,6 +344,7 @@ void run_motion_service_tests() {
     u.start();
 
     test_motion_homes_from_an_unknown_position();
+    test_motion_homes_with_a_hand_on_the_sensor();
     test_motion_lands_exactly_on_an_absolute_target();
     test_motion_takes_the_short_way_round();
     test_motion_de_energises_when_idle();

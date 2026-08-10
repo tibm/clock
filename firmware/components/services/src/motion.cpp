@@ -1,5 +1,6 @@
 #include "clk/services/motion.hpp"
 
+#include <algorithm>
 #include <cinttypes>
 #include <cmath>
 #include <cstdlib>
@@ -17,8 +18,10 @@ constexpr uint32_t kTickMs = 10;             // 100 Hz control loop
 constexpr uint32_t kPowerHoldMs = 2000;      // §6.1 hysteresis after the last move
 constexpr uint32_t kHomeBudgetMs = 120'000;  // sim ms; a sweep that cannot find the index
 constexpr uint32_t kPhaseBudgetMs = 45'000;
-constexpr int32_t kVerifyBackoff = kRev / 90;     // 4 deg
-constexpr int32_t kVerifyTolerance = kRev / 120;  // 3 deg -- generous; `motion zero` trims
+constexpr int32_t kMinBackoff = kRev / 72;   // 5 deg -- the floor on the fine re-approach
+constexpr int32_t kMaxBackoff = kRev / 6;    // 60 deg -- and its ceiling, under a big warp
+constexpr int32_t kParkAway = kRev / 4;      // 90 deg: thirty times the width of the window
+constexpr int32_t kClearSweep = kRev / 8;    // 45 deg is enough to prove a hand left the mark
 constexpr int32_t kSweepMargin = kRev / 20;  // sweep a rev plus a bit, to cross a start-on-edge
 
 const char* name_of(Motion::State s) noexcept {
@@ -111,7 +114,7 @@ void Motion::on_event(Event const& e) {
         state_ = State::Homing;
         homed_ = false;
         power(true);
-        enter(Phase::ParkMinute);
+        enter(Phase::Clear);
         publish();
         return;
     }
@@ -143,6 +146,7 @@ void Motion::on_tick() {
         last_tick_us_ == 0 ? kTickMs : static_cast<uint32_t>((now - last_tick_us_) / 1000ull);
     last_tick_us_ = now;
     const uint32_t dt = dt_ms < 1 ? 1 : (dt_ms > 200 ? 200 : dt_ms);
+    dt_ms_ = dt;  // the fine re-approach sizes its back-off from this
 
     if (state_ == State::Homing) {
         run_homing(opto_);
@@ -256,7 +260,7 @@ void Motion::power(bool on) noexcept {
 // Snapshot for `motion status` and the UI bridge, both of which read from other threads.
 void Motion::publish() noexcept {
     static constexpr const char* kPhaseNames[] = {
-        "", "park-minute", "sweep-hour", "park-hour", "sweep-minute", "verify", "",
+        "", "clear", "coarse-minute", "fine-minute", "park-minute", "coarse-hour", "fine-hour", "",
     };
     Snapshot s;
     s.state = state_;
@@ -287,31 +291,49 @@ void Motion::enter(Phase p) noexcept {
     opto_high_ = opto_ > t.opto_thresh;
 
     switch (p) {
-        case Phase::ParkMinute:
-            CLK_LOGI(motion, "home: sweeping the minute hand to find the index");
-            edge_pos_ = INT32_MIN;  // sentinel: no edge seen in this phase yet
-            hal::motor::run(Hand::Minute, t.v_home, pos(Hand::Minute) + kRev + kSweepMargin);
+        case Phase::Clear:
+            // Deliberately moves nothing here.  `opto_` is last tick's reading, and a
+            // `sim hand` (or a real hand nudged by a finger) landing between the two would
+            // make this branch on a stale value.  The first tick decides, on fresh data.
+            clear_stage_ = 0;
+            clear_started_ = false;
             break;
-        case Phase::SweepHour:
+
+        case Phase::CoarseMinute:
+            CLK_LOGI(motion, "home: sweeping the minute hand for the index");
+            hal::motor::run(Hand::Minute, t.v_coarse, pos(Hand::Minute) + kRev + kSweepMargin);
+            break;
+        case Phase::CoarseHour:
             CLK_LOGI(motion, "home: minute parked, sweeping the hour hand");
-            hal::motor::run(Hand::Hour, t.v_home, pos(Hand::Hour) + kRev + kSweepMargin);
+            hal::motor::run(Hand::Hour, t.v_coarse, pos(Hand::Hour) + kRev + kSweepMargin);
             break;
-        case Phase::ParkHour:
-            hal::motor::run(Hand::Hour, t.v_max / 2, pos(Hand::Hour) + kRev / 2);
+
+        case Phase::FineMinute:
+        case Phase::FineHour: {
+            // Back off into the dark and come at it again slowly.  An edge that repeats is
+            // the difference between "we found the mark" and "we found a fingerprint".
+            const Hand h = p == Phase::FineMinute ? Hand::Minute : Hand::Hour;
+            fine_pass_ = 0;
+            backoff_ = fine_backoff();
+            hal::motor::run(h, -t.v_max / 4, pos(h) - backoff_);
             break;
-        case Phase::SweepMinute:
-            CLK_LOGI(motion, "home: hour parked, sweeping the minute hand");
-            hal::motor::run(Hand::Minute, t.v_home, pos(Hand::Minute) + kRev + kSweepMargin);
+        }
+
+        case Phase::ParkMinute:
+            // Exact and short: the minute hand's zero is already known, so this is a move
+            // rather than a search.
+            hal::motor::run(Hand::Minute, t.v_max, pos(Hand::Minute) + kParkAway);
             break;
-        case Phase::Verify:
-            // Back off and come at it again at quarter speed.  A repeatable edge is the
-            // difference between "we found the mark" and "we found a fingerprint".
-            verify_pass_ = 0;
-            hal::motor::run(Hand::Minute, -t.v_max / 4, pos(Hand::Minute) - kVerifyBackoff);
-            break;
+
         default:
             break;
     }
+}
+
+int32_t Motion::fine_backoff() const noexcept {
+    const auto t = tuning();
+    const int64_t travel = static_cast<int64_t>(t.v_coarse) * dt_ms_ * 3 / 1000;
+    return static_cast<int32_t>(std::clamp<int64_t>(travel, kMinBackoff, kMaxBackoff));
 }
 
 void Motion::fail(const char* why) noexcept {
@@ -336,86 +358,101 @@ void Motion::run_homing(float opto) noexcept {
     opto_high_ = high;
 
     switch (phase_) {
-        case Phase::ParkMinute: {
-            // The index is wherever the minute hand first lights the sensor.  We do not
-            // adopt here -- this pass only exists to get the minute hand demonstrably OFF
-            // the mark so the hour sweep sees the hour hand and nothing else.
-            if (rising) {
-                hal::motor::hold(Hand::Minute);
-                hal::motor::run(Hand::Minute, t.v_max / 2, pos(Hand::Minute) + kRev / 2);
-                phase_start_us_ = now;
-                edge_pos_ = pos(Hand::Minute);
-                CLK_LOGD(motion, "home: minute found the index, parking half a turn on");
-                return;
-            }
-            if (!hal::motor::state(Hand::Minute).moving) {
-                if (edge_pos_ != INT32_MIN) {
-                    enter(Phase::SweepHour);
-                } else {
-                    // A full revolution with no edge: either the hour hand is sitting on
-                    // the mark and holding the sensor bright, or there is no mark at all.
-                    fail(high ? "sensor stuck bright -- is the hour hand on the index?"
-                              : "no index found in one revolution");
-                }
-            }
-            return;
-        }
-
-        case Phase::SweepHour: {
-            if (rising) {
+        // Nothing downstream can trust a rising edge until the sensor is demonstrably dark:
+        // a hand already parked on the index holds it lit forever and there is never an
+        // edge to see.  With BOTH hands there it is also not knowable which one is doing
+        // it, so this does not guess -- sweeping the hour hand a whole revolution without
+        // going dark is itself the proof that the minute hand is the one on the mark.
+        case Phase::Clear: {
+            if (!high) {
                 hal::motor::hold(Hand::Hour);
-                // The rising edge is half an index-mark short of centre.  That systematic
-                // offset is identical for both hands, so it shows up as one `motion zero`
-                // trim on the bench rather than as an error between them.
-                hal::motor::adopt(Hand::Hour, 0);
-                CLK_LOGI(motion, "home: hour edge -> 0");
-                enter(Phase::ParkHour);
+                hal::motor::hold(Hand::Minute);
+                enter(Phase::CoarseMinute);
                 return;
             }
-            if (!hal::motor::state(Hand::Hour).moving) fail("hour hand found no index");
+            const Hand h = clear_stage_ == 0 ? Hand::Hour : Hand::Minute;
+            if (!clear_started_) {
+                clear_started_ = true;
+                CLK_LOGI(motion, "home: sensor lit at rest -- moving the %s hand off it",
+                         clear_stage_ == 0 ? "hour" : "minute");
+                hal::motor::run(h, t.v_max, pos(h) + kClearSweep);
+                phase_start_us_ = now;
+                return;
+            }
+            if (hal::motor::state(h).moving) return;
+            // kClearSweep is ~15x the width of the window and the sensor is read every tick
+            // of it, so a hand that was on the mark has demonstrably left it and cannot have
+            // come back round.  Still lit therefore means it was not that hand -- no
+            // guessing, and no revolution spent proving it.
+            if (clear_stage_ == 0) {
+                clear_stage_ = 1;
+                clear_started_ = false;
+                return;
+            }
+            fail("sensor still reads bright with both hands moved clear -- check the QRE1113");
             return;
         }
 
-        case Phase::ParkHour:
-            if (!hal::motor::state(Hand::Hour).moving) enter(Phase::SweepMinute);
-            return;
-
-        case Phase::SweepMinute: {
+        case Phase::CoarseMinute:
+        case Phase::CoarseHour: {
+            const bool is_minute = phase_ == Phase::CoarseMinute;
+            const Hand h = is_minute ? Hand::Minute : Hand::Hour;
             if (rising) {
-                hal::motor::hold(Hand::Minute);
-                hal::motor::adopt(Hand::Minute, 0);
-                CLK_LOGI(motion, "home: minute edge -> 0");
-                enter(Phase::Verify);
+                hal::motor::hold(h);
+                // Coarse: good to one sample of travel, which is all the fine pass needs in
+                // order to know where to look.
+                hal::motor::adopt(h, 0);
+                enter(is_minute ? Phase::FineMinute : Phase::FineHour);
                 return;
             }
-            if (!hal::motor::state(Hand::Minute).moving) fail("minute hand found no index");
+            if (!hal::motor::state(h).moving) {
+                fail(is_minute ? "the minute hand found no index in a full turn"
+                               : "the hour hand found no index in a full turn");
+            }
             return;
         }
 
-        case Phase::Verify: {
-            if (verify_pass_ == 1 && rising) {
-                hal::motor::hold(Hand::Minute);
-                const int32_t err = domain::shortest(0, pos(Hand::Minute));
-                if (std::abs(err) > kVerifyTolerance) {
+        case Phase::FineMinute:
+        case Phase::FineHour: {
+            const bool is_minute = phase_ == Phase::FineMinute;
+            const Hand h = is_minute ? Hand::Minute : Hand::Hour;
+            if (fine_pass_ == 1 && rising) {
+                hal::motor::hold(h);
+                const int32_t err = domain::shortest(0, pos(h));
+                if (std::abs(err) > backoff_) {
                     fail("the edge moved between passes");
                     return;
                 }
-                CLK_LOGI(motion, "home: verified, edge repeats within %" PRId32 " usteps", err);
-                hal::motor::adopt(Hand::Minute, 0);
-                finish_home();
+                // The rising edge sits half an index-mark short of centre.  That systematic
+                // offset is identical for both hands, so it shows up as one `motion zero`
+                // trim on the bench rather than as an error between them.
+                hal::motor::adopt(h, 0);
+                CLK_LOGI(motion, "home: %s zero confirmed, coarse was off by %" PRId32 " usteps",
+                         is_minute ? "minute" : "hour", err);
+                if (is_minute) {
+                    enter(Phase::ParkMinute);
+                } else {
+                    finish_home();
+                }
                 return;
             }
-            if (hal::motor::state(Hand::Minute).moving) return;
-            if (verify_pass_ == 0) {
-                verify_pass_ = 1;
-                opto_high_ = false;
-                hal::motor::run(Hand::Minute, t.v_verify, pos(Hand::Minute) + 2 * kVerifyBackoff);
+            if (hal::motor::state(h).moving) return;
+            if (fine_pass_ == 0) {
+                fine_pass_ = 1;
+                opto_high_ = false;  // we backed off into the dark
+                hal::motor::run(h, t.v_fine, pos(h) + 2 * backoff_);
                 phase_start_us_ = now;
                 return;
             }
-            fail("the re-approach never saw the edge again");
+            fail("the slow re-approach never saw the edge again");
             return;
         }
+
+        // The minute hand's zero is known now, so the hour sweep gets a clear sensor
+        // without anybody having to search for anything.
+        case Phase::ParkMinute:
+            if (!hal::motor::state(Hand::Minute).moving) enter(Phase::CoarseHour);
+            return;
 
         default:
             return;

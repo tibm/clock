@@ -62,16 +62,16 @@ Status cmd_status(Args const&, Sink& out) {
                static_cast<double>(s.opto), s.faults);
     if (s.home_ms) out.printf("last home took %" PRIu32 " ms of sim time", s.home_ms);
     const auto t = svc::motion().tuning();
-    out.printf("tune   v_max=%" PRId32 " accel=%" PRId32 " v_home=%" PRId32 " v_verify=%" PRId32
+    out.printf("tune   v_max=%" PRId32 " accel=%" PRId32 " v_coarse=%" PRId32 " v_fine=%" PRId32
                " backlash=%" PRId32 " thresh=%.2f",
-               t.v_max, t.accel, t.v_home, t.v_verify, t.backlash,
+               t.v_max, t.accel, t.v_coarse, t.v_fine, t.backlash,
                static_cast<double>(t.opto_thresh));
     return Status::Ok;
 }
 
 Status cmd_home(Args const&, Sink& out) {
     svc::motion().home();
-    out.line("homing: park minute -> sweep hour -> park hour -> sweep minute -> verify");
+    out.line("homing: clear -> minute coarse+fine -> park -> hour coarse+fine");
     out.line("  watch it with `motion status` or the ux app");
     return Status::Ok;
 }
@@ -112,10 +112,10 @@ Status cmd_stop(Args const&, Sink& out) {
 Status cmd_tune(Args const& a, Sink& out) {
     auto t = svc::motion().tuning();
     if (a.count() < 2) {
-        out.line("usage: motion tune <v_max|accel|v_home|v_verify|backlash|thresh> <value>");
-        out.printf("  v_max=%" PRId32 " accel=%" PRId32 " v_home=%" PRId32 " v_verify=%" PRId32
+        out.line("usage: motion tune <v_max|accel|v_coarse|v_fine|backlash|thresh> <value>");
+        out.printf("  v_max=%" PRId32 " accel=%" PRId32 " v_coarse=%" PRId32 " v_fine=%" PRId32
                    " backlash=%" PRId32 " thresh=%.2f",
-                   t.v_max, t.accel, t.v_home, t.v_verify, t.backlash,
+                   t.v_max, t.accel, t.v_coarse, t.v_fine, t.backlash,
                    static_cast<double>(t.opto_thresh));
         return a.count() == 0 ? Status::Ok : Status::BadArg;
     }
@@ -126,10 +126,10 @@ Status cmd_tune(Args const& a, Sink& out) {
         t.v_max = i;
     } else if (std::strcmp(k, "accel") == 0) {
         t.accel = i;
-    } else if (std::strcmp(k, "v_home") == 0) {
-        t.v_home = i;
-    } else if (std::strcmp(k, "v_verify") == 0) {
-        t.v_verify = i;
+    } else if (std::strcmp(k, "v_coarse") == 0) {
+        t.v_coarse = i;
+    } else if (std::strcmp(k, "v_fine") == 0) {
+        t.v_fine = i;
     } else if (std::strcmp(k, "backlash") == 0) {
         t.backlash = i;
     } else if (std::strcmp(k, "thresh") == 0) {
