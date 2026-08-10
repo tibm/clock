@@ -1,0 +1,7 @@
+# BOARD=rev0_3 -- the product board
+# D6: external 32.768 kHz crystal as RTC slow clock  <- accurate timekeeping
+CONFIG_RTC_CLK_SRC_EXT_CRYS=y
+CONFIG_RTC_CLK_CAL_CYCLES=3000
+CONFIG_ESP_TIME_FUNCS_USE_RTC_TIMER=y
+CONFIG_ESP_TIME_FUNCS_USE_ESP_TIMER=y
+CONFIG_CLOCK_BOARD_REV0_3=y

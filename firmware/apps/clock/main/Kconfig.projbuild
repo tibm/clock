@@ -1,0 +1,54 @@
+menu "Clock firmware"
+
+    config CLOCK_CLI_UNSAFE
+        bool "Compile in the hardware-touching CLI commands"
+        default y
+        help
+            Commands marked [unsafe] in FIRMWARE.md §9.3 -- anything that moves a hand,
+            lights an emitter, drives current, writes a register, changes power mode or
+            erases a filesystem.  They are additionally gated at runtime behind
+            `unsafe on`, which expires 60 s after the last use.
+
+            Set n in release builds so the gate is structural, not merely a check.
+
+    choice CLOCK_LOG_MAX_LEVEL
+        prompt "Maximum log level compiled in"
+        default CLOCK_LOG_MAX_LEVEL_VERBOSE
+        help
+            The compile-time ceiling for the CLK_LOG* macros (FIRMWARE.md §9.4).  Levels
+            above the ceiling are discarded by `if constexpr` -- both the call and its
+            format string, so release binaries do not carry verbose text in flash.
+
+            `sys debug <mod> verbose` can only reach what was compiled in, so a dev build
+            must be VERBOSE.
+
+        config CLOCK_LOG_MAX_LEVEL_OFF
+            bool "Off"
+        config CLOCK_LOG_MAX_LEVEL_ERROR
+            bool "Error"
+        config CLOCK_LOG_MAX_LEVEL_WARN
+            bool "Warn"
+        config CLOCK_LOG_MAX_LEVEL_INFO
+            bool "Info"
+        config CLOCK_LOG_MAX_LEVEL_DEBUG
+            bool "Debug"
+        config CLOCK_LOG_MAX_LEVEL_VERBOSE
+            bool "Verbose"
+    endchoice
+
+    choice CLOCK_BOARD
+        prompt "Target board"
+        default CLOCK_BOARD_DEVKIT
+        help
+            Selects the pin map and the device-presence bitmask (FIRMWARE.md D15).  The
+            pin map is IDENTICAL across boards -- only the set of devices that are actually
+            fitted differs.  An absent device returns Status::NotPresent; it is never faked
+            into reporting success.
+
+        config CLOCK_BOARD_DEVKIT
+            bool "ESP32-S3-DevKitC-1U-N8R8 (no 32k crystal, most devices absent)"
+        config CLOCK_BOARD_REV0_3
+            bool "Clock main board rev 0.3"
+    endchoice
+
+endmenu

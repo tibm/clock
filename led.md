@@ -8,9 +8,9 @@ dropped with the display):
 | Subsystem | What it lights | Emitter | Rail | Drive |
 |------|----------------|---------|------|-----|
 | **Wake-up light** | 100–120 mm sunrise diffuser (rear aperture) | **12 V** COB, warm **3000K** + neutral **4000K** (tunable-white pair) | **12 V (plugged-only)** | **2× LEDC PWM** (warm IO45 / cool IO46) via AO3400A |
-| **Status + dial NeoPixels** | 5 status holes in the aluminum face **+** dial wash behind the glass | **7× SK6812 RGBW** 5050 (Adafruit 2758): **2 on the main PCB** (dial wash) + **5 off-board** (status row) via a 3-pin JST-PH breakout, J12 (2026-07-21) | **5 V (always, incl. battery)** | **1 data GPIO** (IO7 → RMT), daisy-chained |
+| **Status + dial NeoPixels** | 5 status holes in the aluminum face **+** dial wash behind the glass | **7× SK6812 RGBW** 5050 (Adafruit 2758): **2 on the main PCB** (dial wash) + **5 off-board** (status row) via a 3-pin JST-PH breakout, J12 (2026-07-21) | **5 V (always, incl. battery)** | **1 data GPIO** (IO7 → **SPI3 + DMA**), daisy-chained |
 
-PWM outputs: **2** (LEDC) + **1 RMT data line**.
+PWM outputs: **2** (LEDC) + **1 SPI3 data line** (SK6812, `FIRMWARE.md` D4).
 
 > **Two rails by design.** The **wake light is bright** → needs the **12 V** rail, which is
 > **plugged-only** (the TPS55340 boost runs only on the USB-PD contract; on battery it's off, so
@@ -29,7 +29,7 @@ PWM outputs: **2** (LEDC) + **1 RMT data line**.
   from PCB connector **J12** (`+5V`/`DATA`/`GND`, JST-PH 1×03) so their pitch is set by
   the face-plate hole spacing directly, not constrained by the PCB layout.
 - **One data line is plenty**: a full 7-pixel refresh is 7 × 32 bit @ 800 kHz ≈ **0.3 ms**.
-  Brightness control and slow ramps are firmware (Espressif `led_strip`, RMT backend,
+  Brightness control and slow ramps are firmware (Espressif `led_strip`, **SPI3** backend,
   gamma-corrected); no fancy animation needed or planned.
 - **Level shift is required**: SK6812 V<sub>IH</sub> = 0.7 × VDD = **3.5 V at a 5 V supply** — a
   3.3 V GPIO is out of spec. One **SN74AHCT1G125** (SOT-23-5, TTL-input buffer powered at 5 V,
@@ -96,7 +96,7 @@ through **J12** to pixels 3–7 in series (harness built by the user, off-PCB).
 ## PWM / data
 
 -   Wake: ≈1 kHz LEDC, gamma correction recommended.
--   NeoPixels: `led_strip` (RMT, 800 kHz); apply gamma + slow ramp curves in firmware.
+-   NeoPixels: `led_strip` (**SPI3 + DMA**, 800 kHz); apply gamma + slow ramp curves in firmware.
 
 -   Wake sequence:
     -   0--10 min: warm only

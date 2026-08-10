@@ -1,0 +1,35 @@
+# Single source of truth for every version this firmware is built with.  [FIRMWARE.md D11, §1.1]
+#
+# Updating is deliberate and cheap:
+#   1. edit the version here
+#   2. tools/idf-setup.sh          (clones/installs into a tag-named dir; old tree stays)
+#   3. tools/build.sh              (rebuild)
+#   4. commit this file + apps/clock/main/dependencies.lock together
+#
+# Rollback is a one-line revert: the previous IDF tree is still on disk.
+
+idf:
+  tag:     v5.5.5
+  path:    ~/esp/esp-idf-v5.5.5     # one directory per tag, so versions coexist
+  targets: esp32s3
+  # IDF 5.5's tools/detect_python.sh probes python3, python, python3.9 .. python3.13 and
+  # takes the FIRST hit, ignoring a pre-set $ESP_PYTHON.  On a machine whose `python3` is
+  # newer than the list, the venv gets built with an untested interpreter.  tools/env.sh
+  # prepends the pinned one to PATH.  Re-check this on every IDF bump.
+  python:  "3.13"
+
+# ESP-IDF Component Manager.  Exact versions, never ranges.
+# apps/clock/main/dependencies.lock is committed and CI fails if a build dirties it.
+components:
+  espressif/led_strip: "3.0.3"
+  joltwallet/littlefs: "1.22.3"
+
+# git submodules under firmware/vendor/
+vendored:
+  sh2:        { repo: "https://github.com/ceva-dsp/sh2",      tag: "v1.4.0" }   # BNO085 SH-2/SHTP  [§6.5.1]
+  googletest: { repo: "https://github.com/google/googletest", tag: "v1.17.0" }  # host tests only
+
+# Not redistributable -- fetched by hand, SHA-256 verified by tools/fetch-bsec.sh.
+# The build degrades to open BME68x + a gas baseline when vendor/bsec/ is absent.  [§6.5]
+manual:
+  bosch/BSEC: "2.6.1.0"

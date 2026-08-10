@@ -1,0 +1,7 @@
+# BOARD=devkit-uart -- opt-in, only for chasing a boot/panic crash.  [FIRMWARE.md §1.3]
+# There is no "secondary = UART" in IDF: ESP_CONSOLE_SECONDARY offers only USB_SERIAL_JTAG,
+# and only when the primary is NOT USB_SERIAL_JTAG.  Capturing the panic tail on the
+# devkit's CP2102N port therefore means inverting the pair, which moves the REPL to UART.
+# Non-default on purpose: USB-CDC is the console the product ships with.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y

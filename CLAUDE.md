@@ -10,13 +10,14 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 - `esp32.md` — ESP32-S3 pin-level IO map + MCP23017 expander port map (schematic-ready).
 - `led.md` — LED subsystem: wake COB + panel LEDs, 3 PWM channels, AO3400A drivers.
 - `power_values.md` — schematic-ready FB/comp/passive values per converter + support networks.
+- `firmware/` — the code + build (`firmware/README.md` = how to build; host `clocksim` + tests need no hardware).
 - `FIRMWARE.md` — FW architecture (source of truth for software): ESP-IDF + C++23 active objects, 9-task model, HSMs, Command surface (CLI ⇄ BLE), CLI, test/bring-up plan.
 
 ## Locked BOM (core)
 | Block | Part | Rail | Notes |
 |---|---|---|---|
 | MCU | ESP32-S3-WROOM-1-N8R8 | 3.3 V | Wi-Fi+BLE, 8/8 MB, ~33 usable GPIO (octal PSRAM claims 3) |
-| Status/dial LEDs | 7× SK6812 RGBW 5050 (Adafruit 2758) | 5 V | **2 dial pixels on-PCB** (D40/D41, chain pos 1-2); **5 status pixels off-board** via 3-pin JST-PH breakout J12 (chain pos 3-7, 2026-07-21); ONE data GPIO (IO7→RMT) via SN74AHCT1G125 3V3→5V buffer |
+| Status/dial LEDs | 7× SK6812 RGBW 5050 (Adafruit 2758) | 5 V | **2 dial pixels on-PCB** (D40/D41, chain pos 1-2); **5 status pixels off-board** via 3-pin JST-PH breakout J12 (chain pos 3-7, 2026-07-21); ONE data GPIO (IO7→**SPI3+DMA**, not RMT — FIRMWARE.md D4) via SN74AHCT1G125 3V3→5V buffer |
 | Knob | Bourns EM14A0D-C24-L064S + Kilo OEJNI-90-1-5 alu knob | 5 V (~30 mA) | optical, no detent, 64 CPR, push; A/B 5 V out → 100k/200k dividers → IO47/48 PCNT; SW → IO17 IRQ; J10 = JST ZH 1×06 (A06ZR pre-crimped cables, same as sensor J7) |
 | Movement | Juken X40.879 (dual-shaft) | 5 V (via driver) | + X27 base spec; optical homing (QRE1113GR, no magnets); solders to PCB, shafts through-board (custom footprint) |
 | IO expander | Microchip MCP23017 | 3.3 V | SOIC/SSOP-28; on shared I²C + INT; offloads slow lines incl. RADIO_OFF toggle (GPA3, J11) |
@@ -49,7 +50,12 @@ Wood enclosure, bedroom, user-replaceable **18650 in a holder**. Board must be *
 - **Hand-solderable parts ONLY** (hard constraint): leaded pkgs (SOIC/SOP/SSOP/TSSOP/HTSSOP/MSOP/SOT-23) or castellated modules — **no QFN/DFN/WSON/BGA/WLP/LGA** bare on the board. PowerPAD (amp/charger) OK with a thermal-via array. Leadless-only functions → breakout modules or dropped (e.g. fuel gauge → ADC). ≥0603 passives; hand-solderable connectors (USB-C/FPC/JST/SD).
 
 ## Stack
-- ESP-IDF v5.x (C/FreeRTOS). Libs: LVGL 1-bit, AccelStepper/SwitecX25, NimBLE, esp_netif_sntp; **firmware biquad HPF+limiter for the amp** (TAS5760M has no on-chip DSP). See `README.md` §6c.
+- **ESP-IDF v5.5.5, pinned** (`firmware/toolchain.lock`); C++23, no exceptions/RTTI, hand-rolled
+  active-object layer over FreeRTOS. Libs: `led_strip` (**SPI3** backend), NimBLE, `esp_netif_sntp`,
+  CEVA `sh2` (BNO085), AccelStepper/SwitecX25 as reference; **firmware biquad HPF+limiter for the
+  amp** (TAS5760M has no on-chip DSP). **No LVGL** — the display was dropped in v0.19.
+- Code in `firmware/` — **`FIRMWARE.md` is the software source of truth**; `README.md` §6c is
+  selection-era notes and is explicitly superseded by it.
 
 ---
 

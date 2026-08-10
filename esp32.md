@@ -18,7 +18,9 @@ S3 **GPIO matrix**, so most assignments below are movable — the *fixed* ones a
    knob push-switch interrupt.
 3. **Knob on the host, not the expander:** A/B quadrature → **PCNT** (IO47/48, through 100k/200k
    dividers — the EM14 optical encoder is a 5 V part), press → **IO17 GPIO IRQ** (10 k PU + 100 nF
-   + ~5 ms firmware debounce). The 7-pixel **SK6812 chain rides one RMT pin (IO7)**.
+   + ~5 ms firmware debounce). The 7-pixel **SK6812 chain rides one data pin (IO7), driven by SPI3 + DMA**
+   (`FIRMWARE.md` D4 — the pin is unchanged; SPI was picked over RMT because a 7-pixel frame is
+   one 84-byte DMA burst, structurally immune to Wi-Fi interrupt jitter).
 4. **Slow/static lines live on the MCP23017** (I²C), not the host — see the expander map.
 
 **Result: 30 signals (incl. USB D±, 2 wake PWM, NeoPixel data, I²S MCLK) + 2 XTAL = 32 pads;
@@ -49,7 +51,7 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `IO4` | 4 | `STEP_M_AIN1` | MCPWM0_0A | OUT / AF | 3.3 V | TB6612 #1 · minute coil A+ | |
 | `IO5` | 5 | `STEP_M_AIN2` | MCPWM0_0B | OUT / AF | 3.3 V | TB6612 #1 · minute coil A− | |
 | `IO6` | 6 | `STEP_M_BIN1` | MCPWM0_1A | OUT / AF | 3.3 V | TB6612 #1 · minute coil B+ | |
-| `IO7` | 7 | `NEOPIX_DATA` | RMT | OUT / AF | 3.3 V | SN74AHCT1G125 → 7× SK6812 RGBW · status+dial pixels | one data line for the whole chain (5 status + 2 dial); buffer lifts 3V3→5 V (V_IH 3.5 V @ 5 V) |
+| `IO7` | 7 | `NEOPIX_DATA` | **SPI3** MOSI | OUT / AF | 3.3 V | SN74AHCT1G125 → 7× SK6812 RGBW · dial+status pixels | one data line for the whole chain — **chain pos 1–2 = dial (D40/D41, on-PCB), 3–7 = status (off-board via J12)**; buffer lifts 3V3→5 V (V_IH 3.5 V @ 5 V). **SPI3, not RMT** — `FIRMWARE.md` D4 |
 | `IO8` | 8 | `I2C_SDA` | I2C0 | OD, PU (ext 4.7k) | 3.3 V | shared bus · data | sensors + amp + MCP23017 |
 | `IO9` | 9 | `I2C_SCL` | I2C0 | OD, PU (ext 4.7k) | 3.3 V | shared bus · clock | |
 | `IO10` | 10 | `I2S_BCLK` | I2S0 | OUT / AF | 3.3 V | TAS5760M · bit clock | |
@@ -71,7 +73,7 @@ role — plus the `EN`/`3V3`/`GND` pads.
 | `IO39` | 39 | `STEP_H_AIN2` | MCPWM1_0B | OUT / AF | 3.3 V | TB6612 #2 · hour coil A− | also **JTAG MTCK** (ext probe — see below) |
 | `IO40` | 40 | `STEP_H_BIN1` | MCPWM1_1A | OUT / AF | 3.3 V | TB6612 #2 · hour coil B+ | also **JTAG MTDO** |
 | `IO41` | 41 | `STEP_H_BIN2` | MCPWM1_1B | OUT / AF | 3.3 V | TB6612 #2 · hour coil B− | also **JTAG MTDI** |
-| `IO42` | 42 | `SENSOR_INT` | GPIO IRQ | IN, PU | 3.3 V | LIS3DH tap / TSL2591 · INT | falling-edge; also **JTAG MTMS** |
+| `IO42` | 42 | `SENSOR_INT` | GPIO IRQ | IN, PU | 3.3 V | **BNO085 `H_INTN` only** (J7 pin 5) | falling-edge, **push-pull** (R97 redundant but harmless). Means "the hub has an SHTP packet", not "a tap happened". **`ALS_INT` is NOT here** — it moved to expander GPB3 (`kicad/REVIEW.md` #11); also **JTAG MTMS** |
 | `TXD0` | 43 | `I2S_MCLK` | I2S0 MCLK | OUT / AF | 3.3 V | TAS5760M · master clock | **required** by the amp (128–512 f_S; BCLK/LRCLK can't supply it). Repurposed from the aux UART log → **logging is USB-CDC only** (incl. boot log) |
 | `RXD0` | 44 | `EXPANDER_INT` | GPIO IRQ | IN, PU | 3.3 V | MCP23017 · INTA/B (mirrored) | any-IO change → read INTF/INTCAP; UART RX not free |
 | `IO45` | 45 | `WAKE_WARM_PWM` | LEDC | OUT / AF (PWM) | 3.3 V | wake-warm AO3400A gate · dim | 3000K COB, **12 V (plugged-only)**; strap VDD_SPI: LOW at boot ✓ |
@@ -107,7 +109,7 @@ Weak pull-ups + interrupt-on-change on the inputs; `IOCON.MIRROR=1` ORs INTA+INT
 | GPB0 | `PD_PG` | IN, PU | ✔ | CH224K power-good (OD) |
 | GPB1 | `CHRG` | IN, PU | ✔ | LT3652 charge status (OD) |
 | GPB2 | `FAULT` | IN, PU | ✔ | LT3652 fault status (OD) |
-| GPB3 | *free* | — | — | spare (`LCD_DISP` gone with the display, v0.19) |
+| GPB3 | `ALS_INT` | IN, PU | ✔ | TSL2591 `INT` (open-drain) via J7 pin 6. **Firmware must set `GPPU.3 = 1`** — the only pull-up (R12, 10 k) lives on the sensor board, so GPB3 floats when that board is unplugged (`FIRMWARE.md` **R-BOARD-4**). Freed by `LCD_DISP` in v0.19 |
 | GPB4 | `FULLCHG_EN` | OUT | — | LT3652 4.2 V full-charge FET gate |
 | GPB5 | `VBAT_DIV_EN` | OUT | — | Vbat-divider disconnect FET gate |
 | GPB6 | `SPK_FAULT` | IN, PU | ✔ | TAS5760M fault (OD, 10 k PU) |
@@ -144,19 +146,26 @@ coil's polarity/phase order, are **firmware-trimmable** (reverse the step sequen
 | chB: BO1 (+) / BO2 (−) → coil 2 | 4e / 3e | 4i / 3i |
 
 ## I²C address map (shared bus, 3.3 V, 4.7 k pull-ups)
-No collisions. Strappable addresses get a **0 Ω** footprint for a build-time choice; fixed-address and
-breakout parts need no main-board strap.
+No collisions. **Main-board** strappable addresses get a **0 Ω** footprint for a build-time choice;
+the three sensors live on the daughterboard ([`kicad-sensor/`](kicad-sensor/)) and are strapped
+there — with **10 kΩ, not 0 Ω**, deliberately: fitting both halves of a pair through 0 Ω would short
+the main board's `+3V3` to GND, whereas through 10 k the same slip costs 330 µA and the part simply
+answers at a visibly wrong address.
 
 | Device | Addr (7-bit) | Set by | Main-board strap |
 |---|---|---|---|
 | **MCP23017** expander | **0x20** | A2/A1/A0 | **3× 0 Ω → GND** (000 → 0x20; 0x20–0x27 free) |
 | **TAS5760M** amp | **0x6C** | SPK_SLEEP/ADR (13) | **1× 0 Ω → GND** (HIGH → 0x6D) |
 | **TSL2591** light | **0x29** | fixed | — |
-| **LIS3DH** accel | **0x18** | SDO/SA0 | — (breakout jumper; Adafruit 2809 default) |
-| **BME688** env | **0x77** | SDO | — (breakout jumper; Adafruit 5046 default) |
+| **BNO085** IMU (tap) | **0x4A** | `SA0` | — (sensor board: **R3 fitted**; R4 = DNP alt for 0x4B) |
+| **BME688** env | **0x77** | SDO | — (sensor board: **R10 fitted**; R11 = DNP alt for 0x76) |
 
-Also strapped (not an address): **TAS5760M SPK_GAIN0/1 → DVDD** selects software/I²C control mode. Sensor
-breakouts carry ~10 k pull-ups in ∥ with the 4.7 k — lift their jumpers if the bus gets too strong.
+Also strapped (not an address): **TAS5760M SPK_GAIN0/1 → DVDD** selects software/I²C control mode.
+
+**Bus pull-up budget:** the main board fits **4.7 k** (R95/R96), and the sensor board adds its own
+**10 k** (R1/R2) — so with the daughterboard plugged in the bus sits at **≈3.2 k**, which is fine at
+400 kHz. On the 2a breakout path each Adafruit board adds another ~10 k in parallel; lift their
+jumpers if three of them make the bus too strong.
 
 ## Peripheral budget (vs. S3 capacity)
 
@@ -165,10 +174,10 @@ breakouts carry ~10 k pull-ups in ∥ with the 4.7 k — lift their jumpers if t
 | **MCPWM** | 2 units × 6 = 12 out | 8 | steppers (unit0 = minute, unit1 = hour) |
 | **LEDC** | 8 ch | 2 | wake-warm + wake-cool PWM dimming (panel ch recovered v0.19) |
 | **PCNT** | 4 units | 1 | knob A/B (hardware quadrature, glitch-filtered) |
-| **RMT** | 4 TX | 1 | **IO7 → 7× SK6812 RGBW** (status + dial NeoPixels, `led_strip`) |
+| **RMT** | 4 TX | **0** | all four free — the SK6812 chain moved to SPI3 (`FIRMWARE.md` D4) |
 | **I²C** | 2 | 1 | shared bus (sensors + amp + expander) |
 | **I²S** | 2 | 1 | I²S0 → amp: BCLK/LRCLK/DOUT **+ MCLK (IO43)** |
-| **SPI (GP)** | 2 (SPI2/3) | 1 | SPI2: microSD (display gone → sole device) |
+| **SPI (GP)** | 2 (SPI2/3) | **2** | SPI2: microSD (sole device since v0.19) · SPI3: **7× SK6812** via the `led_strip` SPI backend → **no spare GP SPI host** |
 | **ADC1** | 10 ch (GPIO1–10) | 2 | VBAT, homing opto (**ADC2 unusable w/ Wi-Fi**) |
 | **XTAL32K** | 1 | 1 | 32.768 kHz crystal |
 | **GPIO IRQ** | any GPIO | 3 | SENSOR_INT, EXPANDER_INT, ENC_SW |
@@ -190,8 +199,9 @@ breakouts carry ~10 k pull-ups in ∥ with the 4.7 k — lift their jumpers if t
   strips** (tunable-white pair, **plugged-only** — firmware gates their PWM off on battery, since the
   12 V boost is plugged-only and bright LED + audio would exceed its ~12 W ceiling). The logic-level
   FET gates take 3.3 V PWM directly.
-- **NeoPixels (IO7, RMT):** 7× SK6812 RGBW on the 5 V rail — 5 status + 2 dial pixels, `led_strip`
-  driver. The chain's V_IH is 0.7·VDD = 3.5 V → **one SN74AHCT1G125** (VCC 5 V, TTL input) lifts the
+- **NeoPixels (IO7, SPI3 + DMA):** 7× SK6812 RGBW on the 5 V rail — **chain pos 1–2 dial (on-PCB),
+  3–7 status (off-board via J12)** — `led_strip` **SPI backend**, not RMT (`FIRMWARE.md` D4: one
+  84-byte DMA burst per frame, no refill interrupts, immune to Wi-Fi interrupt jitter). The chain's V_IH is 0.7·VDD = 3.5 V → **one SN74AHCT1G125** (VCC 5 V, TTL input) lifts the
   3.3 V data line; ~330 Ω into DIN(1), 100 nF per pixel + 100 µF bulk.
 - **5 V → 3.3 V inputs:** the EM14 encoder outputs (5 V ASIC) come in through **100k/200k dividers**
   (IO47/48). Everything else is 3.3 V-native (TB6612 VCC, TAS5760M DVDD, microSD, I²C devices)
@@ -216,6 +226,6 @@ breakouts carry ~10 k pull-ups in ∥ with the 4.7 k — lift their jumpers if t
 ## Reconciliation with `datasheet/README.md` §IO
 ⚠ That table still describes the **pre-v0.19** (display-era) design — `datasheet/` was deliberately
 left untouched in the 2026-07-19 cube redesign (kept for future reuse). The current allocation is
-this file: display SPI/CS/DISP gone (SPI2 = SD only), `PANEL_PWM` → `NEOPIX_DATA` (IO7, RMT),
+this file: display SPI/CS/DISP gone (SPI2 = SD only), `PANEL_PWM` → `NEOPIX_DATA` (IO7, **SPI3**),
 `LCD_CS` → `ENC_SW` (IO17), knob A/B on IO47/48 through 5 V dividers, BTN1–3 dropped, `RADIO_OFF`
 on expander GPA3 — still **32/33 pads** (IO0/boot is the only spare).

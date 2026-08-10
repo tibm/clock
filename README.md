@@ -2,7 +2,7 @@
 
 > Living spec for a high-quality, low-power desk alarm clock: a **walnut cube (~120 mm)** with an **aluminum front plate**, a centered **Ø~90 mm MCU-driven analog dial behind glass** (aluminum hands on walnut, 12 black hour dots, no numerals), a row of **5 RGBW status LEDs** under the dial, and one **aluminum knob (rotate + press)** centered on the top face.
 
-> 🔩 **Manufacturing constraint — HAND-SOLDERABLE PARTS ONLY.** The bare PCB is fab'd externally; **every part is hand-soldered with an iron.** No **QFN / DFN / WSON / BGA / WLP / LGA** silicon sits bare on the board — every active IC is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. The two power parts (amp `TAS5760M`, charger `LT3652`) are HTSSOP/MSOP **PowerPAD** — leads iron-solderable, belly pad on a thermal-via array (back-side hot-air optional). Functions that *only* exist leadless → **pre-made breakout modules** (env/MEMS sensors — **BME688, TSL2591, LIS3DH** as I²C Qwiic/STEMMA boards; or a custom SMT daughterboard, §8) or **dropped** (fuel gauge → ESP32 ADC). **Passives ≥ 0603** (0402 min); connectors hand-solderable (through-hole / wide-pad SMD: USB-C, FPC/ZIF, JST, SD cage). **This grows the PCB — accepted.**
+> 🔩 **Manufacturing constraint — HAND-SOLDERABLE PARTS ONLY.** The bare PCB is fab'd externally; **every part is hand-soldered with an iron.** No **QFN / DFN / WSON / BGA / WLP / LGA** silicon sits bare on the board — every active IC is a **leaded/gullwing** package (SOIC / SOP / SSOP / TSSOP / **HTSSOP** / **MSOP** / SOT-23) or a **castellated/edge module**. The two power parts (amp `TAS5760M`, charger `LT3652`) are HTSSOP/MSOP **PowerPAD** — leads iron-solderable, belly pad on a thermal-via array (back-side hot-air optional). Functions that *only* exist leadless → **pre-made breakout modules** (env/MEMS sensors — **BME688, TSL2591, BNO085** as I²C Qwiic/STEMMA boards; or a custom SMT daughterboard — **built: [`kicad-sensor/`](kicad-sensor/), `SENSE v0.2`**, §8) or **dropped** (fuel gauge → ESP32 ADC). **Passives ≥ 0603** (0402 min); connectors hand-solderable (through-hole / wide-pad SMD: USB-C, FPC/ZIF, JST, SD cage). **This grows the PCB — accepted.**
 
 **Status:** v0.19 draft · **Owner:** you (FW/HW) · **Last updated:** 2026-07-19
 
@@ -128,27 +128,31 @@ The reflective **Sharp LS032B7DD02** info panel (and its FH34SRJ FPC connector) 
 
 ## 6. MCU + wireless (R7)
 
-A **single MCU** must drive two stepper shafts, I²S audio, the NeoPixel chain + wake-LED PWM, the I²C sensor bus, microSD, and Wi-Fi + BLE — the **ESP32-S3 single-chip** wins on simplicity + library support (RMT for the SK6812s, MCPWM for the steppers, PCNT for the knob).
+A **single MCU** must drive two stepper shafts, I²S audio, the NeoPixel chain + wake-LED PWM, the I²C sensor bus, microSD, and Wi-Fi + BLE — the **ESP32-S3 single-chip** wins on simplicity + library support (SPI3+DMA for the SK6812s, MCPWM for the steppers, PCNT for the knob).
 
 The N8R8 module exposes ~33 usable GPIO (octal PSRAM claims 3), and the pin budget is tight, so a **Microchip MCP23017** I²C IO expander (SOIC/SSOP-28, on the shared bus + one INT line) offloads the slow/static lines — amp mute, 12 V-boost enable, stepper STBY, the radio-disable toggle, and PD/charger status. The **knob lives on the host** (A/B → PCNT on IO47/48, press → IO17 with a hard interrupt + tight debounce — *not* the expander). The full pin-level allocation (host + expander) lives in [`esp32.md`](esp32.md) (native USB-JTAG on IO19/20); see also [`datasheet/README.md`](datasheet/README.md) §19.
 
 | Option | Wi-Fi + BLE | Runs motors + audio + LEDs | Low power | Notes | Verdict |
 |--------|-------------|----------------------------|-----------|-------|---------|
-| **ESP32-S3** ⭐ single-chip | Wi-Fi 4 (2.4G) + BLE 5 | ✅ MCPWM steppers + I²S + RMT NeoPixels | good deep-sleep, higher idle | cheapest, fastest bring-up, huge lib support (§6c) | **Primary** |
+| **ESP32-S3** ⭐ single-chip | Wi-Fi 4 (2.4G) + BLE 5 | ✅ MCPWM steppers + I²S + DMA NeoPixels (SPI3) | good deep-sleep, higher idle | cheapest, fastest bring-up, huge lib support (§6c) | **Primary** |
 | STM32U5 + ST67W611M1 | Wi-Fi 6 + BLE 5.4 (SPI) | ✅ | **excellent** | ST ULP | ULP alt |
 | nRF5340 + nRF7002 | Wi-Fi 6 + BLE 5.x | ✅ | **best radio power** | Nordic tooling | Nordic ULP alt |
 | NXP RW612 single-chip | Wi-Fi 6 dual-band + BLE 5.4 + Thread | ✅ | good | viable single-chip | single-chip alt |
 | ESP32-P4 + C6 | Wi-Fi 6 + BLE (C6) | ✅ overkill | med | 2 chips; only if a display returns | future |
 
 ### 6c. ESP32-S3 quick-start libraries
-Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / PlatformIO** (fast prototyping).
+> ⚠ **Selection-era notes — superseded by [`FIRMWARE.md`](FIRMWARE.md) where they disagree.** That
+> document is the software source of truth and the code lives in [`firmware/`](firmware/). The
+> choice below was settled on 2026-07-26: **ESP-IDF v5.5.5 pinned, C++23, no Arduino, no ESPHome.**
+
+Base: **ESP-IDF v5.5.5** (pinned in `firmware/toolchain.lock`; C++23, no exceptions/RTTI).
 
 | Requirement | Library / component |
 |---|---|
 | Analog steppers (§5) | **TB6612FNG** via GPIO/PWM; **AccelStepper** / **SwitecX25** / VID28 lib; microstep for silence |
-| Status + dial NeoPixels (§9) | Espressif **`led_strip`** component (RMT backend, SK6812 RGBW timing) — one data GPIO for all 7; gamma + soft ramps in firmware |
+| Status + dial NeoPixels (§9) | Espressif **`led_strip`** component, **SPI3 backend** (`FIRMWARE.md` D4 — RMT also works but needs its DMA flag and is jitter-prone next to Wi-Fi) — one data GPIO for all 7; gamma + soft ramps in firmware |
 | Knob (§12) | **PCNT** hardware quadrature (A/B, glitch filter) + GPIO ISR on ENC_SW with ~5 ms debounce |
-| Tap-to-snooze (R3) | **LIS3DH** driver (Adafruit_LIS3DH / esp-idf-lib): hardware tap IRQ *(orientation use retired with R14)* |
+| Tap-to-snooze (R3) | **BNO085** through CEVA's reference **`sh2`** driver — SHTP packets, *not* a register map; enable **only** `SH2_TAP_DETECTOR`. `SENSOR_INT` means "a packet is waiting", not "a tap happened". See `FIRMWARE.md` §6.5.1 + **R-BOARD-3** (no host reset line → degrade gracefully) *(supersedes the LIS3DH, 2026-07-29)* |
 | Wi-Fi | `esp_wifi` |
 | BLE-pair → Wi-Fi provision (R9) | `wifi_provisioning` (BLE transport) + Espressif **"ESP BLE Provisioning"** phone app |
 | BLE stack | **NimBLE** |
@@ -156,14 +160,14 @@ Base: **ESP-IDF v5.x** (C, production, best power control) or **Arduino-ESP32 / 
 | Env sensors (R4) | Bosch **BSEC 2.x / BME68x** (chosen — T/RH/press/VOC/IAQ); Sensirion `embedded-i2c-scd4x / sps30` (CO₂/PM opt) |
 | Light | **TSL2591** (Adafruit_TSL2591 / esp-idf-lib) or VEML7700 |
 | Hand homing (§5) | **1× reflective optical** (QRE1113) → ADC/comparator edge; single-sensor sequential homing in firmware, no magnets |
-| Audio out (I²S) | `esp_driver_i2s`; decode via **ESP-ADF** (MP3/AAC/FLAC/WAV) or Arduino **ESP32-audioI2S**; **~150 Hz high-pass + limiter/EQ biquads run here** (TAS5760M has no on-chip DSP) |
+| Audio out (I²S) | `esp_driver_i2s`; **no decoder — WAV only** (16-bit PCM 44.1/48 kHz, `FIRMWARE.md` D8; FLAC/ESP-ADF deferred behind the `AudioSource` concept); **~150 Hz high-pass + limiter/EQ biquads run here** (TAS5760M has no on-chip DSP) |
 | Wake LEDs | `ledc` (PWM dimming, 2 ch tunable-white); 12 V COB via AO3400A — see [`led.md`](led.md) |
 | SD + assets | `esp_vfs_fat` + `sdmmc`; `LittleFS` for internal flash |
 
-**Fastest bring-up:** **ESPHome** gets sensors / SNTP / NeoPixels / PWM LED / I²S audio running in an afternoon; the steppers + knob-mode UX need a custom component or a drop to ESP-IDF.
+**Fastest bring-up (considered, not taken):** **ESPHome** would get sensors / SNTP / NeoPixels / PWM LED / I²S audio running in an afternoon, but the steppers, the knob HSM and the amp-protection DSP all need custom code anyway — so the project went straight to ESP-IDF. Bring-up is instead served by the **CLI + host simulator** (`FIRMWARE.md` §9, §11.2).
 **Caveat:** the **LT3652** charger is autonomous (no driver needed) — read charge state via **CHRG/FAULT GPIO + cell-voltage ADC** (no I²C charger/gauge); the health-cap 4.05 V is fixed in hardware by the float divider. See [`power.md`](power.md).
 
-**RTOS/lang:** C/C++ + FreeRTOS (ESP-IDF). MicroPython for quick experiments only.
+**RTOS/lang:** **C++23 + FreeRTOS (ESP-IDF v5.5.5)**, with a hand-rolled ~500-LOC active-object layer — 9 AOs, one queue each, no shared mutable state (`FIRMWARE.md` D1/D2/D3).
 
 ---
 
@@ -210,15 +214,16 @@ The cube helps audio — a ~120 mm cube has ample internal volume for the sealed
 | CO₂ *(opt)* | **Sensirion SCD41** | true NDIR CO₂ | $18–30 |
 | PM2.5 *(opt)* | **Sensirion SPS30** | has fan; power/size | $30–45 |
 | Ambient light ⭐ | **ams-OSRAM TSL2591** (`TSL25911FN`) | **188 µlx–88 klx**, 600M:1 range → resolves near-dark; VEML7700 = lux-direct simpler alt | $3 bare / ~$7 board |
-| **Motion / tap** ⭐ | **ST LIS3DH** | tap engine for tap-to-snooze (R3); low-res is fine (tap IRQ). *(Orientation use retired with R14 — cube is fixed upright.)* No leaded accel exists → rides a module on both build paths | $2 bare / ~$5 board |
+| **Motion / tap** ⭐ | **CEVA BNO085** *(replaced the LIS3DH 2026-07-29)* | 9-axis with the **SH-2 sensor-hub firmware on-chip** — we use exactly one feature, `SH2_TAP_DETECTOR`, for tap-to-snooze (R3). Not a register map: SHTP packets over I²C, clock-stretches, boots asynchronously, and **cannot be reset by firmware** (`FIRMWARE.md` R-BOARD-3). mA-class, not µA — it sits on the always-on +3V3 rail. *(Orientation use retired with R14 — cube is fixed upright.)* | $13.57 bare / ~$25 board |
 | Hand homing ⭐ | **onsemi QRE1113GR** (reflective optical, SMD) | 1 sensor, sequential homing, **no hand magnets** (§5); analog out → 1 ADC; ≈3.6×2.9×1.7 mm (replaces the unavailable ITR8307) | ~$0.36 |
 | Timekeeping | **ESP32-S3 RTC + 32.768 kHz crystal** (no RTC IC) | **No coin cell.** Crystal (~±20 ppm ≈ 1.7 s/day) holds between **SNTP** syncs; total power loss (USB **and** 18650 gone) → re-sync on boot, clock animation meanwhile. A battery-less RTC IC would add parts without fixing the loss case → dropped | ~$0.3 |
 
 **Every env/MEMS sensor is leadless (LGA/DFN) — no hand-solderable silicon exists**, so none sit bare on the board. Two build paths:
-- **2a — chosen: STEMMA QT / Qwiic daisy-chain.** Three ready Adafruit boards on one 4-wire I²C chain — **BME688 (Adafruit 5046, ~$19) · TSL2591 (1980, $6.95) · LIS3DH (2809, $4.95)** ≈ **$31** — zero leadless soldering, fastest bring-up.
-- **2b — future: one custom sensor daughterboard.** The **same** three bare chips (BME688 + TSL2591 + LIS3DH) on a small PCB, JLCPCB SMT-assembled; hand-solder only its 0.1″ header / castellated edge → smallest footprint, still no iron on a leadless pad. Same part numbers → same I²C addresses → **the 2a firmware runs unchanged**. Bare-chip datasheets in [`/datasheet`](datasheet/) (see its §15).
+- **2b — BUILT (2026-07-29 → `SENSE v0.2`, 2026-08-07): one custom sensor daughterboard.** The three bare chips (**BME688 + TSL2591 + BNO085**) on a 30 × 16 mm 4-layer PCB, SMT-assembled — [`kicad-sensor/`](kicad-sensor/). Front face carries the two sensors that must see the room (TSL2591 window, BME688 vent); the IMU and the connector are on the back. Plugs into main-board **J7** on a 6-way JST ZH harness: `GND · +3V3 · SDA · SCL · SENSOR_INT · ALS_INT`.
+  ⚠ **The harness is not keyed and mirrors J7 1:1, so a backwards cable plugs in perfectly** and destroys U1; main-board **J10** (knob, +5 V on pin 2) is the same 1×06 header 13.5 mm away. See [`kicad-sensor/README.md`](kicad-sensor/README.md).
+- **2a — bring-up alternative: STEMMA QT / Qwiic daisy-chain.** Three ready Adafruit boards on one 4-wire I²C chain — **BME688 (5046, ~$19) · TSL2591 (1980, $6.95) · BNO085 (4754, ~$25)** ≈ **$51**. Same part numbers → **same I²C addresses (0x77 · 0x29 · 0x4A) → the same firmware runs on either**, which is the point. Bare-chip datasheets in [`/datasheet`](datasheet/) (see its §15).
 
-The 3-axis accel covers **tap-to-snooze** (hardware tap IRQ; orientation sensing retired with R14). All I²C on a shared bus (§14). **Vent the BME688 to outside air, away from amp/LEDs/battery** — their heat skews T/RH/VOC.
+The IMU covers **tap-to-snooze** only (orientation sensing retired with R14). All I²C on a shared bus (§14) — no address clashes: BNO085 0x4A · TSL2591 0x29 · BME688 0x77 · MCP23017 0x20 · TAS5760M 0x6C. The TSL2591's `ALS_INT` reaches the MCU through **expander GPB3**, not `SENSOR_INT`. **Vent the BME688 to outside air, away from amp/LEDs/battery** — their heat skews T/RH/VOC.
 
 ---
 
@@ -227,7 +232,7 @@ The 3-axis accel covers **tap-to-snooze** (hardware tap IRQ; orientation sensing
 Two subsystems on **two rails** (v0.19): the analog **wake light** (2 PWM channels, AO3400A low-side) and a **digital SK6812 RGBW NeoPixel chain** (1 data GPIO). Full spec in [`led.md`](led.md).
 
 - **Wake light (2 LEDC ch):** **12 V** tunable-white COB (**3000K + 4000K**, Inspired LED) in a 100–120 mm sunrise diffuser behind the back/bottom aperture; warm→neutral ramp over ~30 min before audio; also serves as the night-light. **Plugged-only** (12 V boost is plugged-only; firmware gates the wake PWM off on battery). Warm = IO45, cool = IO46, each via an AO3400A.
-- **NeoPixel chain (1 data pin, IO7 → RMT):** **7× SK6812 RGBW** (Adafruit 2758) **on the main PCB, 5 V rail (works on battery)**, one daisy-chained data line through an **SN74AHCT1G125** 3.3→5 V buffer: pixels **1–5 = status LEDs** behind the face holes (`bell` `alarm-clock` `clock` `volume-1` `battery` — red/white semantics per §12), pixels **6–7 = dial illumination** (warm-white W channel lights the walnut dial through the glass; ALS-gated, hard-off by default → 0 emission at night). One wire is ample for 7 pixels (a full 7×32-bit refresh @ 800 kHz ≈ 0.3 ms) — brightness + soft ramps are trivial in firmware; no CC driver, no per-LED resistors, just 100 nF per pixel + a bulk cap and a ~330 Ω series R into the first DIN.
+- **NeoPixel chain (1 data pin, IO7 → SPI3 + DMA):** **7× SK6812 RGBW** (Adafruit 2758) on the **5 V rail (works on battery)**, one daisy-chained data line through an **SN74AHCT1G125** 3.3→5 V buffer. **Chain order (2026-07-21, when the status row moved off-board): pixels 1–2 = dial illumination** (D40/D41, *on* the main PCB, flanking the movement — warm-white W channel lights the walnut dial through the glass; ALS-gated, hard-off by default → 0 emission at night), **pixels 3–7 = the status LEDs** behind the face holes (`bell` `alarm-clock` `clock` `volume-1` `battery` — red/white semantics per §12), **off-board via J12** so they can be hand-placed to match the face-plate hole pitch. One wire is ample for 7 pixels (a full 7×32-bit refresh @ 800 kHz ≈ 0.3 ms) — brightness + soft ramps are trivial in firmware; no CC driver, no per-LED resistors, just 100 nF per pixel + a bulk cap and a ~330 Ω series R into the first DIN.
 - *(Dropped in v0.19: the 5 V discrete panel-LED string + its AO3400A/LEDC channel — the display it front-lit is gone; dial lighting moved to NeoPixels 6–7.)*
 
 ---
@@ -311,7 +316,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 | Speaker (2″ full-range) | Dayton DMA58-4 | ~$19 | *(Parts Express 295-582 — not DigiKey)* |
 | Env breakout (T/RH/press/VOC) ⭐ | Adafruit 5046 (BME688) | ~$19 | [DigiKey 14313482](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482) |
 | Light breakout (weak-light) ⭐ | Adafruit 1980 (TSL2591) | $6.95 | [DigiKey 4990786](https://www.digikey.com/en/products/detail/adafruit-industries-llc/1980/4990786) |
-| Accel breakout (tap+orient) ⭐ | Adafruit 2809 (LIS3DH) | $4.95 | [DigiKey 5774319](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
+| IMU breakout (tap) ⭐ | Adafruit 4754 (**BNO085**) | ~$25 | [DigiKey ⚠ verify](https://www.digikey.com/en/products/result?keywords=adafruit%204754) |
 | Wake COB (12 V, 2 ch) | Inspired LED 12V-COB-3000K-12M + 12V-COB-4000K-12M | ~$15 (cut segs) | [16714316](https://www.digikey.com/en/products/detail/inspired-led-llc/12V-COB-3000K-12M/16714316) · [16714317](https://www.digikey.com/en/products/detail/inspired-led-llc/12V-COB-4000K-12M/16714317) |
 
 ### 16b. Production BOM (ICs, custom PCB)
@@ -333,7 +338,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 | ⭐ | Audio amp | TAS5760MDAPR | **HTSSOP-32** | ~$6.6 | [DigiKey ✅](https://www.digikey.com/en/products/result?keywords=TAS5760MDAPR) |
 | ⭐ | Env: T/RH/press/VOC *(I²C module)* | Bosch BME688 (one chip = climate + air-quality); 2a board = Adafruit 5046 | LGA-8 → module | ~$5 / $19 | [PENDING](https://www.digikey.com/en/products/detail/adafruit-industries-llc/5046/14313482) |
 | ⭐ | Light *(I²C module)* | ams-OSRAM TSL2591 / TSL25911FN (188 µlx–88 klx); 2a board = Adafruit 1980 | WFDFN-6 → module | ~$5 / $7 | [PENDING](https://www.digikey.com/en/products/detail/ams-osram-usa-inc/TSL25911FN/4162547) |
-| ⭐ | Accel (tap+orient) *(I²C module)* | ST LIS3DH; 2a board = Adafruit 2809 | LGA-16 → module | ~$2 / $5 | [PENDING](https://www.digikey.com/en/products/detail/adafruit-industries-llc/2809/5774319) |
+| ⭐ | IMU / tap *(sensor board)* | **CEVA BNO085**; 2a alt = Adafruit 4754 | **LGA-28 5.2×3.8 → sensor board (PCBA)** | **$13.57** | [DigiKey ✅ 1888-1006-1-ND](https://www.digikey.com/en/products/detail/ceva-technologies-inc/BNO085/9445940) |
 | ⭐ | Timekeeping xtal (no RTC IC/battery) | **Abracon ABS07-32.768KHZ-T** (32.768 kHz, **CL 12.5 pF**, ±20 ppm) → S3 XTAL32K (GPIO15/16); match load caps to CL | 3.2×1.5 mm 2-SMD | ~$0.6 | [DigiKey ✅](https://www.digikey.com/en/products/detail/abracon-llc/ABS07-32-768KHZ-T/1236858) |
 | ⭐ | PD sink | CH224K | **ESSOP-10** | ~$0.5 | [LCSC ✅](https://www.lcsc.com/product-detail/C970725.html) |
 | ⭐ | Charger (1-cell buck, BAT-node path) | LT3652EMSE#PBF | **MSOP-12E** | ~$9.9 | [DigiKey ✅](https://www.digikey.com/en/products/detail/analog-devices-inc/LT3652EMSE-PBF/2225686) |
@@ -379,7 +384,7 @@ Shared **I²C** (Qwiic/STEMMA-QT) for drop-in sensors; the NeoPixel chain extend
 
 *(XAL4020/4030/4040 share one 4×4 mm land, so the KiCad `L_Coilcraft_XAL4030-XXX` / `XAL4020-XXX` footprints already fit L1/L2/L3/L5/L6 — only L4 moves to the 5×5 mm `L_Coilcraft_XAL5050-XXX` land. TVS D1/D12 → [`tvs_smaj.pdf`](datasheet/tvs_smaj.pdf); VBAT-sense clamp D13 BAT42W → [`diode_clamp_bat42w.pdf`](datasheet/diode_clamp_bat42w.pdf); USB ESD U16 → [`esd_usb_usblc6.pdf`](datasheet/esd_usb_usblc6.pdf).)*
 
-**Core electronics subtotal (excl. speaker/cell/PCB): ~$140–165** — the v0.19 redesign removes ~$47 of display lines (LS032B7DD02 ~$38 + FPC + panel extension + Cree string) and adds ~$55 of UI parts (EM14 optical encoder **$34** + Kilo knob **$13.43** + NeoPixel 10-pack $5.95 + buffer + SH connectors) → roughly a wash vs v0.18; power electronics ≈ +$20–22 (LT3652 is the priciest line); the 2a sensor chain is 3 Adafruit **breakout modules** — BME688 + TSL2591 + LIS3DH ≈ **$31**. With speaker + user-supplied 18650 + holder + 4-layer PCB + passives ≈ **~$210–250**. +CO₂/PM ≈ +$62. *(Cell is user-supplied; safety HW is non-negotiable — see [`power.md`](power.md).)*
+**Core electronics subtotal (excl. speaker/cell/PCB): ~$140–165** — the v0.19 redesign removes ~$47 of display lines (LS032B7DD02 ~$38 + FPC + panel extension + Cree string) and adds ~$55 of UI parts (EM14 optical encoder **$34** + Kilo knob **$13.43** + NeoPixel 10-pack $5.95 + buffer + SH connectors) → roughly a wash vs v0.18; power electronics ≈ +$20–22 (LT3652 is the priciest line); the sensor set is the **2b daughterboard that was actually built** (`kicad-sensor/`) — BME688 + TSL2591 + **BNO085** ≈ **$22** of silicon + a small PCBA; the 2a breakout chain would be ≈ **$51**. *(The BNO085 is ~$8.6 dearer than the LIS3DH it replaced, so the range above moves up by about that.)* With speaker + user-supplied 18650 + holder + 4-layer PCB + passives ≈ **~$210–250**. +CO₂/PM ≈ +$62. *(Cell is user-supplied; safety HW is non-negotiable — see [`power.md`](power.md).)*
 
 **Cost/space levers:** budget movement (VID28-05, −$10, off-DigiKey) + optical homing; a mechanical encoder (PEC11R-4015F, −$31) if the optical EM14 feels extravagant; skip CO₂/PM; the EM14 + movement are now the big electronics line items — the enclosure (walnut + machined aluminum plate + knob + glass) dominates overall cost instead. *(Amp DSP is free — it runs in firmware.)*
 
@@ -460,14 +465,14 @@ not plugged output.)*
 
 - **MCU:** ESP32-S3 ⭐ single-chip / STM32U5 + ST67W611M1 (ULP) / nRF5340 + nRF7002 (Nordic ULP) / RW612 (single-chip) / ESP32-P4 + C6 (future MIPI).
 - **Info display:** **none (v0.19)** ⭐ — hands + 5 status NeoPixels. *Superseded: Sharp LS032B7DD02 reflective MIP (v0.6–v0.18, datasheets retained) / mono OLED / IPS TFT / EPD / wide color bar-TFT (NHD-3.9).*
-- **Status/dial LEDs:** **SK6812 RGBW 5050 ×7** ⭐ (one RMT data line, 5 V) / discrete LEDs + PWM (more pins, no color semantics — the v0.18 panel-string approach, dropped).
+- **Status/dial LEDs:** **SK6812 RGBW 5050 ×7** ⭐ (one SPI3 data line, 5 V) / discrete LEDs + PWM (more pins, no color semantics — the v0.18 panel-string approach, dropped).
 - **Knob encoder:** Bourns **EM14A0D-C24-L064S** ⭐ (optical, no detent, 64 CPR, push, 5 V — chosen for the smoothest contactless feel) / Bourns PEC11R-4015F (mechanical no-detent, 24 PPR, $2.68 budget alt) / Alps EC11 (detented) / magnetic (AS5600, overkill). Knob: Kilo **OEJNI-90-1-5** ⭐ (Ø23.5 mm alu, 1/4″ bore).
 - **Analog movement:** Juken **X40.879** (DigiKey, now Ø~90 mm dial) ⭐ / Juken X10.506 (small, built-in homing) / VID28-05·BKA30D-R5 (budget, off-DigiKey) / X27.168 ×2 (single-shaft).
 - **Motor driver:** **2× TB6612FNG** ⭐ (SSOP-24, hand-solderable). *(DRV8835/DRV8833 = WSON/HTSSOP, replaced.)*
 - **Amp:** **TAS5760M** ⭐ (I²S+I²C, HTSSOP, PBTL mono; firmware DSP) / PCM5102A + TPA3116 (analog).
 - **Power:** **CH224K** (PD sink) + **LT3652** (1-cell buck charger, BAT-node path) + **ESP32 ADC** gauge + **HY2111-HB + AOSD32334C** protector + reverse P-FET; 1S Li-ion 18650 holder. *(All leaded/hand-solderable; CH224K + HY2111 off-DigiKey.)*
 - **Timekeeping (no RTC IC / no battery):** ESP32-S3 internal RTC off a **32.768 kHz crystal** (~±20 ppm, GPIO15/16) + periodic **SNTP** — drift ≈ 1–2 s/day between syncs, corrected each sync. On total power loss (USB **and** 18650 gone) time is lost → re-sync on next boot, clock animation meanwhile. *A battery-less RTC IC adds parts without fixing the loss case, so it's dropped; the crystal is the real accuracy fix.*
-- **Sensors:** env **BME688** ⭐ (T/RH/press/VOC in one chip) / light **TSL2591** ⭐ (weak-light) or VEML7700 (lux-direct) / accel+orient **LIS3DH** ⭐. All leadless → **I²C modules, same 3-part set on both paths** (firmware identical): **2a** = Adafruit STEMMA QT chain (5046 + 1980 + 2809, ≈$31); **2b** = future custom daughterboard (same bare chips). *(Dropped TMP117/SHT45/SGP41/BMA400.)*
+- **Sensors:** env **BME688** ⭐ (T/RH/press/VOC in one chip) / light **TSL2591** ⭐ (weak-light) or VEML7700 (lux-direct) / tap **CEVA BNO085** ⭐ *(replaced the LIS3DH 2026-07-29)*. All leadless → **same 3-part set, same I²C addresses, on either path** (firmware identical): **2b = the custom daughterboard, built** (`kicad-sensor/`, `SENSE v0.2`); **2a** = Adafruit STEMMA QT chain (5046 + 1980 + 4754, ≈$51) for bring-up. *(Dropped TMP117/SHT45/SGP41/BMA400/LIS3DH.)*
 - **Hand homing:** **1× reflective optical** (onsemi **QRE1113** ⭐, **≈3.6×2.9×1.7 mm**, analog out → 1 ADC) behind a punched dial hole — single-sensor sequential, **no magnets**; replaces the unavailable **ITR8307** (same interface + support network); Vishay **TCND5000** (6×4.3×3.75 mm) evaluated for a long stand-off and dropped; ToF (VL53L1x) rejected (coarse angle). *(Replaces 2× DRV5032 Hall.)*
 - **Display connector:** *(dropped with the display, v0.19; FH34SRJ datasheet retained.)*
 - **USB-C receptacle:** **GCT USB4160-03-0230-C** ⭐ (vertical 24-pin USB 3.2, USB 2.0 subset wired, $1.22, in stock) / GCT USB4145-03-0170-C (16-pin same-land alt) / Same Sky UJ20-C-V-C-2 (TH pins, backorder) / USB4140 & UJ20-C-V-C-1 (rejected: power-only resp. 0.8 mm-PCB legs) / USB4105-GF-A + Adafruit 6069 extension (the superseded horizontal + panel-remote combo).
@@ -479,6 +484,7 @@ not plugged output.)*
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-06-30 | ~~EPD primary~~ (superseded) | Fails ticking seconds (ghost/wear) |
+| 2026-08-09 | **Docs synced to the built hardware + firmware kickoff.** (1) **SK6812 chain driver RMT → SPI3 + DMA** (pin unchanged); (2) **accel LIS3DH → BNO085** propagated through §6c/§8/§16/§17 (it had only reached `datasheet/`); (3) **NeoPixel chain order corrected** — 1–2 dial (on-PCB), 3–7 status (off-board J12), not the reverse; (4) `ALS_INT` documented on **expander GPB3**, `SENSOR_INT` is BNO085-only; (5) **2b sensor daughterboard marked BUILT**; (6) §6c relabelled selection-era, superseded by `FIRMWARE.md` | Firmware work started 2026-08-09 against a pinned **ESP-IDF v5.5.5**, and reconciling `FIRMWARE.md` against `README.md`/`esp32.md`/`CLAUDE.md`/`led.md` surfaced nine drifts (`FIRMWARE.md` §15). SPI3 wins over RMT because a 7-pixel frame is one 84-byte DMA burst — no refill interrupts, structurally immune to the Wi-Fi interrupt jitter that is the classic NeoPixel glitch; **no hardware change, IO7 either way**, but it consumes the last GP SPI host (`esp32.md` budget now SPI 2/2, RMT 0/4). The chain-order and `ALS_INT` errors were the dangerous ones: both would have read as firmware bugs at the bench |
 | 2026-07-02 | ~~Fast bar TFT (NHD-3.9) primary~~ (superseded 07-03) | Replaced by the split-face reflective panel |
 | 2026-07-02 | **ESP32-S3 as the MCU** (STM32U5+ST67W as ULP alt) | Single chip drives display + motors + Wi-Fi + BLE; fastest bring-up; huge lib support |
 | 2026-07-02 | Body depth ≥60–80 mm w/ sealed ~250 cc chamber | Audio quality needs volume, not display area |

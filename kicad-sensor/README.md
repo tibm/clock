@@ -34,8 +34,9 @@ board's** +3V3 rail to GND — on a daughterboard with no LED and no silk hint,
 which is hours of debugging. Through 10 k the same slip costs 330 µA, the
 clock still boots, and the part answers at a wrong-but-visible address.
 
-No clash with the main board's own I²C devices (MCP23017 0x20, TAS5760M
-0x62/0x63).
+No clash with the main board's own I²C devices (MCP23017 **0x20**, TAS5760M
+**0x6C** — `SLEEP/ADR` strapped to GND, `kicad/gen/b_audio.py`; 0x6D is the
+ADR-high alternate).
 
 ## J1 pinout — mirrors main-board J7 **1:1**
 

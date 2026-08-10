@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "host-dev",
+      "displayName": "host debug + asserts",
+      "binaryDir": "${sourceDir}/build/host-dev",
+      "generator": "Ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CLK_PROFILE": "dev" }
+    },
+    {
+      "name": "host-asan",
+      "inherits": "host-dev",
+      "binaryDir": "${sourceDir}/build/host-asan",
+      "cacheVariables": { "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer" }
+    },
+    {
+      "name": "host-release",
+      "inherits": "host-dev",
+      "binaryDir": "${sourceDir}/build/host-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "CLK_PROFILE": "release" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "host-dev", "configurePreset": "host-dev" },
+    { "name": "host-asan", "configurePreset": "host-asan" },
+    { "name": "host-release", "configurePreset": "host-release" }
+  ],
+  "testPresets": [
+    { "name": "host-dev", "configurePreset": "host-dev", "output": { "outputOnFailure": true } },
+    { "name": "host-asan", "configurePreset": "host-asan", "output": { "outputOnFailure": true } }
+  ]
+}

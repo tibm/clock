@@ -1,0 +1,8 @@
+# BOARD=devkit -- ESP32-S3-DevKitC-1U-N8R8  [FIRMWARE.md §12.0]
+# The devkit has NO 32.768 kHz crystal.  Asking for one would silently fall back to the RC,
+# which is exactly the bug §7.1 exists to catch -- so ask for the RC honestly and let
+# `chrono` report a degraded time source.
+CONFIG_RTC_CLK_SRC_INT_RC=y
+CONFIG_ESP_TIME_FUNCS_USE_RTC_TIMER=y
+CONFIG_ESP_TIME_FUNCS_USE_ESP_TIMER=y
+CONFIG_CLOCK_BOARD_DEVKIT=y

@@ -1,0 +1,15 @@
+# 8 MB (N8R8).  FIRMWARE.md §1.2.
+# coredump sits ahead of the app slots so ota_0 starts 64 K-aligned at 0x40000; the 12 K
+# gap before it is that alignment, not waste to reclaim.
+# An app slot can NEVER be grown by OTA -- if a build approaches 2.5 M, take the space
+# from `assets`, never from ota_*.
+#
+# Name,     Type, SubType,  Offset,   Size,     Flags
+nvs,        data, nvs,      0x9000,   0x10000,
+nvs_keys,   data, nvs_keys, 0x19000,  0x1000,   encrypted
+otadata,    data, ota,      0x1A000,  0x2000,
+phy_init,   data, phy,      0x1C000,  0x1000,
+coredump,   data, coredump, 0x1D000,  0x20000,
+ota_0,      app,  ota_0,    0x40000,  0x280000,
+ota_1,      app,  ota_1,    0x2C0000, 0x280000,
+assets,     data, littlefs, 0x540000, 0x2C0000,

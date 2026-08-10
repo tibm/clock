@@ -1,0 +1,13 @@
+## Managed dependencies.  Exact versions only, never ranges -- and dependencies.lock is
+## committed alongside this file.  [FIRMWARE.md D11, §1.1]
+##
+## The two below are pinned in ../../toolchain.lock and get uncommented when the driver
+## that needs them lands (led_strip -> ui AO, littlefs -> storage AO).  Adding them before
+## then would just build code nothing calls.
+dependencies:
+  idf:
+    version: "==5.5.5"
+#  espressif/led_strip:
+#    version: "==3.0.3"
+#  joltwallet/littlefs:
+#    version: "==1.22.3"
