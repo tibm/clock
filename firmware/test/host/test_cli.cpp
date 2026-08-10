@@ -1,6 +1,7 @@
 // CLI registry -- parsing, aliases, the unsafe gate, generated help.
 // [FIRMWARE.md §11.1, §9.2, §9.6]
 #include "check.hpp"
+#include "testutil.hpp"
 
 #include <cstring>
 #include <string>
@@ -13,31 +14,6 @@ using namespace clk;
 using cli::Status;
 
 namespace {
-
-// A Sink that records instead of printing -- the seam that makes the CLI host-testable.
-class RecordingSink final : public cmd::Sink {
-public:
-    std::vector<std::string> lines;
-    Status                   status = Status::Ok;
-    bool                     finished = false;
-
-    void line(const char* t) override { lines.emplace_back(t); }
-    void kv(const char* k, const char* v) override { lines.emplace_back(std::string(k) + "=" + v); }
-    void done(Status s) override { status = s; finished = true; }
-
-    [[nodiscard]] bool contains(const char* needle) const {
-        for (auto const& l : lines) {
-            if (l.find(needle) != std::string::npos) return true;
-        }
-        return false;
-    }
-};
-
-Status run(const char* cmdline, RecordingSink& sink) {
-    char buf[256];
-    std::snprintf(buf, sizeof buf, "%s", cmdline);
-    return cli::dispatch_line(buf, sink);
-}
 
 uint32_t g_fake_ms = 0;
 uint32_t fake_millis() { return g_fake_ms; }

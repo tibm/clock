@@ -10,11 +10,21 @@ namespace clk::cli {
 // Each group's rows live in their own .cpp and are collected here.  Adding a group is one
 // extern + one row in kAllTables; there is no registration call anywhere else (rule 10).
 extern const CmdTable kTableSys;
-extern const CmdTable kTableTop;   // help / unsafe
+extern const CmdTable kTableTop;      // help / unsafe
+extern const CmdTable kTableSensor;
+extern const CmdTable kTableUi;
+#if CLK_HAVE_SIM
+extern const CmdTable kTableSim;      // host only -- drives the fake HAL
+#endif
 
 namespace {
 
-const CmdTable* const kAllTables[] = { &kTableSys, &kTableTop };
+const CmdTable* const kAllTables[] = {
+    &kTableSys, &kTableTop, &kTableSensor, &kTableUi,
+#if CLK_HAVE_SIM
+    &kTableSim,
+#endif
+};
 
 // ---- aliases -------------------------------------------------------------------------
 // `hand goto 7:15` -> `motion goto 7:15`.  Typing cost stays low without giving up the
@@ -76,8 +86,8 @@ void suggest(Sink& out, const char* const* argv, int argc) noexcept {
         for (std::size_t ri = 0; ri < t[ti]->count; ++ri) {
             const CmdSpec& r = t[ti]->rows[ri];
             char full[64];
-            std::snprintf(full, sizeof full, "%s %s%s%s", r.group,
-                          r.object ? r.object : "", r.object ? " " : "", r.verb);
+            const char* obj = r.object ? (eq(r.object, kAnyObject) ? "<name>" : r.object) : "";
+            std::snprintf(full, sizeof full, "%s %s%s%s", r.group, obj, r.object ? " " : "", r.verb);
             const int d = edit_distance(want, full);
             for (int k = 0; k < 3; ++k) {
                 if (d < bestd[k]) {
@@ -131,11 +141,24 @@ const CmdSpec* find(int argc, const char* const* argv, int& first) noexcept {
                 const CmdSpec& r = kAllTables[ti]->rows[ri];
                 if (!eq(r.group, argv[0])) continue;
                 if (want == 3) {
-                    if (r.object && eq(r.object, argv[1]) && eq(r.verb, argv[2])) {
+                    if (r.object && eq(r.verb, argv[2]) &&
+                        (eq(r.object, argv[1]) || eq(r.object, kAnyObject))) {
                         first = 3; return &r;
                     }
                 } else {
                     if (!r.object && eq(r.verb, argv[1])) { first = 2; return &r; }
+                }
+            }
+        }
+    }
+    // An object whose verb is empty: `ui led <id> <color>`.  Deliberately after the
+    // three-token pass so `ui led test` matches its own row first.
+    if (argc >= 2) {
+        for (std::size_t ti = 0; ti < nt; ++ti) {
+            for (std::size_t ri = 0; ri < kAllTables[ti]->count; ++ri) {
+                const CmdSpec& r = kAllTables[ti]->rows[ri];
+                if (eq(r.group, argv[0]) && r.object && eq(r.object, argv[1]) && eq(r.verb, "")) {
+                    first = 2; return &r;
                 }
             }
         }
@@ -181,8 +204,8 @@ void help(Sink& out, const char* group, const char* verb) noexcept {
             if (verb && !eq(r.verb, verb) && !(r.object && eq(r.object, verb))) continue;
             any = true;
             char line[128];
-            std::snprintf(line, sizeof line, "%s %s%s%s %s", r.group,
-                          r.object ? r.object : "", r.object ? " " : "",
+            const char* obj = r.object ? (eq(r.object, kAnyObject) ? "<name>" : r.object) : "";
+            std::snprintf(line, sizeof line, "%s %s%s%s %s", r.group, obj, r.object ? " " : "",
                           r.verb, r.args ? r.args : "");
             // pad to a column so the help text lines up
             const int pad = 34 - static_cast<int>(std::strlen(line));
@@ -225,7 +248,8 @@ Status dispatch(int argc, const char* const* argv, Sink& out) noexcept {
     }
     if (spec->flags & Unsafe) unsafe_set(true);   // sliding window
 
-    Args args{ argc, argv, first };
+    Args args{ argc, argv, first, nullptr };
+    if (spec->object && first >= 2) args.obj = argv[1];
     const Status st = spec->run(args, out);
     out.done(st);
     return st;

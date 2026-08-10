@@ -12,6 +12,8 @@ add_compile_definitions(CLK_BOARD="host" CLK_SDK="host")
 
 add_subdirectory(components/core)
 add_subdirectory(components/command)
+add_subdirectory(components/board_cfg)
+add_subdirectory(components/clk_hal)
 add_subdirectory(components/cli)
 add_subdirectory(apps/clocksim)
 

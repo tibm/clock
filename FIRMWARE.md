@@ -293,7 +293,7 @@ firmware/
 │  │                              #    sunrise curve, DSP biquad+limiter, gamma
 │  ├─ board_cfg/                  # ← zero IDF: pin map + device-presence bitmask per BOARD (D15)
 │  │   board_rev0_3.hpp  board_devkit.hpp  board_host.hpp  present.hpp
-│  ├─ hal/
+│  ├─ clk_hal/                    # NOT `hal/` -- that name is taken by ESP-IDF itself
 │  │   api/                       # the only headers a driver may include
 │  │   esp/                       # RAII over IDF: Mcpwm Gptimer I2cBus I2sTx SpiBus
 │  │   │                          #   Adc Pcnt LedStrip Ledc Gpio Nvs UsbConsole
@@ -313,8 +313,8 @@ firmware/
 **Dependency rule (enforced by CMake `REQUIRES`, so violations fail the build):**
 
 ```
-apps/clock     → services, transport, cli, hal/esp     (+ IDF)
-apps/clocksim  → services, transport, cli, hal/host    (no IDF at all)
+apps/clock     → services, transport, cli, clk_hal/esp  (+ IDF)
+apps/clocksim  → services, transport, cli, clk_hal/host (no IDF at all)
 services       → { command, domain, drivers, core, board_cfg }
 drivers        → { hal/api, core, board_cfg }    services never touch hal for an owned peripheral
 cli, transport → command                          never services, never hal
@@ -1675,12 +1675,50 @@ still a directory with a README.
 | Target build | `tools/build.sh dev devkit` and `release rev0_3` both link. **App = 296 KB of the 2.5 MB slot (89 % free)** — D10's premise, measured rather than assumed |
 | Partition table | Flashed layout matches §1.2 byte for byte (`nvs` 64 K … `assets` 2816 K) |
 | Host build | `cmake --preset host-dev` → `clocksim` + `test_host`, ~2 s from cold |
-| Implemented | `core/log` (§9.4, per-module levels + globs + ceiling), `command` (Status + Sink), `cli` (CmdSpec table, generated `help`, alias expansion, `unsafe` window, did-you-mean), `sys` group, both console front-ends, `app_main` |
-| Tested | **113 host checks** over level parsing, module round-trip, globs, the gate, help generation, dispatch, the unsafe expiry window |
-| Not yet | the nine AOs, `hal`, `drivers`, `domain`, `board_cfg`, the `sensor`/`sim` groups, BLE |
+| Implemented | `core/log` (§9.4, per-module levels + globs + ceiling), `core/status` (`Status`/`Result`), `command` (Sink), `board_cfg` (pin map + runtime presence, D15), `clk_hal` (api + **host fakes** + honest esp stubs), `cli` (CmdSpec table, generated `help`, wildcard objects, alias expansion, `unsafe` window, did-you-mean, bounded streaming), groups `sys` · `sensor` · `ui` · `sim`, both console front-ends |
+| Tested | **210 host checks**; clean under **ASan/UBSan** and under **ThreadSanitizer** (the stream ring is hand-rolled SPSC, so it gets checked rather than trusted) |
+| Not yet | the nine AOs, `drivers`, `domain`, `transport`, BLE — and the ESP-side HAL, which is stubbed (see §12.0.2) |
 
-One thing already earned its keep: `main` was missing `nvs_flash` from its `REQUIRES` and the
-build refused to link. That is the §2 dependency rule working as specified, on day one.
+Two things the scaffolding caught on its own, which is the argument for building it first:
+`main` was missing `nvs_flash` from its `REQUIRES` and the build refused to link (the §2
+dependency rule, working); and a component directory named `hal/` **silently shadowed
+ESP-IDF's own `hal` component**, so every `hal/gpio_types.h` in the SDK resolved to ours.
+IDF component names are one flat namespace — the directory is `clk_hal/` for that reason.
+
+### 12.0.2 The fake HAL and `sim` (D14) — what is real
+
+`clocksim` now drives scriptable fake hardware. The rule it follows is §13.9: **model what the
+firmware logic branches on, never the device's own physics.** So the opto has a dark/bright
+span, deterministic noise and a presence flag — because homing branches on a threshold — but
+there is no phototransistor model, because nothing in the firmware could tell the difference
+and a wrong model is worse than none.
+
+| Faked | Scriptable via | Honest about |
+|---|---|---|
+| ADC (opto, VBAT) | `sim opto 0..1` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` | Calibration constants (200/3000 mV) are **placeholders** until milestone 3 |
+| Knob | `sim turn ±n` · `sim press [ms\|hold\|release]` | 4 counts/detent is real; contact/optical timing is not modelled |
+| Pixels | read back as `[..R....]`, exact RGBW per pixel | SK6812 wire timing and the level shifter are not modelled — that is milestone 4b |
+| Wake light | `sim plug` / `sim unplug` | **Enforces the §6.8 plugged-only interlock** — a service that forgets it fails in `clocksim`, not on a bench |
+| Power | `sim vbat` → SoC, CHRG, PD_PG | SoC is a straight line 3.30→4.05 V; a real OCV curve comes with `board` |
+| I²C | `sim present <dev> on\|off` → what answers a scan | Address map only; no register models until there are drivers to branch on them |
+| Time | `sim warp <x>` · `sim jump <s>` | Re-bases rather than jumping backwards; `sleep_ms` stays real so stream cadence is honest |
+
+**`Status::NotPresent` vs "no driver yet" are deliberately different** (D16). `sensor list`
+prints `absent` for a device this board does not have and `no-drv` for one that is fitted but
+that nothing reads yet — conflating them would send you to the wrong place at the bench.
+
+```
+> sensor list
+board host        name     state     last
+  homing   ok        mv=1376 norm=0.420             QRE1113 opto: mV + normalised
+  knob     ok        count=20 delta=0 sw=0          PCNT count, delta, ENC_SW
+  vbat     ok        mv=4021 soc=96 plugged=1 chrg=1 cell mV, SoC, charger state
+  als      no-drv    -                              TSL2591 lux
+  absent = not fitted on this board · no-drv = fitted, but no driver reads it yet
+```
+
+**Still missing from the §11.2 sketch:** `motion home`, `chrono alarm`, the ALARM-fires line.
+Those need the active objects, not the HAL — the fakes they will run against exist now.
 
 ### 12.1 Milestones
 

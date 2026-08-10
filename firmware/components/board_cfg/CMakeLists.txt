@@ -1,0 +1,7 @@
+if(ESP_PLATFORM)
+    idf_component_register(SRCS src/board.cpp INCLUDE_DIRS include REQUIRES core)
+else()
+    add_library(clk_board_cfg STATIC src/board.cpp)
+    target_include_directories(clk_board_cfg PUBLIC include)
+    target_link_libraries(clk_board_cfg PUBLIC clk_core)
+endif()

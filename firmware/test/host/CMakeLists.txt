@@ -5,8 +5,8 @@
 # assert harness so the tree stays green with no network.  The test bodies do not change.
 set(CLK_GTEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/googletest)
 
-add_executable(test_host test_main.cpp test_log.cpp test_cli.cpp)
-target_link_libraries(test_host PRIVATE clk_cli clk_command clk_core)
+add_executable(test_host test_main.cpp test_log.cpp test_cli.cpp test_sim.cpp)
+target_link_libraries(test_host PRIVATE clk_cli)
 target_include_directories(test_host PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(EXISTS ${CLK_GTEST_DIR}/CMakeLists.txt)

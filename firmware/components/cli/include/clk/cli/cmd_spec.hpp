@@ -13,10 +13,17 @@
 #include "clk/command/sink.hpp"
 #include "clk/command/status.hpp"
 
+#ifndef CLK_HAVE_SIM
+#define CLK_HAVE_SIM 0
+#endif
+
 namespace clk::cli {
 
 using cmd::Sink;
 using cmd::Status;
+
+// Wildcard object: `sensor <name> read` matches any <name> and passes it in Args::obj.
+inline constexpr const char* kAnyObject = "*";
 
 enum Flags : uint16_t {
     None      = 0,
@@ -32,6 +39,7 @@ struct Args {
     int                argc = 0;
     const char* const* argv = nullptr;
     int                first = 0;   // index of the first real argument, set by the parser
+    const char*        obj  = nullptr;  // the matched object token, for wildcard rows
 
     [[nodiscard]] int  count() const noexcept { return argc - first; }
     [[nodiscard]] const char* arg(int i) const noexcept {
@@ -52,7 +60,9 @@ struct Args {
 
 struct CmdSpec {
     const char* group;    // "ui"
-    const char* object;   // "led"      -- nullptr for a group-level verb
+    // "led" for a fixed object; kAnyObject to match any token (the sensor name in
+    // `sensor homing stream`), which then arrives in Args::obj; nullptr for a bare verb.
+    const char* object;
     const char* verb;     // "test"
     const char* args;     // "[<ms>]"   -- shown verbatim in help
     const char* help;     // one imperative line, <= 60 chars

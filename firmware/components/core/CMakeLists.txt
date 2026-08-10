@@ -1,6 +1,6 @@
 # Dual-build: idf.py sets ESP_PLATFORM, the host build does not.  One file, two targets --
 # so core/ cannot drift between the firmware and clocksim.  [FIRMWARE.md §2]
-set(CLK_CORE_SRCS src/log.cpp)
+set(CLK_CORE_SRCS src/log.cpp src/status.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${CLK_CORE_SRCS} src/log_esp.cpp

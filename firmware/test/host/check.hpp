@@ -6,12 +6,14 @@
 inline int g_checks = 0;
 inline int g_fails  = 0;
 
-#define CHECK(cond)                                                                   \
+// Variadic so a braced initialiser can appear inside: CHECK(x == Rgbw{1, 2, 3, 4}).
+// The preprocessor would otherwise read those commas as argument separators.
+#define CHECK(...)                                                                    \
     do {                                                                              \
         ++g_checks;                                                                   \
-        if (!(cond)) {                                                                \
+        if (!(__VA_ARGS__)) {                                                         \
             ++g_fails;                                                                \
-            std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);               \
+            std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #__VA_ARGS__);         \
         }                                                                             \
     } while (0)
 

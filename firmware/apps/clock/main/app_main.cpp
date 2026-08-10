@@ -8,6 +8,7 @@
 
 #include "clk/cli/console.hpp"
 #include "clk/cli/registry.hpp"
+#include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
 
 using clk::log::Level;
@@ -36,6 +37,7 @@ extern "C" void app_main(void) {
     clk::log::init(Level::Info);
     init_nvs();
     banner();
+    clk::hal::init();
 
     // Milestone 0 (§12.1): the console comes up before anything else, so everything after
     // it is debuggable from the moment it exists.

@@ -42,7 +42,10 @@ constexpr const char* kGroups[] = {
     // as groups land they are added here; the CmdSpec table stays authoritative for the
     // verbs, this list only tells linenoise which first words exist.
     "motion", "hand", "ui", "led", "audio", "snd", "board", "i2c",
-    "chrono", "time", "storage", "fs", "net", "sensor", "sim",
+    "chrono", "time", "storage", "fs", "net", "sensor",
+#if CLK_HAVE_SIM
+    "sim",          // host-only today: the fake-HAL rows do not exist on target
+#endif
 };
 
 }  // namespace
