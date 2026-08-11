@@ -105,7 +105,11 @@ _REF = {
              "CAP ALUM 100UF 16V 20% SMD", SUB_OK),
     "C237": ("EEE-FK1C101P", "Panasonic", "SMD radial can D6.3xL6.1mm",
              "CAP ALUM 100UF 16V 20% SMD", SUB_OK),
-    "C172": ("EEH-ZA1E101P", "Panasonic", "SMD radial can D6.3xL7.7mm",
+    # NOTE the X: "EEH-ZA1E101P" (this row until 2026-08-10) is not a real
+    # MPN -- the ZA series carries the plain -P suffix only at other
+    # voltages/values (EEH-ZA1H101P = 50 V, EEH-ZA1E560P = 56 uF).  The
+    # 25 V / 100 uF part is -101XP.  PCBWay could not source the typo.
+    "C172": ("EEH-ZA1E101XP", "Panasonic", "SMD radial can D6.3xL7.7mm",
              "CAP ALUM POLY HYBRID 100UF 25V SMD",
              "PVDD bulk. **Hybrid polymer, NOT a plain electrolytic** -- the "
              "ripple rating is the spec that matters here, not the value. A "
@@ -113,11 +117,13 @@ _REF = {
              "sees (P/PVDD)/sqrt(2) rms at twice the audio frequency: 0.49 A "
              "at the 8 W firmware limit, 0.68 A at clip. The previous part "
              "(Rubycon 25TZV100M6.3X8, 300 mA @100 kHz) was under-rated ~1.6x; "
-             "the ZA hybrid is ~1.3 A with ~40 mOhm ESR, and 7.7 mm actually "
-             "fits the CP_Elec_6.3x7.7 land better than the old 8.0 mm can. "
+             "the ZA hybrid is 2 A @100 kHz with 30 mOhm ESR (Panasonic/DigiKey "
+             "attributes), on the same CP_Elec_6.3x7.7 land -- D6.3 pads are "
+             "diameter-driven, so an 8.0 mm can drops in too. "
              "SUBSTITUTION RULE: any D6.3 part with >=600 mA @100 kHz ripple "
              "and >=25 V. Value may drop to 68 uF if that buys the rating. "
-             "VERIFY DigiKey stock before ordering (REVIEW.md #19)"),
+             "Stock verified 2026-08-10: LCSC C264047, DigiKey 3088115 "
+             "(REVIEW.md #19)"),
 
     # inductors
     "L1": ("XAL4040-103MEC", "Coilcraft", "SMD 4.0x4.0x4.0mm",

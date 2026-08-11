@@ -860,9 +860,28 @@ V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^
 >    brown-out during an alarm, log it as a *suspected OC trip* with the audio and LED duty at
 >    that instant; do not silently retry at the same level.
 >
-> ⚠ This budget assumes the **-HB** protector. The **-GB** (fitted until 2026-08-08) trips at
-> **1.89 A** worst case, i.e. below the plugged sunrise-alarm case *and* marginal on battery.
-> If a board is ever built with a -GB, the audio ceiling must drop to ~4 W plugged.
+> ⚠ **The budget above assumes the `-HB`. Board #1 is being assembled with a `-GB`**
+> (2026-08-10: PCBWay could not source -HB — LCSC C160793 out of stock — and it was accepted
+> rather than hold the order; `kicad/REVIEW.md` #6). **`-GB` trips at 1.89 A worst case**
+> (125 mV over 66 mΩ), which changes every row:
+>
+> | case | from the cell | vs **1.89 A** (-GB) |
+> |---|---|---|
+> | plugged, alarm only (8 W) | ~1.6 A | ~15 % — the margin the -HB had on the *sunrise* row |
+> | plugged, sunrise alarm (8 W + 2.6 W LED) | ~2.3 A | **trips** |
+> | battery, alarm (3.1 W) | ~1.9 A peak | **at the trip** |
+>
+> **`-GB` budget — hold peak cell current under ~1.8 A:**
+> - **LEDs off: the 8 W ceiling stands unchanged.** This is the common alarm case.
+> - **Wake LEDs ramping: cap audio at ~6 W** (−1.2 dB from `kLimitCeilDbfs`) *or* hold the LEDs
+>   at ≤50 % while audio is above half scale. Obligation 1 above stops being a style rule and
+>   becomes the thing that keeps the board alive.
+> - **On battery: shave ~0.5 dB** off the rail-clip ceiling (~3.1 → ~2.8 W). Today nothing
+>   enforces this — the hard-clip guard is a *voltage* limit and the cell doesn't care.
+>
+> **Bring-up: read the marking on `U3` before trusting either budget** (`-GB` vs `-HB`,
+> SOT-23-6 next to the holder's cell− end) and record it in the board log. If it reads -HB,
+> revert to the -HB table. Do not infer it from the BOM — the BOM says -HB.
 - ⚠ Bench-confirm before trusting it: current probe on L5 at max volume with the real alarm sample,
   looking for the current peaks going non-linear (core saturation), not just for the dBFS number.
 

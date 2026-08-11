@@ -26002,7 +26002,7 @@
 				)
 			)
 		)
-		(property "MPN" "EEH-ZA1E101P"
+		(property "MPN" "EEH-ZA1E101XP"
 			(at 751.84 293.37 0)
 			(hide yes)
 			(show_name no)
@@ -26035,7 +26035,7 @@
 				)
 			)
 		)
-		(property "Notes" "PVDD bulk. **Hybrid polymer, NOT a plain electrolytic** -- the ripple rating is the spec that matters here, not the value. A class-D BTL draws i_supply = P/PVDD x (1-cos 2wt), so the bulk sees (P/PVDD)/sqrt(2) rms at twice the audio frequency: 0.49 A at the 8 W firmware limit, 0.68 A at clip. The previous part (Rubycon 25TZV100M6.3X8, 300 mA @100 kHz) was under-rated ~1.6x; the ZA hybrid is ~1.3 A with ~40 mOhm ESR, and 7.7 mm actually fits the CP_Elec_6.3x7.7 land better than the old 8.0 mm can. SUBSTITUTION RULE: any D6.3 part with >=600 mA @100 kHz ripple and >=25 V. Value may drop to 68 uF if that buys the rating. VERIFY DigiKey stock before ordering (REVIEW.md #19)"
+		(property "Notes" "PVDD bulk. **Hybrid polymer, NOT a plain electrolytic** -- the ripple rating is the spec that matters here, not the value. A class-D BTL draws i_supply = P/PVDD x (1-cos 2wt), so the bulk sees (P/PVDD)/sqrt(2) rms at twice the audio frequency: 0.49 A at the 8 W firmware limit, 0.68 A at clip. The previous part (Rubycon 25TZV100M6.3X8, 300 mA @100 kHz) was under-rated ~1.6x; the ZA hybrid is 2 A @100 kHz with 30 mOhm ESR (Panasonic/DigiKey attributes), on the same CP_Elec_6.3x7.7 land -- D6.3 pads are diameter-driven, so an 8.0 mm can drops in too. SUBSTITUTION RULE: any D6.3 part with >=600 mA @100 kHz ripple and >=25 V. Value may drop to 68 uF if that buys the rating. Stock verified 2026-08-10: LCSC C264047, DigiKey 3088115 (REVIEW.md #19)"
 			(at 751.84 293.37 0)
 			(hide yes)
 			(show_name no)

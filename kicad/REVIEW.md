@@ -70,7 +70,7 @@ all routing.**
 | 15 | `VBAT_SENSE` floats above +3V3 | `727dbfd` | **D14** added; **PCB place + route still open** |
 | 17 | Encoder divider 66.7 kΩ source impedance | `727dbfd` | → 10k/20k, same ratio, value-only |
 | 20 | Reverse-cell fault current into the protector | `637be57` | `R20` 100R → **200R** (HYCON's max), halves it to ~18 mA |
-| 19 | PVDD bulk under-rated for ripple | `35ca174` | → hybrid polymer, same D6.3 land: **BOM-only, no PCB impact** |
+| 19 | PVDD bulk under-rated for ripple | `35ca174` | → hybrid polymer, same D6.3 land: **BOM-only, no PCB impact**. **MPN corrected 2026-08-10** — `EEH-ZA1E101P` → **`EEH-ZA1E101XP`** (the typo'd number does not exist; PCBWay could not quote it). Stock verified: LCSC C264047 / DigiKey 3088115 |
 | 21 | MCP23017 INTA/INTB tied | `637be57` | firmware requirement **R-BOARD-1** in `FIRMWARE.md` §6.5 |
 | — | `FIRMWARE.md` sensor was LIS3DH, board is BNO085 | `3cc15da` | new §6.5.1 + **R-BOARD-3**; `SENSOR_INT` is BNO085-only now that `ALS_INT` is on GPB3 |
 
@@ -485,7 +485,7 @@ makes no difference, which is the build method that matters here.
 
 | # | Finding | Why deferred | Revisit when |
 |---|---|---|---|
-| ~~6~~ | Protector OC trip | ✅ **Fixed 2026-08-08 by part change: `HY2111-GB` → `HY2111-HB`.** Same SOT-23-6, same pinout, same support network, every threshold identical except discharge-OC `V_DIP` (200 ±25 mV vs 150 ±25 mV) — worst-case trip **1.89 A → 2.65 A**, which clears both the battery case and the plugged sunrise-alarm case. Speaker stays 4 Ω. Firmware side is `FIRMWARE.md` **R-AUDIO-1** | Only if the audio ceiling or the LED budget is raised |
+| ~~6~~ **re-opened for build #1** | Protector OC trip | ⚠ **2026-08-10: PCBWay will supply `-GB` — LCSC C160793 (-HB) is out of stock.** On this build the finding is held closed by firmware (R-AUDIO-1's `-GB` budget), not by the part. ✅ **Fixed 2026-08-08 by part change: `HY2111-GB` → `HY2111-HB`.** Same SOT-23-6, same pinout, same support network, every threshold identical except discharge-OC `V_DIP` (200 ±25 mV vs 150 ±25 mV) — worst-case trip **1.89 A → 2.65 A**, which clears both the battery case and the plugged sunrise-alarm case. Speaker stays 4 Ω. Firmware side is `FIRMWARE.md` **R-AUDIO-1** | Only if the audio ceiling or the LED budget is raised |
 | 7 | Battery IR drop / `R18` caps the wall at ~1 A | Still deferred. The **cell supplies the balance even while plugged**, which is why #6 mattered — now covered by the -HB trip with ~15 % margin on the sunrise-alarm case | `R18` 0.1 → 0.05 Ω doubles the wall's share, but needs thermal vias under U2 (#5, blocked by #18) |
 | 14 | Ungated always-on loads (~70 mA idle) | **Mostly wall-powered**, so backup runtime is good enough | If battery runtime becomes a goal — gate the EM14 (26 mA) and QRE1113 LED (14 mA); GPA4-6/GPB3 are free |
 | 16 | `CELL_TEST` on battery cuts power | Self-recovering reset loop, **not damage**; firmware-enforced instead | If a hardware interlock against `PD_PG` is ever wanted |
@@ -525,15 +525,44 @@ U13 GPA4-7 spare + 2 NC pins · U16 VBUS (deliberate — the 15 V PD rail exceed
    title block never read "rev A"; `gen/build.py` sets `rev="0.3"` and the schematic has
    carried `(rev "0.3")` throughout, consistent with the silkscreen. The genuine gap was that
    the *PCB* had no title block; that is now fixed. See the pre-fab audit above.
-2. **Two MPNs need a DigiKey stock check** before ordering — they are the only items in the BOM
-   I could not verify offline: `R1` = `RC1206FR-071KL` (#13) and `C172` = `EEH-ZA1E101P` (#19).
-   Both have a written substitution rule in `parts_db.py`, so a swap stays checkable.
+2. ~~**Two MPNs need a DigiKey stock check** before ordering~~ — **both closed 2026-08-10 by the
+   PCBWay quote.** `R1` = `RC1206FR-071KL` (#13) quoted and sourceable at $0.441. `C172` was the
+   one that bit: `EEH-ZA1E101P` (#19) **is not a real MPN** and PCBWay could not buy it —
+   corrected to **`EEH-ZA1E101XP`**, in stock at both LCSC (C264047) and DigiKey (3088115).
+   The written substitution rule in `parts_db.py` is what made the swap checkable in minutes.
 
 ### ✔ Accepted — no change planned
 
 | # | Finding | Rationale |
 |---|---|---|
 | 22 | No UART console (IO43/44 consumed) | Known and accepted; USB-Serial-JTAG is the bring-up path, boot-log TX still probeable on IO43 |
+
+### 🏭 Assembly quote — PCBWay `T-1N10W1120006A`, 1 unit (2026-08-10)
+
+First real fab/assembly quote off this BOM (183 lines, $259.20 all-in: parts $146.83 + assembly
+$29.00 + PCB $83.37). Six lines came back flagged. What they cost the design:
+
+| item | ref | PCBWay said | answer |
+|---|---|---|---|
+| 14 | `C172` | "provide exact part number or URL" | **Our MPN was wrong.** `EEH-ZA1E101P` is not a real part — the ZA series uses the plain `-P` suffix only at other voltages/values (`EEH-ZA1H101P` = 50 V, `EEH-ZA1E560P` = 56 µF); the 25 V/100 µF part is **`EEH-ZA1E101XP`**. Corrected in `parts_db.py` + stamped into both files. LCSC **C264047** (4,252 stk) / DigiKey **3088115** (3,364 stk). Same land, 2 A @100 kHz, 30 mΩ — #19's rule is met 3× |
+| 22 | `D40`/`D41` | "1 = 10 pack" | Adafruit **2758** confirmed (natural white ~4500 K). Asked them to **ship the 8 unused pixels** — 5 of them are the off-board status row on `J12`, which is not a BOM line |
+| 23 | `F1` | `[DNP]` | **Accepted, and correct**: a 77 °C one-shot TCO cannot survive reflow. ⚠ **The safety chain is therefore incomplete as delivered** — see below |
+| 36 | `L4` | price rising | accepted at actual price |
+| 37 | `M1` | `[DNP]` | as instructed; holes must stay |
+| 75 | `U3` | "we will supply `HY2111-GB`" | **-HB is out of stock at LCSC (C160793)**, and our own BOM note handed them C82747, which *is* the -GB. -HB requested if they can source it, **-GB accepted otherwise** — which un-does #6, see below |
+
+**Two consequences that outlive the order:**
+
+1. **`F1` ships unpopulated.** The board must not be run with a cell in the holder until the
+   Cantherm `SDF-DF077S` is hand-soldered in (≥3 mm from the body, heatsink the lead). DigiKey
+   1014754, $0.87, 6,508 in stock. Until then the cell's only thermal backstop is `RT1` + the
+   LT3652's NTC qualification, which covers *charging* and not a cell that goes hot on its own.
+2. **`U3` is a `-GB` again unless PCBWay finds -HB.** #6 was closed by that part change; on this
+   build it is closed *by firmware instead*. Worst-case discharge-OC trip goes back to
+   **1.89 A** (150 ±25 mV / 50–66 mΩ), and the plugged sunrise-alarm case draws **~2.3 A from
+   the cell** — i.e. it trips. **`FIRMWARE.md` R-AUDIO-1 now carries a `-GB` budget** (keep peak
+   cell current < ~1.8 A: full 8 W audio *or* the LED ramp, never both). **Check the marking on
+   the assembled board** and relax the budget only if it reads -HB.
 
 ---
 
@@ -663,6 +692,12 @@ Severity is genuinely low: worst case is a slightly worse holdover clock, not a 
   *after* `save_board` has restored it. Any script run against the board silently resets the
   editor's active layer and visible-layer mask. Harmless (it is pure UI state, no design data)
   but it shows up as a spurious dirty file in `git status` and has to be put back by hand.
+- **2026-08-10 — first assembly quote (PCBWay `T-1N10W1120006A`).** Six flagged lines, answered
+  in the "Assembly quote" table above. Two real outcomes: **`C172`'s MPN was a typo**
+  (`EEH-ZA1E101P` → **`EEH-ZA1E101XP`**, corrected in `parts_db.py` and stamped into
+  `.kicad_sch`/`.kicad_pcb`; nothing else in the BOM changed), and **`U3` reverts to `HY2111-GB`**
+  because -HB is out of stock — #6 is now held by firmware on this build, not by the part.
+  `F1` (77 °C TCO) and `M1` (movement) ship unpopulated, both deliberately.
 - Three bugs found while building the migration, worth remembering: (a) via clusters were
   committed before the *other* end was known to be placeable, leaving 5 orphan vias; (b) an inner
   stub widened past its original width shorted `M1-2i`, so a stub must keep the original width —
@@ -754,6 +789,22 @@ identical OV 4.28 V / OD 2.90 V thresholds but `V_DIP` = 200 mV instead of 150 m
 > `FIRMWARE.md` §6.2, together with the "a trip looks like a spontaneous reboot"
 > logging requirement. Schematic, PCB and BOM updated (`sync_pcb.py` carried the value
 > across); ERC 0, DRC 0, `review_check.py` 11/12 unchanged.
+
+> ### ⚠ 2026-08-10 — build #1 gets a `-GB` anyway
+>
+> PCBWay's BOM quote (`T-1N10W1120006A`) came back "the part we will supply is
+> `HY2111-GB`, please confirm". **`-HB` is real and stocked nowhere useful right now**:
+> LCSC lists it as **C160793** but out of stock, and our own BOM note pointed them at
+> **C82747**, which is the `-GB`. -HB was requested if they can source it; **-GB was
+> accepted** so the build is not held up for a $0.60 part.
+>
+> **So the numbers above revert for this board** — worst case 175 mV over 66 mΩ becomes
+> **125 mV over 66 mΩ = 1.89 A**, and the plugged sunrise-alarm row (~2.3 A from the cell)
+> **trips**. The fix is the first of the two options from the original finding: cap the
+> firmware budget. `FIRMWARE.md` **R-AUDIO-1** now carries both budgets — **< ~1.8 A peak
+> cell current on a `-GB`** (8 W audio *or* the sunrise ramp, never both at peak) and the
+> looser -HB one. **Read the SOT-23-6 marking when the board arrives** and pick the budget
+> from what is actually on it; do not assume.
 
 ## 7. Battery IR drop starves the 12 V boost
 
