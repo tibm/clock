@@ -55,6 +55,8 @@ protected:
 
 private:
     void poll_knob() noexcept;
+    void poll_tap() noexcept;
+    void watch_battery() noexcept;
     void enter(Mode) noexcept;
     void rotate(int32_t counts) noexcept;
     void press(uint32_t held_ms) noexcept;
@@ -81,8 +83,22 @@ private:
     bool alarm_armed_ = false;
     int alarm_min_of_day_ = 7 * 60;
     int set_min_of_day_ = 0;  // what the knob is editing in SetAlarm / SetClock
+    // Counts that have not yet added up to a whole minute.  Not an optimisation: a turn
+    // arrives as a stream of small deltas, and dividing each one on its own discards the
+    // remainder EVERY time -- see Ui::rotate.
+    int32_t counts_resid_ = 0;
     uint8_t volume_ = 40;
     bool dirty_ = true;
+    // A tap lights the bell for its own moment; paint() must not take the pixels back until
+    // it lapses, or the acknowledgement is one tick long and nobody ever sees it.
+    uint64_t ack_until_us_ = 0;
+    // The cell warning is polled, not evented -- there is no producer of PowerState yet.
+    bool batt_warn_ = false;
+    uint8_t power_div_ = 0;
+    // Likewise the top tap, until the BNO085 driver exists to post it.  The first poll only
+    // establishes the baseline: whatever the counter already read is not a tap the user made.
+    uint16_t taps_last_ = 0;
+    uint8_t tap_div_ = 0;
 };
 
 Ui& ui() noexcept;

@@ -203,4 +203,10 @@ Result<State> read() noexcept;
 // Brings the fake or the real peripherals up.  Idempotent.
 Status init() noexcept;
 
+// Restart the whole image.  esp_restart() on target; on the host clocksim re-execs itself,
+// which is the closest a laptop gets to it -- same effect either way, so `sys reboot` is one
+// command with one meaning on both.  Does not return when it works; a caller that gets a
+// Status back is still running the old image.
+Status reboot() noexcept;
+
 }  // namespace clk::hal

@@ -55,17 +55,36 @@ h1 span { color: var(--dim); font-weight: 400; }
 }
 .pill.up { color: var(--ok); border-color: #2c5a45; }
 .pill.up i { background: var(--ok); }
+.pill.bad { color: var(--warn); border-color: #7a3323; }
 
 /* ---- layout ------------------------------------------------------------------------ */
+/* The window is wide and short, so the controls run in TWO columns beside the plate and
+   the whole instrument fits without a page scroll. */
 main {
     display: grid;
-    grid-template-columns: minmax(300px, 1fr) minmax(360px, 460px);
+    grid-template-columns: minmax(280px, 1fr) minmax(340px, 760px);
     /* An explicit row is what gives the plate pane a definite height to divide up; without
        it the row sizes to content and the SVG runs off the bottom of the window. */
     grid-template-rows: minmax(0, 1fr);
     gap: 16px;
     padding: 16px;
     min-height: 0;
+}
+
+/* Each column scrolls on its own.  One shared scroller stranded the bottom of the taller
+   column off-screen in a short window -- and a control you have to scroll to find reads as a
+   control that is not there. */
+.panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    gap: 12px;
+    min-height: 0;
+    min-width: 0;
+}
+@media (max-width: 1240px) {
+    main { grid-template-columns: minmax(260px, 1fr) minmax(320px, 400px); }
+    .panels { grid-template-columns: 1fr; }
 }
 @media (max-width: 860px) {
     main { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow: auto; }
@@ -74,8 +93,16 @@ main {
 .plate-pane { display: flex; flex-direction: column; align-items: center; min-height: 0; }
 #plate { flex: 1 1 auto; min-height: 0; width: 100%; max-width: 620px; }
 .hint { color: var(--dim); font-size: 11px; margin: 6px 0 0; text-align: center; }
+.hint.left { text-align: left; }
+.hint b { color: var(--fg); font-weight: 500; }
 
-.panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: auto; }
+.panel {
+    display: flex; flex-direction: column; gap: 12px;
+    min-width: 0; min-height: 0; overflow-y: auto;
+    /* the scrollbar must not sit on top of a slider's right-hand end */
+    padding-right: 2px;
+}
+.card { flex: none; }
 .card {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -121,8 +148,18 @@ button.big { padding: 10px; font-size: 12px; }
 button.big.down { background: var(--accent); color: #0d1117; border-color: var(--accent); }
 button.toggle.on { background: #1f4030; border-color: #2c5a45; color: var(--ok); }
 button.warn:hover { border-color: var(--warn); color: var(--warn); }
-button.go { border-color: #2f5680; color: var(--accent); }
-.btnrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* Status colours, for buttons that report as well as act.  A `.state` button with none of
+   these is the neutral, un-asserted half of a pair -- that is a real reading, not a missing
+   one, so it must look deliberate rather than disabled. */
+button.state { min-width: 74px; }
+button.ok  { border-color: #2c5a45; color: var(--ok);     background: #1a2d24; }
+button.go  { border-color: #2f5680; color: var(--accent); background: #17222f; }
+button.bad { border-color: #7a3323; color: var(--warn);   background: #2b1a15; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+.btnrow.tight { gap: 4px; }
+.btnrow.tight button { padding: 6px 7px; font: 11px var(--mono); }
+.rowlabel { color: var(--dim); font-size: 11px; margin-right: 2px; }
 
 /* ---- meter + sliders --------------------------------------------------------------- */
 .meter {
@@ -145,6 +182,7 @@ button.go { border-color: #2f5680; color: var(--accent); }
 
 /* ---- pixels ------------------------------------------------------------------------ */
 .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.swatches + .grid2 { margin-top: 10px; }
 .sw { text-align: center; }
 .sw i {
     display: block; height: 26px; border-radius: 4px;

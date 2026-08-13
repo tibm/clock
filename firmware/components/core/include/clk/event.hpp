@@ -20,6 +20,12 @@ struct HandTarget {
 
 struct HomeRequest {};
 
+// "Stop moving", which is emphatically NOT `Stop` below.  `Stop` is the framework's shutdown
+// event and ActiveObject::run() consumes it by leaving its loop -- so a service that posted
+// `Stop` to mean "hold the hands where they are" killed its own thread instead, and the
+// movement stayed dead until the next reboot.  One word, two meanings, no compiler error.
+struct Halt {};
+
 struct HomeDone {
     bool ok;
     uint32_t took_ms;  // sim time
@@ -59,10 +65,10 @@ struct PowerState {
     bool plugged;
 };
 
-struct Stop {};  // shutdown, posted by stop()
+struct Stop {};  // shutdown, posted by stop() and swallowed by run().  See Halt.
 
-using Event = std::variant<std::monostate, HandTarget, HomeRequest, HomeDone, HandState, KnobDelta,
-                           KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
+using Event = std::variant<std::monostate, HandTarget, HomeRequest, Halt, HomeDone, HandState,
+                           KnobDelta, KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
 
 // std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
 // abort, and get_if reads better in a handler that only cares about three of these.

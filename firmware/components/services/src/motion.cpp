@@ -66,7 +66,8 @@ void Motion::nudge(Hand hand, int32_t usteps) noexcept {
 }
 
 void Motion::home() noexcept { post(HomeRequest{}); }
-void Motion::halt() noexcept { post(Stop{}); }
+// Halt, not Stop: `Stop` is the AO framework's shutdown event and never reaches on_event().
+void Motion::halt() noexcept { post(Halt{}); }
 
 Motion::Snapshot Motion::snapshot() const noexcept {
     port::Lock lk{mx_};
@@ -118,12 +119,20 @@ void Motion::on_event(Event const& e) {
         publish();
         return;
     }
-    if (as<Stop>(e)) {
+    if (as<Halt>(e)) {
         hal::motor::hold(Hand::Hour);
         hal::motor::hold(Hand::Minute);
         hour_.active = min_.active = false;
-        if (state_ == State::Homing) state_ = homed_ ? State::Idle : State::Uninit;
+        // An abort is not a fault: nothing failed, we were asked to stop.  But a half-finished
+        // homing run has not established a zero, so say so rather than keeping a stale one.
+        if (state_ == State::Homing) {
+            state_ = homed_ ? State::Idle : State::Uninit;
+            phase_ = Phase::None;
+        }
         if (state_ == State::Moving) state_ = State::Idle;
+        // Whatever chrono last asked for is no longer being driven towards, so a later
+        // `follow` has to push it again rather than assume it is still on its way.
+        want_valid_ = false;
         idle_since_us_ = port::now_us();
         publish();
     }
@@ -180,12 +189,23 @@ void Motion::plan(Axis& ax, int32_t target) noexcept {
         t = tune_;
     }
     const int32_t from = pos(ax.hand);
+    // Which way we were already going, before the new target overwrites the old legs.
+    const int32_t was_dir = ax.active ? sgn((ax.leg2 ? ax.target : ax.via) - from) : 0;
+
     const auto ap = domain::approach(from, target, t.backlash);
     ax.via = ap.via;
     ax.target = ap.target;
     ax.leg2 = (ap.via == ap.target);
     ax.active = (ap.via != from || ap.target != from);
-    ax.v = 0;
+
+    // Re-planning must not throw the ramp away.  chrono re-targets every time its computed
+    // position moves -- about five times a second for the minute hand, and EVERY target
+    // re-plans both axes -- so zeroing here made a cruising hand drop to a standstill and
+    // ramp up again several times per move.  On the hour hand, whose own moves are short,
+    // that was the whole move.  Keep the speed when the new leg runs the same way as the
+    // old one; step_axis() still clamps it to sqrt(2*a*s), so the landing stays exact.
+    const int32_t dir = sgn((ax.leg2 ? ax.target : ax.via) - from);
+    if (was_dir == 0 || dir != was_dir) ax.v = 0;
 }
 
 // One tick of a trapezoidal profile.  The deceleration limit is the only interesting line:

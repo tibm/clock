@@ -54,6 +54,17 @@ void Chrono::set_follow(bool on) noexcept {
     last_h_ = last_m_ = -1;  // force a push on the next tick
 }
 
+void Chrono::set_steps_per_minute(int n) noexcept {
+    port::Lock lk{mx_};
+    steps_per_minute_ = n < 1 ? 1 : (n > 60 ? 60 : n);
+    last_h_ = last_m_ = -1;  // the current position is quantised differently now
+}
+
+int Chrono::steps_per_minute() const noexcept {
+    port::Lock lk{mx_};
+    return steps_per_minute_;
+}
+
 void Chrono::on_event(Event const& e) {
     if (const auto* t = as<TimeChanged>(e)) {
         epoch_base_ms_ = t->epoch_ms;
@@ -76,7 +87,12 @@ void Chrono::on_tick() {
     const int64_t now_ms =
         epoch_base_ms_ + static_cast<int64_t>((port::now_us() - mono_base_us_) / 1000ull);
     const auto hm = hms_of(now_ms);
-    const auto p = domain::for_time(hm.h, hm.m, hm.s);
+    int steps;
+    {
+        port::Lock lk{mx_};
+        steps = steps_per_minute_;
+    }
+    const auto p = domain::for_time(hm.h, hm.m, hm.s, steps);
     {
         port::Lock lk{mx_};
         snap_.epoch_ms = now_ms;

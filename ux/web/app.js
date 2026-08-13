@@ -18,9 +18,17 @@ function send(line) {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(line);
 }
 
+// The rows that `unsafe` gates (§9.6).  The window is 60 s of REAL time from the last such
+// command, and a background tab has its timers throttled to a minute or more -- so the
+// periodic refresh below is not enough on its own, and the symptom is a `home` that works
+// when you are watching and is silently Denied when you come back to the tab.  Arming it
+// immediately before the command that needs it costs one line and cannot lapse.
+const kNeedsUnsafe = /^(motion (home|goto|step)|ui (led|wake)|sys reboot)\b/;
+
 // Fire-and-forget with a reply: `res` comes back tagged so we can print it next to the
 // command that caused it.
 function cmd(line, quiet = false) {
+    if (kNeedsUnsafe.test(line)) send('unsafe on');
     const id = nextId++;
     pending.set(id, { line, quiet });
     if (!quiet) log('cmd', '', '> ' + line);
@@ -99,10 +107,58 @@ const rgbwCss = (p) => {
 const lit = (p) => p[0] + p[1] + p[2] + p[3] > 0;
 
 let uiFrozenUntil = 0;   // do not fight the user while they are dragging a slider
+let plateYaw = 0;        // where the cube is pointing, so a hand drag can be un-rotated
+
+// A toggle is a REQUEST, not a mirror of the last frame.  Deciding what to send by reading
+// the class that is currently painted loses the race: two clicks inside one round trip both
+// read the old state, both send the same command, and the second one appears to do nothing.
+// So a click records what it ASKED for, the button shows that immediately, and the state
+// frames only take the paint back once they agree -- or after the request has clearly been
+// lost.
+const intent = new Map();          // id -> { want, until }
+const kIntentMs = 1500;
+
+// What the button is showing right now: the pending request if there is one, else the truth.
+function shown(id, actual) {
+    const w = intent.get(id);
+    if (!w) return actual;
+    if (w.want === actual || Date.now() > w.until) {
+        intent.delete(id);
+        return actual;
+    }
+    return w.want;
+}
+
+function request(id, want, line) {
+    intent.set(id, { want, until: Date.now() + kIntentMs });
+    cmd(line, true);
+}
+
+// Three-way status colour, driven by the firmware's own words rather than by this app's
+// guess at them.  'ok' green, 'go' blue (in progress), 'bad' red.
+function paintState(id, cls) {
+    const b = $(id);
+    for (const c of ['ok', 'go', 'bad']) b.classList.toggle(c, c === cls);
+}
+
+// A square turned by yaw needs (|cos| + |sin|) times its width; shrinking by the inverse
+// keeps the corners inside the viewBox at every angle, and is exactly 1 at yaw 0.
+const fitScale = (deg) => {
+    const a = deg * Math.PI / 180;
+    return 1 / (Math.abs(Math.cos(a)) + Math.abs(Math.sin(a)));
+};
 
 function onState(s) {
     face.hour.setAttribute('transform', `rotate(${s.hands.h})`);
     face.minute.setAttribute('transform', `rotate(${s.hands.m})`);
+
+    // The cube itself, turned by the BNO085's yaw -- the whole plate, not the hands, so the
+    // index window and the status LEDs go round with it the way they would on the shelf.
+    if (s.imu.yaw !== plateYaw) {
+        plateYaw = s.imu.yaw;
+        face.rot.setAttribute('transform',
+            `rotate(${plateYaw.toFixed(2)}) scale(${fitScale(plateYaw).toFixed(4)})`);
+    }
 
     const two = (n) => String(n).padStart(2, '0');
     $('pill-clock').textContent = s.clock.valid
@@ -110,20 +166,37 @@ function onState(s) {
         : '--:--:--';
     $('pill-sim').textContent = `sim ${(s.ms / 1000).toFixed(1)} s`;
     $('pill-warp').textContent = `warp ${s.warp.toFixed(2)}×`;
-    // The FSM's own word for what it is doing, not this app's guess at it.
+    // The FSM's own word for what it is doing, not this app's guess at it.  Whether it is
+    // homed is NOT repeated here -- the home button is the one place that says so.
     $('pill-motion').textContent = s.motion.phase
-        ? `${s.motion.state} · ${s.motion.phase}`
-        : `${s.motion.state}${s.motion.homed ? ' · homed' : ''}`;
-    $('pill-motion').classList.toggle('up', s.motion.homed && s.motion.state !== 'fault');
-    $('pill-mode').textContent = s.ui.mode
+        ? `motion ${s.motion.state} · ${s.motion.phase}`
+        : `motion ${s.motion.state}`;
+    $('pill-motion').classList.toggle('up', s.motion.state === 'moving');
+    $('pill-motion').classList.toggle('bad', s.motion.state === 'fault');
+    $('pill-mode').textContent = 'ui ' + s.ui.mode
         + (s.ui.idle_in ? ` · ${(s.ui.idle_in / 1000).toFixed(1)}s` : '');
     $('c-alarm').textContent = `${two(s.ui.alarm_h)}:${two(s.ui.alarm_m)} ${s.ui.armed ? 'armed' : 'off'}`;
     $('c-vol').textContent = `${s.ui.vol}%`;
+
+    // Two buttons, one fact: whichever is true right now is the one that lights.
+    const following = shown('btn-follow', s.clock.follow);
+    paintState('btn-follow', following ? 'ok' : '');
+    paintState('btn-release', following ? '' : 'bad');
 
     $('m-h').textContent = `${s.hands.h.toFixed(1)}°`;
     $('m-m').textContent = `${s.hands.m.toFixed(1)}°`;
     $('m-pos').textContent = `${s.hands.hp} / ${s.hands.mp}`;
     $('m-vel').textContent = `${s.hands.hv} / ${s.hands.mv}`;
+    $('m-home').textContent = s.motion.home_ms ? `${(s.motion.home_ms / 1000).toFixed(1)} s` : '—';
+    $('m-faults').textContent = s.motion.faults;
+    // The button is the one place that says whether the hands are trustworthy, because it is
+    // where you look when they are not.  Blue only while a run is actually in progress: a
+    // colour that never changes is a colour nobody reads.
+    paintState('btn-home',
+        s.motion.state === 'homing' ? 'go' : (s.motion.homed && s.motion.state !== 'fault') ? 'ok' : 'bad');
+    // The label stays a verb -- it is still the button that homes.  Only the colour, and the
+    // ellipsis while a run is live, report state.
+    $('btn-home').textContent = s.motion.state === 'homing' ? 'homing…' : 'home';
 
     $('opto-bar').style.width = `${(s.opto.n * 100).toFixed(1)}%`;
     $('opto-txt').textContent = `opto ${s.opto.n.toFixed(3)} ${s.opto.auto ? 'auto' : 'held'}`;
@@ -163,10 +236,15 @@ function onState(s) {
     spk.textContent = s.spk.on ? `on · ${s.spk.vol}%` : 'off';
     spk.classList.toggle('on', s.spk.on);
 
-    $('t-radio').classList.toggle('on', s.radio_off);
-    $('t-radio').textContent = s.radio_off ? 'radio OFF' : 'radio off';
-    $('t-plug').classList.toggle('on', s.pwr.plugged);
-    $('t-plug').textContent = s.pwr.plugged ? `plugged · ${s.pwr.soc}%` : `battery · ${s.pwr.soc}%`;
+    // Both toggles show the pending request until the firmware agrees with it, so a fast
+    // second click is never decided from a stale frame.  The labels name the STATE rather
+    // than the action -- "radio off" next to "radio OFF" was a difference of one shift key.
+    const radioOff = shown('t-radio', s.radio_off);
+    $('t-radio').classList.toggle('on', radioOff);
+    $('t-radio').textContent = radioOff ? 'radios OFF' : 'radios on';
+    const plugged = shown('t-plug', s.pwr.plugged);
+    $('t-plug').classList.toggle('on', plugged);
+    $('t-plug').textContent = plugged ? `plugged · ${s.pwr.soc}%` : `battery · ${s.pwr.soc}%`;
 
     if (Date.now() > uiFrozenUntil) {
         $('r-yaw').value = Math.round(s.imu.yaw);
@@ -277,7 +355,10 @@ function wireHands() {
         const now = performance.now();
         if (now - lastSent < 33) return;
         lastSent = now;
-        cmd(`sim hand ${dragging} ${angleAt(svg, e).toFixed(1)}`, true);
+        // Screen angle, less the yaw the plate is drawn at: `sim hand` is in the dial's own
+        // frame, and a tilted cube must not shift where you just put the hand.
+        const deg = (angleAt(svg, e) - plateYaw + 360) % 360;
+        cmd(`sim hand ${dragging} ${deg.toFixed(1)}`, true);
     });
     const drop = (e) => {
         if (!dragging) return;
@@ -292,10 +373,33 @@ function wireControls() {
     for (const b of document.querySelectorAll('button[data-cmd]')) {
         b.addEventListener('click', () => cmd(b.dataset.cmd));
     }
-    $('t-radio').addEventListener('click', (e) =>
-        cmd(`sim radio ${e.currentTarget.classList.contains('on') ? 'off' : 'on'}`));
-    $('t-plug').addEventListener('click', (e) =>
-        cmd(e.currentTarget.classList.contains('on') ? 'sim unplug' : 'sim plug'));
+    // Reaching into the case and moving a hand somewhere you did not choose: a fixed angle
+    // stops being a scramble the second time you press it.
+    for (const b of document.querySelectorAll('button[data-rand]')) {
+        b.addEventListener('click', () =>
+            cmd(`sim hand ${b.dataset.rand} ${(Math.random() * 360).toFixed(1)}`));
+    }
+    // The real time, off the machine you are sitting at.  Reading a clock and typing what it
+    // says is an INPUT -- the same thing SNTP will be once there is a network (§7.4) -- so it
+    // leaves as one `chrono time set`, and nothing here works out what the hands should do
+    // about it.  Local time, not UTC: the dial has no timezone.
+    $('btn-now').addEventListener('click', () => {
+        const d = new Date();
+        const two = (n) => String(n).padStart(2, '0');
+        cmd(`chrono time set ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`);
+    });
+    $('t-radio').addEventListener('click', () => {
+        const want = !shown('t-radio', $('t-radio').classList.contains('on'));
+        request('t-radio', want, `sim radio ${want ? 'on' : 'off'}`);
+    });
+    $('t-plug').addEventListener('click', () => {
+        const want = !shown('t-plug', $('t-plug').classList.contains('on'));
+        request('t-plug', want, want ? 'sim plug' : 'sim unplug');
+    });
+    $('btn-follow').addEventListener('click', () => intent.set('btn-follow',
+        { want: true, until: Date.now() + kIntentMs }));
+    $('btn-release').addEventListener('click', () => intent.set('btn-follow',
+        { want: false, until: Date.now() + kIntentMs }));
 
     const live = (id, label, fmt, make) => {
         const r = $(id);
@@ -311,6 +415,13 @@ function wireControls() {
     live('r-vcoarse', 'v-vcoarse', (v) => `${v}`, (v) => `motion tune v_coarse ${v}`);
     live('r-backlash', 'v-backlash', (v) => `${v}`, (v) => `motion tune backlash ${v}`);
     live('r-cpm', 'v-cpm', (v) => `${v}`, (v) => `ui knob counts ${v}`);
+    live('r-steps', 'v-steps', (v) => `${v}`, (v) => `chrono steps ${v}`);
+    $('r-steps').addEventListener('input', () => {
+        const n = +$('r-steps').value;
+        $('steps-hint').textContent = n === 1
+            ? 'one jump a minute — the hands are still in between, the way quartz ticks'
+            : `one move every ${(60 / n).toFixed(1)} s of clock time`;
+    });
     // Warp is logarithmic: 0.1x to 1000x reads naturally on a linear slider only in a log
     // scale, and the interesting settings (1x, 60x) are decades apart.
     const warpOf = (v) => Math.pow(10, (v - 25) / 25);

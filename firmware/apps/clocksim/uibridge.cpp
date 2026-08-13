@@ -1,6 +1,7 @@
 #include "uibridge.hpp"
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
@@ -123,9 +124,30 @@ std::thread g_accept_thr;
 std::mutex g_clients_mx;
 std::vector<std::unique_ptr<Client>> g_clients;
 
+// A client that vanishes mid-write must not take the firmware down with it.  ::send() to a
+// socket whose peer has gone raises SIGPIPE, and SIGPIPE's default disposition is to KILL the
+// process -- so a browser tab closed at the wrong moment, or a port probe that connects and
+// hangs up, ends clocksim.  The return value was already being checked; the signal was the
+// missing half.  Linux carries the flag on the call, macOS on the socket (below).
+#if defined(MSG_NOSIGNAL)
+constexpr int kSendFlags = MSG_NOSIGNAL;
+#else
+constexpr int kSendFlags = 0;
+#endif
+
+// Everything the two platforms need so a dead peer is an error and not a death sentence.
+void quiet_pipe(int fd) {
+#if defined(SO_NOSIGPIPE)
+    const int one = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+#else
+    (void)fd;
+#endif
+}
+
 bool send_all(int fd, const char* p, std::size_t n) {
     while (n) {
-        const ssize_t w = ::send(fd, p, n, 0);
+        const ssize_t w = ::send(fd, p, n, kSendFlags);
         if (w <= 0) return false;
         p += w;
         n -= static_cast<std::size_t>(w);
@@ -307,6 +329,7 @@ void handle_line(int fd, char* line) {
 void client_loop(int fd, Client* self) {
     const int one = 1;
     ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+    quiet_pipe(fd);
 
     uint64_t cursor = 0;
     {
@@ -368,6 +391,9 @@ void accept_loop() {
         if (::poll(&p, 1, 100) <= 0) continue;
         const int fd = ::accept(ls, nullptr, nullptr);
         if (fd < 0) continue;
+        // Closed by the kernel across `sim reboot`'s execv, so the restarted image starts
+        // with no half-open clients and the browser sees a clean disconnect.
+        ::fcntl(fd, F_SETFD, FD_CLOEXEC);
         if (!g_run.load(std::memory_order_relaxed)) {
             ::close(fd);
             break;
@@ -406,6 +432,10 @@ Status start(uint16_t p) noexcept {
     }
     const int one = 1;
     ::setsockopt(ls, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+    // The listener must NOT survive `sim reboot`'s execv: an inherited socket still bound to
+    // the port would make the restarted image fall back to console-only, and SO_REUSEADDR
+    // does not help while the old fd is still listening.
+    ::fcntl(ls, F_SETFD, FD_CLOEXEC);
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;

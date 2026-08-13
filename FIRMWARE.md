@@ -312,7 +312,7 @@ firmware/
 │  └─ sh2/  googletest/  bsec/    # bsec/ may be empty — the build degrades (§6.5)
 └─ test/
    ├─ host/                       # GoogleTest, native compiler, fakes for hal/  (§11.1)
-   └─ target/                     # Unity, on-device peripheral tests            (§11.3)
+   └─ target/                     # Unity, on-device peripheral tests            (§11.4)
 
 ../ux/                            # ← the clock on screen. NOT firmware, holds no logic
    uxapp.py  geometry.json  web/  # stdlib HTTP + WebSocket bridge onto uibridge
@@ -1400,11 +1400,11 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 
 | Group | Commands |
 |---|---|
-| `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · `sys reboot [ota\|dfu]` · ▲`sys coredump [info\|dump\|erase]` |
+| `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
-| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono follow <on\|off>` — the rest of the row below arrives with the alarm table |
+| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|alarm\|setalarm\|setclock\|volume>]` · `ui knob [<knob> <value>]` (`counts` `threshold` `factor` `timeout` `longpress` `bright`) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
@@ -1606,7 +1606,7 @@ de-energized coils, tickless idle), not on cycles.
 
 ## 11. Testing
 
-Three tiers, in descending order of how many bugs they catch per minute spent.
+Four tiers, in descending order of how many bugs they catch per minute spent.
 
 ### 11.1 Host unit tests — GoogleTest, no IDF, seconds in CI
 
@@ -1691,10 +1691,36 @@ Two consequences worth knowing before they surprise you:
   tick, since the AO's poll bound is real milliseconds).
 
 **What `clocksim` is explicitly not for:** timing, DMA, electrical behaviour, or anything on the
-"Not faked" side above. Those are §11.3. A green `clocksim` is not permission to skip the bench —
+"Not faked" side above. Those are §11.4. A green `clocksim` is not permission to skip the bench —
 it is permission to arrive at the bench with the logic already correct.
 
-### 11.3 Target tests — Unity, on-device
+### 11.3 Interaction tests — the `ux` page, driven by a browser
+
+[`ux/tests/`](ux/tests/). Fifty-two Playwright cases that click the real page in a real Chrome
+against a real `clocksim`, one freshly spawned pair per test, and assert on what the dial then
+shows. `npm install && npx playwright test`, about two and a half minutes.
+
+They exist because §11.1 and §11.2 both test the firmware from *inside*: unit tests call the
+domain functions, and `clocksim`'s console types the same CLI the code under test dispatches.
+Neither one exercises the path a person actually takes — click → `sim press` → the ui HSM → a
+pixel → a `state` frame → a lit swatch — and that path is where these lived:
+
+| Found | Where it was |
+|---|---|
+| `motion stop` killed the movement outright, permanently | `Motion::halt()` posted `Stop`, which is the **AO framework's shutdown event**; `run()` consumed it and left its loop. One click and the hands never moved again. Now `Halt` (§4.1). |
+| clocksim died of `SIGPIPE` | `uibridge` checked `::send()`'s return value but never suppressed the signal, so a UI client that hung up mid-write killed the whole image. `SO_NOSIGPIPE`/`MSG_NOSIGNAL`. |
+| a quick click on the knob did nothing | the host fake let a switch closure shorter than one 20 ms `ui` poll vanish. ENC_SW is an **interrupt** on the board and cannot be missed, so the fake now holds an unread closure over for one read. |
+| the tap gesture was wired to nothing | `Tap` had a handler in `ui` and no producer anywhere; `sim tap` incremented a counter nobody read. `ui` now diffs it, until the BNO085 driver exists to post it (§12.0.2). |
+| the tap acknowledgement was invisible | the handler lit the bell **and marked the pixels dirty**, so the next tick repainted the mode over it. A 20 ms flash. |
+| the low-cell pixel never came on | `paint()` only runs on `dirty_`, and nothing marks it when the *cell* changes — the warning waited for an unrelated knob turn. |
+
+The rule that makes them worth anything: **no back door**. Every gesture is a real DOM event and
+every assertion reads rendered DOM, which is only ever what arrived in a `state` frame. The page
+sends commands and the firmware sends status; neither side is allowed a shortcut, so a red test
+means the product is broken somewhere between the click and the pixel. See
+[`ux/tests/README.md`](ux/tests/README.md).
+
+### 11.4 Target tests — Unity, on-device
 
 Drivers, DMA, I²C timing, deep-sleep wake accuracy, homing repeatability, SK6812 timing margin.
 Everything whose failure mode is electrical. Runs on the devkit for what the devkit has (§12.0), on
@@ -1785,6 +1811,19 @@ the bench rather than a minute here:
 5. `Clear`'s first draft branched on the *previous* tick's opto reading, so a `sim hand`
    landing in the same tick as `motion home` made it move the wrong hand. Deciding on stale
    sensor data is a mistake the bench version could make just as easily.
+6. **`Motion::plan()` zeroed the axis velocity on every re-target.** `chrono` re-issues a
+   target whenever its computed position moves — about five times a second for the minute
+   hand — and each one re-plans *both* axes, so a cruising hand dropped to a standstill and
+   ramped up again several times per move. On the hour hand, whose own moves are short, that
+   was the whole move. The ramp is now kept whenever the new leg runs the same way as the
+   old one; `step_axis()` still clamps to `sqrt(2·a·s)`, so the landing stays exact.
+   Watching it in `ux/` is what made it obvious — the numbers alone had looked fine.
+7. **`Ui::rotate()` divided each knob delta on its own and dropped the remainder**, so with
+   `counts_per_minute` at anything above 1 a normal turn moved *nothing at all*: PCNT is read
+   every tick and a hand on the knob delivers one or two counts at a time, every one of which
+   divided to zero. Only a flick big enough to clear the divisor in a single delta did
+   anything. The residue is carried now. The same arithmetic is what a real encoder produces,
+   so this was never a simulation artefact.
 
 Two things the scaffolding caught on its own, which is the argument for building it first:
 `main` was missing `nvs_flash` from its `REQUIRES` and the build refused to link (the §2

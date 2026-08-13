@@ -103,6 +103,17 @@ struct Snapshot {
 Snapshot snapshot() noexcept;
 
 // Restores every fake to its power-on value.  Called by `sim reset` and by each test.
+// The HARDWARE only: the services keep running and keep whatever they believe, which is
+// exactly the interesting case -- `motion` still thinks it is homed while the hands have
+// jumped.  For the other one, see reboot().
 void reset() noexcept;
+
+// A cold start of the whole image -- the host's answer to pulling the power, and the only
+// way to clear what the services believe.  clocksim installs a hook that re-execs the
+// process; nothing else does, and reboot() then reports NotPresent rather than pretending.
+// Never returns when it succeeds.
+using RebootFn = void (*)();
+void set_reboot_hook(RebootFn) noexcept;
+Status reboot() noexcept;
 
 }  // namespace clk::hal::host

@@ -12,6 +12,7 @@
 #include "clk/cli/registry.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/sim.hpp"
+#include "clk/log.hpp"
 
 namespace clk::cli {
 namespace {
@@ -319,9 +320,15 @@ Status cmd_present(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// The fake HARDWARE only.  The services keep running and keep believing whatever they
+// believed -- motion still thinks it is homed while the hands have jumped -- which is the
+// interesting half of the pair.  `sys reboot` is the other half, and it is not host-only:
+// it restarts the image here and on the board.
 Status cmd_reset(Args const&, Sink& out) {
     sim::reset();
     out.line("fake hardware back to power-on state");
+    out.line("  the SERVICES are untouched -- motion still believes whatever it believed.");
+    out.line("  `sys reboot` for a cold start of the image itself.");
     return Status::Ok;
 }
 

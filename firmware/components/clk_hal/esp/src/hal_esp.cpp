@@ -17,6 +17,7 @@
 //   imu     -> BNO085 SHTP/SH-2 over i2c, SENSOR_INT on IO42
 // Each one is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -102,6 +103,16 @@ Status init() noexcept {
     CLK_LOGI(sys, "hal: board=%s, peripherals not implemented yet (see hal/esp)",
              board::board_name());
     return Status::Ok;
+}
+
+Status reboot() noexcept {
+    CLK_LOGW(sys, "reboot: esp_restart()");
+    // Flush the console so the last line makes it out of the UART before the reset.  The
+    // coils are left as they are on purpose: STEP_STBY falls with the rail, and holding a
+    // stepper energised through a reset is how you cook a driver.
+    ::vTaskDelay(pdMS_TO_TICKS(80));
+    ::esp_restart();
+    return Status::Failed;  // esp_restart() does not return
 }
 
 }  // namespace clk::hal

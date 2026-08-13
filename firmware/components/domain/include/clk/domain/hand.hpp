@@ -39,12 +39,25 @@ struct Position {
     int32_t minute;
 };
 
-[[nodiscard]] constexpr Position for_time(int hour24, int minute, int second = 0) noexcept {
+// `steps_per_minute` is how many DISTINCT positions the hands take in a minute -- the
+// difference between a clock that ticks and one that sweeps.  1 is a hand that jumps once a
+// minute and is otherwise still; 60 is one that moves every second, which is as fine as a
+// wall clock carrying whole seconds can be.  It quantises the TIME, not each hand, so both
+// hands step together and the hour hand keeps its proper fraction of the way to the next
+// hour -- quantising them separately would let the minute hand sit on :00 while the hour hand
+// had already crept off the hour, which is the thing that reads as broken.
+[[nodiscard]] constexpr Position for_time(int hour24, int minute, int second = 0,
+                                          int steps_per_minute = 60) noexcept {
+    const int32_t n = steps_per_minute < 1 ? 1 : (steps_per_minute > 60 ? 60 : steps_per_minute);
     const int32_t sec_of_half_day =
         static_cast<int32_t>((hour24 % 12) * 3600 + minute * 60 + second);
-    const int64_t h = static_cast<int64_t>(sec_of_half_day) * kRev / 43200;
     const int32_t sec_of_hour = static_cast<int32_t>(minute * 60 + second);
-    const int64_t m = static_cast<int64_t>(sec_of_hour) * kRev / 3600;
+    // floor to the step boundary: ticks of (60/n) seconds, counted without ever forming the
+    // fraction, so n need not divide 60.
+    const int64_t steps_half_day = static_cast<int64_t>(sec_of_half_day) * n / 60;
+    const int64_t steps_hour = static_cast<int64_t>(sec_of_hour) * n / 60;
+    const int64_t h = steps_half_day * kRev / (720 * n);
+    const int64_t m = steps_hour * kRev / (60 * n);
     return {static_cast<int32_t>(h), static_cast<int32_t>(m)};
 }
 

@@ -72,29 +72,34 @@ export function build(root, G) {
     el('clipPath', { id: 'dialClip' }, defs)
         .appendChild(el('circle', { cx: 0, cy: 0, r: G.dial.opening_d / 2 }));
 
+    // Everything physical hangs off ONE group so the whole cube can be turned about the dial
+    // centre -- which is where the IMU's yaw goes.  The origin is the centre of rotation
+    // already, so the transform is a bare rotate().
+    const rot = el('g', { id: 'plate-rot' }, root);
+
     // ---- the wake COB, which is on the BACK: seen only as a wash around the cube --------
     const wake = el('rect', {
         x: -half - 3, y: -half - 3, width: G.plate.size + 6, height: G.plate.size + 6,
         rx: 8, id: 'wake-glow', filter: 'url(#softer)', fill: '#000', opacity: '0',
-    }, root);
+    }, rot);
     wake.dataset.role = 'wake';
 
     // ---- the plate ---------------------------------------------------------------------
     el('rect', {
         x: -half, y: -half, width: G.plate.size, height: G.plate.size, rx: 1.2,
         fill: 'url(#alu)', stroke: '#5c6266', 'stroke-width': 0.3,
-    }, root);
+    }, rot);
 
     const inset = half - G.plate.corner_screw_inset;
     for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         el('circle', {
             cx: sx * inset, cy: sy * inset, r: G.plate.corner_screw_d / 2,
             fill: '#5b6165', stroke: '#d5d9db', 'stroke-width': 0.18,
-        }, root);
+        }, rot);
     }
 
     // ---- the dial ----------------------------------------------------------------------
-    const dial = el('g', { 'clip-path': 'url(#dialClip)' }, root);
+    const dial = el('g', { 'clip-path': 'url(#dialClip)' }, rot);
     el('circle', { cx: 0, cy: 0, r: G.dial.opening_d / 2, fill: 'url(#walnut)' }, dial);
 
     // The two on-PCB pixels wash the walnut from behind the glass (chain positions 1-2).
@@ -143,7 +148,7 @@ export function build(root, G) {
     el('circle', {
         cx: 0, cy: 0, r: G.dial.opening_d / 2, fill: 'url(#glass)',
         stroke: '#6d7478', 'stroke-width': 0.5, 'pointer-events': 'none',
-    }, root);
+    }, rot);
 
     // ---- the five status pixels, behind their face holes --------------------------------
     const S = G.status_leds;
@@ -151,7 +156,7 @@ export function build(root, G) {
     const leds = [];
     for (let i = 0; i < S.count; i++) {
         const cx = x0 + i * S.pitch;
-        const g = el('g', {}, root);
+        const g = el('g', {}, rot);
         const glow = el('circle', {
             cx, cy: S.y, r: 5.2, fill: '#000', opacity: 0, filter: 'url(#soft)',
         }, g);
@@ -167,6 +172,7 @@ export function build(root, G) {
     }
 
     return {
+        rot,
         hour: hourG,
         minute: minG,
         leds,

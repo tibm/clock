@@ -71,6 +71,14 @@ struct State {
     int32_t count = 0;
     int32_t last_read = 0;
     uint64_t sw_until_us = 0;
+    // ENC_SW is an INTERRUPT on IO17 (§3.3): the board cannot miss a closure, however brief.
+    // Here the same edge is found by polling, and a press shorter than the poll period would
+    // simply not exist -- which is a fake that behaves WORSE than the hardware it stands in
+    // for.  It matters because the ux app sends `sim press down` and `up` on the real mouse
+    // edges, and a quick click is easily under one 20 ms `ui` tick.  So a closure nobody has
+    // read yet is held over for exactly one more read: seen once down, once up, every time.
+    bool sw_seen = false;       // has a reader observed the current closure?
+    bool sw_held_over = false;  // released before anybody looked -- owe them one `down`
     // movement
     AxisSt ax[2]{AxisSt{.offset_deg = kHourStartDeg}, AxisSt{.offset_deg = kMinuteStartDeg}};
     bool motor_on = false;
@@ -263,7 +271,13 @@ Result<State> read() noexcept {
     State s{};
     s.count = g_st.count;
     s.delta = g_st.count - g_st.last_read;
-    s.sw = sim_us_locked() < g_st.sw_until_us;
+    bool down = sim_us_locked() < g_st.sw_until_us;
+    if (!down && g_st.sw_held_over) {
+        down = true;                // the closure this reader would otherwise have missed
+        g_st.sw_held_over = false;  // and the next read sees it open again
+    }
+    if (down) g_st.sw_seen = true;
+    s.sw = down;
     g_st.last_read = g_st.count;
     return Result<State>::good(s);
 }
@@ -626,7 +640,15 @@ void turn_counts(int32_t counts) noexcept {
 
 void press(uint32_t hold_ms) noexcept {
     std::lock_guard lk{g_mx};
-    g_st.sw_until_us = sim_us_locked() + static_cast<uint64_t>(hold_ms) * 1000u;
+    const uint64_t now = sim_us_locked();
+    if (hold_ms == 0) {
+        // A release: if nobody has read the closure yet, owe them one before it opens.
+        if (now < g_st.sw_until_us && !g_st.sw_seen) g_st.sw_held_over = true;
+    } else {
+        g_st.sw_seen = false;
+        g_st.sw_held_over = false;
+    }
+    g_st.sw_until_us = now + static_cast<uint64_t>(hold_ms) * 1000u;
 }
 
 void set_hand_angle(motor::Hand h, float deg) noexcept {
@@ -758,6 +780,12 @@ Snapshot snapshot() noexcept {
     return s;
 }
 
+// Deliberately outside g_mx: the hook does not return, so taking the lock would hand the
+// next image a process whose fakes are locked by a thread that no longer exists.
+RebootFn g_reboot = nullptr;
+
+void set_reboot_hook(RebootFn f) noexcept { g_reboot = f; }
+
 void reset() noexcept {
     std::lock_guard lk{g_mx};
     // Sim time survives.  "Fake hardware back to power-on" is not "rewind the universe":
@@ -771,4 +799,14 @@ void reset() noexcept {
 }
 
 }  // namespace host
+
+// The host half of `sys reboot`.  There is no reset controller to poke, so the app that owns
+// the process supplies one -- clocksim re-execs itself.  A binary that installed no hook
+// (the test runner) says so rather than pretending it restarted.
+Status reboot() noexcept {
+    if (!host::g_reboot) return Status::NotPresent;
+    host::g_reboot();
+    return Status::Failed;  // only reached if the hook could not restart us
+}
+
 }  // namespace clk::hal

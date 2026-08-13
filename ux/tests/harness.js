@@ -1,0 +1,447 @@
+// The rig every spec runs against: a real clocksim, a real uxapp.py, a real page.
+//
+// One fresh pair per TEST, not per file.  clocksim starts in ~50 ms and the isolation is
+// worth far more than the time: a suite where test 7 only passes because test 6 homed the
+// hands is a suite that tells you nothing when it goes red.
+//
+// The rules this file exists to enforce (README.md in this directory says why):
+//   * every gesture is a real DOM event on a real control, dispatched by the browser;
+//   * every assertion reads what the PAGE renders, which is only ever what arrived in a
+//     `state` frame from the firmware;
+//   * nothing here speaks to clocksim directly.  There is no socket in this file, no
+//     evaluate() that pokes app.js internals, and no way to make the dial say something the
+//     firmware did not say.
+'use strict';
+
+const { test: base, expect } = require('@playwright/test');
+const { spawn } = require('node:child_process');
+const net = require('node:net');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const ROOT = path.resolve(__dirname, '..', '..');
+const SIM = path.join(ROOT, 'firmware', 'build', 'host-dev', 'apps', 'clocksim', 'clocksim');
+const UXAPP = path.join(ROOT, 'ux', 'uxapp.py');
+
+// ---- processes ---------------------------------------------------------------------------
+
+// Ports, without the race.  Asking the kernel for port 0 twice in two workers can hand out
+// the SAME number -- neither has bound it yet -- and the loser then quietly attaches to the
+// winner's clocksim, which fails later and somewhere else.  So each worker owns a disjoint
+// block and walks it; the only thing we ask the kernel is whether a given port is free.
+const WORKER = parseInt(process.env.TEST_WORKER_INDEX || '0', 10);
+const BLOCK = 400;
+let seq = 0;
+
+function isFree(port) {
+    return new Promise((resolve) => {
+        const s = net.createServer();
+        s.once('error', () => resolve(false));
+        s.listen(port, '127.0.0.1', () => s.close(() => resolve(true)));
+    });
+}
+
+async function freePort() {
+    for (let i = 0; i < BLOCK; i++) {
+        const p = 41000 + WORKER * BLOCK + ((seq++) % BLOCK);
+        if (await isFree(p)) return p;
+    }
+    throw new Error(`worker ${WORKER} has no free port in its block`);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function waitForTcp(port, timeoutMs, what) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        const ok = await new Promise((resolve) => {
+            const s = net.connect({ port, host: '127.0.0.1' });
+            s.on('connect', () => { s.destroy(); resolve(true); });
+            s.on('error', () => { s.destroy(); resolve(false); });
+        });
+        if (ok) return;
+        if (Date.now() > deadline) throw new Error(`${what} never came up on 127.0.0.1:${port}`);
+        await sleep(25);
+    }
+}
+
+class Rig {
+    constructor() {
+        this.sim = null;
+        this.ux = null;
+        this.simLog = [];
+        this.uxLines = [];
+        this.simPort = 0;
+        this.httpPort = 0;
+    }
+
+    static async start() {
+        const r = new Rig();
+        if (!fs.existsSync(SIM)) {
+            throw new Error(
+                `clocksim is not built.\n  cd ${path.join(ROOT, 'firmware')}` +
+                `\n  cmake --preset host-dev && cmake --build --preset host-dev`);
+        }
+        r.simPort = await freePort();
+        r.httpPort = await freePort();
+
+        // stdin is a PIPE and stays open.  clocksim's console front-end reads stdin and quits
+        // on EOF, so a child spawned with stdin closed exits the instant it starts -- the
+        // failure looks like "the port never opened" and costs an hour if you have not seen
+        // it before.
+        r.sim = spawn(SIM, ['--ui-port', String(r.simPort)], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: ROOT,
+        });
+        const keep = (buf) => {
+            for (const line of String(buf).split('\n')) if (line.trim()) r.simLog.push(line);
+            if (r.simLog.length > 400) r.simLog.splice(0, r.simLog.length - 400);
+        };
+        r.sim.stdout.on('data', keep);
+        r.sim.stderr.on('data', keep);
+        await waitForTcp(r.simPort, 8000, 'clocksim');
+        // clocksim does not die when its port is taken -- it logs and carries on console-only,
+        // and the connect above then succeeds against somebody ELSE's clocksim.  That is a
+        // suite quietly testing the wrong process, so refuse to run.
+        if (r.firmwareLog().includes('is taken')) {
+            await r.stop();
+            throw new Error(`port ${r.simPort} was taken; clocksim fell back to console-only`);
+        }
+
+        r.ux = spawn('python3', [UXAPP, '--sim-port', String(r.simPort),
+                                 '--http-port', String(r.httpPort), '--no-browser'],
+                     { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT });
+        const keepUx = (buf) => {
+            for (const line of String(buf).split('\n')) if (line.trim()) r.uxLines.push(line);
+        };
+        r.ux.stdout.on('data', keepUx);
+        r.ux.stderr.on('data', keepUx);
+        await waitForTcp(r.httpPort, 8000, 'uxapp.py');
+        return r;
+    }
+
+    uxLog() { return this.uxLines.join('\n'); }
+
+    get url() { return `http://127.0.0.1:${this.httpPort}/`; }
+
+    // clocksim's own stderr.  For diagnosis only -- assertions read the page, never this.
+    firmwareLog() { return this.simLog.join('\n'); }
+
+    async stop() {
+        for (const p of [this.ux, this.sim]) {
+            if (!p || p.exitCode !== null) continue;
+            p.kill('SIGTERM');
+        }
+        if (this.sim && this.sim.stdin.writable) this.sim.stdin.end();
+        await sleep(60);
+        for (const p of [this.ux, this.sim]) {
+            if (p && p.exitCode === null) p.kill('SIGKILL');
+        }
+    }
+}
+
+// ---- reading the page --------------------------------------------------------------------
+// Everything below reads rendered DOM.  `onState()` in app.js is the only thing that writes
+// any of it, and it runs off the firmware's `state` frame.
+
+// "rgb(12, 34, 56)" | "#000" | "" -> {r,g,b,lit}
+function parseColor(css) {
+    if (!css) return { r: 0, g: 0, b: 0, lit: false };
+    const m = /rgba?\(([^)]+)\)/.exec(css);
+    if (m) {
+        const [r, g, b] = m[1].split(',').map((n) => parseFloat(n));
+        return { r, g, b, lit: r + g + b > 0 };
+    }
+    if (/^#0{3,8}$/.test(css.trim())) return { r: 0, g: 0, b: 0, lit: false };
+    const h = /^#([0-9a-f]{6})$/i.exec(css.trim());
+    if (h) {
+        const v = parseInt(h[1], 16);
+        return { r: v >> 16, g: (v >> 8) & 255, b: v & 255, lit: v > 0 };
+    }
+    return { r: 0, g: 0, b: 0, lit: false };
+}
+
+const norm360 = (d) => ((d % 360) + 360) % 360;
+
+// The one number this file is allowed to know about the mechanism, and it is not a guess:
+// the `hello` frame carries usteps_per_rev, and the MECHANISM card prints it.
+const kRev = 17280;
+const degOf = (usteps) => norm360(usteps * 360 / kRev);
+
+// After homing, a hand sits a little SHORT of where the firmware thinks it is: the rising
+// edge of the index mark is half a mark before its centre, and motion adopts zero there.
+// The offset is systematic, identical for both hands, and is what a `motion zero` trim will
+// take out on the bench (motion.cpp, Phase::FineHour).  Assertions on a physical angle
+// therefore carry it as tolerance rather than pretending it is not there.
+const kHomeOffsetDeg = 3.0;
+
+// The smallest angle between two bearings, so 359.6 and 0.2 are 0.6 apart and not 359.4.
+function angleDiff(a, b) {
+    const d = norm360(a - b);
+    return d > 180 ? 360 - d : d;
+}
+
+class Ux {
+    constructor(page, rig) {
+        this.page = page;
+        this.rig = rig;
+    }
+
+    // ---- readouts -------------------------------------------------------------------
+    // Where a hand physically points, straight off the SVG the state frame rotated.
+    async hand(which) {
+        const sel = `#plate g.hand.${which === 'h' ? 'hour' : which === 'm' ? 'minute' : which}`;
+        const t = await this.page.locator(sel).getAttribute('transform');
+        const m = /rotate\(\s*(-?[\d.]+)/.exec(t || '');
+        if (!m) throw new Error(`no rotate() on ${sel}: ${t}`);
+        return norm360(parseFloat(m[1]));
+    }
+
+    async hands() { return { h: await this.hand('h'), m: await this.hand('m') }; }
+
+    // How far the whole cube is turned on screen, straight off the group the IMU rotates.
+    async plateYaw() {
+        const t = await this.page.locator('#plate-rot').getAttribute('transform');
+        const m = /rotate\(\s*(-?[\d.]+)/.exec(t || '');
+        return m ? parseFloat(m[1]) : 0;
+    }
+
+    // What the FIRMWARE thinks it commanded, in microsteps.  Unwrapped int32, so reduce it
+    // before comparing: -7200 and 10080 are the same place on the dial.
+    async usteps() {
+        const t = await this.text('m-pos');
+        const [h, m] = t.split('/').map((s) => parseInt(s.trim(), 10));
+        const wrap = (v) => ((v % kRev) + kRev) % kRev;
+        return { h: wrap(h), m: wrap(m), rawH: h, rawM: m };
+    }
+
+    // The swatch strip is the app's pixel readout: one <i> per pixel, coloured from px[i].
+    async pixel(i) {
+        const css = await this.page.locator(`#swatches i[data-px="${i}"]`)
+            .evaluate((e) => e.style.background);
+        return parseColor(css);
+    }
+
+    async pixels() {
+        const n = await this.page.locator('#swatches i').count();
+        const out = [];
+        for (let i = 0; i < n; i++) out.push(await this.pixel(i));
+        return out;
+    }
+
+    async text(id) { return (await this.page.locator(`#${id}`).textContent()).trim(); }
+
+    // "07:38:04" -> {h, m, s}.  The page's own clock pill, from chrono's snapshot.
+    async clock() {
+        const t = await this.text('pill-clock');
+        const m = /(\d{2}):(\d{2}):(\d{2})/.exec(t);
+        if (!m) return null;
+        return { h: +m[1], m: +m[2], s: +m[3], paused: t.includes('⏸') };
+    }
+
+    // Whether a state-coloured button is showing ok (green) / go (blue) / bad (red).
+    async buttonState(id) {
+        const cls = await this.page.locator(`#${id}`).getAttribute('class');
+        for (const c of ['ok', 'go', 'bad']) if (cls.split(/\s+/).includes(c)) return c;
+        return '';
+    }
+
+    async logText() { return await this.page.locator('#log').innerText(); }
+
+    // ---- gestures -------------------------------------------------------------------
+    // All of these are ordinary browser input.  Nothing writes to the socket by hand.
+
+    async press(ms = 150) {
+        const box = await this.page.locator('#press').boundingBox();
+        await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await this.page.mouse.down();
+        await this.page.waitForTimeout(ms);
+        await this.page.mouse.up();
+    }
+
+    // One notch of the wheel over the knob is one detent, which the encoder delivers as 4
+    // PCNT counts.  The wheel rather than the arrow keys because it needs no focus: an arrow
+    // key with a slider focused moves the SLIDER, and app.js correctly ignores it.
+    async turn(detents) {
+        const box = await this.page.locator('#knob').boundingBox();
+        await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        for (let i = 0; i < Math.abs(detents); i++) {
+            await this.page.mouse.wheel(0, detents > 0 ? 120 : -120);
+            await this.page.waitForTimeout(45);   // app.js coalesces counts on a 33 ms timer
+        }
+        await this.page.waitForTimeout(80);
+    }
+
+    // The same detent through the keyboard, which is the other documented way to nudge it.
+    async arrowTurn(detents) {
+        await this.page.locator('h1').click();   // focus off any slider first
+        const key = detents > 0 ? 'ArrowRight' : 'ArrowLeft';
+        for (let i = 0; i < Math.abs(detents); i++) {
+            await this.page.keyboard.press(key);
+            await this.page.waitForTimeout(45);
+        }
+        await this.page.waitForTimeout(80);
+    }
+
+    // Drag a hand round the dial -- reaching through the glass, not telling the firmware.
+    async dragHand(which, deg) {
+        const sel = `#plate g.hand.${which === 'h' ? 'hour' : 'minute'}`;
+        const plate = await this.page.locator('#plate').boundingBox();
+        const cx = plate.x + plate.width / 2;
+        const cy = plate.y + plate.height / 2;
+        const grab = await this.page.locator(sel).boundingBox();
+        await this.page.mouse.move(grab.x + grab.width / 2, grab.y + grab.height / 2);
+        await this.page.mouse.down();
+        const r = Math.min(plate.width, plate.height) * 0.3;
+        // `deg` is in the DIAL's frame, which is the frame `sim hand` speaks.  The plate on
+        // screen is turned by the IMU's yaw, so the SCREEN angle to aim at is deg + yaw --
+        // exactly the correction app.js takes back out at the other end.
+        const yaw = await this.plateYaw();
+        for (let i = 1; i <= 6; i++) {
+            const a = (yaw + deg * i / 6 - 90) * Math.PI / 180;
+            await this.page.mouse.move(cx + r * Math.cos(a), cy + r * Math.sin(a));
+            await this.page.waitForTimeout(45);
+        }
+        await this.page.mouse.up();
+        await this.page.waitForTimeout(120);
+    }
+
+    // Move a slider by setting its value the way a drag would, then letting the page hear it.
+    async slide(id, value) {
+        await this.page.locator(`#${id}`).fill(String(value));
+        await this.page.waitForTimeout(120);
+    }
+
+    // Click `home` and wait for the movement's own answer.
+    //
+    // Waiting only for green is not enough: after an earlier home the button is ALREADY
+    // green, so this returned before the new run had started and the caller measured the
+    // hands from the previous one.  Wait for the run to be live first.
+    async home() {
+        await this.page.locator('#btn-home').click();
+        await expect(this.page.locator('#btn-home')).toHaveText('homing…', { timeout: 10000 });
+        await expect(this.page.locator('#btn-home')).toHaveClass(/\bok\b/, { timeout: 45000 });
+    }
+
+    // The on-page CLI box.  It is a control on the page like any other, it dispatches the
+    // same line the terminal would, and the firmware cannot tell the difference -- which is
+    // why it is fair game for arranging a precondition exactly (a hand at 137.0 deg rather
+    // than the scramble button's random one) but never for asserting anything.
+    async cli(line) {
+        await this.page.locator('#cli').fill(line);
+        await this.page.locator('#cli').press('Enter');
+        await this.page.locator('#cli').blur();
+    }
+
+    // Reach into the case and point a hand somewhere.  The firmware is NOT told; the gap is
+    // exactly what `motion home` exists to discover.
+    async placeHand(which, deg) { await this.cli(`sim hand ${which} ${deg}`); }
+
+    // Just the mode word: "setalarm" out of "ui setalarm · 4.9s".
+    async mode() {
+        return (await this.text('pill-mode')).replace(/^ui\s+/, '').split('·')[0].trim();
+    }
+
+    // Press until the HSM is in `want`.
+    //
+    // Reading the pill straight after a click still shows the PREVIOUS mode, and that is not
+    // a bug: the press has to reach the firmware, the ui AO has to poll ENC_SW, and a state
+    // frame has to come back -- fifty-odd milliseconds all told.  A helper that chose its
+    // next press from that stale text overshot the mode it was asked for and the test then
+    // edited something else entirely, which looked exactly like a firmware fault.  So: press,
+    // wait for the mode to actually MOVE, then decide.
+    async toMode(want) {
+        for (let i = 0; i < 8; i++) {
+            const at = await this.mode();
+            if (at === want) return;
+            await this.press(120);
+            await expect.poll(() => this.mode(), { timeout: 5000 }).not.toBe(at);
+        }
+        throw new Error(`never reached ${want}; stuck at ${await this.mode()}`);
+    }
+
+    async waitIdleMode() {
+        await expect(this.page.locator('#pill-mode')).toHaveText(/ui idle/, { timeout: 9000 });
+    }
+
+    // Does the DIAL agree with the CLOCK?  Both read off the page, both fed by the firmware,
+    // and the expected angle worked out from first principles rather than from anything the
+    // app said about it: the hour hand is continuous, so 07:30 is halfway between 7 and 8.
+    async dialTimeError() {
+        const c = await this.clock();
+        if (!c) return 999;
+        const hands = await this.hands();
+        const hourDeg = (((c.h % 12) * 3600 + c.m * 60 + c.s) / 43200) * 360;
+        const minDeg = ((c.m * 60 + c.s) / 3600) * 360;
+        return Math.max(angleDiff(hands.h, hourDeg), angleDiff(hands.m, minDeg));
+    }
+
+    async expectDialShowsTime(tol = kHomeOffsetDeg + 1.0) {
+        await expect.poll(() => this.dialTimeError(),
+                          { timeout: 25000, message: 'the hands never reached the time on the pill' })
+            .toBeLessThan(tol);
+    }
+}
+
+// ---- the fixture --------------------------------------------------------------------------
+
+const test = base.extend({
+    ux: async ({ page }, use, testInfo) => {
+        const rig = await Rig.start();
+        // Everything from here on must reach the stop() in `finally`.  A throw during setup
+        // that leaks a clocksim leaks its PORT too, and the next test's attach then fails for
+        // a reason that has nothing to do with the next test -- one flake becomes a cascade
+        // and the report blames the wrong thing.
+        try {
+            const ux = new Ux(page, rig);
+            const pageErrors = [];
+            page.on('pageerror', (e) => pageErrors.push(String(e)));
+            // Kept even though attaching is reliable now: the last time it was not, the cause
+            // was clocksim being killed by SIGPIPE two hundred milliseconds earlier, and the
+            // only visible symptom was a page that said "disconnected".  Whatever the next
+            // cause turns out to be, the answer will be in one of these four.
+            const console_ = [];
+            page.on('console', (m) => console_.push(`${m.type()}: ${m.text()}`));
+            page.on('response', (r) => console_.push(`<- ${r.status()} ${r.url()}`));
+            page.on('requestfailed', (r) =>
+                console_.push(`XX ${r.url()} ${r.failure() && r.failure().errorText}`));
+            page.on('websocket', (w) => {
+                console_.push(`WS open ${w.url()}`);
+                w.on('socketerror', (e) => console_.push(`WS socketerror ${e}`));
+                w.on('close', () => console_.push('WS close'));
+            });
+            await page.goto(rig.url);
+            // `hello` has landed once the firmware's own pixel names are on screen.
+            try {
+                await expect(page.locator('#swatches i')).toHaveCount(7, { timeout: 15000 });
+            } catch {
+                const conn = await page.locator('#conn').textContent().catch(() => '(no #conn)');
+                throw new Error(
+                    `never attached to clocksim on ${rig.simPort} (http ${rig.httpPort})\n` +
+                    `  #conn says: ${conn}\n` +
+                    `  browser console: ${console_.join(' | ') || '(silent)'}\n` +
+                    `  page errors: ${pageErrors.join(' | ') || '(none)'}\n` +
+                    `  clocksim said:\n${rig.firmwareLog()}\n` +
+                    `  uxapp said:\n${rig.uxLog()}`);
+            }
+            await expect(page.locator('#conn')).toHaveClass(/up/);
+            // app.js arms `unsafe` 300 ms in; a gated command sent before that is Denied.
+            await page.waitForTimeout(400);
+
+            await use(ux);
+
+            if (pageErrors.length) {
+                testInfo.attach('page errors', { body: pageErrors.join('\n\n') });
+            }
+            if (testInfo.status !== testInfo.expectedStatus) {
+                testInfo.attach('clocksim log', { body: rig.firmwareLog() });
+                testInfo.attach('ux console', { body: await ux.logText().catch(() => '') });
+            }
+            if (pageErrors.length) throw new Error(`the page threw:\n${pageErrors.join('\n')}`);
+        } finally {
+            await rig.stop();
+        }
+    },
+});
+
+module.exports = { test, expect, angleDiff, norm360, parseColor, kRev, degOf, kHomeOffsetDeg };

@@ -10,7 +10,11 @@ namespace {
 
 using hal::pixels::Rgbw;
 
-constexpr uint32_t kTickMs = 20;  // §6.6: PCNT is polled and diffed every 20 ms
+constexpr uint32_t kTickMs = 20;          // §6.6: PCNT is polled and diffed every 20 ms
+constexpr uint32_t kTapAckMs = 400;       // long enough to be seen, short enough not to linger
+constexpr uint8_t kPowerEveryTicks = 12;  // ~4 Hz; it is a battery, not a trigger
+constexpr uint8_t kTapEveryTicks = 2;     // 10 Hz: a snooze tap must not feel laggy
+constexpr uint8_t kLowBattPct = 20;
 
 // Chain order is dial first (§9.2): 0-1 on-PCB dial wash, 2-6 the status row through J12.
 constexpr std::size_t kBell = 2, kAlarmClock = 3, kClock = 4, kVol = 5, kBatt = 6;
@@ -53,6 +57,10 @@ Ui& ui() noexcept {
 void Ui::on_start() {
     const auto k = hal::knob::read();
     knob_last_ = k.ok() ? k.v.count : 0;
+    // Seed the tap counter here, exactly as the knob is seeded: whatever it already reads is
+    // history, not a tap the user just made.
+    const auto s = hal::imu::read();
+    taps_last_ = s.ok() ? s.v.taps : 0;
     last_input_us_ = port::now_us();
     CLK_LOGI(ui, "up; knob %s", k.ok() ? "present" : clk::name(k.st));
     paint();
@@ -84,27 +92,74 @@ void Ui::on_event(Event const& e) {
     if (as<Tap>(e)) {
         // Tap-to-snooze (README §12).  Until the alarm exists it is a visible acknowledgement,
         // which is still the interaction worth tuning: a tap must feel like it did something.
+        //
+        // Marking the pixels dirty here is what it must NOT do.  paint() renders the MODE,
+        // and in Idle the mode is "everything off" -- so the flash was set and then painted
+        // over by the very next tick, twenty milliseconds later.  Hold the acknowledgement
+        // instead, and let on_tick() take the pixels back when it has been seen.
         CLK_LOGI(ui, "tap");
         hal::pixels::set(kBell, {0, 0, 0, 120});
         hal::pixels::refresh();
-        dirty_ = true;
+        ack_until_us_ = port::now_us() + kTapAckMs * 1000ull;
         last_input_us_ = port::now_us();
     }
 }
 
 void Ui::on_tick() {
     poll_knob();
+    poll_tap();
+    watch_battery();
 
     const auto t = tuning();
     if (mode_ != Mode::Idle && port::now_us() - last_input_us_ > t.timeout_ms * 1000ull) {
         CLK_LOGI(ui, "timeout -> idle (settings kept)");
         enter(Mode::Idle);
     }
+    // A tap acknowledgement owns the pixels until it lapses; any real input outranks it,
+    // because a mode change the user just asked for matters more than a flash.
+    if (ack_until_us_ && port::now_us() >= ack_until_us_) {
+        ack_until_us_ = 0;
+        dirty_ = true;
+    }
     if (dirty_) {
         paint();
         dirty_ = false;
+        ack_until_us_ = 0;
     }
     publish();
+}
+
+// Nothing posted Tap.  The event existed, the handler below existed, `sim tap` and the app's
+// tap button existed -- and in between there was no code at all, so the one gesture README
+// §12 calls tap-to-snooze incremented a counter nobody read.  The BNO085's tap is an
+// interrupt on the board and belongs to the sensor driver when that exists (§12.0.2); until
+// then this is the same arrangement `ui` already has with the knob and the cell, which is to
+// diff a HAL counter on its own tick.  MOVE IT when the driver lands: the handler does not
+// change, only who posts to it.  The counter is monotonic, so a missed poll costs no taps.
+void Ui::poll_tap() noexcept {
+    if (++tap_div_ < kTapEveryTicks) return;
+    tap_div_ = 0;
+    const auto s = hal::imu::read();
+    if (!s.ok()) return;
+    if (s.v.taps != taps_last_) {
+        taps_last_ = s.v.taps;
+        post(Tap{});
+    }
+}
+
+// The low-cell warning is the one thing on the pixels that no INPUT causes, so nothing was
+// ever marking it dirty: the cell could sag to 5 % and the pixel stayed dark until the next
+// unrelated knob turn happened to repaint.  Poll it slowly -- on the board this is an ADC
+// read, and four times a second is plenty for a battery.
+void Ui::watch_battery() noexcept {
+    if (++power_div_ < kPowerEveryTicks) return;
+    power_div_ = 0;
+    const auto p = hal::power::read();
+    const bool warn = p.ok() && p.v.soc_pct < kLowBattPct && !p.v.plugged;
+    if (warn != batt_warn_) {
+        batt_warn_ = warn;
+        dirty_ = true;
+    }
 }
 
 // PCNT is hardware quadrature with a glitch filter; there is no ISR, we diff the count
@@ -132,6 +187,8 @@ void Ui::enter(Mode m) noexcept {
     mode_ = m;
     last_input_us_ = port::now_us();
     dirty_ = true;
+    // Part of a turn left over from the last mode is not part of this one.
+    counts_resid_ = 0;
 
     if (m == Mode::SetAlarm) set_min_of_day_ = alarm_min_of_day_;
     if (m == Mode::SetClock && chrono_) {
@@ -163,7 +220,15 @@ void Ui::rotate(int32_t counts) noexcept {
     const auto t = tuning();
     const int32_t mag = std::abs(counts);
     const int32_t gain = mag > t.accel_threshold ? t.accel_factor : 1;
-    const int32_t minutes = (counts * gain) / (t.counts_per_minute ? t.counts_per_minute : 1);
+    const int32_t per = t.counts_per_minute ? t.counts_per_minute : 1;
+
+    // Carry the remainder.  A hand on the knob does not deliver its counts in one lump: PCNT
+    // is read every tick and the UI streams a dragged knob as one- and two-count deltas, so
+    // dividing each delta on its own threw away the whole turn whenever counts_per_minute
+    // was more than 1 -- the knob moved nothing at all, at any speed, unless you flicked it.
+    counts_resid_ += counts * gain;
+    const int32_t minutes = counts_resid_ / per;  // truncates toward zero, both signs
+    counts_resid_ -= minutes * per;
     if (minutes == 0) return;
 
     switch (mode_) {
@@ -279,10 +344,7 @@ void Ui::paint() noexcept {
         }
     }
 
-    const auto p = hal::power::read();
-    if (p.ok() && p.v.soc_pct < 20 && !p.v.plugged) {
-        hal::pixels::set(kBatt, scale({255, 60, 0, 0}, b));
-    }
+    if (batt_warn_) hal::pixels::set(kBatt, scale({255, 60, 0, 0}, b));
     hal::pixels::refresh();
 }
 

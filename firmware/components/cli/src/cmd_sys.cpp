@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "clk/cli/registry.hpp"
+#include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
 
 namespace clk::cli {
@@ -128,6 +129,23 @@ Status cmd_notyet(Args const&, Sink& out) {
     return Status::NotReady;
 }
 
+// One restart, one meaning, both builds: esp_restart() on the board, a re-exec of the
+// process under clocksim.  Everything the services believe goes away, which is the whole
+// difference from `sim reset` -- that one only puts the fake HARDWARE back to power-on and
+// deliberately leaves motion still believing it is homed.
+Status cmd_reboot(Args const& a, Sink& out) {
+    if (const char* how = a.arg(0)) {
+        out.printf("`reboot %s` needs the OTA/DFU partition work (§12.1); plain reboot only", how);
+        return Status::NotReady;
+    }
+    out.line("rebooting");
+    const Status st = hal::reboot();
+    // Only reached when nothing restarted us -- say which of the two it was.
+    out.line(st == Status::NotPresent ? "  no reset controller here (a host build with no hook)"
+                                      : "  reboot failed -- still the old image");
+    return st;
+}
+
 // ---- tables ---------------------------------------------------------------------------
 
 constexpr CmdSpec kTop[] = {
@@ -143,7 +161,7 @@ constexpr CmdSpec kSys[] = {
      ReleaseOk, cmd_debug},
     {"sys", nullptr, "top", "", "per-task CPU, stack high-water, core", ReleaseOk, cmd_notyet},
     {"sys", nullptr, "heap", "", "internal + PSRAM, largest block, min", ReleaseOk, cmd_notyet},
-    {"sys", nullptr, "reboot", "[ota|dfu]", "restart", None, cmd_notyet},
+    {"sys", nullptr, "reboot", "[ota|dfu]", "restart the whole image", Unsafe, cmd_reboot},
     {"sys", "coredump", "info", "", "is there a coredump, and from what", ReleaseOk, cmd_notyet},
     {"sys", "ev", "dump", "", "print the 256-entry RTC event ring", ReleaseOk, cmd_notyet},
 };

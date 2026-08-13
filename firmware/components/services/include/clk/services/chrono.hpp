@@ -27,6 +27,11 @@ public:
 
     void set_time(int64_t epoch_ms) noexcept { post(TimeChanged{epoch_ms}); }
     void set_follow(bool on) noexcept;
+    // How many distinct positions the hands take per minute of wall time: 1 ticks once a
+    // minute, 60 moves every second.  A rendering choice, not a timekeeping one -- the clock
+    // itself is unaffected, only how often it asks the hands to move.
+    void set_steps_per_minute(int n) noexcept;
+    [[nodiscard]] int steps_per_minute() const noexcept;
     [[nodiscard]] Snapshot snapshot() const noexcept;
     [[nodiscard]] int64_t now_epoch_ms() const noexcept;
 
@@ -50,6 +55,7 @@ private:
     uint64_t mono_base_us_ = 0;
     bool valid_ = false;
     bool follow_ = true;
+    int steps_per_minute_ = 60;  // one position per second: a sweep, not a tick
     int32_t last_h_ = -1, last_m_ = -1;
 };
 

@@ -29,6 +29,8 @@ Status cmd_status(Args const&, Sink& out) {
     out.printf("hands  %s   target h=%" PRId32 " m=%" PRId32,
                c.follow ? "following the clock" : "released (knob preview)", c.target_hour,
                c.target_minute);
+    out.printf("steps  %d per minute  (one move every %.1f s of clock time)",
+               svc::chrono().steps_per_minute(), 60.0 / svc::chrono().steps_per_minute());
     const auto u = svc::ui().snapshot();
     out.printf("alarm  %02d:%02d  %s", u.alarm_hour, u.alarm_minute,
                u.alarm_armed ? "armed" : "disarmed");
@@ -53,6 +55,30 @@ Status cmd_time(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// How the running clock is RENDERED onto the hands, which is a separate question from how
+// finely the knob edits it (`ui knob counts`).  A real quartz movement ticks once a second;
+// a good mechanical one sweeps.  This dial can do either, and the answer is a house style
+// rather than a fact about the mechanism.
+Status cmd_steps(Args const& a, Sink& out) {
+    if (a.count() == 0) {
+        const int n = svc::chrono().steps_per_minute();
+        out.printf("steps_per_minute %d  (%s)", n,
+                   n == 1    ? "one jump a minute -- a ticking clock"
+                   : n >= 60 ? "once a second"
+                             : "between the two");
+        return Status::Ok;
+    }
+    const long n = std::strtol(a.arg(0), nullptr, 10);
+    if (n < 1 || n > 60) {
+        out.line("usage: chrono steps <1..60>   (positions per minute: 1 ticks, 60 sweeps)");
+        out.line("  the wall clock is unaffected -- this is only how often the hands are moved");
+        return Status::BadArg;
+    }
+    svc::chrono().set_steps_per_minute(static_cast<int>(n));
+    out.printf("steps_per_minute %ld  -- one move every %.1f s of clock time", n, 60.0 / n);
+    return Status::Ok;
+}
+
 Status cmd_follow(Args const& a, Sink& out) {
     const char* v = a.arg(0);
     const bool on = !v || std::strcmp(v, "on") == 0;
@@ -65,6 +91,8 @@ constexpr CmdSpec kRows[] = {
     {"chrono", nullptr, "status", "", "time, hand target, alarm", ReleaseOk, cmd_status},
     {"chrono", nullptr, "time", "[set <hh:mm[:ss]>]", "read or set the wall clock", None, cmd_time},
     {"chrono", nullptr, "follow", "<on|off>", "let the hands track the clock", None, cmd_follow},
+    {"chrono", nullptr, "steps", "[<1..60>]", "hand positions per minute: 1 ticks, 60 sweeps", None,
+     cmd_steps},
 };
 
 }  // namespace

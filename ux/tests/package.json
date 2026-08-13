@@ -1,0 +1,14 @@
+{
+  "name": "clock-ux-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser tests that drive ux/ against a real clocksim -- see README.md",
+  "type": "commonjs",
+  "scripts": {
+    "test": "playwright test",
+    "watch": "playwright test --headed --workers=1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
