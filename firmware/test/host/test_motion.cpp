@@ -254,44 +254,206 @@ void test_motion_de_energises_when_idle() {
     CHECK(wait_until([] { return !mo().snapshot().powered; }));
 }
 
+namespace {
+
+bool in_mode(const char* want, int ms = 1000) {
+    return wait_until([&] { return std::strcmp(svc::ui().snapshot().mode_name, want) == 0; }, ms);
+}
+
+// A press of `ms`, as the button really behaves: down, wait, up.
+void tap_knob(uint32_t ms) {
+    sim::press(60u * 60 * 1000);  // hold
+    hal::clock_::sleep_ms(static_cast<uint32_t>(ms));
+    sim::press(0);
+}
+
+// A turn the ui AO will see as SLOW: no more counts in one 20 ms poll than slow_max.
+void turn_slowly(int32_t detents) {
+    const int32_t step = detents > 0 ? 4 : -4;
+    for (int32_t i = 0; i < std::abs(detents); ++i) {
+        sim::turn_counts(step);
+        hal::clock_::sleep_ms(60);  // three ui ticks, so two nudges cannot share one poll
+    }
+}
+
+int alarm_min_of_day() {
+    const auto s = svc::ui().snapshot();
+    return s.alarm_hour * 60 + s.alarm_minute;
+}
+
+// One detent, and WAIT for it to land before delivering the next.  A plain sleep is not
+// enough on a loaded machine: two nudges that arrive inside one 20 ms poll are, correctly, a
+// FAST turn, the acceleration curve multiplies them, and the test fails for a reason that has
+// nothing to do with what it is testing.  Waiting for each minute makes it deterministic.
+bool turn_one_minute(int dir) {
+    const int before = alarm_min_of_day();
+    sim::turn_counts(4 * dir);
+    return wait_until([&] { return alarm_min_of_day() == before + dir; }, 1500);
+}
+
+// Where the hands are HEADED, reduced to the dial.  motion works in unwrapped microsteps so
+// that "go the long way round" is expressible, so -7200 and 10080 are the same place.
+bool hands_heading_for(int32_t hour, int32_t minute, int ms = 2000) {
+    return wait_until(
+        [&] {
+            const auto s = mo().snapshot();
+            return domain::normalise(s.target_hour) == domain::normalise(hour) &&
+                   domain::normalise(s.target_minute) == domain::normalise(minute);
+        },
+        ms);
+}
+
+bool all_pixels_dark() {
+    for (std::size_t i = 0; i < hal::pixels::kCount; ++i) {
+        if (!(hal::pixels::get(i) == hal::pixels::Rgbw{})) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
 void test_ui_mode_cycle() {
     sim::reset();
     cli::unsafe_set(true);
     sim::set_warp(1.0);
     auto& u = svc::ui();
 
-    // Press steps bell -> set-alarm -> set-clock -> volume -> committed (README §12).
-    const char* seq[] = {"alarm", "setalarm", "setclock", "volume", "idle"};
-    for (const char* want : seq) {
-        sim::press(50);
-        hal::clock_::sleep_ms(60);
-        sim::press(0);
-        CHECK(wait_until([&] { return std::strcmp(u.snapshot().mode_name, want) == 0; }, 1000));
+    // Press steps bell -> alarm -> clock -> volume -> committed (README §12).  The modes are
+    // named after the icons on the plate, which is the only label the user ever sees.
+    for (const char* want : {"bell", "alarm", "clock", "volume", "idle"}) {
+        tap_knob(60);
+        CHECK(in_mode(want));
     }
 
-    // Rotating in a set mode moves the value; the sensitivity is a pure firmware mapping.
+    // Rotating in `bell` is a DIRECTION, not a distance: clockwise arms, anticlockwise
+    // disarms, and a single detent is enough either way.
     RecordingSink r;
-    run("ui mode setalarm", r);
-    CHECK(wait_until([&] { return std::strcmp(u.snapshot().mode_name, "setalarm") == 0; }, 1000));
-    const int before = u.snapshot().alarm_hour * 60 + u.snapshot().alarm_minute;
-    // 12 counts at the default 4 counts/minute = 3 minutes, and 12 is exactly the
-    // acceleration threshold -- one more and the curve would multiply it by six.
-    sim::turn_counts(12);
-    CHECK(wait_until(
-        [&] {
-            const auto s = u.snapshot();
-            return s.alarm_hour * 60 + s.alarm_minute == before + 3;
-        },
-        1000));
+    run("ui mode bell", r);
+    CHECK(in_mode("bell"));
+    turn_slowly(1);
+    CHECK(wait_until([&] { return u.snapshot().alarm_armed; }, 1000));
+    turn_slowly(-1);
+    CHECK(wait_until([&] { return !u.snapshot().alarm_armed; }, 1000));
 
-    // Five seconds without input drops back to Idle with everything dark (R2/R6).
+    // Rotating in `alarm` moves the time.  Slowly: one detent, one minute -- three times.
+    run("ui mode alarm", r);
+    CHECK(in_mode("alarm"));
+    const int before = alarm_min_of_day();
+    CHECK(turn_one_minute(+1));
+    CHECK(turn_one_minute(+1));
+    CHECK(turn_one_minute(+1));
+    CHECK(alarm_min_of_day() == before + 3);
+
+    // ... and the same knob, spun, covers hours.  12 counts in one poll is past slow_max, so
+    // the curve multiplies them: this is the difference between setting 07:05 and winding
+    // round to the evening, and it is the ONLY difference (§6.6).
+    const int fine = alarm_min_of_day();
+    sim::turn_counts(12);
+    CHECK(wait_until([&] { return alarm_min_of_day() > fine + 3; }, 1000));
+
+    // Five seconds without input drops back to Idle, and the row fades out to nothing --
+    // "0 light when idle" is R2, and a fade that stops at 1/255 does not satisfy it.
     RecordingSink t;
     run("ui knob timeout 200", t);
-    CHECK(wait_until([&] { return std::strcmp(u.snapshot().mode_name, "idle") == 0; }, 2000));
-    for (std::size_t i = 0; i < hal::pixels::kCount; ++i) {
-        CHECK(hal::pixels::get(i) == hal::pixels::Rgbw{});
-    }
+    CHECK(in_mode("idle", 2000));
+    CHECK(wait_until(all_pixels_dark, 2000));
     run("ui knob timeout 5000", t);
+}
+
+// The refusal (README §12): with the radios on, Wi-Fi provisioned and SNTP landed, the knob
+// may not set the time -- the next sync would overwrite it and the user would blame the knob.
+void test_ui_clock_locks_to_the_network() {
+    sim::reset();
+    cli::unsafe_set(true);
+    sim::set_warp(1.0);
+    RecordingSink r;
+
+    run("chrono net none", r);
+    run("ui mode clock", r);
+    CHECK(in_mode("clock"));  // nothing owns the time: the knob does
+
+    run("ui mode idle", r);
+    run("chrono net both", r);
+    CHECK(wait_until([] { return svc::ui().snapshot().net_locked; }, 1000));
+    run("ui mode clock", r);
+    // Refused, and it does not simply stop there: the next mode is the one you wanted next.
+    CHECK(in_mode("volume"));
+
+    // The rear toggle is the way back -- with the radios off, nothing can overwrite a manual
+    // time, so the mode has to work.  (Polarity: `sim radio on` ASSERTS RADIO_OFF.)
+    run("ui mode idle", r);
+    run("sim radio on", r);
+    CHECK(wait_until([] { return !svc::ui().snapshot().net_locked; }, 1000));
+    run("ui mode clock", r);
+    CHECK(in_mode("clock"));
+
+    run("sim radio off", r);
+    run("chrono net none", r);
+    run("ui mode idle", r);
+}
+
+// Ten seconds of hold is BLE pairing, and it commits while the knob is still down: a gesture
+// whose only feedback arrives after you let go is a gesture nobody finds.
+void test_ui_long_hold_opens_pairing() {
+    sim::reset();
+    cli::unsafe_set(true);
+    sim::set_warp(1.0);
+    RecordingSink r;
+    run("ui knob pair 300", r);  // 300 ms stands in for ten seconds
+
+    sim::press(60u * 60 * 1000);
+    CHECK(in_mode("pairing", 2000));
+    // Still held, and all five status pixels are breathing the same blue in the same phase.
+    // Wait for the breath to come UP -- it starts at zero, by definition of a breath.
+    CHECK(wait_until([] { return hal::pixels::get(2).b > 0; }, 3000));
+    const auto a = hal::pixels::get(2);
+    CHECK(a.b > 0 && a.r == 0 && a.g == 0);
+    for (std::size_t i = 3; i <= 6; ++i) CHECK(hal::pixels::get(i) == a);
+    CHECK(hal::pixels::get(0) == hal::pixels::Rgbw{});  // ... and the dial wash stays out of it
+
+    // Letting go is not also a long press: the hold already acted.
+    sim::press(0);
+    hal::clock_::sleep_ms(120);
+    CHECK(std::strcmp(svc::ui().snapshot().mode_name, "pairing") == 0);
+
+    // A short press leaves.
+    tap_knob(60);
+    CHECK(in_mode("idle"));
+    CHECK(wait_until(all_pixels_dark, 2000));
+    run("ui knob pair 10000", r);
+}
+
+// The hands are the readout in every mode (README §5, §12), including the two where what
+// they show is not a time at all.
+void test_ui_hands_show_the_mode() {
+    sim::reset();
+    cli::unsafe_set(true);
+    sim::set_warp(20.0);
+    RecordingSink r;
+    run("chrono time set 03:20", r);
+    run("ui mode bell", r);
+    CHECK(in_mode("bell"));
+
+    // Disarmed, the dial says so with the plainest thing a pair of hands can say.
+    CHECK(hands_heading_for(0, 0));
+
+    // Armed, it shows when it will go off.  Whatever the alarm is by now -- earlier cases in
+    // this file have been turning it, and the AOs are not restarted between them.
+    turn_slowly(1);
+    CHECK(wait_until([] { return svc::ui().snapshot().alarm_armed; }, 1000));
+    const auto u = svc::ui().snapshot();
+    const auto alarm = domain::for_time(u.alarm_hour, u.alarm_minute);
+    CHECK(hands_heading_for(alarm.hour, alarm.minute));
+
+    // Volume is a gauge: both hands together, 0 % straight up, 100 % at 10 o'clock the long
+    // way round -- 300 degrees, 144 usteps per percent, exactly.
+    run("ui mode volume", r);
+    CHECK(in_mode("volume"));
+    const int32_t want = svc::ui().snapshot().volume * (kRev * 300 / 360 / 100);
+    CHECK(hands_heading_for(want, want));
+
+    run("ui mode idle", r);
+    sim::set_warp(1.0);
 }
 
 void test_chrono_drives_the_hands() {
@@ -350,6 +512,9 @@ void run_motion_service_tests() {
     test_motion_de_energises_when_idle();
     test_motion_faults_and_recovers();
     test_ui_mode_cycle();
+    test_ui_clock_locks_to_the_network();
+    test_ui_long_hold_opens_pairing();
+    test_ui_hands_show_the_mode();
     test_chrono_drives_the_hands();
 
     u.stop();

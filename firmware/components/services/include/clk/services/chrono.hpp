@@ -21,11 +21,20 @@ public:
         bool valid;   // false until somebody sets it -- there is no RTC in clocksim
         bool follow;  // are the hands tracking the clock?
         int32_t target_hour, target_minute;
+        // Who owns the time.  `ui` refuses to let the knob set the clock when the network
+        // does (README §12), because SNTP would overwrite it at the next sync and the user
+        // would be left thinking the knob is broken.
+        bool net_provisioned;  // Wi-Fi credentials are stored
+        bool net_synced;       // ... and SNTP has landed at least once
     };
 
     Chrono() noexcept;
 
     void set_time(int64_t epoch_ms) noexcept { post(TimeChanged{epoch_ms}); }
+    // Reported by `net` when §6.7 lands; `chrono net` writes it today so the refusal is
+    // reachable on the bench and in clocksim.  Two facts, not a state machine: whether the
+    // radios are actually up is the rear toggle's business and `ui` reads that itself.
+    void set_net(bool provisioned, bool synced) noexcept;
     void set_follow(bool on) noexcept;
     // How many distinct positions the hands take per minute of wall time: 1 ticks once a
     // minute, 60 moves every second.  A rendering choice, not a timekeeping one -- the clock

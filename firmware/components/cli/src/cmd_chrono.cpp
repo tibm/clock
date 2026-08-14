@@ -87,9 +87,51 @@ Status cmd_follow(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// Who owns the time.  `net` (§6.7) will report this; until it exists the two facts are set
+// here, and they are the difference between a `clock` mode that works and one that flashes
+// red and skips (README §12).  Not host-only: on the board this is how you check the
+// interlock without waiting for a real SNTP round trip.
+Status cmd_net(Args const& a, Sink& out) {
+    const auto c = svc::chrono().snapshot();
+    if (a.count() == 0) {
+        out.printf("wifi   %s", c.net_provisioned ? "provisioned" : "not provisioned");
+        out.printf("sntp   %s", c.net_synced ? "synced" : "never synced");
+        out.printf("clock  %s", svc::ui().snapshot().net_locked
+                                    ? "LOCKED -- the knob may not set the time"
+                                    : "settable by the knob");
+        out.line("  chrono net <provisioned|synced|none|both> [on|off]");
+        return Status::Ok;
+    }
+    const char* k = a.arg(0);
+    const char* v = a.arg(1);
+    const bool on = !v || std::strcmp(v, "on") == 0 || std::strcmp(v, "1") == 0;
+    bool prov = c.net_provisioned, sync = c.net_synced;
+    if (std::strcmp(k, "provisioned") == 0) {
+        prov = on;
+    } else if (std::strcmp(k, "synced") == 0) {
+        sync = on;
+    } else if (std::strcmp(k, "both") == 0) {
+        prov = sync = on;
+    } else if (std::strcmp(k, "none") == 0) {
+        prov = sync = false;
+    } else {
+        out.line("usage: chrono net <provisioned|synced|none|both> [on|off]");
+        return Status::BadArg;
+    }
+    // Synced without provisioned is not a state the product can be in; refusing to model it
+    // keeps the lock a single readable condition rather than three.
+    if (sync && !prov) prov = true;
+    svc::chrono().set_net(prov, sync);
+    out.printf("wifi %s, sntp %s", prov ? "provisioned" : "not provisioned",
+               sync ? "synced" : "never synced");
+    return Status::Ok;
+}
+
 constexpr CmdSpec kRows[] = {
     {"chrono", nullptr, "status", "", "time, hand target, alarm", ReleaseOk, cmd_status},
     {"chrono", nullptr, "time", "[set <hh:mm[:ss]>]", "read or set the wall clock", None, cmd_time},
+    {"chrono", nullptr, "net", "[<fact> [on|off]]", "who owns the time: wifi + sntp", None,
+     cmd_net},
     {"chrono", nullptr, "follow", "<on|off>", "let the hands track the clock", None, cmd_follow},
     {"chrono", nullptr, "steps", "[<1..60>]", "hand positions per minute: 1 ticks, 60 sweeps", None,
      cmd_steps},

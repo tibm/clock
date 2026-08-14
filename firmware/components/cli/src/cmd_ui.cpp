@@ -184,15 +184,18 @@ Status cmd_wake(Args const& a, Sink& out) {
 Status cmd_mode(Args const& a, Sink& out) {
     const char* w = a.arg(0);
     using M = svc::Ui::Mode;
-    struct Named {
+    struct NamedMode {
         const char* n;
         M m;
     };
-    constexpr Named kModes[] = {{"idle", M::Idle},
-                                {"alarm", M::Alarm},
-                                {"setalarm", M::SetAlarm},
-                                {"setclock", M::SetClock},
-                                {"volume", M::Volume}};
+    // The modes are named after the ICONS on the plate (README §12).  `setalarm`/`setclock`
+    // are kept as aliases: they were the names until 2026-08-13 and are in fingers, scripts
+    // and old test files -- but note that `alarm` now means the mode that SETS the alarm
+    // time, where it used to mean the bell.
+    constexpr NamedMode kModes[] = {
+        {"idle", M::Idle},   {"bell", M::Bell},      {"alarm", M::Alarm},   {"setalarm", M::Alarm},
+        {"clock", M::Clock}, {"setclock", M::Clock}, {"volume", M::Volume}, {"pairing", M::Pairing},
+    };
     if (!w) {
         const auto s = svc::ui().snapshot();
         out.printf("mode %s   alarm %02d:%02d %s   vol %u%%", s.mode_name, s.alarm_hour,
@@ -200,6 +203,7 @@ Status cmd_mode(Args const& a, Sink& out) {
         if (s.idle_in_ms) {
             out.printf("  back to idle in %" PRIu32 " ms without input", s.idle_in_ms);
         }
+        if (s.net_locked) out.line("  clock mode is locked -- the network owns the time");
         return Status::Ok;
     }
     for (auto const& m : kModes) {
@@ -209,32 +213,44 @@ Status cmd_mode(Args const& a, Sink& out) {
             return Status::Ok;
         }
     }
-    out.line("usage: ui mode <idle|alarm|setalarm|setclock|volume>");
+    out.line("usage: ui mode <idle|bell|alarm|clock|volume|pairing>");
+    out.line("  bell = arm/disarm · alarm = set its time · clock = set the time");
     return Status::BadArg;
 }
 
 Status cmd_knob(Args const& a, Sink& out) {
     auto t = svc::ui().tuning();
     if (a.count() < 2) {
-        out.printf("counts_per_minute=%" PRId32 " accel_threshold=%" PRId32 " accel_factor=%" PRId32
-                   " timeout_ms=%" PRIu32 " long_press_ms=%" PRIu32 " bright=%u%%",
-                   t.counts_per_minute, t.accel_threshold, t.accel_factor, t.timeout_ms,
-                   t.long_press_ms, t.brightness);
-        out.line("  ui knob <counts|threshold|factor|timeout|longpress|bright> <value>");
+        out.printf("counts_per_minute=%" PRId32 " slow_max=%" PRId32 " fast_at=%" PRId32
+                   " accel_factor=%" PRId32 " deadband=%u",
+                   t.counts_per_minute, t.slow_max, t.fast_at, t.accel_factor, t.arm_deadband);
+        out.printf("timeout_ms=%" PRIu32 " long_press_ms=%" PRIu32 " pair_press_ms=%" PRIu32
+                   " pair_timeout_ms=%" PRIu32 " bright=%u%%",
+                   t.timeout_ms, t.long_press_ms, t.pair_press_ms, t.pair_timeout_ms, t.brightness);
+        out.line("  ui knob <counts|slow|fast|factor|deadband> <value>");
+        out.line("  ui knob <timeout|longpress|pair|pairtimeout|bright> <value>");
         return a.count() == 0 ? Status::Ok : Status::BadArg;
     }
     const char* k = a.arg(0);
     const auto v = static_cast<int32_t>(std::strtol(a.arg(1), nullptr, 10));
     if (std::strcmp(k, "counts") == 0) {
         t.counts_per_minute = v > 0 ? v : 1;
-    } else if (std::strcmp(k, "threshold") == 0) {
-        t.accel_threshold = v;
+    } else if (std::strcmp(k, "slow") == 0 || std::strcmp(k, "threshold") == 0) {
+        t.slow_max = v;
+    } else if (std::strcmp(k, "fast") == 0) {
+        t.fast_at = v;
     } else if (std::strcmp(k, "factor") == 0) {
         t.accel_factor = v > 0 ? v : 1;
+    } else if (std::strcmp(k, "deadband") == 0) {
+        t.arm_deadband = static_cast<uint8_t>(v < 1 ? 1 : (v > 64 ? 64 : v));
     } else if (std::strcmp(k, "timeout") == 0) {
         t.timeout_ms = static_cast<uint32_t>(v);
     } else if (std::strcmp(k, "longpress") == 0) {
         t.long_press_ms = static_cast<uint32_t>(v);
+    } else if (std::strcmp(k, "pair") == 0) {
+        t.pair_press_ms = static_cast<uint32_t>(v);
+    } else if (std::strcmp(k, "pairtimeout") == 0) {
+        t.pair_timeout_ms = static_cast<uint32_t>(v);
     } else if (std::strcmp(k, "bright") == 0) {
         t.brightness = static_cast<uint8_t>(v < 0 ? 0 : (v > 100 ? 100 : v));
     } else {
@@ -246,10 +262,55 @@ Status cmd_knob(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// Every duration the light has, in one place (domain/anim.hpp).  Changing one here changes
+// it for every pattern that uses it, which is the point -- a breathing bell and a breathing
+// battery warning are the same animation or they are an inconsistency.
+Status cmd_anim(Args const& a, Sink& out) {
+    auto c = svc::ui().anim_cfg();
+    if (a.count() < 2) {
+        out.printf("ramp_ms=%" PRIu32 " breathe_ms=%" PRIu32 " blink_ms=%" PRIu32 " duty=%u%%",
+                   c.ramp_ms, c.breathe_ms, c.blink_ms, c.blink_duty);
+        out.printf("flash_ms=%" PRIu32 " flash_gap_ms=%" PRIu32 " breathe_floor=%u", c.flash_ms,
+                   c.flash_gap_ms, c.breathe_floor);
+        out.line("  ui anim <ramp|breathe|blink|duty|flash|gap|floor> <value>");
+        return a.count() == 0 ? Status::Ok : Status::BadArg;
+    }
+    const char* k = a.arg(0);
+    const auto v = static_cast<int32_t>(std::strtol(a.arg(1), nullptr, 10));
+    if (v < 0) {
+        out.line("durations are milliseconds and are not negative");
+        return Status::BadArg;
+    }
+    const auto u32 = static_cast<uint32_t>(v);
+    const auto u8 = static_cast<uint8_t>(v > 255 ? 255 : v);
+    if (std::strcmp(k, "ramp") == 0) {
+        c.ramp_ms = u32;
+    } else if (std::strcmp(k, "breathe") == 0) {
+        c.breathe_ms = u32;
+    } else if (std::strcmp(k, "blink") == 0) {
+        c.blink_ms = u32;
+    } else if (std::strcmp(k, "duty") == 0) {
+        c.blink_duty = static_cast<uint8_t>(v > 100 ? 100 : v);
+    } else if (std::strcmp(k, "flash") == 0) {
+        c.flash_ms = u32;
+    } else if (std::strcmp(k, "gap") == 0) {
+        c.flash_gap_ms = u32;
+    } else if (std::strcmp(k, "floor") == 0) {
+        c.breathe_floor = u8;
+    } else {
+        out.printf("no such timing '%s'", k);
+        return Status::BadArg;
+    }
+    svc::ui().set_anim_cfg(c);
+    out.printf("%s = %" PRId32, k, v);
+    return Status::Ok;
+}
+
 Status cmd_status(Args const&, Sink& out) {
     const auto u = svc::ui().snapshot();
-    out.printf("mode   %s   alarm %02d:%02d %s   vol %u%%", u.mode_name, u.alarm_hour,
-               u.alarm_minute, u.alarm_armed ? "armed" : "disarmed", u.volume);
+    out.printf("mode   %s   alarm %02d:%02d %s   vol %u%%%s", u.mode_name, u.alarm_hour,
+               u.alarm_minute, u.alarm_armed ? "armed" : "disarmed", u.volume,
+               u.net_locked ? "   [clock locked: network owns the time]" : "");
     char px[hal::pixels::kCount + 1] = {};
     for (std::size_t i = 0; i < hal::pixels::kCount; ++i) {
         const auto c = hal::pixels::get(i);
@@ -274,10 +335,11 @@ Status cmd_status(Args const&, Sink& out) {
 
 constexpr CmdSpec kRows[] = {
     {"ui", nullptr, "status", "", "mode, pixels, wake duty, knob", ReleaseOk, cmd_status},
-    {"ui", nullptr, "mode", "[<idle|alarm|setalarm|setclock|volume>]", "the knob HSM", None,
+    {"ui", nullptr, "mode", "[<idle|bell|alarm|clock|volume|pairing>]", "the knob HSM", None,
      cmd_mode},
     {"ui", nullptr, "knob", "[<knob> <value>]", "sensitivity, timeouts, brightness", None,
      cmd_knob},
+    {"ui", nullptr, "anim", "[<timing> <ms>]", "every LED animation duration", None, cmd_anim},
     {"ui", "led", "test", "", "walk the chain head to tail", Unsafe, cmd_led_test},
     {"ui", "led", "", "<id> <color|r g b w>", "set pixel(s)", Unsafe, cmd_led},
     {"ui", nullptr, "wake", "<warm%> <cool%>", "wake light duty (plugged-only)", Unsafe, cmd_wake},

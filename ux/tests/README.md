@@ -1,6 +1,6 @@
 # `ux/tests/` — the page, driven for real
 
-Fifty-two cases that click the actual page in an actual browser, against an actual
+Sixty-seven cases that click the actual page in an actual browser, against an actual
 `clocksim`, and assert on what the dial shows afterwards. They exist to test the *firmware*
 through the surface a person uses, so the rule they are built on is:
 
@@ -45,7 +45,7 @@ open in a browser.
 | file | what it pins |
 |---|---|
 | `01-attach` | the page attaches, the pixel names come from `hello`, a fresh boot is dark and unhomed |
-| `02-knob-press` | press cycles idle → alarm → setalarm → setclock → volume, each lighting its own status pixel; long press; the 5 s timeout; a turn in idle is ignored |
+| `02-knob-press` | press cycles idle → bell → alarm → clock → volume, each lighting its own status pixel and only that one; long press; the 5 s timeout; a turn in idle is ignored |
 | `03-homing` | `home` from a scrambled dial, from a hand parked on the index, from both hands on it; twice over; the fault when a sweep outruns the sensor; `stop` mid-run |
 | `04-set-time` | every preset button, `now`, and a typed time put the hands where that time is — 12:30 included |
 | `05-follow-release` | released, the clock runs on and the hands do not; the buttons report the firmware and not the last click |
@@ -55,6 +55,7 @@ open in a browser.
 | `09-warp-steps` | warp really warps; `jumps per minute` quantises the hands without touching the clock; the tuning sliders reach `motion tune` |
 | `10-reset-reboot` | `reset fakes` opens a gap the firmware does not know about; `reboot` loses everything and the page reconnects; a reload loses nothing |
 | `11-dial` | dragging a hand does **not** round-trip; the opto meter; the plate turning with yaw; PCNT counts |
+| `12-modes` | the UX itself: what each mode's pixel *does* (breathe / blink / steady / a burst of three), what the hands show in each (12:00, the alarm, the time being set, the volume gauge), the network lock, and the ten-second hold into pairing |
 
 ## Two things that look like cheating and are not
 
@@ -84,9 +85,38 @@ await ux.cli('sim warp 60');           // the page's command box
 await ux.hands();                      // { h, m } degrees, off the SVG
 await ux.usteps();                     // what the firmware thinks it commanded
 await ux.pixel(2);                     // { r, g, b, lit } off the swatch strip
+await ux.watch(2, 1500);               // what that pixel DID over 1.5 s (see below)
+await ux.watchMany([2,3,4,5,6], 2400); // ... all of them at once, + `identical`
+await ux.expectRowDark();              // the whole row out, once the fade has finished
 await ux.clock();                      // { h, m, s, paused } off the pill
 await ux.expectDialShowsTime();        // does the dial agree with the clock?
 ```
+
+**Read a pattern, not a pixel.** Every status LED animates now, so `pixel(i)` is a coin
+toss: a breathing pixel is genuinely dark twice a cycle and a blinking one is dark most of
+the time. `watch()` samples the same swatch — rendered DOM, written only by a state frame —
+every 10 ms and reports what it *did*:
+
+| | |
+|---|---|
+| `peak` | the brightest sample — is it lit at all, and what colour |
+| `levels` | how many distinct non-zero values: `1` = square edges, many = a curve |
+| `everDark` / `everLit` | did it reach zero / did it light at all |
+| `duty` | fraction of samples lit |
+
+So `levels === 1 && everDark` is a **blink**, `levels > 4 && everDark` is a **breath**, and
+`levels === 1 && !everDark` is **steady** — the distinction the spec makes, and the one a
+single read cannot see. `watchMany` samples several pixels in the same window and adds
+`identical`, which is the strong form of "in sync": at every sample, all of them agreed.
+Sampling five synchronised breaths one after another proves nothing, because each window
+lands somewhere else in the cycle.
+
+Two more things that are true of every mode assertion:
+
+- **Exclusivity arrives, it is not instant.** Leaving a mode *fades* its pixel over ~250 ms,
+  so for that quarter second two pixels are legitimately lit. Poll for the row to settle.
+- **A press decides on release** (except the ten-second hold, which commits while the knob
+  is still down) — so `press(1000)` does not change the mode until a second has passed.
 
 Two habits worth keeping:
 

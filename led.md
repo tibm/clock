@@ -24,10 +24,34 @@ PWM outputs: **2** (LEDC) + **1 SPI3 data line** (SK6812, `FIRMWARE.md` D4).
   movement): warm white (use the dedicated W channel) washing the walnut dial behind
   the glass; ALS-gated night dim, **hard-off by default** → 0 emission.
 - **Pixels 3–7 = status LEDs** behind the face-plate holes + icons
-  (`bell` · `alarm-clock` · `clock` · `volume-1` · `battery`, §12 of the README):
-  red = alarm armed, white = disarmed, etc. **Off-board (2026-07-21)**, wired in series
-  from PCB connector **J12** (`+5V`/`DATA`/`GND`, JST-PH 1×03) so their pitch is set by
-  the face-plate hole spacing directly, not constrained by the PCB layout.
+  (`bell` · `alarm-clock` · `clock` · `volume-1` · `battery`, §12 of the README).
+  **Off-board (2026-07-21)**, wired in series from PCB connector **J12**
+  (`+5V`/`DATA`/`GND`, JST-PH 1×03) so their pitch is set by the face-plate hole spacing
+  directly, not constrained by the PCB layout.
+
+### What the status row can say (the firmware side is `FIRMWARE.md` §6.6a)
+
+Colour is half the vocabulary; the other half is **movement**, and there are only ever these
+patterns — a breathing bell and a breathing battery warning have to look like the same
+instrument, so they are literally the same code (`firmware/components/domain/anim.hpp`) with
+one shared table of durations:
+
+| Pattern | Default timing | Where it is used |
+|---|---|---|
+| **Ramp up** 0 → x, then hold | 250 ms *(or a parameter — the sunrise passes 30 min)* | entering a steady mode; the wake light |
+| **Ramp down** x → 0 | 250 ms | leaving any mode; the tap acknowledgement (400 ms) |
+| **Breathe** 0 → x → 0, forever | 3.2 s/cycle | alarm **off** (white) · low cell (amber) · **pairing (blue, all five in sync)** |
+| **Blink** hard on/off | 220 ms, 45 % duty | alarm **armed** (red) |
+| **Flash ×n** then dark | 90 ms lit / 110 ms gap | the refusal (3× red) · fault codes (endless) |
+
+- **Gamma ≈ 2.0 is applied once, at the end.** The SK6812's duty is linear and the eye is
+  not, so brightness settings are perceptual: "60 %" means 60 % as *seen* (≈36 % duty).
+- The breath curve is `3t²−2t³`, flat at both ends so it has no corner where it turns
+  around, in integer arithmetic so the bench and the simulator agree exactly.
+- Every duration above is one live CLI command (`ui anim breathe 800`) and lands in NVS.
+- **Sync is structural, not timed:** the five pairing pixels are armed in a single pass and
+  share one start time; an animation is only re-armed when the *cue* changes, never on a
+  repaint. There is no synchronising step that could drift.
 - **One data line is plenty**: a full 7-pixel refresh is 7 × 32 bit @ 800 kHz ≈ **0.3 ms**.
   Brightness control and slow ramps are firmware (Espressif `led_strip`, **SPI3** backend,
   gamma-corrected); no fancy animation needed or planned.

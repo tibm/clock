@@ -173,8 +173,12 @@ function onState(s) {
         : `motion ${s.motion.state}`;
     $('pill-motion').classList.toggle('up', s.motion.state === 'moving');
     $('pill-motion').classList.toggle('bad', s.motion.state === 'fault');
+    // While the knob is DOWN the pill counts the hold instead of the timeout: ten seconds is
+    // a long time to hold a button with no idea whether anything is happening, and the count
+    // is the firmware's own (`ui.held`), not a timer this page started on mousedown.
     $('pill-mode').textContent = 'ui ' + s.ui.mode
-        + (s.ui.idle_in ? ` · ${(s.ui.idle_in / 1000).toFixed(1)}s` : '');
+        + (s.ui.held ? ` · held ${(s.ui.held / 1000).toFixed(1)}s`
+                     : s.ui.idle_in ? ` · ${(s.ui.idle_in / 1000).toFixed(1)}s` : '');
     $('c-alarm').textContent = `${two(s.ui.alarm_h)}:${two(s.ui.alarm_m)} ${s.ui.armed ? 'armed' : 'off'}`;
     $('c-vol').textContent = `${s.ui.vol}%`;
 
@@ -245,6 +249,13 @@ function onState(s) {
     const plugged = shown('t-plug', s.pwr.plugged);
     $('t-plug').classList.toggle('on', plugged);
     $('t-plug').textContent = plugged ? `plugged · ${s.pwr.soc}%` : `battery · ${s.pwr.soc}%`;
+    // Two facts, one button: provisioned AND synced is what `net` will report.  Whether that
+    // adds up to "the network owns the time" also depends on the rear toggle, and only the
+    // firmware gets to decide it -- so the label reads `ui.locked`, not this button's state.
+    const netUp = shown('t-net', s.clock.prov && s.clock.sync);
+    $('t-net').classList.toggle('on', netUp);
+    $('t-net').textContent = netUp ? (s.ui.locked ? 'network · clock locked' : 'network · radios off')
+                                   : 'no network';
 
     if (Date.now() > uiFrozenUntil) {
         $('r-yaw').value = Math.round(s.imu.yaw);
@@ -391,6 +402,10 @@ function wireControls() {
     $('t-radio').addEventListener('click', () => {
         const want = !shown('t-radio', $('t-radio').classList.contains('on'));
         request('t-radio', want, `sim radio ${want ? 'on' : 'off'}`);
+    });
+    $('t-net').addEventListener('click', () => {
+        const want = !shown('t-net', $('t-net').classList.contains('on'));
+        request('t-net', want, `chrono net ${want ? 'both' : 'none'}`);
     });
     $('t-plug').addEventListener('click', () => {
         const want = !shown('t-plug', $('t-plug').classList.contains('on'));

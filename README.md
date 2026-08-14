@@ -263,20 +263,24 @@ Two subsystems on **two rails** (v0.19): the analog **wake light** (2 PWM channe
 
 **One aluminum knob, top-center** (HiFi feel): Kilo **OEJNI-90-1-5** machined aluminum knob (Ø23.5 × 15.9 mm, clear gloss, 1/4″ bore + 6-32 set screw) on a Bourns **EM14A0D-C24-L064S** **optical** encoder — **no detent** (perfectly smooth, no mechanical contacts to wear or bounce), **64 CPR** quadrature ×4 on PCNT = **256 counts/rev** (plenty sensitive; two channels are fully sufficient, incl. direction — sensitivity is just a firmware counts-per-step mapping), integral momentary **push switch**, 1/4″ flatted shaft matching the knob bore. The encoder's opto-ASIC runs on **5 V** (~30 mA), so its A/B outputs are 5 V logic → **100k/200k dividers (~3.2 V) → IO47/48 (PCNT, glitch-filtered)**; the push switch is a dry contact to GND → **IO17** (host GPIO interrupt, 10 k pull-up + 100 nF + ~5 ms firmware debounce — deliberately *not* on the I²C expander). Off-board on **J10** (JST **ZH** 1×06 B6B-ZR: GND · +5V · A · B · SW · GND — same family and pre-crimped A06ZR cable as the sensor board J7; the rear toggle J11 is a ZH 1×02).
 
-**Mode cycle — press steps through the 5 status LEDs (§9), rotate edits the lit mode:**
+**Mode cycle — press steps through the 5 status LEDs (§9), rotate edits the lit mode.** Each mode is *named after its icon*, because the icon is the only label the user ever sees. The LED's **pattern** carries as much as which LED is lit; the full definition (and the animation engine behind it) is `FIRMWARE.md` §6.6.
 
-| # | LED / icon | Press → LED on; rotate → | Hands show |
-|---|---|---|---|
-| 1 | `bell` — **alarm** | toggle armed (LED **red**) ↔ disarmed (LED **white**) | the **alarm time** while in this mode |
-| 2 | `alarm-clock` — **set alarm** | move the alarm time (hands follow live) | alarm time being set |
-| 3 | `clock` — **set clock** | move the clock time (hands follow live) | time being set |
-| 4 | `volume-1` — **volume** | volume up/down while a pleasant sample plays | current time |
-| 5 | `battery` — **status only, not selectable**: lights on low battery (skipped in the cycle) | — | current time |
+| # | LED / icon | Rotate → | LED says | Hands show |
+|---|---|---|---|---|
+| 1 | `bell` — **alarm on/off** | **clockwise = ON, anticlockwise = OFF** (direction, not distance) | ON → **fast red blink** · OFF → **slow white breath** | ON → the **alarm time** · OFF → **12:00** |
+| 2 | `alarm-clock` — **set the alarm** | move the alarm time — turn slowly for single minutes, spin to cover hours | *the same as `bell`*: it answers the same question | the alarm time being set, live |
+| 3 | `clock` — **set the time** | move the wall clock, same feel | **steady white** | the time being set, live |
+| 4 | `volume-1` — **volume** | up/down, a gentle chime repeating at that level | **steady white** | **a gauge:** 12:00 = 0 %, 10:00 = 100 % (300° of dial, both hands together) |
+| 5 | `battery` — **status only, not selectable** (skipped in the cycle) | — | **slow amber breath** below 20 % on battery | — |
 
-- Press after *volume* (or a 5th press) → all LEDs off, settings committed, hands return to the time.
-- **Timeout:** ≥5 s without rotation → exit to normal (LEDs off, hands back to time).
+- Press after *volume* (a 5th press) → all LEDs **fade** out, settings committed, hands return to the time.
+- **Timeout:** ≥5 s without input → exit to normal, keeping whatever was set.
+- **Long press** (~0.8 s) → commit and leave from any mode.
+- **Hold 10 s → BLE pairing:** all five LEDs breathe **blue in sync**. It commits at the ten-second mark, while the knob is still down, so the gesture shows itself rather than hiding until you let go. A press leaves; it gives up after 2 min.
+- **Mode 3 is refused when the network owns the time** — radios on *and* Wi-Fi provisioned *and* SNTP synced at least once. **Three quick red flashes**, then straight on to *volume*: the next sync would overwrite anything the knob did. The rear radio toggle gives the time back to the knob.
 - **Radio-disable toggle** (rear, on **J11**, expander GPA3): hardware switch to shut down Wi-Fi/BLE (bedroom EMI preference); firmware obeys it as a hard override. Part locked 2026-08-06 = **E-Switch `100SP1T2B1M1QEH`** (miniature SPDT On-On bat toggle, 1/4-40 bushing, solder lugs) — wired as an SPST to GND; see §16b/§16d for the wiring, the panel counterbore it needs, and the dry-circuit caveat.
 - **Tap-to-snooze** via accel (top-tap) — no other buttons anywhere.
+- **0 light when idle** stays a hard requirement (R2/R6): the only emitter allowed while the clock is doing nothing is the low-cell warning, and it breathes rather than stares.
 
 ---
 
@@ -484,6 +488,7 @@ not plugged output.)*
 ### Decision log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-08-13 | **On-device UX defined end to end (§12 above; `FIRMWARE.md` §6.6 is now its source of truth).** (1) **Modes renamed after their icons** — `bell` (arm) / `alarm` (set its time) / `clock` (set the time) / `volume`; ⚠ *`alarm` changed meaning*, old names kept as CLI aliases. (2) **A light vocabulary**: ramp-up · ramp-down · breathe · blink · flash-burst, one shared timing config, gamma applied once (`domain/anim.hpp`, `ui anim`, `led.md`). (3) `bell` arms **by direction**, hands read **12:00 when off**. (4) **Volume is a gauge on the hands**, 12:00 = 0 % → 10:00 = 100 %, with a chime at the level being set. (5) `clock` **refuses when the network owns the time** — 3 red flashes, skip to volume. (6) **10 s hold = BLE pairing**, five pixels breathing blue in sync | Five unlabelled LEDs and one knob is the entire interface, so *what a light is doing* has to carry meaning, not just which one is lit — and it only reads as one instrument if every pattern comes from one engine with one set of durations. The gauge exists because a percentage needs somewhere it can be read and pixel brightness is not a scale. The refusal exists because SNTP would silently undo a manual set and the user would blame the knob. Nine further fixes fell out of implementing it, incl. a hand preview that the clock was quietly overwriting once a second — all listed in `FIRMWARE.md` §16, all covered by `ux/tests/12-modes` |
 | 2026-06-30 | ~~EPD primary~~ (superseded) | Fails ticking seconds (ghost/wear) |
 | 2026-08-09 | **Docs synced to the built hardware + firmware kickoff.** (1) **SK6812 chain driver RMT → SPI3 + DMA** (pin unchanged); (2) **accel LIS3DH → BNO085** propagated through §6c/§8/§16/§17 (it had only reached `datasheet/`); (3) **NeoPixel chain order corrected** — 1–2 dial (on-PCB), 3–7 status (off-board J12), not the reverse; (4) `ALS_INT` documented on **expander GPB3**, `SENSOR_INT` is BNO085-only; (5) **2b sensor daughterboard marked BUILT**; (6) §6c relabelled selection-era, superseded by `FIRMWARE.md` | Firmware work started 2026-08-09 against a pinned **ESP-IDF v5.5.5**, and reconciling `FIRMWARE.md` against `README.md`/`esp32.md`/`CLAUDE.md`/`led.md` surfaced nine drifts (`FIRMWARE.md` §15). SPI3 wins over RMT because a 7-pixel frame is one 84-byte DMA burst — no refill interrupts, structurally immune to the Wi-Fi interrupt jitter that is the classic NeoPixel glitch; **no hardware change, IO7 either way**, but it consumes the last GP SPI host (`esp32.md` budget now SPI 2/2, RMT 0/4). The chain-order and `ALS_INT` errors were the dangerous ones: both would have read as firmware bugs at the bench |
 | 2026-07-02 | ~~Fast bar TFT (NHD-3.9) primary~~ (superseded 07-03) | Replaced by the split-face reflective panel |

@@ -44,19 +44,25 @@ test('a flat cell on battery lights the batt pixel', async ({ ux }) => {
     await ux.slide('r-vbat', 3400);
     await expect(ux.page.locator('#t-plug')).toContainText('13%');
 
-    await expect.poll(async () => (await ux.pixel(kBatt)).lit,
-                      { timeout: 8000, message: 'the batt pixel never came on' }).toBe(true);
-    const p = await ux.pixel(kBatt);
-    expect(p.r).toBeGreaterThan(p.b);        // amber, not white
+    // It breathes rather than sitting on -- the one emitter that is allowed to be lit while
+    // the clock is idle should be the least alarming thing on the plate.  Watching it is not
+    // optional: a single read lands in the dark half of the breath often enough to flake.
+    await expect.poll(async () => (await ux.watch(kBatt, 900)).everLit,
+                      { timeout: 12000, message: 'the batt pixel never came on' }).toBe(true);
+    const w = await ux.watch(kBatt, 3600);
+    expect(w.peak.r).toBeGreaterThan(w.peak.b);       // amber, not white
+    expect(w.levels, 'the warning should breathe, not sit on').toBeGreaterThan(4);
+    expect(w.everDark).toBe(true);
 
     // Plugged back in, the warning goes away.
     await ux.page.locator('#t-plug').click();
-    await expect.poll(async () => (await ux.pixel(kBatt)).lit, { timeout: 8000 }).toBe(false);
+    await expect.poll(async () => (await ux.watch(kBatt, 900)).everLit, { timeout: 12000 })
+        .toBe(false);
 });
 
 test('a healthy cell lights nothing at all', async ({ ux }) => {
     await ux.page.locator('#t-plug').click();
     await ux.slide('r-vbat', 3900);
     await ux.page.waitForTimeout(1500);
-    for (const p of await ux.pixels()) expect(p.lit).toBe(false);
+    await ux.expectRowDark();
 });

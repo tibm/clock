@@ -6,6 +6,7 @@ void run_log_tests();
 void run_cli_tests();
 void run_sim_tests();
 void run_motor_tests();
+void run_anim_tests();
 void run_motion_service_tests();
 
 int main() {

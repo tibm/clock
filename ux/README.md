@@ -85,6 +85,7 @@ python3 ux/uxapp.py --sim-port 4748 --http-port 8788
 | **radio off** | The rear J11 toggle. Note the polarity: the pin idles *high* and the switch pulls it low, so a broken harness fails to radios-enabled. |
 | **tap** | One BNO085 top-tap — tap-to-snooze. |
 | **now** | `chrono time set <the browser's clock>`, to the second. There is no RTC and no SNTP yet (§7.4), so a person with a watch is the time source — and reading one is an *input*, which is why it leaves as an ordinary `chrono time set` like every other gesture. |
+| **network** | `chrono net both` / `none` — the two facts `net` will report once §6.7 exists: Wi-Fi provisioned, SNTP landed at least once. With the radios on as well, the network owns the time and the knob's **clock** mode refuses: three red flashes and straight on to volume. The label says which of the three conditions is missing. |
 | **reset fakes vs reboot** | `sim reset` puts the fake *hardware* back to power-on and leaves the services believing exactly what they believed — `motion` still thinks it is homed while the hands have jumped, which is the case worth testing. `sys reboot` restarts the image: `esp_restart()` on the board, a re-exec of the process here. The page reconnects on its own. |
 | **yaw** | `sim imu <deg>`. The whole plate turns on screen — index window, status LEDs and all — and shrinks just enough to keep its corners in frame. Dragging a hand still lands where you dropped it: the drag angle is taken in the dial's frame, not the screen's. |
 | **warp** | Logarithmic, 0.1×–1000×. A 30-minute sunrise in 30 seconds. |
@@ -126,9 +127,19 @@ Two sliders that sound alike and are not:
   the thing you are setting. PCNT counts, and the encoder is 4 counts per detent: `4` = one
   minute per detent, `1` = one minute per count.
 
-The **knob only edits in a set mode** — press it to cycle idle → alarm → setalarm →
-setclock → volume. A turn while idle is ignored by design (§6.6), so the sensitivity slider
-appears to do nothing until you are actually setting something.
+The **knob only edits in a mode** — press it to cycle idle → **bell** → **alarm** →
+**clock** → **volume**, each named after the icon it lights. A turn while idle is ignored by
+design (§6.6), so the sensitivity slider appears to do nothing until you are actually
+setting something. Hold ~0.8 s to commit and leave; hold **ten seconds** and all five status
+pixels breathe blue — that is BLE pairing, and the mode pill counts the hold so you can see
+it coming.
+
+What each pixel is *doing* carries as much meaning as which one is lit, and the page shows
+the animation frame by frame because the firmware computes it: **breathing white** = the
+alarm is off, **blinking red** = it is armed, **steady white** = you are editing, **three
+red flashes** = refused. `ui anim` changes every one of those durations at once
+(FIRMWARE.md §6.6a) — turn `ui anim breathe 800` and watch a considered clock become an
+anxious one.
 
 `unsafe` (§9.6) expires 60 s after the last gated command, so the app arms it **immediately
 before** each one rather than trusting the 30 s refresh alone — a background tab has its
@@ -158,6 +169,7 @@ buttons, scrolls the knob, drags the hands — and checks what the dial says aft
 ```sh
 cd ux/tests && npm install && npx playwright test
 npx playwright test --headed --workers=1        # watch it
+npx playwright test 12                          # just the mode-by-mode UX cases
 ```
 
 They are firmware tests wearing a page: no test opens a socket, nothing reaches into

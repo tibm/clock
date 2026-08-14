@@ -10,9 +10,9 @@ const { test, expect, angleDiff } = require('./harness');
 const hourDeg = (h, m) => (((h % 12) * 3600 + m * 60) / 43200) * 360;
 const minuteDeg = (h, m) => ((m * 60) / 3600) * 360;
 
-test('setalarm: one detent is one minute, and the hands preview it', async ({ ux }) => {
+test('alarm: one detent is one minute, and the hands preview it', async ({ ux }) => {
     await ux.home();
-    await ux.toMode('setalarm');
+    await ux.toMode('alarm');
     await expect(ux.page.locator('#c-alarm')).toContainText('07:00');
 
     await ux.turn(5);            // counts_per_minute is 4, and a detent is 4 counts
@@ -30,20 +30,20 @@ test('setalarm: one detent is one minute, and the hands preview it', async ({ ux
 });
 
 test('the alarm survives the drop back to idle', async ({ ux }) => {
-    await ux.toMode('setalarm');
+    await ux.toMode('alarm');
     await ux.turn(10);
     await expect(ux.page.locator('#c-alarm')).toContainText('07:10');
     await expect(ux.page.locator('#pill-mode')).toHaveText('ui idle', { timeout: 9000 });
     await expect(ux.page.locator('#c-alarm')).toContainText('07:10');
 });
 
-test('setclock previews on the hands and only commits on a long press', async ({ ux }) => {
+test('clock previews on the hands and only commits on a long press', async ({ ux }) => {
     await ux.home();
     await ux.page.locator('button[data-cmd="chrono time set 02:10"]').click();
     await expect(ux.page.locator('#pill-clock')).toHaveText(/^02:10/);
     await expect(ux.page.locator('#pill-motion')).toHaveText('motion idle');
 
-    await ux.toMode('setclock');
+    await ux.toMode('clock');
     // Setting the clock releases the hands from it -- that is what makes a preview possible.
     await expect(ux.page.locator('#pill-clock')).toContainText('⏸');
 
@@ -65,24 +65,25 @@ test('the sensitivity slider changes how far a detent goes', async ({ ux }) => {
     // 1 count per minute: a detent is 4 counts, so a detent is now four minutes.
     await ux.slide('r-cpm', 1);
     await expect(ux.page.locator('#v-cpm')).toHaveText('1');
-    await ux.toMode('setalarm');
+    await ux.toMode('alarm');
     await ux.turn(3);
     await expect(ux.page.locator('#c-alarm')).toContainText('07:12');
 });
 
 test('the arrow keys are a detent too', async ({ ux }) => {
-    await ux.toMode('setalarm');
+    await ux.toMode('alarm');
     await ux.arrowTurn(4);
     await expect(ux.page.locator('#c-alarm')).toContainText('07:04');
 });
 
-test('volume mode edits the volume and the pixel tracks it', async ({ ux }) => {
+test('volume mode edits the volume, and the hands are the readout', async ({ ux }) => {
+    await ux.home();
     await ux.toMode('volume');
     await expect(ux.page.locator('#c-vol')).toHaveText('40%');
-    const dim = await ux.pixel(5);
     await ux.turn(20);
     await expect(ux.page.locator('#c-vol')).toHaveText('60%');
-    // The vol pixel doubles as the level readout: brighter at a higher volume.
-    const bright = await ux.pixel(5);
-    expect(bright.r).toBeGreaterThan(dim.r);
+    // The pixel is a plain steady white now; the LEVEL is on the dial, where a percentage
+    // can actually be read (case 12 pins the gauge).  60 % is 180 degrees round.
+    await expect.poll(async () => (await ux.hands()).m, { timeout: 20000 })
+        .toBeGreaterThan(170);
 });

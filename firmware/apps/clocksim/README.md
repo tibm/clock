@@ -43,12 +43,21 @@ still sent, just unlabelled.
 ```json
 {"t":"state","ms":1552,"warp":1.000,
  "hands":{"h":100.000,"m":0.500,"hp":0,"mp":0,"hv":0,"mv":0,"moving":false,"motor":false},
+ "motion":{"state":"idle","phase":"","homed":true,"th":0,"tm":0,"home_ms":6698,"faults":0},
+ "ui":{"mode":"bell","armed":false,"alarm_h":7,"alarm_m":0,"vol":40,"idle_in":4820,
+       "locked":false,"held":0},
+ "clock":{"h":7,"m":38,"s":4,"valid":true,"follow":true,"prov":false,"sync":false},
  "px":[[0,0,0,0], "…7"],"refreshed":true,
  "wake":{"warm":0,"cool":0},"spk":{"on":false,"vol":40},
  "pwr":{"plugged":true,"mv":4021,"soc":96,"chrg":true},
  "knob":{"count":0,"sw":false},"opto":{"n":0.0800,"auto":true},
  "imu":{"yaw":0.00,"taps":0},"radio_off":false}
 ```
+
+`px` is `[r,g,b,w]` per pixel, **already animated** — the frame carries whatever the light
+engine (`FIRMWARE.md` §6.6a) computed for that instant, so a client that samples one frame of
+a breathing pixel gets one point on the curve, not "the colour". `ui.held` is how long ENC_SW
+has been down right now (0 when up), and `ui.locked` is the network holding the time.
 
 `hands.h`/`hands.m` are degrees of the **true** angle — what you would see through the glass
 — with **0° = 12 o'clock, clockwise positive**. `hp`/`mp` are the microsteps the firmware

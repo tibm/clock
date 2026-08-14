@@ -18,7 +18,7 @@
     <span class="pill" id="pill-motion"
           title="the movement's own state — uninit (never homed) · homing (+ the phase) · moving · idle (hands parked, coils off after 2 s) · fault (the last home gave up). Whether it is homed is on the home button.">—</span>
     <span class="pill" id="pill-mode"
-          title="the ui HSM's mode — idle means showing the time with nothing being adjusted; turning or pressing the knob leaves it, and the countdown is the timer back to idle.">—</span>
+          title="the ui HSM's mode, named after the icon it lights — idle · bell (arm the alarm) · alarm (set its time) · clock (set the time) · volume · pairing. The countdown is the timer back to idle; while the knob is down it counts the hold instead, and ten seconds of it opens BLE pairing.">—</span>
   </div>
 </header>
 
@@ -45,7 +45,8 @@
           <circle class="knob-cap" cx="0" cy="0" r="12"/>
         </svg>
         <div class="knob-side">
-          <button id="press" class="big">press &amp; hold</button>
+          <button id="press" class="big"
+                  title="sim press down / up on the real button edges — a click steps the mode, ~0.8 s commits and leaves, and holding for ten seconds opens BLE pairing (the mode pill counts the hold).">press &amp; hold</button>
           <div class="kv"><span>count</span><b id="k-count">0</b></div>
           <div class="kv"><span>switch</span><b id="k-sw">up</b></div>
           <p class="hint">drag or scroll the knob &middot; &larr;/&rarr; &middot; space = press</p>
@@ -54,9 +55,9 @@
       <label class="slider"
              title="ui knob counts — how many PCNT counts buy one minute while SETTING a time. The encoder is 256 counts/rev at 4 counts per detent, so 4 = one minute per detent and 1 = one minute per count. Counts that do not add up to a whole minute are carried, not dropped.">counts per minute of adjustment <b id="v-cpm">4</b>
         <input type="range" id="r-cpm" min="1" max="32" step="1" value="4"></label>
-      <p class="hint left">the knob only edits in a <b>set</b> mode &mdash; press it to cycle
-        idle &rarr; alarm &rarr; setalarm &rarr; setclock &rarr; volume. A turn while idle is
-        ignored by design.</p>
+      <p class="hint left">press to cycle idle &rarr; <b>bell</b> &rarr; <b>alarm</b> &rarr;
+        <b>clock</b> &rarr; <b>volume</b>, each named after its icon. A turn while idle is
+        ignored by design; hold ~0.8 s to commit and leave, <b>10 s to open BLE pairing</b>.</p>
     </div>
 
     <div class="card">
@@ -101,6 +102,10 @@
       <div class="grid2">
         <div class="kv"><span>alarm</span><b id="c-alarm">—</b></div>
         <div class="kv"><span>volume</span><b id="c-vol">—</b></div>
+      </div>
+      <div class="btnrow">
+        <button id="t-net" class="toggle"
+                title="chrono net both / none — what `net` (§6.7) will report once it exists: Wi-Fi provisioned and SNTP landed at least once. With the radios on as well, the network owns the time and the knob's `clock` mode refuses — three red flashes and straight on to volume.">no network</button>
       </div>
       <div class="btnrow tight">
         <span class="rowlabel" title="chrono time set — move the wall clock. The hands follow it if `follow` is on.">set</span>

@@ -45,13 +45,24 @@ Chrono::Snapshot Chrono::snapshot() const noexcept {
     return snap_;
 }
 
+// Called from OTHER threads -- `ui` on every mode change, `cli` on `chrono follow`.  All
+// three fields are read by push_target() on chrono's own thread, so all three are written
+// under the mutex.  They were not, and ThreadSanitizer called it exactly right: a stale
+// `follow_` leaves the clock driving the hands through a knob preview, which is a bug you
+// would chase in `ui` for an hour (FIRMWARE.md §16).
 void Chrono::set_follow(bool on) noexcept {
-    {
-        port::Lock lk{mx_};
-        snap_.follow = on;
-    }
+    port::Lock lk{mx_};
+    snap_.follow = on;
     follow_ = on;
     last_h_ = last_m_ = -1;  // force a push on the next tick
+}
+
+void Chrono::set_net(bool provisioned, bool synced) noexcept {
+    port::Lock lk{mx_};
+    // Straight into the snapshot: on_tick rewrites the time fields and leaves these alone,
+    // and nothing inside chrono reads them -- they exist to be asked about.
+    snap_.net_provisioned = provisioned;
+    snap_.net_synced = synced;
 }
 
 void Chrono::set_steps_per_minute(int n) noexcept {
@@ -110,12 +121,21 @@ void Chrono::on_tick() {
 // Absolute targets, only when they change: the movement is idle >99 % of the time (§6.1) and
 // re-sending the same position every tick would keep the coils alive for nothing.
 void Chrono::push_target(bool force) noexcept {
-    if (!valid_ || !follow_ || !motion_) return;
-    const auto s = snapshot();
-    if (!force && s.target_hour == last_h_ && s.target_minute == last_m_) return;
-    last_h_ = s.target_hour;
-    last_m_ = s.target_minute;
-    motion_->goto_usteps(s.target_hour, s.target_minute);
+    if (!motion_) return;
+    int32_t h, m;
+    {
+        // One acquisition, and snap_ read directly rather than through snapshot(): the
+        // decision and the fields it is made from have to come from the same instant, and
+        // `port::Lock` is not recursive.
+        port::Lock lk{mx_};
+        if (!valid_ || !follow_) return;
+        h = snap_.target_hour;
+        m = snap_.target_minute;
+        if (!force && h == last_h_ && m == last_m_) return;
+        last_h_ = h;
+        last_m_ = m;
+    }
+    motion_->goto_usteps(h, m);  // outside the lock: it posts to another AO's queue
 }
 
 }  // namespace clk::svc

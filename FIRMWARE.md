@@ -1026,21 +1026,32 @@ unchanged, but the driver is a different class of thing and the estimate should 
 5 ms debounce), SK6812 chain (SPI3 → IO7, 7 pixels: 1–2 dial wash on-PCB, 3–7 status off-board
 via J12), wake LEDC (IO45 warm / IO46 cool).
 
-Implements README §12 exactly:
+There is one knob and five unlabelled lights, so the entire vocabulary of this product is
+*which pixel is lit*, *what it is doing*, and *where the hands are pointing*. §6.6a–c are the
+whole of it, and they are the source of truth — README §12 is the same thing said shorter.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> ModeAlarm : press
-    ModeAlarm --> ModeSetAlarm : press
-    ModeSetAlarm --> ModeSetClock : press
-    ModeSetClock --> ModeVolume : press
-    ModeVolume --> Idle : press, commit
+    Idle --> Bell : press
+    Bell --> Alarm : press
+    Alarm --> Clock : press
+    Clock --> Volume : press
+    Volume --> Idle : press
 
-    ModeAlarm --> Idle : 5 s no rotation
-    ModeSetAlarm --> Idle : 5 s no rotation
-    ModeSetClock --> Idle : 5 s no rotation
-    ModeVolume --> Idle : 5 s no rotation
+    Alarm --> Volume : press, when the network owns the time (3 red flashes)
+
+    Bell --> Idle : 5 s idle · long press
+    Alarm --> Idle : 5 s idle · long press
+    Clock --> Idle : 5 s idle · long press, commits
+    Volume --> Idle : 5 s idle · long press
+
+    Idle --> Pairing : hold 10 s
+    Bell --> Pairing : hold 10 s
+    Alarm --> Pairing : hold 10 s
+    Clock --> Pairing : hold 10 s
+    Volume --> Pairing : hold 10 s
+    Pairing --> Idle : press · 120 s · bonded
 
     Idle --> Ringing : AlarmFire
     Ringing --> Snoozed : tap or press
@@ -1048,23 +1059,151 @@ stateDiagram-v2
     Ringing --> Idle : long press, dismiss
     Snoozed --> Idle : long press, dismiss
 
-    ModeAlarm : hands show the alarm time, bell pixel red if armed
-    ModeSetAlarm : hands track the knob live
-    ModeSetClock : hands track the knob live
-    ModeVolume : preview sample plays while turning
+    Bell : rotate = arm/disarm · hands 12:00 or the alarm
+    Alarm : rotate = the alarm time · hands track it
+    Clock : rotate = the wall clock · hands track it
+    Volume : rotate = level · hands are a gauge · chime plays
+    Pairing : all five breathe blue, in sync
     Ringing : tone ramps 30 s, bell pixel red
     Snoozed : hands back to current time
 ```
+
+**The modes are named after the icons on the plate.** `bell` arms the alarm, `alarm` sets its
+time, `clock` sets the wall clock. The icon is the only label a user ever sees, so it is the
+only name the firmware, the CLI, the tests and this document use. *(They were `alarm` /
+`setalarm` / `setclock` until 2026-08-13 — note that `alarm` has changed meaning. `ui mode`
+still accepts the old two as aliases.)*
 
 Orthogonal regions running in parallel with the above: **`Sunrise`** (30 min warm→neutral ramp,
 plugged-only; on battery it degrades to a slow dial-pixel glow since the 12 V boost is off) and
 **`Fault`** (blink code across the status row).
 
-Sensitivity: 64 CPR × 4 = **256 counts/rev**; default 4 counts per minute of adjustment
-(configurable), with an acceleration curve so a fast spin covers 12 h.
+#### 6.6a The light engine — four patterns, one config (`domain/anim.hpp`)
 
-**Zero emission when idle is a hard invariant** (R2/R6): leaving any mode drives all 7 pixels to 0
-and both LEDC channels to 0 duty. ALS gating only ever *reduces* brightness.
+Every emitter in the product does one of six things, and they are the same six things
+everywhere: a breathing bell and a breathing battery warning have to *look like the same
+instrument*, and they only do if they are the same code.
+
+| pattern | shape | one-shot? | where it is used |
+|---|---|---|---|
+| `Off` | dark | — | idle |
+| `Solid` | hold at `level` | — | `ui led`, fault codes |
+| `RampUp` | 0 → `level`, then **hold** | ✅ | entering a steady mode; the sunrise |
+| `RampDown` | `level` → 0, then hold at 0 | ✅ | leaving any mode; the tap acknowledgement |
+| `Breathe` | 0 → `level` → 0, forever | — | alarm off; low battery; pairing |
+| `Blink` | hard-edged square, `duty` % lit | — | alarm armed |
+| `Flash ×n` | *n* quick flashes, then dark | ✅ (n>0) | the refusal (n=3); fault codes (n=0) |
+
+```cpp
+struct AnimCfg {                  // THE config file: every duration the light has
+    uint32_t ramp_ms      = 250;  // the UI's own fade in / fade out
+    uint32_t breathe_ms   = 3200; // one full dark -> lit -> dark cycle
+    uint32_t blink_ms     = 220;  // "fast blinking": one on+off period
+    uint32_t flash_ms     = 90;   // one flash of a burst, lit
+    uint32_t flash_gap_ms = 110;  //   ... and dark, between flashes
+    uint8_t  blink_duty   = 45;   // percent of blink_ms that is lit
+    uint8_t  breathe_floor= 0;    // 0..255: a breath that never goes fully dark
+};
+```
+
+- Live from the CLI as **`ui anim <ramp|breathe|blink|duty|flash|gap|floor> <ms>`**, and it
+  lands in NVS with the rest of §7.5. One number changes every pattern that uses it, which is
+  the point of there being nowhere else to put it.
+- An `Anim` may **override the duration** per instance (`ms`), which is how the same `RampUp`
+  serves a 250 ms mode fade and a 30-minute sunrise. "Hard-coded or a parameter" is both.
+- **Gamma is applied once, at the end** (γ≈2.0, integer). An SK6812's duty is linear and the
+  eye is not, so `level` is a *perceptual* number — `Tuning::brightness` 60 % means 60 % as
+  seen, not 60 % duty.
+- The breath is `3t²−2t³`, not a cosine: within 1.7 % of the raised cosine, flat at both ends
+  so a breath has no corner where it turns around, and integer — **identical on the host and
+  on the S3**, which a libm `cosf` is not.
+- Pure functions of `(anim, cfg, now)`. No state, no clock, no HAL — `firmware/test/host/
+  test_anim.cpp` asserts a 30-minute ramp in a microsecond.
+
+**Arming is what keeps things in sync.** `cue()` recomputes what every pixel *should* be doing
+50 times a second, and `arm()` only resets an animation's `t0` when the cue actually
+**changed** (`domain::same()` compares everything but `t0`). Re-arming an unchanged cue every
+tick would pin every animation to t=0 forever — a breath would never get past its first
+millisecond and a burst would never end. It also means the five pairing pixels, armed in one
+pass, share a `t0` and stay in phase for as long as anyone watches.
+
+**Two layers per pixel.** `base_` is what the mode wants; `over_` is a transient that outranks
+it and hands the pixel back the instant it finishes — the tap acknowledgement, the refusal
+burst, and one day the fault code. The previous arrangement painted over a tap flash on the
+next tick and nobody ever saw it.
+
+**`ui` writes the chain only when its own frame changes.** That keeps SPI quiet on an idle
+clock, and it leaves `ui led` (§9.3) in possession of a pixel that nothing is animating — a
+bring-up command overwritten 20 ms later is not a bring-up command.
+
+#### 6.6b The cue table — what each mode says
+
+| # | mode | pixel | pattern | hands |
+|---|---|---|---|---|
+| — | `idle` | — | all dark | the time |
+| 1 | `bell` | `bell` | armed → **blink red** · off → **breathe white** | armed → the alarm time · off → **12:00** |
+| 2 | `alarm` | `alarm` | *the same rule* — it answers the same question | the alarm time being set, live |
+| 3 | `clock` | `clock` | **steady white** (arrives on a ramp) | the time being set, live |
+| 4 | `volume` | `vol` | **steady white** | **a gauge**: 12:00 = 0 %, 10:00 = 100 % |
+| 5 | → `idle` | — | every pixel fades out over `ramp_ms` | back to the time |
+| — | `pairing` | all five | **breathe blue, in sync** | untouched — the clock keeps them |
+| — | *(overlay)* | `batt` | **breathe amber** below 20 % SoC on battery | — |
+| — | *(overlay)* | `clock` | **flash red ×3** — the refusal | — |
+| — | *(overlay)* | `bell` | 400 ms fade — tap-to-snooze acknowledged | — |
+
+- **The volume gauge is 300° of dial**, both hands together, `144 usteps per percent` exactly
+  (`17280 × 300/360 / 100`). A percentage needs somewhere to be *read*, and the dial is the
+  only readout this product has; the pixel is left as a plain steady white.
+- **`bell` rotates by direction, not distance.** Clockwise arms, anticlockwise disarms, and how
+  far you turned makes no difference. A 2-count deadband, because an optical encoder with no
+  detent reports counts for a knock on the table.
+- **Setting the alarm time does not arm it.** Arming is mode 1's whole job; mode 2 shows the
+  armed state (same pattern) so you can see what you are editing towards.
+- **Zero emission when idle is a hard invariant** (R2/R6) — with one documented exception, the
+  low-cell warning, because a clock that dies in the night without saying so is worse than an
+  amber pixel. Leaving a mode *fades* rather than cuts, and the fade ends at a hard zero.
+  ALS gating only ever *reduces* brightness.
+
+#### 6.6c Press, hold, and the one refusal
+
+| gesture | effect |
+|---|---|
+| press < 800 ms | next mode |
+| press ≥ 800 ms, < 10 s | commit and drop to `idle` |
+| **hold ≥ 10 s** | **BLE pairing** — commits at the 10 s mark, *while the knob is still down*, and the release that follows is spent |
+| press, in `pairing` | back to `idle` |
+| 5 s without input | drop to `idle`, committing whatever was being set |
+| 120 s in `pairing` | give up, back to `idle` |
+
+The hold acts at ten seconds rather than on release on purpose: a gesture whose only feedback
+arrives after you let go is a gesture nobody discovers. A finger on the knob also counts as
+input, or the 5 s timeout would fire underneath a deliberate ten-second hold.
+
+**The refusal.** `clock` mode is refused when **the radios are on AND Wi-Fi is provisioned AND
+SNTP has landed at least once** — the network owns the time, the next sync would overwrite
+anything the knob did, and the user would blame the knob. It shows **three quick red flashes on
+the `clock` pixel and advances straight to `volume`**, because the mode you wanted next is
+still the mode you want. The rear `RADIO_OFF` toggle is the way back: with the radios off
+nothing can overwrite a manual time, so the mode works again. The test lives in `enter()`, so
+every route in — the knob, `ui mode clock`, the app — obeys it. The two network facts live on
+`chrono` (the time authority) and are set by `net` when §6.7 lands; `chrono net` writes them
+today so the interlock is reachable on the bench.
+
+#### 6.6d Knob sensitivity — one curve, two feels
+
+64 CPR × 4 = **256 counts/rev**, and the only thing separating "nudge it by a minute" from
+"wind it round the dial" is *how fast you are turning*, measured as counts per 20 ms poll:
+
+```
+mag <= slow_max (4)   ->  gain 1              one detent, one minute
+mag >= fast_at (24)   ->  gain accel_factor (12)
+between               ->  a straight line between the two
+```
+
+Counts that do not add up to a whole unit are **carried, not dropped** — a dragged knob
+arrives as a stream of one- and two-count deltas, and dividing each delta on its own threw
+away the entire turn whenever `counts_per_minute` was more than 1. `ui knob` edits every
+number above.
 
 ### 6.7 `net`
 
@@ -1204,8 +1343,14 @@ struct Config {
                                      // (-4.1 = the 8 W L5/L6 cap, §6.2)
     uint8_t  knob_counts_per_unit;
     bool     dial_glow_enabled;
+    AnimCfg  anim;                   // every LED duration, §6.6a  -- `ui anim`
+    KnobCfg  knob;                   // the sensitivity curve, the timeouts, the hold
+                                     // thresholds, brightness    -- `ui knob`
 };
 ```
+
+`AnimCfg` is `domain/anim.hpp`'s own struct; `KnobCfg` is `Ui::Tuning` by another name — the
+plain-data half of it, so `storage` keeps depending on `domain` and not on `services` (§2).
 
 `chrono`, `ui` and `audio` hold a `const Config&` snapshot; only `storage` writes, and it publishes
 `ConfigChanged` after a successful commit.
@@ -1404,8 +1549,8 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
-| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
-| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|alarm\|setalarm\|setclock\|volume>]` · `ui knob [<knob> <value>]` (`counts` `threshold` `factor` `timeout` `longpress` `bright`) |
+| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
+| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `pairtimeout` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
@@ -1696,9 +1841,9 @@ it is permission to arrive at the bench with the logic already correct.
 
 ### 11.3 Interaction tests — the `ux` page, driven by a browser
 
-[`ux/tests/`](ux/tests/). Fifty-two Playwright cases that click the real page in a real Chrome
+[`ux/tests/`](ux/tests/). Sixty-seven Playwright cases that click the real page in a real Chrome
 against a real `clocksim`, one freshly spawned pair per test, and assert on what the dial then
-shows. `npm install && npx playwright test`, about two and a half minutes.
+shows. `npm install && npx playwright test`, about four minutes.
 
 They exist because §11.1 and §11.2 both test the firmware from *inside*: unit tests call the
 domain functions, and `clocksim`'s console types the same CLI the code under test dispatches.
@@ -1713,6 +1858,15 @@ pixel → a `state` frame → a lit swatch — and that path is where these live
 | the tap gesture was wired to nothing | `Tap` had a handler in `ui` and no producer anywhere; `sim tap` incremented a counter nobody read. `ui` now diffs it, until the BNO085 driver exists to post it (§12.0.2). |
 | the tap acknowledgement was invisible | the handler lit the bell **and marked the pixels dirty**, so the next tick repainted the mode over it. A 20 ms flash. |
 | the low-cell pixel never came on | `paint()` only runs on `dirty_`, and nothing marks it when the *cell* changes — the warning waited for an unrelated knob turn. |
+| the hands' preview fought the clock | every mode but `setclock` left `chrono follow` **on**, so chrono's once-a-second push took the preview back between one turn of the knob and the next. Invisible in the tests only because the clock is usually unset there, and therefore pushes nothing (§6.6b). |
+
+`12-modes` (2026-08-13) is the UX spec itself, and it needed a way to assert on an *animation*
+rather than a pixel: `watch()` samples a swatch every 10 ms and reports what it did — peak,
+how many distinct levels, whether it reached zero. `levels === 1 && everDark` is a blink,
+`levels > 4 && everDark` is a breath, `levels === 1 && !everDark` is steady. `watchMany()`
+samples several at once and adds `identical`, which is the only honest way to test "five
+pixels breathing in sync": watching five synchronised breaths *one after another* compares
+five different moments of the cycle and proves nothing.
 
 The rule that makes them worth anything: **no back door**. Every gesture is a real DOM event and
 every assertion reads rendered DOM, which is only ever what arrived in a `state` frame. The page
@@ -1787,7 +1941,7 @@ directory with a README.
 | Partition table | Flashed layout matches §1.2 byte for byte (`nvs` 64 K … `assets` 2816 K) |
 | Host build | `cmake --preset host-dev` → `clocksim` + `test_host`, ~2 s from cold |
 | Implemented | `core/log` (§9.4), `core/status`, **`core/ao` + `core/port`** (the AO loop, both ports), `command` (Sink), `board_cfg` (pin map + runtime presence, D15), `clk_hal` (api + **host fakes incl. the movement** + honest esp stubs), **`domain/hand`** (wrap, shortest path, backlash approach), **`services`: `motion` · `chrono` · `ui`**, `cli` (CmdSpec table, generated `help`, wildcard objects, alias expansion, `unsafe` window, did-you-mean, bounded streaming), groups `sys` · `sensor` · `ui` · `motion` · `chrono` · `sim`, both console front-ends, and the **`ux/` bridge** |
-| Tested | **355 host checks**; clean under **ASan/UBSan** and under **ThreadSanitizer** (the stream ring is hand-rolled SPSC, so it gets checked rather than trusted) |
+| Tested | **388 host checks**; clean under **ASan/UBSan** and under **ThreadSanitizer** (the stream ring is hand-rolled SPSC, so it gets checked rather than trusted) |
 | Not yet | `audio` · `storage` · `board` · `net` · `supervisor`, `drivers`, `transport`, BLE — and the ESP-side HAL, which is stubbed (see §12.0.2) |
 
 **The clock keeps time and the hands follow it, with no hardware at all.** `motion home`
@@ -2012,3 +2166,39 @@ interrupt jitter that is the classic NeoPixel glitch. RMT matches that *only* wi
 enabled, since 7 × 32 = 224 symbols overflows the 48-symbol channel blocks. The knock-on is now
 recorded in `esp32.md`: **SPI 2/2 used** (SPI2 = microSD, SPI3 = pixels), so there is **no spare
 general-purpose SPI host** — while all four RMT channels are now free.
+
+---
+
+## 16. The UX pass (2026-08-13)
+
+The knob cycle existed; what each mode *says* was a table in README §12 and a shrug in the
+code. This pass makes the light itself a defined vocabulary (§6.6a), pins every mode's
+meaning (§6.6b), and adds the two gestures the product was missing. **§6.6 is now the source
+of truth for the on-device experience**; README §12 is the same thing said shorter.
+
+| # | Was | Now | Why |
+|---|---|---|---|
+| 1 | Pixels were set to a flat colour; "soft ramps are trivial in firmware" (README §9) and none existed | Six patterns, one config struct, one gamma, host-tested (`domain/anim.hpp`) | A breathing bell and a breathing battery warning must look like the same instrument. They only do if they are the same code |
+| 2 | Modes `alarm` / `setalarm` / `setclock` | **`bell` / `alarm` / `clock`** — named after the icons | The icon is the only label a user sees. ⚠ **`alarm` changed meaning**; `ui mode` keeps the old two as aliases |
+| 3 | `bell` mode: rotate → `armed = minutes > 0`, i.e. it went through the counts-per-minute divisor | Direction only, 2-count deadband | "Turn it clockwise to arm" should not depend on a sensitivity setting |
+| 4 | `bell` hands showed the alarm time whether or not it was armed | Armed → the alarm time · **disarmed → 12:00** | The hands are the readout; "no alarm" needs a reading of its own |
+| 5 | Volume mode: hands showed the current time, the pixel's *brightness* was the level | **Hands are a gauge** (12:00 = 0 %, 10:00 = 100 %, 300°, 144 usteps/%); the pixel is a plain steady white | A percentage needs somewhere it can be read. Pixel brightness is not a scale |
+| 6 | Volume was silent | A gentle chime repeats at the level being set | You cannot set a volume you cannot hear |
+| 7 | Nothing stopped the knob overwriting an SNTP-backed clock | `clock` refuses: **3 red flashes → straight to `volume`** (§6.6c) | The next sync would undo it and the user would blame the knob |
+| 8 | No pairing gesture at all | **Hold 10 s** → five pixels breathe blue in sync; commits at the 10 s mark, not on release | A gesture whose feedback arrives after you let go is a gesture nobody finds |
+| 9 | Leaving a mode cut the pixels to 0 | They **fade** over `ramp_ms`, ending at a hard zero | R2 is about emission when idle, not about being abrupt |
+| 10 | The 5 s timeout **discarded** a clock set; pressing through committed it | Both commit | Two ways out of one mode should not disagree about what happens to your edit |
+| 11 | `ui` repainted only when a `dirty_` flag said so | It renders every tick and writes the chain only when its own frame changes | Animation has no dirty flag. The side benefit: `ui led` keeps a pixel nothing is animating |
+| 12 | `chrono follow` was left ON in every mode but `setclock` | Off in every mode but `Idle`/`Pairing` | chrono re-pushes a target every second and took the preview back between one turn and the next. Invisible in tests only because the clock is usually unset there |
+| 13 | A tap lit the bell and marked the pixels dirty | A transient **overlay** layer that outranks the mode and hands the pixel back when it ends | Same bug as the 2026-08-11 one, fixed structurally rather than with a hold-off timer |
+| 14 | `Chrono::set_follow()` wrote `follow_`, `last_h_`, `last_m_` **outside the mutex** while `push_target()` read them on chrono's own thread | all three under the lock; `push_target` takes one acquisition and reads `snap_` directly | A latent data race, caught by **ThreadSanitizer** once #12 started calling the setter on every mode change instead of two of them. A stale `follow_` leaves the clock driving the hands through a knob preview — an hour of looking in `ui` for a bug that is in `chrono` |
+
+**Deliberately not done, and worth a decision later:** setting a time in `alarm` mode does
+**not** arm the alarm — arming is `bell`'s whole job. It is defensible (mode 2 shows the armed
+state, so you can see what you are editing towards) and it is also the most likely thing a
+first-time user gets wrong.
+
+**Still open:** `Pairing` lights up and times out but does not yet advertise — NimBLE is
+`net`'s (§6.7), which does not exist. The mode, its exit conditions and its light are real; the
+radio underneath is a stub. Same for the chime, which drives `hal::audio::enable()` directly
+until the `audio` AO (§6.2) owns the amp; both carry a MOVE-IT comment naming their future owner.

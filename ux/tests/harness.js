@@ -229,6 +229,64 @@ class Ux {
         return out;
     }
 
+    // Every status pixel ANIMATES, so a single read is a coin toss: a breathing pixel is
+    // genuinely dark twice a cycle and a blinking one is dark more than half the time.  The
+    // only honest way to assert on a pattern is to watch it for a while, so this samples the
+    // same swatch `pixel()` reads -- rendered DOM, written only by a state frame -- every
+    // 10 ms and reports what the pixel DID:
+    //
+    //   peak      the brightest sample                (is it lit at all, and what colour)
+    //   levels    how many distinct non-zero values   (1 = square edges, many = a curve)
+    //   everDark  did it reach zero                   (breathe/blink vs solid)
+    //   duty      fraction of samples lit             (blink 45 %, breathe ~2/3, solid 1)
+    //
+    // So `levels === 1 && everDark` is a blink, `levels > 4 && everDark` is a breath, and
+    // `levels === 1 && !everDark` is solid -- which is exactly the distinction the spec
+    // makes and the one a single read cannot see.
+    async watch(i, ms = 1500) {
+        return (await this.watchMany([i], ms)).per[0];
+    }
+
+    // The same, for several pixels AT ONCE -- which is the only way to ask whether they are
+    // in phase.  Sampling five synchronised breaths one after another tells you nothing: the
+    // second window lands somewhere else in the cycle and the peaks disagree for a reason
+    // that has nothing to do with the firmware.  `identical` is the strong form of "in sync":
+    // at every single sample, all of them were showing exactly the same thing.
+    async watchMany(list, ms = 1500) {
+        const raw = await this.page.evaluate(([pxs, dur]) => new Promise((resolve) => {
+            const els = pxs.map((p) => document.querySelector(`#swatches i[data-px="${p}"]`));
+            const out = [];
+            const id = setInterval(() => out.push(els.map((e) => e.style.background || '')), 10);
+            setTimeout(() => { clearInterval(id); resolve(out); }, dur);
+        }), [list, ms]);
+        const sum = (c) => c.r + c.g + c.b;
+        const per = list.map((_, k) => {
+            const cols = raw.map((row) => parseColor(row[k]));
+            return {
+                peak: cols.reduce((a, c) => (sum(c) > sum(a) ? c : a),
+                                  { r: 0, g: 0, b: 0, lit: false }),
+                levels: new Set(cols.filter((c) => c.lit).map(sum)).size,
+                everDark: cols.some((c) => !c.lit),
+                everLit: cols.some((c) => c.lit),
+                duty: cols.filter((c) => c.lit).length / (cols.length || 1),
+            };
+        });
+        return { per, identical: raw.every((row) => row.every((v) => v === row[0])),
+                 samples: raw.length };
+    }
+
+    // The whole row went out and stayed out.  A fade takes ~250 ms, so "dark" is a thing you
+    // wait for, not a thing you read (FIRMWARE.md §6.6a).
+    async expectRowDark(ms = 600) {
+        const all = [0, 1, 2, 3, 4, 5, 6];
+        await expect.poll(async () => (await this.watchMany(all, 60)).per
+                              .map((p, i) => (p.everLit ? i : -1)).filter((i) => i >= 0),
+                          { timeout: 6000, message: 'a pixel was still lit' }).toEqual([]);
+        const w = await this.watchMany(all, ms);
+        expect(w.per.map((p, i) => (p.everLit ? i : -1)).filter((i) => i >= 0),
+               'pixels still lit while idle').toEqual([]);
+    }
+
     async text(id) { return (await this.page.locator(`#${id}`).textContent()).trim(); }
 
     // "07:38:04" -> {h, m, s}.  The page's own clock pill, from chrono's snapshot.
