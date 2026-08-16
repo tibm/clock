@@ -16,6 +16,10 @@ struct HandTarget {
     int32_t hour_usteps;
     int32_t minute_usteps;
     bool preview;  // knob is being turned: go now, do not smooth
+    // Which way round to get there: 0 = the shortest way, +1 = clockwise, -1 = anticlockwise.
+    // A clock wants the shortest way; a knob says which way it is being turned, because a
+    // hand that reverses under a steady turn is wrong even when reversing is shorter (§6.6e).
+    int8_t dir = 0;
 };
 
 struct HomeRequest {};

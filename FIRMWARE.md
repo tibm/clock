@@ -1051,7 +1051,7 @@ stateDiagram-v2
     Alarm --> Pairing : hold 10 s
     Clock --> Pairing : hold 10 s
     Volume --> Pairing : hold 10 s
-    Pairing --> Idle : press · 120 s · bonded
+    Pairing --> Idle : press · 5 s idle · bonded
 
     Idle --> Ringing : AlarmFire
     Ringing --> Snoozed : tap or press
@@ -1059,7 +1059,7 @@ stateDiagram-v2
     Ringing --> Idle : long press, dismiss
     Snoozed --> Idle : long press, dismiss
 
-    Bell : rotate = arm/disarm · hands 12:00 or the alarm
+    Bell : rotate = arm/disarm · hands on the 6, or the alarm
     Alarm : rotate = the alarm time · hands track it
     Clock : rotate = the wall clock · hands track it
     Volume : rotate = level · hands are a gauge · chime plays
@@ -1090,8 +1090,8 @@ instrument*, and they only do if they are the same code.
 | `Solid` | hold at `level` | — | `ui led`, fault codes |
 | `RampUp` | 0 → `level`, then **hold** | ✅ | entering a steady mode; the sunrise |
 | `RampDown` | `level` → 0, then hold at 0 | ✅ | leaving any mode; the tap acknowledgement |
-| `Breathe` | 0 → `level` → 0, forever | — | alarm off; low battery; pairing |
-| `Blink` | hard-edged square, `duty` % lit | — | alarm armed |
+| `Breathe` | 0 → `level` → 0, forever | — | the alarm, armed **and** off; low battery; pairing |
+| `Blink` | hard-edged square, `duty` % lit | — | fault codes — **no mode uses it** since 2026-08-15 |
 | `Flash ×n` | *n* quick flashes, then dark | ✅ (n>0) | the refusal (n=3); fault codes (n=0) |
 
 ```cpp
@@ -1141,9 +1141,9 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | # | mode | pixel | pattern | hands |
 |---|---|---|---|---|
 | — | `idle` | — | all dark | the time |
-| 1 | `bell` | `bell` | armed → **blink red** · off → **breathe white** | armed → the alarm time · off → **12:00** |
+| 1 | `bell` | `bell` | armed → **breathe red** · off → **breathe white** | armed → the alarm time · off → **both hands on the 6** |
 | 2 | `alarm` | `alarm` | *the same rule* — it answers the same question | the alarm time being set, live |
-| 3 | `clock` | `clock` | **steady white** (arrives on a ramp) | the time being set, live |
+| 3 | `clock` | `clock` | **steady white** (arrives on a ramp) | the time being set, live — opening on the **clock's own time**, or 12:00 if it has never been told one |
 | 4 | `volume` | `vol` | **steady white** | **a gauge**: 12:00 = 0 %, 10:00 = 100 % |
 | 5 | → `idle` | — | every pixel fades out over `ramp_ms` | back to the time |
 | — | `pairing` | all five | **breathe blue, in sync** | untouched — the clock keeps them |
@@ -1151,12 +1151,24 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | — | *(overlay)* | `clock` | **flash red ×3** — the refusal | — |
 | — | *(overlay)* | `bell` | 400 ms fade — tap-to-snooze acknowledged | — |
 
+- **Armed and disarmed both *breathe*; the answer is the colour** (changed 2026-08-15 — it was
+  a fast red blink). Same curve, same period, one difference, which is what makes the pair
+  comparable at a glance. A blink reads as an alarm *going off* rather than one that is set,
+  and this is the light on the thing you look at last before you sleep. Nothing in a mode
+  blinks now; `Blink` stays in the vocabulary for fault codes.
 - **The volume gauge is 300° of dial**, both hands together, `144 usteps per percent` exactly
   (`17280 × 300/360 / 100`). A percentage needs somewhere to be *read*, and the dial is the
-  only readout this product has; the pixel is left as a plain steady white.
+  only readout this product has; the pixel is left as a plain steady white. The other 60° —
+  between the 10 and the 12 — is **off the scale, and the hands never enter it**: every move
+  inside the mode carries the direction the level is changing, so the gauge is *swept* rather
+  than short-cut across its own dead zone (see §6.6e).
 - **`bell` rotates by direction, not distance.** Clockwise arms, anticlockwise disarms, and how
   far you turned makes no difference. A 2-count deadband, because an optical encoder with no
   detent reports counts for a knock on the table.
+- **Disarmed, the bell puts both hands on the 6** (changed 2026-08-15 — it was 12:00). Stacked
+  hands are a reading no working clock can produce: at 6:30 the hour hand is halfway to the 7,
+  so the two can never agree on the 6. 12:00 is a *plausible* time and was therefore read as
+  one — "the alarm is off" and "it is midnight" looked identical.
 - **Setting the alarm time does not arm it.** Arming is mode 1's whole job; mode 2 shows the
   armed state (same pattern) so you can see what you are editing towards.
 - **Zero emission when idle is a hard invariant** (R2/R6) — with one documented exception, the
@@ -1172,12 +1184,20 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | press ≥ 800 ms, < 10 s | commit and drop to `idle` |
 | **hold ≥ 10 s** | **BLE pairing** — commits at the 10 s mark, *while the knob is still down*, and the release that follows is spent |
 | press, in `pairing` | back to `idle` |
-| 5 s without input | drop to `idle`, committing whatever was being set |
-| 120 s in `pairing` | give up, back to `idle` |
+| **5 s without input** | drop to `idle`, committing whatever was being set — **every mode, pairing included** |
+
+**There is one timeout and it is five seconds** (changed 2026-08-15 — `pairing` used to have
+two minutes of its own). A control with no labels can afford exactly one rule about how long
+it waits for you; a second number for a second mode is a second thing to discover, and nothing
+tells you which one you are in. `Tuning::timeout_ms` is the only one left, and `ui knob
+pairtimeout` is gone with it. *(When `net` §6.7 makes `Pairing` actually advertise, five
+seconds of no input may prove too short to get a phone out — that is a decision for the mode
+that does something, and it is one number.)*
 
 The hold acts at ten seconds rather than on release on purpose: a gesture whose only feedback
 arrives after you let go is a gesture nobody discovers. A finger on the knob also counts as
-input, or the 5 s timeout would fire underneath a deliberate ten-second hold.
+input, or the 5 s timeout would fire underneath a deliberate ten-second hold — which is also
+what keeps pairing alive for as long as it is held.
 
 **The refusal.** `clock` mode is refused when **the radios are on AND Wi-Fi is provisioned AND
 SNTP has landed at least once** — the network owns the time, the next sync would overwrite
@@ -1204,6 +1224,43 @@ Counts that do not add up to a whole unit are **carried, not dropped** — a dra
 arrives as a stream of one- and two-count deltas, and dividing each delta on its own threw
 away the entire turn whenever `counts_per_minute` was more than 1. `ui knob` edits every
 number above.
+
+#### 6.6e Which way the hands go — a knob is not a clock
+
+A hand target is a *dial position*, and a dial position does not say which way to get there.
+For the **clock** the answer is obvious and has always been "the shorter way": it follows a
+value that moves a minute at a time, and 11:59 → 12:00 is one minute forward however you write
+it down. For the **knob** that rule is wrong, and wrong in a way that survived until §16.15:
+
+> Wind past the half hour and the minute hand's next position is *more than half a turn* ahead
+> — so the shortest way there is **backwards**. Under one steady clockwise turn the minute hand
+> ran back while the hour hand, twelve times slower and never near that limit, went on looking
+> perfect. It reads as "the minute hand is flaky", which is why it was hunted in the wrong file.
+
+So `HandTarget` carries a **direction**: `0` = the shortest way (chrono, `motion goto`, homing's
+re-issue), `±1` = the way the knob is turning (`ui`, in every mode where a turn moves the
+hands). `motion` then does two things with it, and both matter:
+
+1. **Resolve** the position into the hands' own *unwrapped* frame (`Motion::resolve`). A
+   directed target is a **step of the setting**, accumulated onto the last setpoint rather than
+   measured from the hand — because the hand can be **most of a turn behind** a knob being
+   wound, and asking a lagging hand to go "anticlockwise to 11:55" the moment the user backs
+   off by a minute would send it 350° the wrong way to a place it is 10° short of. A
+   shortest-way target resolves against the hand itself: "go to 0" given to a hand standing at
+   17 280 means *the zero it is on*, not the one the number was written as.
+2. **Chase** it (`domain::chase`): the way it lies, whole revolutions dropped. The knob can
+   wind a value three turns past a hand that moves at 6000 usteps/s; those three turns are
+   invisible — a hand at 12:20 looks the same on every one of them — but the last twenty
+   minutes are not, and reversing to save them is very visible indeed.
+
+A consequence worth stating: **a step of exactly one hour does not move the minute hand.** It
+ends where it started, which is the truth; sweeping a full turn to say so would take six
+seconds the user is not waiting for.
+
+This is also what keeps the volume gauge on its scale (§6.6b): the level going up is a
+clockwise move by construction, so the hands sweep 12 → 10 and never cut back across the
+dead zone. The arithmetic is three pure functions in `domain/hand.hpp` — `directed`, `chase`,
+`approach_by` — exhaustively tested from every position to every other.
 
 ### 6.7 `net`
 
@@ -1550,7 +1607,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
-| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `pairtimeout` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` — §6.6a) |
+| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
@@ -1761,9 +1818,9 @@ Covers everything that actually carries bugs, because all of it is pure:
 |---|---|
 | `ui` HSM | Scripted event lists → assert mode, pixels, hand targets. Every timeout path |
 | Homing FSM | Homes from an arbitrary unknown hand position; faults when there is no index and recovers on a re-home; a target arriving mid-home is held, not obeyed |
-| Motion profile | Lands *exactly* on an absolute target; takes the short way at the 12:00 wrap; de-energises 2 s after the last move; `run()` rejects a velocity pointing away from its target |
+| Motion profile | Lands *exactly* on an absolute target; takes the short way at the 12:00 wrap **when told to and the way it was told to otherwise** (§6.6e); de-energises 2 s after the last move; `run()` rejects a velocity pointing away from its target |
 | Alarm scheduler | DST spring-forward (skipped local time), fall-back (doubled time), TZ change mid-week, dow masks, leap day, alarm set to "now" |
-| Hand math | Wrap at 12:00, shortest-path direction, backlash overshoot, `steps_per_rev` trim, angle↔time round-trip for all 43 200 minute positions ✅ |
+| Hand math | Wrap at 12:00, shortest-path direction, **directed and chased moves from every position to every other** (§6.6e), backlash overshoot, `steps_per_rev` trim, angle↔time round-trip for all 43 200 minute positions ✅ |
 | DSP | Biquad impulse response vs a reference; limiter never exceeds ceiling for a full-scale square wave; `audio dsp limit` above `kLimitCeilDbfs` is rejected, and a config restored from NVS is re-clamped; no NaN on denormals |
 | `Command` dispatch | Authorization matrix per `Origin`; malformed TLV; every command round-trips CLI text → `Command` → BLE TLV → `Command` |
 | Config migration | Every version N → N+1, plus corrupt/truncated blobs |
@@ -1841,9 +1898,9 @@ it is permission to arrive at the bench with the logic already correct.
 
 ### 11.3 Interaction tests — the `ux` page, driven by a browser
 
-[`ux/tests/`](ux/tests/). Sixty-seven Playwright cases that click the real page in a real Chrome
-against a real `clocksim`, one freshly spawned pair per test, and assert on what the dial then
-shows. `npm install && npx playwright test`, about four minutes.
+[`ux/tests/`](ux/tests/). Seventy-three Playwright cases that click the real page in a real
+Chrome against a real `clocksim`, one freshly spawned pair per test, and assert on what the dial
+then shows. `npm install && npx playwright test`, about five minutes.
 
 They exist because §11.1 and §11.2 both test the firmware from *inside*: unit tests call the
 domain functions, and `clocksim`'s console types the same CLI the code under test dispatches.
@@ -1859,6 +1916,7 @@ pixel → a `state` frame → a lit swatch — and that path is where these live
 | the tap acknowledgement was invisible | the handler lit the bell **and marked the pixels dirty**, so the next tick repainted the mode over it. A 20 ms flash. |
 | the low-cell pixel never came on | `paint()` only runs on `dirty_`, and nothing marks it when the *cell* changes — the warning waited for an unrelated knob turn. |
 | the hands' preview fought the clock | every mode but `setclock` left `chrono follow` **on**, so chrono's once-a-second push took the preview back between one turn of the knob and the next. Invisible in the tests only because the clock is usually unset there, and therefore pushes nothing (§6.6b). |
+| a knob step landed in the wrong turn of the dial | (2026-08-15, and it was a bug in that day's *fix* for §16b.15) a target of "0" given to a hand standing at 17 280 was taken as the zero the number was written as, so the first knob step after a mode entry that crossed the 12 threw the hand a whole turn back. The host cases had their hands near zero and passed; **this suite homes first and enters `alarm` from `bell`, so its hands were a turn up** (§6.6e). |
 
 `12-modes` (2026-08-13) is the UX spec itself, and it needed a way to assert on an *animation*
 rather than a pixel: `watch()` samples a swatch every 10 ms and reports what it did — peak,
@@ -1867,6 +1925,12 @@ how many distinct levels, whether it reached zero. `levels === 1 && everDark` is
 samples several at once and adds `identical`, which is the only honest way to test "five
 pixels breathing in sync": watching five synchronised breaths *one after another* compares
 five different moments of the cycle and proves nothing.
+
+`13-wind` (2026-08-15) needed the same trick for *movement*, and an angle cannot supply it:
+350° → 10° is +20 or −340 and nothing on the dial distinguishes them. So it samples `#m-pos`
+— the unwrapped microstep count, rendered on the page like everything else — every 10 ms
+across two full turns of the hour hand, and asks for the most negative step it ever took.
+Zero, or the minute hand went backwards while you were winding forwards.
 
 The rule that makes them worth anything: **no back door**. Every gesture is a real DOM event and
 every assertion reads rendered DOM, which is only ever what arrived in a `state` frame. The page
@@ -2192,6 +2256,21 @@ of truth for the on-device experience**; README §12 is the same thing said shor
 | 12 | `chrono follow` was left ON in every mode but `setclock` | Off in every mode but `Idle`/`Pairing` | chrono re-pushes a target every second and took the preview back between one turn and the next. Invisible in tests only because the clock is usually unset there |
 | 13 | A tap lit the bell and marked the pixels dirty | A transient **overlay** layer that outranks the mode and hands the pixel back when it ends | Same bug as the 2026-08-11 one, fixed structurally rather than with a hold-off timer |
 | 14 | `Chrono::set_follow()` wrote `follow_`, `last_h_`, `last_m_` **outside the mutex** while `push_target()` read them on chrono's own thread | all three under the lock; `push_target` takes one acquisition and reads `snap_` directly | A latent data race, caught by **ThreadSanitizer** once #12 started calling the setter on every mode change instead of two of them. A stale `follow_` leaves the clock driving the hands through a knob preview — an hour of looking in `ui` for a bug that is in `chrono` |
+
+### 16b. The second pass (2026-08-15) — living with it
+
+Five changes of mind after using the thing, and two bugs that only turn up when you *wind*
+rather than nudge. The spec above is updated in place; this is what moved and why.
+
+| # | Was | Now | Why |
+|---|---|---|---|
+| 15 | **The minute hand reversed under a steady turn.** A wind of more than half an hour puts the minute hand's next position more than half a turn ahead, and `motion` took the shorter way — backwards | `HandTarget` carries a **direction**, `motion` resolves it into the hands' unwrapped frame and **chases** it (§6.6e) | The hour hand moves twelve times slower and never reaches that limit, so it looked perfect throughout — which is exactly why this read as "the minute hand is flaky" and got hunted in the wrong file. Setting a time is the one gesture where the hands follow *you*, not a clock, and the two rules are not the same |
+| 16 | The volume gauge **cut across its own dead zone**: 30 % → 100 % is 210° clockwise, so the short way was 150° back over the 12 | Up is clockwise, down is anticlockwise, by construction | Falls straight out of #15. The 60° between the 10 and the 12 is off the scale; a needle that goes there is reading something that is not on the dial |
+| 17 | *(found by #15's fix, by the Playwright suite)* A target of "0" given to a hand standing at 17 280 was taken as **the zero the number was written as** | Every target resolves against the hand: `from + shortest(from, to)` (§6.6e) | Dial positions are ambiguous by a whole turn and the hands are counted unwrapped. The host cases had their hands near zero and passed regardless; the browser suite homes first and enters `alarm` from `bell`, so its hands were a turn up. Two suites, and only one of them was standing in the right place |
+| 18 | Armed → **fast red blink**, off → white breath | Both **breathe**; the answer is the colour | A blink reads as an alarm *going off*, not one that is set. This is the light on the thing you look at last before you sleep |
+| 19 | Disarmed, the hands read **12:00** | Both hands on the **6**, stacked | 12:00 is a plausible time and was read as one. Two hands agreeing on the 6 is a reading no working clock can produce — at 6:30 the hour hand is halfway to the 7 |
+| 20 | `clock` seeded itself from `chrono` **whether or not the clock had ever been set** | Valid → the time · never set → **12:00** | An unset chrono is an offset from an epoch it never had, so it reads as minutes-since-boot. The mode opened with the hands pointing at the uptime |
+| 21 | Two timeouts: 5 s for every mode, **120 s for pairing** | **One**, five seconds, pairing included. `ui knob pairtimeout` is gone | A control with no labels can afford one rule about how long it waits for you. Nothing on the clock tells you which mode's number is in force |
 
 **Deliberately not done, and worth a decision later:** setting a time in `alarm` mode does
 **not** arm the alarm — arming is `bell`'s whole job. It is defensible (mode 2 shows the armed

@@ -89,7 +89,10 @@ test('rotating in the bell mode arms the alarm, and the pixel turns red', async 
     await expect(ux.page.locator('#pill-mode')).toContainText('ui bell');
     await ux.turn(2);
     await expect(ux.page.locator('#c-alarm')).toContainText('armed');
-    const bell = await ux.watch(kBell, 1200);
+    // Long enough to contain a whole breath.  Armed used to blink, and any window at all
+    // caught it at full brightness; a breath has to be watched for most of its cycle or the
+    // window can land entirely inside the dark half and the peak means nothing (§6.6b).
+    const bell = await ux.watch(kBell, 2400);
     expect(bell.peak.r).toBeGreaterThan(40);
     expect(bell.peak.g).toBe(0);
     expect(bell.peak.b).toBe(0);

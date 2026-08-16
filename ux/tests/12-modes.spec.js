@@ -1,19 +1,22 @@
 // CASE 12 -- the user experience, mode by mode (README §12, FIRMWARE.md §6.6).
 //
 // One press is one mode, each mode lights the pixel whose icon names it, and the pattern on
-// that pixel is a sentence: breathing white asks a question, blinking red states a fact,
-// steady white means you are editing, three red flashes mean no.  The hands are the readout
-// throughout -- including in the two modes where what they show is not a time.
+// that pixel is a sentence: a breath asks or answers the alarm question -- white for off, red
+// for armed -- steady white means you are editing, three red flashes mean no.  The hands are
+// the readout throughout, including in the two modes where what they show is not a time.
 //
 // Chain order (FIRMWARE.md §9.2): 0-1 dial, 2 bell, 3 alarm, 4 clock, 5 vol, 6 batt.
 'use strict';
 
-const { test, expect, angleDiff } = require('./harness');
+const { test, expect, angleDiff, kRev } = require('./harness');
 
 const kBell = 2, kAlarm = 3, kClock = 4, kVol = 5, kBatt = 6;
 
 const hourDeg = (h, m) => (((h % 12) * 3600 + m * 60) / 43200) * 360;
 const minuteDeg = (h, m) => ((m * 60) / 3600) * 360;
+// Both hands on the 6, which is what "the alarm is off" looks like: at 6:30 the hour hand is
+// halfway to the 7, so a pair of hands agreeing on the 6 is a reading no clock can produce.
+const kSouth = 180;
 
 // Wait for the hands to arrive somewhere, in the dial's own degrees.
 async function expectHands(ux, h, m, tol = 4) {
@@ -26,7 +29,7 @@ async function expectHands(ux, h, m, tol = 4) {
 
 // ---- 1. bell: is the alarm on? ---------------------------------------------------------
 
-test('bell, disarmed: the pixel breathes white and the hands stand at 12:00', async ({ ux }) => {
+test('bell, disarmed: the pixel breathes white and the hands stand on the 6', async ({ ux }) => {
     await ux.home();
     await ux.cli('chrono time set 03:20');
     await ux.toMode('bell');
@@ -40,32 +43,32 @@ test('bell, disarmed: the pixel breathes white and the hands stand at 12:00', as
     expect(bell.levels, 'a breath should pass through many levels').toBeGreaterThan(4);
     expect(bell.everDark, 'a breath reaches zero').toBe(true);
 
-    // ... and the plainest thing a pair of hands can say.
-    await expectHands(ux, 0, 0);
+    // ... and the hands say it too, with a reading no working clock can produce.
+    await expectHands(ux, kSouth, kSouth);
 });
 
-test('bell: clockwise arms and the pixel blinks red, anticlockwise disarms', async ({ ux }) => {
+test('bell: clockwise arms and the pixel breathes red, anticlockwise disarms', async ({ ux }) => {
     await ux.toMode('bell');
     await expect(ux.page.locator('#c-alarm')).toContainText('off');
 
     await ux.turn(1);                       // one detent clockwise is enough -- it is a direction
     await expect(ux.page.locator('#c-alarm')).toContainText('armed');
 
-    const bell = await ux.watch(kBell, 1500);
+    const bell = await ux.watch(kBell, 2200);
     expect(bell.peak.r).toBeGreaterThan(40);
     expect(bell.peak.g).toBe(0);
     expect(bell.peak.b).toBe(0);
-    // A blink is square: one brightness, on and off, nothing in between.
-    expect(bell.levels, 'a blink has hard edges').toBe(1);
-    expect(bell.everDark).toBe(true);
-    expect(bell.duty, 'fast blink, not a slow one').toBeGreaterThan(0.2);
-    expect(bell.duty).toBeLessThan(0.8);
+    // The armed cue BREATHES: same curve as the disarmed one, and the answer is the colour.
+    // It used to be a hard-edged blink -- one brightness, on and off -- which reads as an
+    // alarm going off rather than an alarm that is set (§6.6b, changed 2026-08-15).
+    expect(bell.levels, 'armed is a breath, not a blink').toBeGreaterThan(4);
+    expect(bell.everDark, 'a breath reaches zero').toBe(true);
 
     await ux.turn(-1);
     await expect(ux.page.locator('#c-alarm')).toContainText('off');
 });
 
-test('bell: armed, the hands show the alarm time; disarmed, back to 12:00', async ({ ux }) => {
+test('bell: armed, the hands show the alarm time; disarmed, back to the 6', async ({ ux }) => {
     await ux.home();
     await ux.toMode('bell');
     await ux.turn(1);
@@ -74,7 +77,7 @@ test('bell: armed, the hands show the alarm time; disarmed, back to 12:00', asyn
 
     await ux.turn(-1);
     await expect(ux.page.locator('#c-alarm')).toContainText('off');
-    await expectHands(ux, 0, 0);
+    await expectHands(ux, kSouth, kSouth);
 });
 
 // ---- 2. alarm: what time? --------------------------------------------------------------
@@ -91,10 +94,11 @@ test('alarm: the pixel says the same thing the bell did', async ({ ux }) => {
     await ux.turn(1);
     await expect(ux.page.locator('#c-alarm')).toContainText('armed');
     await ux.toMode('alarm');
-    const armed = await ux.watch(kAlarm, 1500);
+    const armed = await ux.watch(kAlarm, 2200);
     expect(armed.peak.r).toBeGreaterThan(40);
     expect(armed.peak.g).toBe(0);
-    expect(armed.levels, 'armed blinks').toBe(1);
+    expect(armed.levels, 'armed breathes too -- only the colour differs').toBeGreaterThan(4);
+    expect(armed.everDark).toBe(true);
 });
 
 test('alarm: a slow turn is one minute, a fast one covers hours', async ({ ux }) => {
@@ -146,6 +150,26 @@ test('clock: steady white, and the hands preview the time being set', async ({ u
     expect(await ux.text('pill-clock')).toMatch(/^02:1\d/);           // not committed yet
     await ux.press(1000);
     await expect(ux.page.locator('#pill-clock')).toHaveText(/^02:30/);
+});
+
+test('clock: opens on the time the clock is keeping', async ({ ux }) => {
+    await ux.home();
+    await ux.cli('chrono time set 09:45');
+    await expect(ux.page.locator('#pill-clock')).toHaveText(/^09:4[56]/);
+    await ux.toMode('clock');
+    // Before any turn at all: the mode starts where the clock is, so the first detent is a
+    // nudge to the real time rather than a jump from somewhere else.
+    await expectHands(ux, hourDeg(9, 45), minuteDeg(9, 45), 6);
+});
+
+test('clock: with no time ever set, it opens at 12:00', async ({ ux }) => {
+    // A fresh clocksim has never been told the time -- there is no RTC (FIRMWARE.md §6.4) --
+    // and chrono's hour and minute are then an offset from an epoch it never had.  That reads
+    // as minutes-since-boot, and the mode used to open with the hands pointing at the uptime.
+    await ux.home();
+    await expect(ux.page.locator('#pill-clock')).toHaveText('--:--:--');
+    await ux.toMode('clock');
+    await expectHands(ux, 0, 0);
 });
 
 test('clock: with the network holding the time, it flashes red and skips to volume',
@@ -202,6 +226,51 @@ test('volume: the hands are a gauge, 12:00 = 0 % and 10:00 = 100 %', async ({ ux
     await ux.cli('sim knob -400');
     await expect(ux.page.locator('#c-vol')).toHaveText('0%');
     await expectHands(ux, 0, 0);
+});
+
+test('volume: the gauge is swept, never cut across the 10 and the 12', async ({ ux }) => {
+    // The scale runs clockwise from the 12 to the 10 and the last 60 degrees are off it.  The
+    // hands must SWEEP the scale, whichever way the level is going: the shortest way from
+    // 30 % to 100 % is backwards over the 12, which is the wrong direction for a level going
+    // up AND a trip through the one part of the dial the gauge does not use.
+    await ux.home();
+    await ux.cli('ui knob counts 1');
+    await ux.cli('ui knob slow 100000');      // one count, one percent, at any speed
+    await ux.toMode('volume');
+    await ux.cli('sim knob -200');            // hard down, and let it get there
+    await expect(ux.page.locator('#c-vol')).toHaveText('0%');
+    await expectHands(ux, 0, 0);
+    const zero = await ux.resting();
+
+    await ux.startHandWatch();
+    await ux.cli('sim knob 30');
+    await expect(ux.page.locator('#c-vol')).toHaveText('30%');
+    await expectHands(ux, 90, 90);
+    await ux.cli('sim knob 70');
+    await expect(ux.page.locator('#c-vol')).toHaveText('100%');
+    await expectHands(ux, 300, 300);
+    await ux.resting();                       // exactly there, not within four degrees of it
+    const up = await ux.stopHandWatch();
+
+    // Up is clockwise, the whole 300 degrees of scale -- not -60 across the dead zone.
+    expect(up.m.net).toBe(kRev * 300 / 360);
+    expect(up.m.min, 'the gauge went backwards on its way up').toBe(0);
+    const dead = (a) => a > kRev * 300 / 360 && a < kRev;
+    expect(up.angles.filter((a) => dead(a.m) || dead(a.h)).length,
+           'a hand was between the 10 and the 12, which is off the scale').toBe(0);
+
+    await ux.startHandWatch();
+    await ux.cli('sim knob -100');
+    await expect(ux.page.locator('#c-vol')).toHaveText('0%');
+    await expectHands(ux, 0, 0);
+    await ux.resting();
+    const down = await ux.stopHandWatch();
+    expect(down.m.net).toBe(-kRev * 300 / 360);   // ... and down is anticlockwise
+    expect(down.m.max, 'the gauge went forwards on its way down').toBe(0);
+    expect(down.angles.filter((a) => dead(a.m) || dead(a.h)).length).toBe(0);
+
+    // Both hands, together, the whole way: a gauge with two needles that disagree is not one.
+    expect((await ux.resting()).rawH - zero.rawH).toBe(0);
 });
 
 test('volume: solid white, and the level is played back while you set it', async ({ ux }) => {
@@ -283,16 +352,23 @@ test('ten seconds of hold opens pairing, and all five pixels breathe blue togeth
     await ux.expectRowDark();
 });
 
-test('pairing ignores the five-second timeout that every other mode obeys', async ({ ux }) => {
+test('pairing obeys the same five seconds as every other mode', async ({ ux }) => {
+    // There is ONE timeout now.  Pairing used to have two minutes of its own, which is a
+    // second rule to learn about a control that has no labels (§6.6c, changed 2026-08-15).
     await ux.cli('ui knob pair 400');                // the ten seconds, shortened
     const box = await ux.page.locator('#press').boundingBox();
     await ux.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await ux.page.mouse.down();
     await expect(ux.page.locator('#pill-mode')).toContainText('ui pairing', { timeout: 4000 });
+
+    // A finger on the knob is input, so holding it does NOT time out underneath you...
+    await ux.page.waitForTimeout(6000);
+    await expect(ux.page.locator('#pill-mode')).toContainText('ui pairing');
     await ux.page.mouse.up();
 
-    await ux.page.waitForTimeout(7000);              // well past the 5 s every mode has
+    // ... and once you let go, the same five seconds apply.  Still there at three.
+    await ux.page.waitForTimeout(3000);
     await expect(ux.page.locator('#pill-mode')).toContainText('ui pairing');
-    await ux.press(120);
-    await expect(ux.page.locator('#pill-mode')).toHaveText('ui idle');
+    await expect(ux.page.locator('#pill-mode')).toHaveText('ui idle', { timeout: 6000 });
+    await ux.expectRowDark();
 });

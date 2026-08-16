@@ -40,8 +40,8 @@ one shared table of durations:
 |---|---|---|
 | **Ramp up** 0 → x, then hold | 250 ms *(or a parameter — the sunrise passes 30 min)* | entering a steady mode; the wake light |
 | **Ramp down** x → 0 | 250 ms | leaving any mode; the tap acknowledgement (400 ms) |
-| **Breathe** 0 → x → 0, forever | 3.2 s/cycle | alarm **off** (white) · low cell (amber) · **pairing (blue, all five in sync)** |
-| **Blink** hard on/off | 220 ms, 45 % duty | alarm **armed** (red) |
+| **Breathe** 0 → x → 0, forever | 3.2 s/cycle | the alarm — **armed (red)** and off (white) · low cell (amber) · **pairing (blue, all five in sync)** |
+| **Blink** hard on/off | 220 ms, 45 % duty | fault codes — **no mode uses it** (the armed alarm breathed instead from 2026-08-15) |
 | **Flash ×n** then dark | 90 ms lit / 110 ms gap | the refusal (3× red) · fault codes (endless) |
 
 - **Gamma ≈ 2.0 is applied once, at the end.** The SK6812's duty is linear and the eye is

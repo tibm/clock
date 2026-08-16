@@ -1,6 +1,6 @@
 # `ux/tests/` — the page, driven for real
 
-Sixty-seven cases that click the actual page in an actual browser, against an actual
+Seventy-three cases that click the actual page in an actual browser, against an actual
 `clocksim`, and assert on what the dial shows afterwards. They exist to test the *firmware*
 through the surface a person uses, so the rule they are built on is:
 
@@ -55,7 +55,8 @@ open in a browser.
 | `09-warp-steps` | warp really warps; `jumps per minute` quantises the hands without touching the clock; the tuning sliders reach `motion tune` |
 | `10-reset-reboot` | `reset fakes` opens a gap the firmware does not know about; `reboot` loses everything and the page reconnects; a reload loses nothing |
 | `11-dial` | dragging a hand does **not** round-trip; the opto meter; the plate turning with yaw; PCNT counts |
-| `12-modes` | the UX itself: what each mode's pixel *does* (breathe / blink / steady / a burst of three), what the hands show in each (12:00, the alarm, the time being set, the volume gauge), the network lock, and the ten-second hold into pairing |
+| `12-modes` | the UX itself: what each mode's pixel *does* (breathe / steady / a burst of three), what the hands show in each (the 6, the alarm, the time being set, the volume gauge — swept, never across the off-scale 10-to-12), where `clock` opens from, the network lock, the ten-second hold into pairing and the one five-second timeout |
+| `13-wind` | winding a time: two full turns of the hour hand in each direction, sampling the minute hand every 10 ms — it must never once go backwards, and it must travel all twenty-four of its own revolutions |
 
 ## Two things that look like cheating and are not
 
@@ -84,6 +85,9 @@ await ux.cli('sim warp 60');           // the page's command box
 
 await ux.hands();                      // { h, m } degrees, off the SVG
 await ux.usteps();                     // what the firmware thinks it commanded
+await ux.resting();                    // ... once they have actually stopped
+await ux.startHandWatch();             // then wind, then:
+await ux.stopHandWatch();              // which WAY they went -- min/max step, net, angles
 await ux.pixel(2);                     // { r, g, b, lit } off the swatch strip
 await ux.watch(2, 1500);               // what that pixel DID over 1.5 s (see below)
 await ux.watchMany([2,3,4,5,6], 2400); // ... all of them at once, + `identical`
@@ -106,10 +110,24 @@ every 10 ms and reports what it *did*:
 
 So `levels === 1 && everDark` is a **blink**, `levels > 4 && everDark` is a **breath**, and
 `levels === 1 && !everDark` is **steady** — the distinction the spec makes, and the one a
-single read cannot see. `watchMany` samples several pixels in the same window and adds
+single read cannot see. **Watch a breath for most of its cycle**: a 1.2 s window on a 3.2 s
+breath can land entirely inside the dark half, and then `peak` is a number about nothing.
+No mode blinks any more (§6.6b), so every window here is at least 2.2 s.
+
+`watchMany` samples several pixels in the same window and adds
 `identical`, which is the strong form of "in sync": at every sample, all of them agreed.
 Sampling five synchronised breaths one after another proves nothing, because each window
 lands somewhere else in the cycle.
+
+**Assert on `#m-pos`, not on an angle, when the question is *which way*.** 350° → 10° is +20
+or −340 and nothing on the dial distinguishes them; `#m-pos` is the unwrapped microstep count
+the firmware commanded, so a sequence of those settles it. `startHandWatch()`/`stopHandWatch()`
+sample it every 10 ms and report the most negative single step, the most positive, the net
+travel, and every sample as a dial angle — which is how `13-wind` proves a hand never reversed
+and how `12-modes` proves the volume gauge never entered the sector that is off its scale.
+`resting()` is the other half of that: it reads the position and `motion idle` in **one**
+evaluate, because two reads can straddle a state frame and a start position taken six
+microsteps before the hand stopped makes every step measured from it wrong.
 
 Two more things that are true of every mode assertion:
 

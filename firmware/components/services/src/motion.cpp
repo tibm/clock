@@ -53,8 +53,8 @@ Motion& motion() noexcept {
 
 // ---- public API (called from other threads) ----------------------------------------------
 
-void Motion::goto_usteps(int32_t h, int32_t m, bool preview) noexcept {
-    post(HandTarget{h, m, preview});
+void Motion::goto_usteps(int32_t h, int32_t m, bool preview, int dir) noexcept {
+    post(HandTarget{h, m, preview, static_cast<int8_t>(dir > 0 ? 1 : (dir < 0 ? -1 : 0))});
 }
 
 void Motion::nudge(Hand hand, int32_t usteps) noexcept {
@@ -94,15 +94,15 @@ void Motion::on_start() {
 
 void Motion::on_event(Event const& e) {
     if (const auto* t = as<HandTarget>(e)) {
-        want_h_ = t->hour_usteps;
-        want_m_ = t->minute_usteps;
+        want_h_ = resolve(want_h_, pos(Hand::Hour), t->hour_usteps, t->dir);
+        want_m_ = resolve(want_m_, pos(Hand::Minute), t->minute_usteps, t->dir);
         want_valid_ = true;
         if (state_ == State::Homing || state_ == State::Fault) {
             CLK_LOGD(motion, "target held: %s", name_of(state_));
             return;
         }
-        plan(hour_, t->hour_usteps);
-        plan(min_, t->minute_usteps);
+        plan(hour_, want_h_);
+        plan(min_, want_m_);
         if (hour_.active || min_.active) {
             power(true);
             state_ = State::Moving;
@@ -182,6 +182,28 @@ void Motion::on_tick() {
 
 // ---- trajectory ------------------------------------------------------------------------
 
+// Where a target IS, in the hands' own unwrapped frame.
+//
+// Callers speak in dial positions, 0..kRev, and a dial position is ambiguous by a whole number
+// of turns -- which matters here, because the hands are counted in unwrapped microsteps and
+// can be several turns from zero.  So EVERY target is resolved to that frame on arrival:
+//
+//   dir == 0  the shortest way there from where the hand is.  What a clock means.
+//   dir != 0  a STEP of whatever the knob is turning, accumulated onto the last setpoint
+//             rather than measured from the hand.  The hand can be most of a turn behind a
+//             knob being wound, and asking a lagging hand to go "anticlockwise to 11:55" the
+//             moment the user backs off a minute would send it 350 degrees the wrong way to a
+//             place it is 10 degrees short of.  Accumulating says what the user actually did
+//             -- the setting went back one minute -- and lets the hand close the gap the way
+//             it was already going.
+//
+// Both come out as an absolute unwrapped position, so plan() can simply chase it.
+int32_t Motion::resolve(int32_t prev, int32_t from, int32_t to, int dir) const noexcept {
+    if (dir == 0) return from + domain::shortest(from, to);
+    const int32_t base = want_valid_ ? prev : from;
+    return base + domain::directed(base, to, dir);
+}
+
 void Motion::plan(Axis& ax, int32_t target) noexcept {
     Tuning t;
     {
@@ -192,7 +214,9 @@ void Motion::plan(Axis& ax, int32_t target) noexcept {
     // Which way we were already going, before the new target overwrites the old legs.
     const int32_t was_dir = ax.active ? sgn((ax.leg2 ? ax.target : ax.via) - from) : 0;
 
-    const auto ap = domain::approach(from, target, t.backlash);
+    // resolve() has already put the target in this frame, so: the way it lies, whole
+    // revolutions dropped.  For a shortest-way target that is the shortest way, unchanged.
+    const auto ap = domain::approach_by(from, domain::chase(from, target), t.backlash);
     ax.via = ap.via;
     ax.target = ap.target;
     ax.leg2 = (ap.via == ap.target);
@@ -204,8 +228,8 @@ void Motion::plan(Axis& ax, int32_t target) noexcept {
     // ramp up again several times per move.  On the hour hand, whose own moves are short,
     // that was the whole move.  Keep the speed when the new leg runs the same way as the
     // old one; step_axis() still clamps it to sqrt(2*a*s), so the landing stays exact.
-    const int32_t dir = sgn((ax.leg2 ? ax.target : ax.via) - from);
-    if (was_dir == 0 || dir != was_dir) ax.v = 0;
+    const int32_t now_dir = sgn((ax.leg2 ? ax.target : ax.via) - from);
+    if (was_dir == 0 || now_dir != was_dir) ax.v = 0;
 }
 
 // One tick of a trapezoidal profile.  The deceleration limit is the only interesting line:

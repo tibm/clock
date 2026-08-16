@@ -275,6 +275,81 @@ class Ux {
                  samples: raw.length };
     }
 
+    // Which WAY the hands went, which an angle cannot tell you.  350° -> 10° is +20 or -340
+    // and nothing on the dial distinguishes them; `#m-pos` is the unwrapped microstep count,
+    // so a sequence of those settles it.  Same rendered DOM `usteps()` reads, sampled every
+    // 10 ms -- and stoppable, because a wind takes as long as it takes.
+    //
+    //   h.min / m.min   the most NEGATIVE single-sample step  (0 if it never went backwards)
+    //   h.max / m.max   ... and the most positive
+    //   h.net / m.net   where it ended up, less where it started
+    //   angles          every sample as a dial position, 0..kRev, for "did it ever go there"
+    // The first and last samples are taken HERE, synchronously, not left to the timer: a
+    // setInterval tick is best-effort, and a browser busy with the command that starts the
+    // move can delay the first one past it.  The window would then open a tick into the
+    // motion, and "how far did it travel" comes out short by exactly that tick.
+    async startHandWatch() {
+        await this.page.evaluate(() => {
+            const read = () => document.querySelector('#m-pos').textContent;
+            window.__handSamples = [read()];
+            window.__handWatch = setInterval(() => window.__handSamples.push(read()), 10);
+        });
+    }
+
+    async stopHandWatch() {
+        const raw = await this.page.evaluate(() => {
+            clearInterval(window.__handWatch);
+            window.__handSamples.push(document.querySelector('#m-pos').textContent);
+            return window.__handSamples || [];
+        });
+        const pts = raw
+            .map((t) => t.split('/').map((s) => parseInt(s.trim(), 10)))
+            .filter(([h, m]) => Number.isFinite(h) && Number.isFinite(m))
+            .map(([h, m]) => ({ h, m }));
+        if (pts.length < 2) throw new Error(`the hand watch caught ${pts.length} samples`);
+        const stats = (k) => {
+            let min = 0, max = 0;
+            for (let i = 1; i < pts.length; i++) {
+                const d = pts[i][k] - pts[i - 1][k];
+                if (d < min) min = d;
+                if (d > max) max = d;
+            }
+            return { min, max, net: pts[pts.length - 1][k] - pts[0][k] };
+        };
+        const wrap = (v) => ((v % kRev) + kRev) % kRev;
+        return {
+            h: stats('h'),
+            m: stats('m'),
+            samples: pts.length,
+            angles: pts.map((p) => ({ h: wrap(p.h), m: wrap(p.m) })),
+        };
+    }
+
+    // Where the hands are once they have stopped moving, and it is the *start* of a
+    // measurement, so it has to be exact.
+    //
+    // Both values come out of ONE read, and the position returned is the one from the read
+    // that satisfied the wait -- not a fresh one afterwards.  Reading `#m-pos` and
+    // `#pill-motion` separately lets them come from different state frames, and a position
+    // taken from the frame before a hand stopped, next to an `idle` from the frame after it,
+    // is a resting position six microsteps short of where the hand actually is. That is
+    // exactly enough to make a test that measures 24 revolutions from it fail by six.
+    async resting() {
+        let last = null;
+        await expect.poll(async () => {
+            const [pos, motion] = await this.page.evaluate(() => [
+                document.querySelector('#m-pos').textContent,
+                document.querySelector('#pill-motion').textContent,
+            ]);
+            const still = motion === 'motion idle' && pos === last;
+            last = pos;
+            return still;
+        }, { timeout: 30000, message: 'the hands never stopped moving' }).toBe(true);
+        const [h, m] = last.split('/').map((s) => parseInt(s.trim(), 10));
+        const wrap = (v) => ((v % kRev) + kRev) % kRev;
+        return { h: wrap(h), m: wrap(m), rawH: h, rawM: m };
+    }
+
     // The whole row went out and stayed out.  A fade takes ~250 ms, so "dark" is a thing you
     // wait for, not a thing you read (FIRMWARE.md §6.6a).
     async expectRowDark(ms = 600) {

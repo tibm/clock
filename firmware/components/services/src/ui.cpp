@@ -21,10 +21,18 @@ constexpr uint32_t kTapAckMs = 400;  // the tap flash, long enough to be seen on
 constexpr std::size_t kBell = 2, kAlarmPx = 3, kClockPx = 4, kVol = 5, kBatt = 6;
 
 // The volume gauge (README §12): 0 % straight up, 100 % at 10 o'clock the long way round,
-// so the whole range is 300 degrees of dial and both hands carry it together.
+// so the whole range is 300 degrees of dial and both hands carry it together.  The remaining
+// 60 degrees -- between the 10 and the 12 -- is off the scale, and the hands never go there:
+// every move inside the mode carries the direction the level is changing, so the gauge is
+// swept rather than short-cut across its own dead zone.
 constexpr int32_t kVolSweepDeg = 300;
 constexpr int32_t kUstepsPerVolPct = domain::kRev * kVolSweepDeg / 360 / 100;
 static_assert(kUstepsPerVolPct * 100 == domain::kRev * kVolSweepDeg / 360, "gauge must be exact");
+
+// Both hands stacked on the 6.  Deliberately not a time: at 6:30 the hour hand is halfway to
+// the 7, so a pair of hands agreeing on the 6 is a reading no working clock ever shows -- and
+// that is the point, it is what "the alarm is off" looks like (§6.6b).
+constexpr int32_t kSouth = domain::kRev / 2;
 
 // The preview chime, until `audio` (§6.2) owns the amp: you cannot set a volume you cannot
 // hear, so the mode plays at the level it is editing.
@@ -124,9 +132,11 @@ void Ui::on_tick() {
     poll_tap();
     watch_battery();
 
+    // ONE timeout, and every mode obeys it -- pairing included.  A second number for a second
+    // mode is a second thing to discover, and the knob's whole contract is that whatever you
+    // last touched goes away five seconds after you stop touching it.
     const auto t = tuning();
-    const uint32_t limit = mode_ == Mode::Pairing ? t.pair_timeout_ms : t.timeout_ms;
-    if (mode_ != Mode::Idle && port::now_us() - last_input_us_ > limit * 1000ull) {
+    if (mode_ != Mode::Idle && port::now_us() - last_input_us_ > t.timeout_ms * 1000ull) {
         CLK_LOGI(ui, "timeout -> idle (settings kept)");
         enter(Mode::Idle);
     }
@@ -220,9 +230,16 @@ void Ui::enter(Mode m) noexcept {
     arm_resid_ = 0;
 
     if (m == Mode::Alarm) set_min_of_day_ = alarm_min_of_day_;
-    if (m == Mode::Clock && chrono_) {
-        const auto c = chrono_->snapshot();
-        set_min_of_day_ = c.hour * 60 + c.minute;
+    if (m == Mode::Clock) {
+        // Start from the time the clock is keeping -- and from 12:00 when nothing has ever
+        // told it one.  chrono's hour and minute are an offset from an epoch it never had, so
+        // an unset clock reads as minutes-since-boot: 00:04 is not a time, it is an uptime,
+        // and the hands would open the mode pointing at it.
+        set_min_of_day_ = 0;
+        if (chrono_) {
+            const auto c = chrono_->snapshot();
+            if (c.valid) set_min_of_day_ = c.hour * 60 + c.minute;
+        }
     }
     if (m == Mode::Volume) chime_at_us_ = port::now_us();
 
@@ -296,7 +313,11 @@ void Ui::rotate(int32_t counts) noexcept {
         default:
             break;
     }
-    show_hands();
+    // The hands follow the KNOB, not the shorter arc.  Winding a clock forward past the half
+    // hour moves the minute hand more than half a turn, and letting motion pick the nearer
+    // side there is the whole of §16b.15's minute-hand reversal: the hour hand creeps forward
+    // while the minute hand runs backwards, under one steady turn of one knob.
+    show_hands(units > 0 ? 1 : -1);
 }
 
 void Ui::press(uint32_t held_ms) noexcept {
@@ -357,14 +378,23 @@ bool Ui::net_owns_time() const noexcept {
 }
 
 // The hands ARE the readout (README §5): the alarm time, the time being set, or the volume.
-void Ui::show_hands() noexcept {
+//
+// `dir` is which way the knob just turned, and it is passed straight through to motion --
+// see Motion::resolve.  Zero means "this is a jump between two readouts, take the short way":
+// entering a mode, or arming the alarm, where there is no turn to follow.
+void Ui::show_hands(int dir) noexcept {
     if (!motion_) return;
     int show = -1;
     switch (mode_) {
         case Mode::Bell:
-            // Armed, the dial shows when it will go off.  Disarmed, it says so with the
-            // plainest thing a pair of hands can say: straight up, both of them.
-            show = alarm_armed_ ? alarm_min_of_day_ : 0;
+            // Armed, the dial shows when it will go off.  Disarmed, both hands go to the 6 --
+            // stacked, which is a reading no working clock can produce, so the dial is
+            // visibly saying something rather than displaying a plausible wrong time.
+            if (!alarm_armed_) {
+                motion_->goto_usteps(kSouth, kSouth, true, dir);
+                return;
+            }
+            show = alarm_min_of_day_;
             break;
         case Mode::Alarm:
         case Mode::Clock:
@@ -372,14 +402,14 @@ void Ui::show_hands() noexcept {
             break;
         case Mode::Volume: {
             const int32_t u = static_cast<int32_t>(volume_) * kUstepsPerVolPct;
-            motion_->goto_usteps(u, u, true);
+            motion_->goto_usteps(u, u, true, dir);
             return;
         }
         default:
             return;  // Idle and Pairing: chrono has the hands back
     }
     const auto p = domain::for_time(show / 60, show % 60);
-    motion_->goto_usteps(p.hour, p.minute, true);
+    motion_->goto_usteps(p.hour, p.minute, true, dir);
 }
 
 // ---- light ---------------------------------------------------------------------------------
@@ -390,9 +420,15 @@ uint8_t Ui::level() const noexcept {
 }
 
 // Modes 1 and 2 answer the same question -- is the alarm on? -- so they say it the same way.
+//
+// Both states BREATHE, and the answer is the colour: red for armed, white for off.  A fast
+// blink reads as an alarm going off rather than an alarm that is set, and this is a bedroom
+// -- the light on the thing you look at last is not the place for something urgent.  Same
+// curve, same period, one difference, which is also what makes the pair comparable at a
+// glance (§6.6b, changed 2026-08-15).
 domain::Anim Ui::alarm_cue() const noexcept {
     const uint8_t l = level();
-    return alarm_armed_ ? domain::blink(domain::kRed, l) : domain::breathe(domain::kWhite, l);
+    return domain::breathe(alarm_armed_ ? domain::kRed : domain::kWhite, l);
 }
 
 // Arm an animation, but only if it is actually a DIFFERENT one.  This is the whole trick
@@ -511,7 +547,7 @@ void Ui::chime_stop() noexcept {
 void Ui::publish() noexcept {
     const auto t = tuning();
     const uint64_t now = port::now_us();
-    const uint32_t limit = mode_ == Mode::Pairing ? t.pair_timeout_ms : t.timeout_ms;
+    const uint32_t limit = t.timeout_ms;
     const uint64_t since = now - last_input_us_;
     const auto left = static_cast<uint32_t>(since / 1000ull >= limit ? 0 : limit - since / 1000ull);
     // Read before the lock: net_owns_time() takes chrono's, and two services' mutexes held

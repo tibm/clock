@@ -136,8 +136,8 @@ it coming.
 
 What each pixel is *doing* carries as much meaning as which one is lit, and the page shows
 the animation frame by frame because the firmware computes it: **breathing white** = the
-alarm is off, **blinking red** = it is armed, **steady white** = you are editing, **three
-red flashes** = refused. `ui anim` changes every one of those durations at once
+alarm is off, **breathing red** = it is armed (same curve, the colour is the answer),
+**steady white** = you are editing, **three red flashes** = refused. `ui anim` changes every one of those durations at once
 (FIRMWARE.md §6.6a) — turn `ui anim breathe 800` and watch a considered clock become an
 anxious one.
 

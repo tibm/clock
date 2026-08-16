@@ -51,7 +51,13 @@ public:
     Motion() noexcept;
 
     // Absolute microsteps.  There is no "step N times" in this system (§6.1).
-    void goto_usteps(int32_t hour, int32_t minute, bool preview = false) noexcept;
+    //
+    // `dir` is how to get there when the hand is not already on it.  0 takes the shortest way
+    // round, which is what the CLOCK wants -- it follows a value that moves a minute at a
+    // time, and 11:59 -> 12:00 is one minute forward however you write it down.  +1/-1 say
+    // which way the KNOB is turning, and are also accumulated rather than taken flat: see
+    // Motion::resolve.
+    void goto_usteps(int32_t hour, int32_t minute, bool preview = false, int dir = 0) noexcept;
     void nudge(hal::motor::Hand, int32_t usteps) noexcept;  // bench only: `motion step`
     void home() noexcept;
     void halt() noexcept;
@@ -104,7 +110,8 @@ private:
         int32_t v = 0;
     };
 
-    void plan(Axis&, int32_t target) noexcept;
+    void plan(Axis&, int32_t target) noexcept;  // target: absolute, already resolved
+    [[nodiscard]] int32_t resolve(int32_t prev, int32_t from, int32_t to, int dir) const noexcept;
     bool step_axis(Axis&, uint32_t dt_ms) noexcept;  // true while still moving
     void power(bool on) noexcept;
     void publish() noexcept;
@@ -145,7 +152,9 @@ private:
     int32_t backoff_ = 0;
     uint32_t faults_ = 0;
     // The last target asked for, re-issued after a home completes: whatever the clock wanted
-    // while the hands were busy finding zero is still what it wants afterwards.
+    // while the hands were busy finding zero is still what it wants afterwards.  For a
+    // DIRECTED target this is also the setpoint each new one is accumulated onto, so it is
+    // unwrapped and may be several revolutions away from the hand (see resolve()).
     int32_t want_h_ = 0, want_m_ = 0;
     bool want_valid_ = false;
     ActiveObject* sub_ = nullptr;

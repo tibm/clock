@@ -225,10 +225,10 @@ Status cmd_knob(Args const& a, Sink& out) {
                    " accel_factor=%" PRId32 " deadband=%u",
                    t.counts_per_minute, t.slow_max, t.fast_at, t.accel_factor, t.arm_deadband);
         out.printf("timeout_ms=%" PRIu32 " long_press_ms=%" PRIu32 " pair_press_ms=%" PRIu32
-                   " pair_timeout_ms=%" PRIu32 " bright=%u%%",
-                   t.timeout_ms, t.long_press_ms, t.pair_press_ms, t.pair_timeout_ms, t.brightness);
+                   " bright=%u%%",
+                   t.timeout_ms, t.long_press_ms, t.pair_press_ms, t.brightness);
         out.line("  ui knob <counts|slow|fast|factor|deadband> <value>");
-        out.line("  ui knob <timeout|longpress|pair|pairtimeout|bright> <value>");
+        out.line("  ui knob <timeout|longpress|pair|bright> <value>");
         return a.count() == 0 ? Status::Ok : Status::BadArg;
     }
     const char* k = a.arg(0);
@@ -249,8 +249,6 @@ Status cmd_knob(Args const& a, Sink& out) {
         t.long_press_ms = static_cast<uint32_t>(v);
     } else if (std::strcmp(k, "pair") == 0) {
         t.pair_press_ms = static_cast<uint32_t>(v);
-    } else if (std::strcmp(k, "pairtimeout") == 0) {
-        t.pair_timeout_ms = static_cast<uint32_t>(v);
     } else if (std::strcmp(k, "bright") == 0) {
         t.brightness = static_cast<uint8_t>(v < 0 ? 0 : (v > 100 ? 100 : v));
     } else {

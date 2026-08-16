@@ -46,12 +46,14 @@ public:
         int32_t slow_max = 4;
         int32_t fast_at = 24;
         int32_t accel_factor = 12;
+        // THE timeout, and there is only one: every mode drops to Idle five seconds after the
+        // last input, pairing included.  A mode with its own number is a second rule to learn
+        // about a control that has no labels.
         uint32_t timeout_ms = 5000;
-        uint32_t long_press_ms = 800;       // commit and drop to Idle
-        uint32_t pair_press_ms = 10000;     // ... and this far in, BLE pairing instead
-        uint32_t pair_timeout_ms = 120000;  // pairing gives up on its own
-        uint8_t brightness = 60;            // percent, perceptual (gamma is applied after it)
-        uint8_t arm_deadband = 2;           // counts before a turn in `bell` means anything
+        uint32_t long_press_ms = 800;    // commit and drop to Idle
+        uint32_t pair_press_ms = 10000;  // ... and this far in, BLE pairing instead
+        uint8_t brightness = 60;         // percent, perceptual (gamma is applied after it)
+        uint8_t arm_deadband = 2;        // counts before a turn in `bell` means anything
     };
 
     Ui() noexcept;
@@ -80,7 +82,7 @@ private:
     void rotate(int32_t counts) noexcept;
     void press(uint32_t held_ms) noexcept;
     void commit_clock() noexcept;
-    void show_hands() noexcept;
+    void show_hands(int dir = 0) noexcept;  // dir: which way the knob just turned
     void publish() noexcept;
     [[nodiscard]] bool net_owns_time() const noexcept;
     [[nodiscard]] int32_t gain_for(int32_t magnitude) const noexcept;
