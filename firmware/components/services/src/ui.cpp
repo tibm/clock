@@ -34,6 +34,13 @@ static_assert(kUstepsPerVolPct * 100 == domain::kRev * kVolSweepDeg / 360, "gaug
 // that is the point, it is what "the alarm is off" looks like (§6.6b).
 constexpr int32_t kSouth = domain::kRev / 2;
 
+// Setting a time is PACED to what the movement can draw (§6.6d, drain_setting below).  The
+// pace itself is derived from `motion`'s v_max; these are the bounds on it, and how much
+// winding the knob may run ahead of the hands while you are turning fast.
+constexpr uint32_t kPaceFloorMs = 20;  // never faster than `ui`'s own tick
+constexpr uint32_t kPaceCeilMs = 500;  // ... and never so slow the knob feels dead
+constexpr uint32_t kMaxBankMs = 2000;  // two seconds of winding, then the coast is over
+
 // The preview chime, until `audio` (§6.2) owns the amp: you cannot set a volume you cannot
 // hear, so the mode plays at the level it is editing.
 constexpr uint32_t kChimeMs = 140;
@@ -131,6 +138,7 @@ void Ui::on_tick() {
     poll_knob();
     poll_tap();
     watch_battery();
+    drain_setting();  // release banked counts at the speed the hands can render them
 
     // ONE timeout, and every mode obeys it -- pairing included.  A second number for a second
     // mode is a second thing to discover, and the knob's whole contract is that whatever you
@@ -228,6 +236,7 @@ void Ui::enter(Mode m) noexcept {
     // Part of a turn left over from the last mode is not part of this one.
     counts_resid_ = 0;
     arm_resid_ = 0;
+    last_unit_us_ = 0;  // ... and the first turn in a mode lands straight away
 
     if (m == Mode::Alarm) set_min_of_day_ = alarm_min_of_day_;
     if (m == Mode::Clock) {
@@ -251,8 +260,9 @@ void Ui::enter(Mode m) noexcept {
     CLK_LOGI(ui, "mode %s", name_of(m));
 }
 
-// 64 CPR optical, no detent: sensitivity is entirely a firmware mapping, and the curve is
-// what lets the same knob nudge one minute and wind twelve hours (§6.6).
+// 64 CPR optical, no detent: sensitivity is entirely a firmware mapping.  The curve belongs
+// to the VOLUME now -- a gauge 300 degrees end to end can be crossed in one spin without any
+// hand being asked to be in two places.  Setting a time does not use it (§6.6d).
 int32_t Ui::gain_for(int32_t mag) const noexcept {
     const auto t = tuning();
     const int32_t top = t.accel_factor > 1 ? t.accel_factor : 1;
@@ -290,34 +300,98 @@ void Ui::rotate(int32_t counts) noexcept {
     // dividing each delta on its own threw away the whole turn whenever counts_per_minute
     // was more than 1 -- the knob moved nothing at all, at any speed, unless you flicked it.
     const int32_t per = t.counts_per_minute ? t.counts_per_minute : 1;
-    counts_resid_ += counts * gain_for(std::abs(counts));
-    const int32_t units = counts_resid_ / per;  // truncates toward zero, both signs
-    counts_resid_ -= units * per;
-    if (units == 0) return;
 
-    switch (mode_) {
-        case Mode::Alarm:
-            set_min_of_day_ = wrap_day(set_min_of_day_ + units);
-            alarm_min_of_day_ = set_min_of_day_;
-            break;
-        case Mode::Clock:
-            set_min_of_day_ = wrap_day(set_min_of_day_ + units);
-            break;
-        case Mode::Volume: {
-            const int v = static_cast<int>(volume_) + units;
-            volume_ = static_cast<uint8_t>(v < 0 ? 0 : (v > 100 ? 100 : v));
-            hal::audio::set_volume_pct(volume_);
-            chime_at_us_ = port::now_us();  // and hear the new level straight away
-            break;
-        }
-        default:
-            break;
+    if (mode_ == Mode::Volume) {
+        // The gauge keeps the acceleration curve: it is 300 degrees end to end and cannot
+        // wrap, so 0 to 100 % in one spin is a feature there rather than a hand asked to be
+        // in two places (§6.6d).
+        counts_resid_ += counts * gain_for(std::abs(counts));
+        const int32_t units = counts_resid_ / per;  // truncates toward zero, both signs
+        counts_resid_ -= units * per;
+        if (units == 0) return;
+        const int v = static_cast<int>(volume_) + units;
+        volume_ = static_cast<uint8_t>(v < 0 ? 0 : (v > 100 ? 100 : v));
+        hal::audio::set_volume_pct(volume_);
+        chime_at_us_ = port::now_us();  // and hear the new level straight away
+        show_hands(units > 0 ? 1 : -1);
+        return;
     }
-    // The hands follow the KNOB, not the shorter arc.  Winding a clock forward past the half
-    // hour moves the minute hand more than half a turn, and letting motion pick the nearer
-    // side there is the whole of §16b.15's minute-hand reversal: the hour hand creeps forward
-    // while the minute hand runs backwards, under one steady turn of one knob.
-    show_hands(units > 0 ? 1 : -1);
+
+    // Alarm and Clock: BANK the counts, at face value, and let the tick release them one
+    // minute at a time (see drain_setting).  No acceleration curve here -- §6.6d's twelvefold
+    // gain made a single 20 ms poll worth two hours of dial, which the minute hand cannot be
+    // asked to draw.
+    counts_resid_ += counts;
+    const int32_t cap = bank_cap(per);
+    if (counts_resid_ > cap) counts_resid_ = cap;
+    if (counts_resid_ < -cap) counts_resid_ = -cap;
+    drain_setting();  // ... and let the first minute land now rather than on the next tick
+}
+
+// How far ahead of the hands the knob is allowed to get: two seconds of winding, in counts.
+// A flick delivers every minute you turned, and then the coast is over.
+int32_t Ui::bank_cap(int32_t per) const noexcept {
+    const int32_t minutes = static_cast<int32_t>(kMaxBankMs / pace_ms());
+    return (minutes < 1 ? 1 : minutes) * per;
+}
+
+// One minute of dial at the speed the movement is actually set to, plus a quarter for the
+// ramp at each end.  Derived rather than hard-coded, so tuning `motion` down for a quiet
+// bedroom or up for a test does not leave this lying about the hands' speed.
+uint32_t Ui::pace_ms() const noexcept {
+    int32_t v = motion_ ? motion_->tuning().v_max : 6000;
+    if (v < 1) v = 1;
+    const auto ms = static_cast<uint32_t>(1250ll * domain::kRev / 60 / v);
+    return ms < kPaceFloorMs ? kPaceFloorMs : (ms > kPaceCeilMs ? kPaceCeilMs : ms);
+}
+
+// The dial is the readout, so the SETTING may not move faster than the hands can show it.
+//
+// v_max is 6000 usteps/s and a minute of dial is 288 of them, so the movement can draw about
+// twenty minutes of dial a second.  Beyond that the number is racing a hand that is nowhere
+// near it, and the result is not slightly wrong but meaningless: once the setting is more
+// than half a turn ahead of the minute hand there is no answer to "which way round", the
+// target wraps, a hand in flight gets re-aimed at somewhere it has already passed -- so it
+// stops and backs up -- and one steady turn produces a minute hand that stutters, reverses,
+// or (at exactly an hour a poll) does not move at all while the hour hand sails on. That last
+// one is what "the minute hand follows the hour hand" looks like from the outside (§16c).
+//
+// So: one minute per release, no faster than the hands run. Counts that arrive faster wait
+// their turn in the bank rather than being thrown away, which is what keeps a quick flick
+// worth exactly the minutes you flicked.
+void Ui::drain_setting() noexcept {
+    if (mode_ != Mode::Alarm && mode_ != Mode::Clock) return;
+    const int32_t per = tuning().counts_per_minute ? tuning().counts_per_minute : 1;
+    const uint64_t now = port::now_us();
+    const uint64_t pace_us = pace_ms() * 1000ull;
+    const int32_t banked = counts_resid_ / per;  // whole minutes, signed
+    if (banked == 0) {
+        // Nothing owed.  Hold exactly ONE minute of credit: the first detent of a turn lands
+        // the moment it arrives, which is what makes the knob feel connected -- and no more
+        // than one, or an idle minute would buy a jump as soon as it is touched again.
+        last_unit_us_ = now > pace_us ? now - pace_us : 0;
+        return;
+    }
+    // How many minutes the hands have had TIME to draw since the last release.  Elapsed
+    // rather than one-per-call, so the rate is the rate whatever the tick is doing -- under
+    // `sim warp` a single 20 ms poll is several hundred milliseconds of dial.
+    const auto allow = static_cast<int32_t>((now - last_unit_us_) / pace_us);
+    if (allow <= 0) return;
+
+    const int dir = banked > 0 ? 1 : -1;
+    const int32_t mag = banked > 0 ? banked : -banked;
+    const int32_t units = mag < allow ? mag : allow;
+    last_unit_us_ += static_cast<uint64_t>(units) * pace_us;  // += keeps the average exact
+    counts_resid_ -= dir * units * per;
+    set_min_of_day_ = wrap_day(set_min_of_day_ + dir * units);
+    if (mode_ == Mode::Alarm) alarm_min_of_day_ = set_min_of_day_;
+    // The hands are still moving to what the knob asked for, so the mode is not idle -- a
+    // five-second timeout that fired while the dial was visibly winding would be measured
+    // from the wrong thing.
+    last_input_us_ = now;
+    // The hands follow the KNOB, not the shorter arc: one minute forward is one minute
+    // forward even at the half hour, where the shorter arc is fifty-nine minutes back (§6.6e).
+    show_hands(dir);
 }
 
 void Ui::press(uint32_t held_ms) noexcept {

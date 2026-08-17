@@ -506,12 +506,14 @@ void test_ui_mode_cycle() {
     CHECK(turn_one_minute(+1));
     CHECK(alarm_min_of_day() == before + 3);
 
-    // ... and the same knob, spun, covers hours.  12 counts in one poll is past slow_max, so
-    // the curve multiplies them: this is the difference between setting 07:05 and winding
-    // round to the evening, and it is the ONLY difference (§6.6).
+    // ... and a SPIN is worth every minute you spun it, delivered at the speed the hands can
+    // draw (§6.6d, changed 2026-08-16).  40 counts is ten minutes at 4 counts a minute: they
+    // are banked, not multiplied, and they arrive one at a time rather than in a jump the
+    // dial cannot render.
     const int fine = alarm_min_of_day();
-    sim::turn_counts(12);
-    CHECK(wait_until([&] { return alarm_min_of_day() > fine + 3; }, 1000));
+    sim::turn_counts(40);
+    CHECK(alarm_min_of_day() < fine + 10);  // not all at once ...
+    CHECK(wait_until([&] { return alarm_min_of_day() == fine + 10; }, 3000));  // ... but all
 
     // Five seconds without input drops back to Idle, and the row fades out to nothing --
     // "0 light when idle" is R2, and a fade that stops at 1/255 does not satisfy it.
@@ -800,6 +802,84 @@ void test_ui_winds_a_day_without_reversing() {
     sim::set_warp(1.0);
 }
 
+// A knob that is DRAGGED, which is what a finger does.  The cases above wait for each step to
+// land, so the hands are never behind; a finger does not wait, and at any speed worth calling
+// a spin the counts arrive far faster than a 6000 ustep/s movement can answer.
+//
+// §16c: the setting outran the hands until the minute hand's target WRAPPED -- and a hand in
+// flight was then re-aimed at somewhere it had already gone past, so it stopped and backed
+// up.  Anticlockwise that reads as "the hour hand goes the right way and the minute hand goes
+// the other"; clockwise, at an hour a poll, it reads as a minute hand that has stopped
+// following the knob and started following the hour hand.  Both are the same wrap.
+void test_ui_a_dragged_knob_never_reverses() {
+    fresh_ui(1.0);
+    RecordingSink r;
+    run("ui knob timeout 60000", r);
+    run("ui mode alarm", r);
+    CHECK(in_mode("alarm"));
+    CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Idle; }, 8000));
+
+    for (const int dir : {+1, -1}) {
+        int32_t last = mo().snapshot().minute;
+        const int32_t from = last;
+        bool wrong = false;
+        auto sample = [&](int for_ms) {
+            for (int i = 0; i < for_ms / 2; ++i) {
+                hal::clock_::sleep_ms(2);
+                const int32_t now = mo().snapshot().minute;
+                wrong = wrong || (dir > 0 ? now < last : now > last);
+                last = now;
+            }
+        };
+        // Two minutes of setting every 40 ms, against a movement that can draw twenty a
+        // second: the knob is asking for six times what the hands can do.
+        for (int i = 0; i < 12; ++i) {
+            sim::turn_counts(8 * dir);
+            sample(40);
+        }
+        sample(2000);  // ... and while the bank pays out what is left of it
+
+        if (wrong) std::printf("  (drag %s: a hand went backwards)\n", dir > 0 ? "CW" : "CCW");
+        CHECK(!wrong);
+        // It moved, and it moved a long way -- this is not "monotone because it never budged",
+        // which is exactly what the clockwise half of the bug looked like.
+        CHECK(dir > 0 ? last - from > kRev / 4 : last - from < -kRev / 4);
+    }
+
+    run("ui mode idle", r);
+    knob_defaults();
+}
+
+// A spin is worth every minute you spun it, and no more -- delivered at the speed the hands
+// can draw rather than in a jump the dial cannot render (§6.6d, changed 2026-08-16).
+void test_ui_a_spin_is_banked_not_multiplied() {
+    fresh_ui(1.0);
+    RecordingSink r;
+    run("ui knob timeout 60000", r);
+    run("ui mode alarm", r);
+    CHECK(in_mode("alarm"));
+    const int before = alarm_min_of_day();
+
+    sim::turn_counts(40);  // ten minutes at four counts a minute
+    hal::clock_::sleep_ms(30);
+    const int right_after = alarm_min_of_day();
+    CHECK(right_after > before);       // something happened straight away ...
+    CHECK(right_after < before + 10);  // ... but not all of it
+    CHECK(wait_until([&] { return alarm_min_of_day() == before + 10; }, 3000));
+    hal::clock_::sleep_ms(300);
+    CHECK(alarm_min_of_day() == before + 10);  // and it stops there rather than coasting on
+
+    // The bank is bounded: a violent spin cannot wind for the rest of the afternoon.
+    const int mid = alarm_min_of_day();
+    sim::turn_counts(4000);  // a thousand minutes' worth of counts
+    CHECK(wait_until([&] { return alarm_min_of_day() > mid + 20; }, 8000));
+    hal::clock_::sleep_ms(1500);
+    CHECK(alarm_min_of_day() < mid + 200);
+
+    run("ui mode idle", r);
+    knob_defaults();
+}
+
 // The same bug at its smallest, in the other mode that has it: from 12:00, thirty-one minutes
 // forward is more than half a turn of the minute hand.
 void test_ui_a_wind_past_the_half_hour_goes_forwards() {
@@ -956,6 +1036,8 @@ void run_motion_service_tests() {
     test_ui_alarm_cue_breathes_either_way();
     test_ui_hands_show_the_mode();
     test_ui_a_wind_past_the_half_hour_goes_forwards();
+    test_ui_a_dragged_knob_never_reverses();
+    test_ui_a_spin_is_banked_not_multiplied();
     test_ui_winds_a_day_without_reversing();
     test_ui_volume_sweeps_the_gauge();
     test_chrono_drives_the_hands();

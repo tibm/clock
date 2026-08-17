@@ -1,6 +1,6 @@
 # `ux/tests/` — the page, driven for real
 
-Seventy-three cases that click the actual page in an actual browser, against an actual
+Seventy-six cases that click the actual page in an actual browser, against an actual
 `clocksim`, and assert on what the dial shows afterwards. They exist to test the *firmware*
 through the surface a person uses, so the rule they are built on is:
 
@@ -25,7 +25,7 @@ way were in the firmware and one was in the fake HAL; see `FIRMWARE.md` §11.3.
 ```sh
 cd ux/tests
 npm install                 # once -- @playwright/test only
-npx playwright test         # all of it, ~2.5 min
+npx playwright test         # all of it, ~5 min
 npx playwright test 03      # one case file
 npx playwright test --headed --workers=1     # watch it happen
 npx playwright test --ui                     # or step through it
@@ -56,7 +56,7 @@ open in a browser.
 | `10-reset-reboot` | `reset fakes` opens a gap the firmware does not know about; `reboot` loses everything and the page reconnects; a reload loses nothing |
 | `11-dial` | dragging a hand does **not** round-trip; the opto meter; the plate turning with yaw; PCNT counts |
 | `12-modes` | the UX itself: what each mode's pixel *does* (breathe / steady / a burst of three), what the hands show in each (the 6, the alarm, the time being set, the volume gauge — swept, never across the off-scale 10-to-12), where `clock` opens from, the network lock, the ten-second hold into pairing and the one five-second timeout |
-| `13-wind` | winding a time: two full turns of the hour hand in each direction, sampling the minute hand every 10 ms — it must never once go backwards, and it must travel all twenty-four of its own revolutions |
+| `13-wind` | winding a time: two full turns of the hour hand in each direction, sampling the minute hand every 10 ms — it must never once go backwards, and it must travel all twenty-four of its own revolutions. Then the same for a knob that is **dragged** rather than stepped, which is the case a finger produces and a stepped test never sees |
 
 ## Two things that look like cheating and are not
 

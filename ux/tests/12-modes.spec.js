@@ -101,7 +101,7 @@ test('alarm: the pixel says the same thing the bell did', async ({ ux }) => {
     expect(armed.everDark).toBe(true);
 });
 
-test('alarm: a slow turn is one minute, a fast one covers hours', async ({ ux }) => {
+test('alarm: a detent is a minute, and a spin is worth the minutes you spun', async ({ ux }) => {
     await ux.toMode('alarm');
     await expect(ux.page.locator('#c-alarm')).toContainText('07:00');
 
@@ -109,16 +109,15 @@ test('alarm: a slow turn is one minute, a fast one covers hours', async ({ ux })
     await ux.turn(3);
     await expect(ux.page.locator('#c-alarm')).toContainText('07:03');
 
-    // The same knob, spun: 40 counts arriving inside one 20 ms poll is far past slow_max, so
-    // the curve multiplies them.  This is the difference between setting 07:05 and winding
-    // round to the evening, and it is the ONLY difference (FIRMWARE.md §6.6).
+    // The same knob, spun.  40 counts is ten minutes at four counts a minute, and that is
+    // exactly what it is worth -- they are BANKED and paid out at the speed the hands can
+    // draw, not multiplied twelvefold into two hours of dial inside one 20 ms poll.  A
+    // setting that outruns its own readout stops meaning anything (FIRMWARE.md §6.6d).
     await ux.cli('sim knob 40');
-    await expect.poll(async () => {
-        const t = await ux.text('c-alarm');
-        const [h, m] = t.split(' ')[0].split(':').map(Number);
-        return h * 60 + m;
-    }, { timeout: 5000, message: 'a fast spin moved the alarm no further than a slow one' })
-        .toBeGreaterThan(7 * 60 + 30);
+    await expect(ux.page.locator('#c-alarm')).toContainText('07:13', { timeout: 5000 });
+    await ux.page.waitForTimeout(1000);
+    await expect(ux.page.locator('#c-alarm'), 'the spin carried on winding after it was spent')
+        .toContainText('07:13');
 });
 
 test('alarm: the hands track what is being set, hour hand included', async ({ ux }) => {

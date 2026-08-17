@@ -1209,21 +1209,42 @@ every route in — the knob, `ui mode clock`, the app — obeys it. The two netw
 `chrono` (the time authority) and are set by `net` when §6.7 lands; `chrono net` writes them
 today so the interlock is reachable on the bench.
 
-#### 6.6d Knob sensitivity — one curve, two feels
+#### 6.6d Knob sensitivity — a detent is a minute, and the dial can keep up
 
-64 CPR × 4 = **256 counts/rev**, and the only thing separating "nudge it by a minute" from
-"wind it round the dial" is *how fast you are turning*, measured as counts per 20 ms poll:
+64 CPR × 4 = **256 counts/rev**, `counts_per_minute` of them to a minute: **one detent, one
+minute, at any speed you turn it.** Counts that do not add up to a whole unit are *carried,
+not dropped* — a dragged knob arrives as a stream of one- and two-count deltas, and dividing
+each delta on its own threw the whole turn away.
+
+**Setting a time is paced to what the movement can draw** (changed 2026-08-16; before it, a
+fast turn was multiplied by an acceleration curve). `v_max` is 6000 usteps/s and a minute of
+dial is 288 of them, so the hands can render about **twenty minutes of dial a second**. A knob
+that moves the *setting* faster than that is a number racing a hand that is nowhere near it,
+and the result is not slightly wrong, it is meaningless:
+
+> once the setting is more than half a turn ahead of the minute hand, "which way round" has no
+> answer. The target **wraps**; a hand in flight is re-aimed at somewhere it has already gone
+> past, so it stops and backs up. Anticlockwise that reads as *the hour hand goes the right
+> way and the minute hand goes the other*; clockwise, at an hour a poll, the minute hand does
+> not move at all and appears to be **following the hour hand**. Both were reported, both were
+> the same wrap (§16c).
+
+So counts are **banked** and released one minute at a time, no faster than the hands run:
 
 ```
-mag <= slow_max (4)   ->  gain 1              one detent, one minute
-mag >= fast_at (24)   ->  gain accel_factor (12)
-between               ->  a straight line between the two
+pace   = 1.25 x (one minute of dial) / v_max     ~60 ms at the shipping speed  (20..500 ms)
+release= (now - last release) / pace             minutes, so the rate is right under `sim warp`
+bank   <= 2 s of winding                         a flick coasts, a spin does not run away
 ```
 
-Counts that do not add up to a whole unit are **carried, not dropped** — a dragged knob
-arrives as a stream of one- and two-count deltas, and dividing each delta on its own threw
-away the entire turn whenever `counts_per_minute` was more than 1. `ui knob` edits every
-number above.
+A flick is therefore still worth **every minute you flicked** — it just arrives at a speed you
+can watch — and the hands are never more than a second or so behind the number. `ui knob`
+edits `counts_per_minute`; the pace follows `motion tune v_max` on its own, so tuning the
+movement cannot leave the knob lying about what the dial can show.
+
+**The volume gauge keeps the acceleration curve** (`slow_max` 4 → gain 1, `fast_at` 24 → gain
+`accel_factor` 12, a straight line between). It is 300° end to end and cannot wrap, so 0 → 100 %
+in one spin is a feature there rather than a hand asked to be in two places at once.
 
 #### 6.6e Which way the hands go — a knob is not a clock
 
@@ -1898,7 +1919,7 @@ it is permission to arrive at the bench with the logic already correct.
 
 ### 11.3 Interaction tests — the `ux` page, driven by a browser
 
-[`ux/tests/`](ux/tests/). Seventy-three Playwright cases that click the real page in a real
+[`ux/tests/`](ux/tests/). Seventy-six Playwright cases that click the real page in a real
 Chrome against a real `clocksim`, one freshly spawned pair per test, and assert on what the dial
 then shows. `npm install && npx playwright test`, about five minutes.
 
@@ -2271,6 +2292,35 @@ rather than nudge. The spec above is updated in place; this is what moved and wh
 | 19 | Disarmed, the hands read **12:00** | Both hands on the **6**, stacked | 12:00 is a plausible time and was read as one. Two hands agreeing on the 6 is a reading no working clock can produce — at 6:30 the hour hand is halfway to the 7 |
 | 20 | `clock` seeded itself from `chrono` **whether or not the clock had ever been set** | Valid → the time · never set → **12:00** | An unset chrono is an offset from an epoch it never had, so it reads as minutes-since-boot. The mode opened with the hands pointing at the uptime |
 | 21 | Two timeouts: 5 s for every mode, **120 s for pairing** | **One**, five seconds, pairing included. `ui knob pairtimeout` is gone | A control with no labels can afford one rule about how long it waits for you. Nothing on the clock tells you which mode's number is in force |
+
+### 16c. The third pass (2026-08-16) — the dragged knob
+
+§16b fixed the direction of a *stepped* wind: send a step, wait for it to land, send the next.
+A finger does not wait. `app.js` coalesces a drag into one `sim knob n` every 33 ms, and at any
+speed worth calling a spin those arrive far faster than a 6000 ustep/s movement can answer — so
+the setting outran the hands until the minute hand's target **wrapped**, and everything after
+that was arbitrary. Two reports, one cause:
+
+| # | Reported | What was actually happening |
+|---|---|---|
+| 22 | "moving the dial quickly clockwise, the minute hand follows the hour hand" | The acceleration curve made one 20 ms poll worth up to **two hours**. Two hours of dial is exactly two turns of the minute hand, so it did not move at all — while the hour hand sailed on. It was not following the hour hand; it was standing still next to it |
+| 23 | "the hour hand correctly moves counter-clockwise, but the minute hand moves clockwise" | With the setting a turn or more ahead, `chase` drops whole revolutions and the target jumps — from *345° away* to *16° away* between one poll and the next. A hand already flying toward the far one is then re-aimed at a place it has **already gone past**, so it stops and backs up. The hour hand, twelve times slower, never got far enough ahead to wrap |
+
+The fix is one rule, and it is the user's: **the setting may not move faster than the hands can
+draw it** (§6.6d). No acceleration curve on a time any more; counts are banked and paid out one
+minute per ~60 ms, which is `v_max` expressed as minutes of dial. The hands are then never more
+than a second behind the number, the target never wraps, and every commanded move is a small
+step in the direction you are turning.
+
+Verified in the app itself, with a real mouse drag on the knob rather than a synthesised
+count — two turns of the knob in each direction, sampling the rendered hand angles every 16 ms:
+
+| drag | minute hand | hour hand | worst step the wrong way |
+|---|---|---|---|
+| anticlockwise | −426° | −35.5° | **0.00°** |
+| clockwise | +432° | +36.0° | **0.00°** |
+
+Exactly 12:1 between the hands, which is what a clock is, and not one sample against the turn.
 
 **Deliberately not done, and worth a decision later:** setting a time in `alarm` mode does
 **not** arm the alarm — arming is `bell`'s whole job. It is defensible (mode 2 shows the armed

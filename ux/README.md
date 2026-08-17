@@ -130,7 +130,9 @@ Two sliders that sound alike and are not:
 The **knob only edits in a mode** — press it to cycle idle → **bell** → **alarm** →
 **clock** → **volume**, each named after the icon it lights. A turn while idle is ignored by
 design (§6.6), so the sensitivity slider appears to do nothing until you are actually
-setting something. Hold ~0.8 s to commit and leave; hold **ten seconds** and all five status
+setting something. A detent is a minute however fast you turn, and a spin is **banked**: it
+is worth every minute you spun it, paid out at the speed the hands can draw (§6.6d), because
+a setting that outruns its own readout stops meaning anything. Hold ~0.8 s to commit and leave; hold **ten seconds** and all five status
 pixels breathe blue — that is BLE pairing, and the mode pill counts the hold so you can see
 it coming.
 
