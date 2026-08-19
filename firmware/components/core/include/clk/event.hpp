@@ -20,6 +20,12 @@ struct HandTarget {
     // A clock wants the shortest way; a knob says which way it is being turned, because a
     // hand that reverses under a steady turn is wrong even when reversing is shorter (§6.6e).
     int8_t dir = 0;
+    // Which frame these microsteps are in.  Normally the DIAL's -- "12:05" is 1440, and the
+    // level offset (§6.1d) is added on arrival, so a tilted cube still puts the hands where
+    // the printed dots now are.  `raw` says they are the MOVEMENT's own count already, which
+    // is what a relative bench nudge and a target re-issued after homing both mean; adding
+    // the offset to those would apply it twice.
+    bool raw = false;
 };
 
 struct HomeRequest {};
@@ -30,6 +36,14 @@ struct HomeRequest {};
 struct ZeroSet {
     uint8_t hand;  // hal::motor::Hand -- core/ sits below hal/ and may not name it (§2)
     int32_t usteps;
+};
+
+// Which of the twelve dots is at the top of the dial, from the gravity vector (§6.1d).  0 is
+// the printed 12 and the cube sitting upright; 3 is the cube laid on its right-hand face, so
+// every target moves ninety degrees round to meet the dots where they now are.  An event
+// rather than a setter for the same reason `ZeroSet` is one: it moves both hands.
+struct DialTick {
+    uint8_t tick;  // 0..11, thirty degrees each, clockwise
 };
 
 // "Stop moving", which is emphatically NOT `Stop` below.  `Stop` is the framework's shutdown
@@ -80,8 +94,8 @@ struct PowerState {
 struct Stop {};  // shutdown, posted by stop() and swallowed by run().  See Halt.
 
 using Event =
-    std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, Halt, HomeDone, HandState,
-                 KnobDelta, KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
+    std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, DialTick, Halt, HomeDone,
+                 HandState, KnobDelta, KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
 
 // std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
 // abort, and get_if reads better in a handler that only cares about three of these.

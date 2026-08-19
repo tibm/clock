@@ -4,6 +4,7 @@
 // This is a VIEW, not a driver: every sample goes through hal/, and when the AOs land it
 // will go through the owning AO instead.  Nothing here touches a peripheral register.
 #include <cinttypes>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -11,6 +12,7 @@
 #include "clk/board.hpp"
 #include "clk/cli/registry.hpp"
 #include "clk/cli/stream.hpp"
+#include "clk/domain/level.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
 
@@ -66,9 +68,16 @@ Status s_hands(char* out, std::size_t cap) {
 Status s_imu(char* out, std::size_t cap) {
     const auto s = hal::imu::read();
     if (!s.ok()) return s.st;
-    std::snprintf(out, cap, "yaw=%.1f pitch=%.1f roll=%.1f taps=%u",
-                  static_cast<double>(s.v.yaw_deg), static_cast<double>(s.v.pitch_deg),
-                  static_cast<double>(s.v.roll_deg), s.v.taps);
+    // Gravity first: it is the reading the product uses (§6.1d), and `up` is the one number
+    // you actually want while turning a cube over on the bench -- where the top of the dial
+    // has got to, in the dial's own frame.  The Euler angles are the bench's, not the code's.
+    const double plane =
+        std::sqrt(static_cast<double>(s.v.gx) * s.v.gx + static_cast<double>(s.v.gy) * s.v.gy);
+    const double mag = std::sqrt(plane * plane + static_cast<double>(s.v.gz) * s.v.gz);
+    std::snprintf(out, cap, "g=%.2f,%.2f,%.2f up=%.0f tilt=%.2f yaw=%.1f taps=%u",
+                  static_cast<double>(s.v.gx), static_cast<double>(s.v.gy),
+                  static_cast<double>(s.v.gz), static_cast<double>(domain::up_deg(s.v.gx, s.v.gy)),
+                  mag > 0.0 ? plane / mag : 0.0, static_cast<double>(s.v.yaw_deg), s.v.taps);
     return Status::Ok;
 }
 
@@ -110,7 +119,7 @@ constexpr SensorSpec kSensors[] = {
     {"hands", board::Dev::Motor, 100, true, "microstep position + velocity", s_hands},
     {"vbat", board::Dev::Vbat, 10, true, "cell mV, SoC, charger state", s_vbat},
     {"clk", board::Dev::Xtal32k, 1, true, "slow-clock source, sim time", s_clk},
-    {"imu", board::Dev::Imu, 20, true, "BNO085 orientation + taps", s_imu},
+    {"imu", board::Dev::Imu, 20, true, "BNO085 gravity + taps", s_imu},
     {"exp", board::Dev::Expander, 20, true, "MCP23017 ports", s_exp},
     {"als", board::Dev::Als, 10, false, "TSL2591 lux", s_needs_driver},
     {"env", board::Dev::Env, 1, false, "BME688 T/RH/P/IAQ", s_needs_driver},

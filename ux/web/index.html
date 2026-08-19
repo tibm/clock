@@ -74,6 +74,8 @@
         <div class="kv"><span>faults</span><b id="m-faults">0</b></div>
         <div class="kv"
              title="auto-home — every crossing of the index is a free calibration, so `motion` trims the hand that made it. The count is how many crossings have corrected something and the number is the last correction. Three crossings that land nowhere near the index mean the hands have slipped, and it re-homes.">auto-home<b id="m-trims">0</b></div>
+        <div class="kv"
+             title="the dial's 12, from gravity — which of the twelve dots is at the top of the plate right now, and the offset that puts on every target. Turn the yaw slider and watch it step: the hands stay upright while the cube goes round. `motion tune level 0` pins it to the printed 12.">dial 12<b id="m-dial">—</b></div>
       </div>
       <div class="meter"><i id="opto-bar"></i><span id="opto-txt">opto —</span></div>
       <div class="btnrow">
@@ -168,7 +170,7 @@
                 title="sys reboot — restart the whole image. esp_restart() on the board; here clocksim re-execs itself, so every service is constructed again and nothing carries over. The page reconnects on its own after about a second.">reboot</button>
       </div>
       <label class="slider"
-             title="sim imu — BNO085 yaw. The plate on screen turns with it, the way the cube would on the shelf.">accel yaw <b id="v-yaw">0&deg;</b>
+             title="sim imu — how the cube is turned on its face, which is what the BNO085's gravity vector measures. The plate turns with it the way it would on the shelf, and every 30° the firmware steps the hands round to the dot that is now at the top, so the time stays upright. Watch `dial 12` in the mechanism card.">cube yaw <b id="v-yaw">0&deg;</b>
         <input type="range" id="r-yaw" min="0" max="360" step="1" value="0"></label>
       <label class="slider">battery <b id="v-vbat">4021 mV</b>
         <input type="range" id="r-vbat" min="2900" max="4200" step="10" value="4021"></label>

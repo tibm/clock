@@ -1,6 +1,6 @@
 # `ux/tests/` — the page, driven for real
 
-Seventy-six cases that click the actual page in an actual browser, against an actual
+Eighty-seven cases that click the actual page in an actual browser, against an actual
 `clocksim`, and assert on what the dial shows afterwards. They exist to test the *firmware*
 through the surface a person uses, so the rule they are built on is:
 
@@ -71,6 +71,7 @@ check what else was running before you go looking in `motion`.
 | `12-modes` | the UX itself: what each mode's pixel *does* (breathe / steady / a burst of three), what the hands show in each (the 6, the alarm, the time being set, the volume gauge — swept, never across the off-scale 10-to-12), where `clock` opens from, the network lock, the ten-second hold into pairing and the one five-second timeout |
 | `13-wind` | winding a time: two full turns of the hour hand in each direction, sampling the minute hand every 10 ms — it must never once go backwards, and it must travel all twenty-four of its own revolutions. Then the same for a knob that is **dragged** rather than stepped, which is the case a finger produces and a stepped test never sees. And the report that ended the bank: **the hands stop when the knob stops** |
 | `14-calibration` | the clock finds its own zero and remembers it: a fresh `clocksim` **homes on boot** with nobody clicking anything; the two calibration sliders move one hand each; the trim survives a `reboot` and the next home adopts it; a hand nudged half a degree **trims itself** the next time it crosses the sensor |
+| `15-level` | the dial finding up (§6.1d): a cube on its side still reads the time and **nothing moves on screen** — the plate turns one way and the hands turn the other inside it; every face is a whole tick; a lean of twenty degrees is still the same shelf; flat on its back the printed 12 wins; `motion tune level 0` pins it back |
 
 ## Two things that look like cheating and are not
 

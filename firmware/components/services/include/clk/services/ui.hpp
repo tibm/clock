@@ -12,6 +12,7 @@
 
 #include "clk/ao.hpp"
 #include "clk/domain/anim.hpp"
+#include "clk/domain/level.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
 
@@ -78,6 +79,7 @@ protected:
 private:
     void poll_knob() noexcept;
     void poll_tap() noexcept;
+    void poll_level() noexcept;
     void watch_battery() noexcept;
     void enter(Mode) noexcept;
     void rotate(int32_t counts) noexcept;
@@ -155,6 +157,13 @@ private:
     // establishes the baseline: whatever the counter already read is not a tap the user made.
     uint16_t taps_last_ = 0;
     uint8_t tap_div_ = 0;
+    // Which way up the cube is (§6.1d).  The rules live in domain/, the CADENCE lives here,
+    // and `plugged_` is what picks between the two -- kept from the battery poll rather than
+    // read again, because they are the same fact and one of them is already being asked for.
+    domain::Leveller level_{};
+    uint64_t level_at_us_ = 0;
+    bool level_polled_ = false;
+    bool plugged_ = true;
 };
 
 Ui& ui() noexcept;

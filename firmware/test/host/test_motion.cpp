@@ -577,6 +577,89 @@ void test_motion_a_step_lands_in_the_hands_own_turn() {
     CHECK(wait_until(settled_at(at12)));
 }
 
+// §6.1d, and the case the whole feature is for: the cube is on its side and the hands are
+// still upright.  Everything about WHICH tick is domain/level.hpp's problem and is tested in
+// test_level.cpp; what is tested here is the part that only exists once the AOs are wired --
+// that gravity reaches the hands at all, that it does not double-apply, and that homing and
+// a bench nudge are still measured in the movement's own frame rather than the room's.
+void test_motion_levels_the_dial_to_gravity() {
+    fresh_motion();
+    auto tick_is = [](uint8_t t) {
+        return wait_until([t] { return mo().snapshot().dial_tick == t; }, 3000);
+    };
+    auto settled_at = [](int32_t h, int32_t m) {
+        return wait_until([h, m] {
+            const auto s = mo().snapshot();
+            return s.state == svc::Motion::State::Idle && domain::normalise(s.hour) == h &&
+                   domain::normalise(s.minute) == m;
+        });
+    };
+    // Upright, and the printed 12 is the 12.
+    CHECK(tick_is(0));
+    mo().goto_usteps(0, 0);
+    CHECK(settled_at(0, 0));
+
+    // Lay the cube on its right-hand face.  The printed 12 now points along the shelf and
+    // the dot at the top is the printed 9 -- three ticks round, so the hands go three ticks
+    // round with it, and both of them by the same ninety degrees.
+    sim::set_orientation(90.0f, 0.0f, 0.0f);
+    CHECK(tick_is(9));
+    CHECK(mo().snapshot().dial_off == 3 * kRev / 4);
+    CHECK(settled_at(3 * kRev / 4, 3 * kRev / 4));
+
+    // A bench nudge is RAW: `motion step m +100` moves the minute hand a hundred microsteps
+    // whichever face the cube is on.  (Fold the offset into this and it would move 13060.)
+    const int32_t before = mo().snapshot().minute;
+    mo().nudge(Hand::Minute, 100);
+    CHECK(wait_until([before] {
+        const auto s = mo().snapshot();
+        return s.state == svc::Motion::State::Idle && s.minute == before + 100;
+    }));
+    mo().goto_usteps(0, 0);
+    CHECK(settled_at(3 * kRev / 4, 3 * kRev / 4));
+
+    // Home with the cube still on its side.  Homing is about the MOVEMENT -- it finds a mark
+    // on a hand, and neither the mark nor the hand knows which way up the room is -- so what
+    // it must not do is re-apply the offset to the target it re-issues afterwards.  Ninety
+    // degrees is right; a hundred and eighty is the double-apply bug.
+    mo().home();
+    // Wait for the run to START before waiting for it to finish: `homed` is still true from
+    // the last case at the moment home() is posted, so a wait on it alone returns instantly
+    // and the rest of this case would run against a movement that is still sweeping.
+    CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Homing; }));
+    CHECK(wait_until(
+        [] {
+            const auto s = mo().snapshot();
+            return s.homed && s.state != svc::Motion::State::Homing;
+        },
+        12000));
+    CHECK(settled_at(3 * kRev / 4, 3 * kRev / 4));
+    CHECK(mo().snapshot().dial_off == 3 * kRev / 4);
+
+    // Turning it off is a request for the printed dial back, not for the last tick frozen in
+    // place -- gravity has not changed and will not ask again.
+    {
+        RecordingSink r;
+        run("motion tune level 0", r);
+    }
+    CHECK(tick_is(0));
+    CHECK(settled_at(0, 0));
+    // ... and with it off, turning the cube does nothing at all.
+    sim::set_orientation(180.0f, 0.0f, 0.0f);
+    hal::clock_::sleep_ms(120);  // several polls of sim time at this warp
+    CHECK(mo().snapshot().dial_tick == 0);
+
+    {
+        RecordingSink r;
+        run("motion tune level 1", r);
+    }
+    CHECK(tick_is(6));
+    // Stand it back up before leaving, or the next case starts on a dial that is upside down.
+    sim::set_orientation(0.0f, 0.0f, 0.0f);
+    CHECK(tick_is(0));
+    CHECK(settled_at(0, 0));
+}
+
 void test_motion_de_energises_when_idle() {
     fresh_motion();
     sim::set_hand_angle(Hand::Minute, 0.0f);
@@ -1295,6 +1378,7 @@ void run_motion_service_tests() {
     test_motion_lands_exactly_on_an_absolute_target();
     test_motion_takes_the_short_way_round();
     test_motion_a_step_lands_in_the_hands_own_turn();
+    test_motion_levels_the_dial_to_gravity();
     test_motion_de_energises_when_idle();
     test_motion_faults_and_recovers();
     test_motion_zero_offsets_the_hand();

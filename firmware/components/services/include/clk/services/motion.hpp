@@ -51,6 +51,11 @@ public:
         // the very error it corrects, and in a test that teleports the hands and does not
         // want the movement quietly noticing.
         bool autohome = true;
+        // Level to gravity (§6.1d): let the dial re-reference its 12 to whichever of the
+        // twelve dots is at the top.  On.  Off is for the bench -- measuring a zero or a
+        // backlash with the hands free to jump thirty degrees mid-measurement is not a
+        // measurement -- and it leaves the printed 12 as the 12, which is where it was.
+        bool level = true;
     };
 
     struct Snapshot {
@@ -67,6 +72,8 @@ public:
         int32_t zero_h, zero_m;  // the per-unit trim, as `motion zero` last left it
         uint32_t trims;          // index crossings that corrected the hands (§6.1 auto-home)
         int32_t last_trim;       // ... and by how much the last one did, usteps, signed
+        uint8_t dial_tick;       // which dot is at the top, 0..11 (§6.1d); 0 = the printed 12
+        int32_t dial_off;        // ... the same thing in usteps, added to every target
     };
 
     Motion() noexcept;
@@ -88,6 +95,13 @@ public:
     // moves with it, and the new value goes to NVS.  Takes effect at the next home if the
     // movement has never found its index.
     void set_zero(hal::motor::Hand, int32_t usteps) noexcept;
+
+    // Which of the twelve dots is at the top of the dial (§6.1d).  `ui` works this out from
+    // gravity and posts it here, where the hands are; 0 is the cube upright and is what a
+    // movement that has never heard from the sensor uses.  Also a change of frame -- but a
+    // change of the DIAL's frame, not the movement's: it moves the hands and every pending
+    // target and touches neither the zero nor the index, which stay bolted to the movement.
+    void set_dial_tick(int tick) noexcept;
 
     // Whether to home as soon as the AO starts.  On by default -- the hands are wherever the
     // last power-off left them and nothing else can find out where that is (§6.1).  clocksim
@@ -204,6 +218,11 @@ private:
     uint32_t trims_ = 0;
     int32_t last_trim_ = 0;
     uint8_t lost_ = 0;
+    // Where the dial's 12 currently is, in the movement's own microsteps (§6.1d).  Always a
+    // multiple of kRev/12, always added to an incoming DIAL-frame target and never to a raw
+    // one, and deliberately not persisted: it is a fact about the room, not about the unit.
+    int32_t dial_off_ = 0;
+    uint8_t dial_tick_ = 0;
     // The last target asked for, re-issued after a home completes: whatever the clock wanted
     // while the hands were busy finding zero is still what it wants afterwards.  For a
     // DIRECTED target this is also the setpoint each new one is accumulated onto, so it is

@@ -169,6 +169,29 @@ float wrap360(double d) noexcept {
     return static_cast<float>(d);
 }
 
+// ---- how the cube is sitting ------------------------------------------------------------
+// The fake keeps ANGLES, because that is what a person setting up a scene wants to type and
+// what the ux app's slider drags; the firmware reads GRAVITY, because that is the only thing
+// a BNO085 can actually tell it.  This is the conversion, and it is the whole model:
+//
+//   yaw    the cube turned about the dial's own axis -- the plate the ux app draws, positive
+//          clockwise as you look at it.  Every 30 degrees of it is one tick of §6.1d.
+//   pitch  tipped away from vertical: 0 stands upright facing you, +90 lies on its back with
+//          the dial to the ceiling.  At which point NOTHING in the dial plane points up, and
+//          the dead zone is what the firmware is supposed to do about that.
+//   roll   unused.  A third angle here would be a second way to say the first two.
+//
+// Output is in DIAL axes (hal.hpp): +X right across the face, +Y at the printed 12, +Z out
+// through the glass.  Upright and unturned, gravity is straight down the face: (0, -g, 0).
+void gravity_locked(float& gx, float& gy, float& gz) noexcept {
+    constexpr double kG = 9.80665;
+    constexpr double kRad = 3.14159265358979 / 180.0;
+    const double y = g_st.yaw * kRad, p = g_st.pitch * kRad;
+    gx = static_cast<float>(kG * std::cos(p) * std::sin(y));
+    gy = static_cast<float>(-kG * std::cos(p) * std::cos(y));
+    gz = static_cast<float>(-kG * std::sin(p));
+}
+
 double axis_pos_locked(int i) noexcept {
     const AxisSt& a = g_st.ax[i];
     if (a.vel == 0) return a.pos;
@@ -544,6 +567,7 @@ Result<State> read() noexcept {
     s.yaw_deg = g_st.yaw;
     s.pitch_deg = g_st.pitch;
     s.roll_deg = g_st.roll;
+    gravity_locked(s.gx, s.gy, s.gz);
     s.taps = g_st.taps;  // monotonic: the caller diffs, so a missed poll costs no taps
     return Result<State>::good(s);
 }

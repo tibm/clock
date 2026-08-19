@@ -7,6 +7,7 @@
 
 #include "clk/board.hpp"
 #include "clk/domain/hand.hpp"
+#include "clk/domain/level.hpp"
 #include "clk/log.hpp"
 
 namespace clk::svc {
@@ -73,10 +74,12 @@ void Motion::goto_usteps(int32_t h, int32_t m, bool preview, int dir) noexcept {
 
 void Motion::nudge(Hand hand, int32_t usteps) noexcept {
     // `motion step` is a bench command and deliberately relative -- it is how you find
-    // steps_per_rev before anything absolute means anything (§12.1 milestone 3).
+    // steps_per_rev before anything absolute means anything (§12.1 milestone 3).  RAW: these
+    // are the movement's own microsteps, measured from where the hand actually is, and "move
+    // it a hundred usteps" must move it a hundred whatever the cube is lying on (§6.1d).
     const int32_t h = hand == Hand::Hour ? pos(Hand::Hour) + usteps : pos(Hand::Hour);
     const int32_t m = hand == Hand::Minute ? pos(Hand::Minute) + usteps : pos(Hand::Minute);
-    post(HandTarget{h, m, true});
+    post(HandTarget{h, m, true, 0, true});
 }
 
 void Motion::home() noexcept { post(HomeRequest{}); }
@@ -85,6 +88,11 @@ void Motion::halt() noexcept { post(Halt{}); }
 
 void Motion::set_zero(Hand h, int32_t usteps) noexcept {
     post(ZeroSet{static_cast<uint8_t>(h), usteps});
+}
+
+void Motion::set_dial_tick(int tick) noexcept {
+    post(DialTick{
+        static_cast<uint8_t>(((tick % domain::kTicks) + domain::kTicks) % domain::kTicks)});
 }
 
 Motion::Snapshot Motion::snapshot() const noexcept {
@@ -98,13 +106,21 @@ Motion::Tuning Motion::tuning() const noexcept {
 }
 
 void Motion::set_tuning(Tuning const& t) noexcept {
-    port::Lock lk{mx_};
-    // The zeros are not a setting to be assigned: changing one moves a hand and shifts every
-    // pending target with it, so it goes through set_zero() and this keeps what it had.
-    const int32_t zh = tune_.zero_h, zm = tune_.zero_m;
-    tune_ = t;
-    tune_.zero_h = zh;
-    tune_.zero_m = zm;
+    {
+        port::Lock lk{mx_};
+        // The zeros are not a setting to be assigned: changing one moves a hand and shifts
+        // every pending target with it, so it goes through set_zero() and this keeps what it
+        // had.
+        const int32_t zh = tune_.zero_h, zm = tune_.zero_m;
+        tune_ = t;
+        tune_.zero_h = zh;
+        tune_.zero_m = zm;
+    }
+    // Switching levelling off is a request to put the dial back where it is printed, not to
+    // freeze it wherever the room left it.  The sensor poll cannot do it for us: it goes on
+    // re-posting the tick gravity actually says, and a non-zero tick is precisely what being
+    // off ignores.  So the request carries its own answer.
+    if (!t.level) post(DialTick{0});
 }
 
 // ---- lifecycle -----------------------------------------------------------------------------
@@ -144,8 +160,12 @@ void Motion::on_start() {
 
 void Motion::on_event(Event const& e) {
     if (const auto* t = as<HandTarget>(e)) {
-        want_h_ = resolve(want_h_, pos(Hand::Hour), t->hour_usteps, t->dir);
-        want_m_ = resolve(want_m_, pos(Hand::Minute), t->minute_usteps, t->dir);
+        // The dial frame meets the movement frame HERE, and nowhere else (§6.1d).  Everything
+        // downstream -- the profile, the backlash, the index, the trims -- is in microsteps
+        // the movement itself counts, and stays that way whichever face the cube is on.
+        const int32_t off = t->raw ? 0 : dial_off_;
+        want_h_ = resolve(want_h_, pos(Hand::Hour), t->hour_usteps + off, t->dir);
+        want_m_ = resolve(want_m_, pos(Hand::Minute), t->minute_usteps + off, t->dir);
         want_valid_ = true;
         if (state_ == State::Homing || state_ == State::Fault) {
             CLK_LOGD(motion, "target held: %s", name_of(state_));
@@ -175,6 +195,32 @@ void Motion::on_event(Event const& e) {
             shift_frame(h, -d);
             retarget();
         }
+        publish();
+        return;
+    }
+    if (const auto* d = as<DialTick>(e)) {
+        // Levelling switched off means the printed 12 is the 12: tick 0 still applies (that
+        // is how set_tuning asks for the dial back), every other tick is ignored.
+        if (!tuning().level && d->tick != 0) return;
+        const int32_t want = domain::tick_usteps(d->tick);
+        // The SHORT way round, and this is where that is decided: nine ticks clockwise and
+        // three anticlockwise are the same dial, and one of them is three times the travel.
+        const int32_t delta = domain::shortest(dial_off_, want);
+        if (delta == 0) return;
+        dial_off_ = domain::normalise(dial_off_ + delta);
+        dial_tick_ = d->tick;
+        // Every pending target moves with the dial -- the opposite of shift_frame(), and for
+        // the opposite reason: nothing is wrong with the hands' own count, it is the labels
+        // that have turned.  "12:05" is a different place on the glass than it was.
+        want_h_ += delta;
+        want_m_ += delta;
+        CLK_LOGI(motion, "dial: tick %u (%d deg) -- hands %+.1f deg", d->tick, d->tick * 30,
+                 static_cast<double>(delta) * 360.0 / kRev);
+        if (state_ == State::Homing || state_ == State::Fault) {
+            publish();
+            return;  // held, exactly like a target -- finish_home() re-issues it
+        }
+        if (want_valid_) retarget();
         publish();
         return;
     }
@@ -428,6 +474,8 @@ void Motion::publish() noexcept {
     s.faults = faults_;
     s.trims = trims_;
     s.last_trim = last_trim_;
+    s.dial_tick = dial_tick_;
+    s.dial_off = dial_off_;
     port::Lock lk{mx_};
     const uint32_t keep = snap_.home_ms;
     s.home_ms = keep;
@@ -736,8 +784,10 @@ void Motion::finish_home() noexcept {
     state_ = State::Idle;
     idle_since_us_ = port::now_us();
     if (sub_) sub_->post(HomeDone{true, took});
-    // Whatever the clock wanted while we were busy is still what it wants.
-    if (want_valid_) post(HandTarget{want_h_, want_m_, false});
+    // Whatever the clock wanted while we were busy is still what it wants.  RAW: want_h_ is
+    // already in the movement's frame with the dial offset in it, and a second helping of
+    // that offset would be thirty degrees of error per tick, applied at every home.
+    if (want_valid_) post(HandTarget{want_h_, want_m_, false, 0, true});
 }
 
 }  // namespace clk::svc

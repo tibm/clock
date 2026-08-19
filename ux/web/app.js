@@ -203,6 +203,11 @@ function onState(s) {
     // movement being kept honest, and a number that jumps is one worth watching.
     $('m-trims').textContent = s.motion.trims
         ? `${s.motion.trims} · ${s.motion.trim > 0 ? '+' : ''}${s.motion.trim}` : '0';
+    // Which of the twelve dots gravity says is at the top, and what that costs every target.
+    // On an upright cube this reads "printed" and never moves, which is the point: the whole
+    // mechanism is invisible until somebody turns the clock over.
+    $('m-dial').textContent = s.motion.dial
+        ? `${s.motion.dial}/12 · +${s.motion.dial * 30}°` : 'printed';
     // The button is the one place that says whether the hands are trustworthy, because it is
     // where you look when they are not.  Blue only while a run is actually in progress: a
     // colour that never changes is a colour nobody reads.

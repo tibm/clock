@@ -7,6 +7,7 @@ void run_cli_tests();
 void run_sim_tests();
 void run_motor_tests();
 void run_anim_tests();
+void run_level_tests();
 void run_motion_service_tests();
 
 int main() {
@@ -18,6 +19,7 @@ int main() {
     run_cli_tests();
     run_sim_tests();
     run_motor_tests();
+    run_level_tests();
     // Last: these start the active objects, and an AO thread outlives the test that woke it.
     run_motion_service_tests();
     return check_summary("host");

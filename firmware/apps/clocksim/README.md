@@ -55,7 +55,7 @@ still sent, just unlabelled.
 {"t":"state","ms":1552,"warp":1.000,
  "hands":{"h":100.000,"m":0.500,"hp":0,"mp":0,"hv":0,"mv":0,"moving":false,"motor":false},
  "motion":{"state":"idle","phase":"","homed":true,"th":0,"tm":0,"home_ms":6698,"faults":0,
-            "zero_h":0,"zero_m":0,"trims":0,"trim":0},
+            "zero_h":0,"zero_m":0,"trims":0,"trim":0,"dial":0,"dial_off":0},
  "ui":{"mode":"bell","armed":false,"alarm_h":7,"alarm_m":0,"vol":40,"idle_in":4820,
        "locked":false,"held":0},
  "clock":{"h":7,"m":38,"s":4,"valid":true,"follow":true,"prov":false,"sync":false},
@@ -70,6 +70,10 @@ still sent, just unlabelled.
 engine (`FIRMWARE.md` §6.6a) computed for that instant, so a client that samples one frame of
 a breathing pixel gets one point on the curve, not "the colour". `ui.held` is how long ENC_SW
 has been down right now (0 when up), and `ui.locked` is the network holding the time.
+
+`motion.dial` is which of the twelve dots gravity says is at the top of the plate (0 = the
+printed 12, and `dial_off` is the same thing in microsteps, added to every target — §6.1d).
+`imu.yaw` is how far the cube is turned on its face; the two move together, a tick at a time.
 
 `hands.h`/`hands.m` are degrees of the **true** angle — what you would see through the glass
 — with **0° = 12 o'clock, clockwise positive**. `hp`/`mp` are the microsteps the firmware

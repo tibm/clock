@@ -112,15 +112,26 @@ Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept;
 }  // namespace i2c
 
 // ---- IMU (BNO085) ----------------------------------------------------------------------
-// Orientation is here for the bench and for clocksim; nothing in the firmware may BRANCH on
-// it -- R14 (orientation-awareness) was retired in v0.19, the cube is fixed upright.  The
-// tap counter is the one that matters: tap-to-snooze (README §12).  Monotonic and diffed by
-// the caller, exactly like the PCNT knob count, because that is what an event queue drained
-// by an AO actually behaves like.
+// Two things, and they are not the same kind of fact.
+//
+// The tap counter is an EVENT: tap-to-snooze (README §12).  Monotonic and diffed by the
+// caller, exactly like the PCNT knob count, because that is what an event queue drained by
+// an AO actually behaves like.
+//
+// GRAVITY is a measurement, and it is the one thing in this product that knows which way up
+// the cube is sitting: `ui` polls it and the dial re-references its 12 to it (§6.1d).  In
+// DIAL AXES -- +X right across the face, +Y at the printed 12, +Z out through the glass --
+// so that nothing above the HAL has to know how the sensor board was soldered.  Units are
+// m/s^2 but only the ratios are read; a driver that answers in g is not wrong, just noisier
+// against the dead zone.  (This is the narrow half of R14, which v0.19 retired: the cube is
+// still fixed upright as a PRODUCT, and nothing here rotates a display or changes a mode.)
+//
+// yaw/pitch/roll stay for the bench and for clocksim's controls.  Nothing branches on them.
 namespace imu {
 struct State {
     float yaw_deg, pitch_deg, roll_deg;
-    uint16_t taps;  // monotonic, wraps
+    float gx, gy, gz;  // gravity, dial axes
+    uint16_t taps;     // monotonic, wraps
 };
 Result<State> read() noexcept;
 }  // namespace imu

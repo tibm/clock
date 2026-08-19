@@ -15,6 +15,14 @@ constexpr uint32_t kTickMs = 20;          // §6.6: PCNT is polled and diffed ev
 constexpr uint8_t kPowerEveryTicks = 12;  // ~4 Hz; it is a battery, not a trigger
 constexpr uint8_t kTapEveryTicks = 2;     // 10 Hz: a snooze tap must not feel laggy
 constexpr uint8_t kLowBattPct = 20;
+
+// How often gravity is asked which way up the cube is (§6.1d).  The two numbers ARE the
+// feature's power budget: plugged in you can turn the cube on the shelf and watch the hands
+// come round after it, so the poll has to be fast enough to feel like a response rather than
+// a refresh; on the battery nobody is watching a clock they are carrying, and the same answer
+// costs four times less.  Sim time, so `sim warp` scales them with everything else.
+constexpr uint32_t kLevelPluggedMs = 500;
+constexpr uint32_t kLevelBatteryMs = 2000;
 constexpr uint32_t kTapAckMs = 400;  // the tap flash, long enough to be seen on a 50 Hz feed
 
 // Chain order is dial first (§9.2): 0-1 on-PCB dial wash, 2-6 the status row through J12.
@@ -139,6 +147,7 @@ void Ui::on_event(Event const& e) {
 void Ui::on_tick() {
     poll_knob();
     poll_tap();
+    poll_level();
     watch_battery();
     drain_setting();  // release banked counts at the speed the hands can render them
 
@@ -175,6 +184,42 @@ void Ui::poll_tap() noexcept {
     }
 }
 
+// Which way up the cube is sitting (§6.1d).  Homing finds where the HANDS are; this finds
+// where the DIAL is, and they are different questions -- the movement can know its index
+// perfectly while the whole clock lies on its side.
+//
+// Same borrowed arrangement as the tap above, and it moves to `board` with it (§12.0.2): the
+// BNO085 is an I2C device on somebody else's bus and this poll is a stand-in for a gravity
+// report the sensor hub can be told to send by itself.  What is NOT a stand-in is everything
+// after `level_.update()` -- the dead zone, the hysteresis and the confirmation count are the
+// feature, and they are in domain/level.hpp where a test can turn a cube over ten thousand
+// times a second.
+//
+// The tick is re-posted on every poll rather than only when it changes.  `motion` drops a
+// repeat before it does any work, and this way there is exactly one rule -- the dial ends up
+// wherever gravity last said -- instead of a second one about who re-synchronises what after
+// `motion tune level` has been off.
+void Ui::poll_level() noexcept {
+    const uint64_t now = port::now_us();
+    const uint32_t every = plugged_ ? kLevelPluggedMs : kLevelBatteryMs;
+    // `level_polled_` rather than a zero timestamp: on the host the first tick really can
+    // land on time zero, and testing the clock against 0 polled that tick twice.
+    if (level_polled_ && now - level_at_us_ < every * 1000ull) return;
+    level_polled_ = true;
+    level_at_us_ = now;
+    const auto s = hal::imu::read();
+    // No sensor, no opinion.  The dial keeps whatever it has, which for a clock that has
+    // never had an IMU fitted is the printed 12 -- exactly as it was before this existed.
+    if (!s.ok()) return;
+    if (level_.update(s.v.gx, s.v.gy, s.v.gz)) {
+        const auto lv = level_.level();
+        CLK_LOGI(ui, "level: up is %.0f deg round the dial, tilt %.2f%s -> tick %d",
+                 static_cast<double>(lv.up), static_cast<double>(lv.tilt),
+                 lv.flat ? " (flat -- the printed 12 it is)" : "", lv.tick);
+    }
+    if (motion_) motion_->set_dial_tick(level_.tick());
+}
+
 // The low-cell warning is the one thing on the pixels that no INPUT causes.  Poll it slowly
 // -- on the board this is an ADC read, and four times a second is plenty for a battery.
 void Ui::watch_battery() noexcept {
@@ -182,6 +227,7 @@ void Ui::watch_battery() noexcept {
     power_div_ = 0;
     const auto p = hal::power::read();
     batt_warn_ = p.ok() && p.v.soc_pct < kLowBattPct && !p.v.plugged;
+    if (p.ok()) plugged_ = p.v.plugged;  // ... and that paces the gravity poll above
 }
 
 // PCNT is hardware quadrature with a glitch filter; there is no ISR, we diff the count

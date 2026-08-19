@@ -65,12 +65,14 @@ Status cmd_status(Args const&, Sink& out) {
                static_cast<double>(s.zero_m) * 360.0 / domain::kRev);
     out.printf("trims  %" PRIu32 "  last %+" PRId32 " usteps  (auto-home, on every crossing)",
                s.trims, s.last_trim);
-    if (s.home_ms) out.printf("last home took %" PRIu32 " ms of sim time", s.home_ms);
     const auto t = svc::motion().tuning();
+    out.printf("dial   tick %u/12 = %d deg, %+" PRId32 " usteps on every target%s", s.dial_tick,
+               s.dial_tick * 30, s.dial_off, t.level ? "" : "   [levelling off]");
+    if (s.home_ms) out.printf("last home took %" PRIu32 " ms of sim time", s.home_ms);
     out.printf("tune   v_max=%" PRId32 " accel=%" PRId32 " v_coarse=%" PRId32 " v_fine=%" PRId32
-               " backlash=%" PRId32 " thresh=%.2f autohome=%d",
+               " backlash=%" PRId32 " thresh=%.2f autohome=%d level=%d",
                t.v_max, t.accel, t.v_coarse, t.v_fine, t.backlash,
-               static_cast<double>(t.opto_thresh), t.autohome ? 1 : 0);
+               static_cast<double>(t.opto_thresh), t.autohome ? 1 : 0, t.level ? 1 : 0);
     return Status::Ok;
 }
 
@@ -118,11 +120,12 @@ Status cmd_tune(Args const& a, Sink& out) {
     auto t = svc::motion().tuning();
     if (a.count() < 2) {
         out.line(
-            "usage: motion tune <v_max|accel|v_coarse|v_fine|backlash|thresh|autohome> <value>");
+            "usage: motion tune "
+            "<v_max|accel|v_coarse|v_fine|backlash|thresh|autohome|level> <value>");
         out.printf("  v_max=%" PRId32 " accel=%" PRId32 " v_coarse=%" PRId32 " v_fine=%" PRId32
-                   " backlash=%" PRId32 " thresh=%.2f autohome=%d",
+                   " backlash=%" PRId32 " thresh=%.2f autohome=%d level=%d",
                    t.v_max, t.accel, t.v_coarse, t.v_fine, t.backlash,
-                   static_cast<double>(t.opto_thresh), t.autohome ? 1 : 0);
+                   static_cast<double>(t.opto_thresh), t.autohome ? 1 : 0, t.level ? 1 : 0);
         return a.count() == 0 ? Status::Ok : Status::BadArg;
     }
     const char* k = a.arg(0);
@@ -142,6 +145,9 @@ Status cmd_tune(Args const& a, Sink& out) {
         t.opto_thresh = static_cast<float>(v);
     } else if (std::strcmp(k, "autohome") == 0) {
         t.autohome = i != 0;
+    } else if (std::strcmp(k, "level") == 0) {
+        // Off puts the dial back to the printed 12 straight away -- see Motion::set_tuning.
+        t.level = i != 0;
     } else {
         out.printf("no such knob '%s'", k);
         return Status::BadArg;

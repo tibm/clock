@@ -10,6 +10,7 @@
 
 #include "clk/board.hpp"
 #include "clk/cli/registry.hpp"
+#include "clk/domain/level.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/sim.hpp"
 #include "clk/log.hpp"
@@ -124,6 +125,11 @@ Status cmd_motor(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// How the cube is sitting.  `yaw` turns it about the dial's own axis -- the plate the ux app
+// draws -- and every thirty degrees of it is one tick of §6.1d; `pitch` tips it away from
+// vertical, and at +/-90 the dial faces the ceiling and gravity has nothing to say about
+// which way up it is, which is the case the dead zone exists for.  Both come back out as a
+// gravity vector, because that is all the firmware ever sees.
 Status cmd_imu(Args const& a, Sink& out) {
     if (a.count() == 0) {
         const auto s = hal::imu::read();
@@ -133,11 +139,15 @@ Status cmd_imu(Args const& a, Sink& out) {
         }
         out.printf("yaw %.1f  pitch %.1f  roll %.1f  taps %u", static_cast<double>(s.v.yaw_deg),
                    static_cast<double>(s.v.pitch_deg), static_cast<double>(s.v.roll_deg), s.v.taps);
+        out.printf("gravity %.2f, %.2f, %.2f m/s2 (dial axes)  ->  up is %.0f deg round the dial",
+                   static_cast<double>(s.v.gx), static_cast<double>(s.v.gy),
+                   static_cast<double>(s.v.gz),
+                   static_cast<double>(domain::up_deg(s.v.gx, s.v.gy)));
         return Status::Ok;
     }
     sim::set_orientation(static_cast<float>(arg_d(a, 0, 0.0)), static_cast<float>(arg_d(a, 1, 0.0)),
                          static_cast<float>(arg_d(a, 2, 0.0)));
-    out.printf("yaw %.1f deg", arg_d(a, 0, 0.0));
+    out.printf("yaw %.1f deg  pitch %.1f deg", arg_d(a, 0, 0.0), arg_d(a, 1, 0.0));
     return Status::Ok;
 }
 
@@ -378,7 +388,8 @@ constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "opto", "[<0..1>|auto]", "homing reflectance", kHost, cmd_opto},
     {"sim", nullptr, "hand", "[<h|m> <deg>]", "where the hands physically are", kHost, cmd_hand},
     {"sim", nullptr, "motor", "<on|off>", "STEP_STBY -- off freezes the hands", kHost, cmd_motor},
-    {"sim", nullptr, "imu", "[<yaw> [<pitch> <roll>]]", "orientation", kHost, cmd_imu},
+    {"sim", nullptr, "imu", "[<yaw> [<pitch> <roll>]]", "how the cube sits -> gravity", kHost,
+     cmd_imu},
     {"sim", nullptr, "tap", "", "one top-tap (tap-to-snooze)", kHost, cmd_tap},
     {"sim", nullptr, "radio", "<on|off>", "rear J11 toggle; on = radios off", kHost, cmd_radio},
     {"sim", nullptr, "speaker", "<on|off>", "amp out of shutdown", kHost, cmd_speaker},

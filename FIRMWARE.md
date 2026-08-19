@@ -6,7 +6,7 @@
 > [`esp32.md`](esp32.md) (pin map). Where the two disagree, `esp32.md` wins on pins and this file
 > wins on software structure — with the standing exceptions in **§15**.
 
-**Status:** v1.2 · **Owner:** you · **Created:** 2026-07-26 · **Updated:** 2026-08-10
+**Status:** v1.2 · **Owner:** you · **Created:** 2026-07-26 · **Updated:** 2026-08-18
 **Toolchain:** ESP-IDF **v5.5.5** (pinned, GCC 14.2, C++23) — §1.1
 **Interim hardware:** **ESP32-S3-DevKitC-1U-N8R8** (DigiKey `1965-ESP32-S3-DEVKITC-1U-N8R8-ND`,
 arrives 2026-08-10) — the whole firmware except the motor, amp and sensor daughterboard can be
@@ -843,6 +843,69 @@ error it corrects, and in a test that teleports the hands and does not want the 
 quietly noticing. `motion status` reports the count and the last correction; so does the
 mechanism card in `ux`.
 
+#### 6.1d The dial finds up — gravity re-references the 12 (2026-08-18)
+
+Homing answers *where are the hands*. It cannot answer *which way up is the clock*, because
+the index mark, the opto and both shafts are bolted to each other — turn the whole cube on
+its side and every one of them turns with it, and the movement goes on being perfectly homed
+while the dial reads three hours slow.
+
+So the BNO085's **gravity vector** is polled, and the dial re-references its 12 to whichever
+of the twelve printed dots is at the top:
+
+```
+up_deg = atan2(-gx, -gy)          dial axes: +X right, +Y at the printed 12, +Z out of the glass
+tick   = round(up_deg / 30) mod 12          twelve dots, thirty degrees apart
+offset = tick * 17280/12 usteps             added to EVERY dial-frame target
+```
+
+Turn the cube 90° clockwise and the dot now at the top is the printed 9 — three ticks round —
+so both hands are pushed the same three ticks round and the time reads upright again. It is
+**one addition on the way into `motion`** and nothing else: the movement's own microsteps, the
+index, `motion zero` and the auto-home trims are all untouched, which is what keeps §6.1b and
+§6.1c working with the cube on its side. The two internal targets that are *already* in the
+movement's frame — a relative `motion step`, and the target re-issued after a home — carry
+`HandTarget::raw` and skip the addition; applying it twice would be 30° of error per tick.
+
+**Three rules, and each one is there because a wrong answer costs half a turn of both hands:**
+
+| rule | value | why |
+|---|---|---|
+| **dead zone** | dial-plane component < **0.30** of g (~72° off vertical), leaving at **0.40** | lying on its back, the dial has *no* up: gravity is perpendicular to the glass and the projection is noise. Schmitt, so a clock propped at the threshold does not flicker |
+| **hysteresis** | **6°** past the 15° halfway line | a cube set down at exactly 15° is otherwise a coin toss taken again every poll |
+| **confirmation** | the new tick must repeat on **2** polls | a knock, a lift, a hand steadying the cube: all one sample long, none of them a new orientation |
+
+**Flat means the printed 12** (`FlatPolicy::Zero`) — a clock on its back reads the way it is
+printed, which is what it has always done. `FlatPolicy::Hold` (keep the last upright answer,
+so laying it down to change a cell does not spin the hands) is the other half of the argument
+and is one field away in `LevelCfg`; the policy is a field precisely so that is a one-line
+change with a test already written for it.
+
+**Poll cadence** — `kLevelPluggedMs = 500`, `kLevelBatteryMs = 2000` in `services/ui.cpp`.
+Plugged, you can turn the cube on the shelf and watch the hands come round after it, so the
+poll has to feel like a response rather than a refresh; on the battery nobody is watching a
+clock they are carrying, and the same answer costs four times less. The poll lives in `ui`
+alongside the tap and the cell — the same borrowed arrangement, and it **moves to `board` with
+them** (§12.0.2), at which point the cadence becomes an SH-2 report interval rather than a
+loop. Everything that decides anything is in `domain/level.hpp`, which is pure and is where
+the tests are.
+
+**Not persisted, deliberately.** The tick is a fact about the room, not about the unit: it
+starts at 0 and the first poll after boot (≤ 2 s, and the movement is homing for the first
+nine of them anyway) sets it. One less thing in NVS that can disagree with reality.
+
+`motion tune level 0` pins the dial to the printed 12 — and *puts it back there*, rather than
+freezing the last tick, because gravity has not changed and will not ask again. `motion
+status` reports the tick and the offset; so does the mechanism card in `ux`, where the yaw
+slider turns the plate and the hands stay upright.
+
+> **This is the narrow half of R14**, which v0.19 retired. R14 was orientation-*awareness* as
+> a product feature — flat vs standing, a display that rotated, modes that changed. That
+> stays retired: the cube is fixed upright, nothing branches on pitch, and there is no second
+> layout. What is back is one number that re-references the 12, because "the clock is right
+> whichever way you put it down" survives the display being dropped, and a numeral-free dial
+> with twelve identical dots is exactly what makes it cost nothing to draw.
+
 ### 6.2 `audio`
 
 **Owns:** I²S0 (BCLK IO10, LRCLK IO11, DOUT IO12, **MCLK IO43 = 256 × f_S**).
@@ -1063,9 +1126,22 @@ unchanged, but the driver is a different class of thing and the estimate should 
    and a reset-complete before it will accept configuration. Drain those, confirm with a product-ID
    request, *then* enable features. Budget a few hundred ms; do not block an AO for it — treat
    BNO085 bring-up as a small state machine inside `board`.
-4. **Enable only `SH2_TAP_DETECTOR`.** The hub can also produce rotation vector, accel, gyro, mag,
-   step counter, stability and significant-motion reports. Every enabled feature costs I²C traffic
-   and power for a product that needs one bit. Leave the rest off.
+4. **Enable exactly two reports: `SH2_TAP_DETECTOR` and `SH2_GRAVITY`.** Tap is snooze (README
+   §12); gravity is the dial finding up (§6.1d), and it is worth the second feature because the
+   alternative is a clock that reads three hours slow when the cube is stood on its side. Ask
+   for gravity at the poll cadence §6.1d uses (**500 ms plugged, 2 s on battery**) rather than a
+   fast stream — it is a shelf, not a gesture. The hub can also produce rotation vector, raw
+   accel, gyro, mag, step counter, stability and significant-motion; every one of those costs
+   I²C traffic and power for a product that needs one bit and one vector. Leave the rest off.
+   **`SH2_GRAVITY` is already gravity** — fused, de-noised and with linear acceleration
+   removed — so the firmware must not also low-pass it; the dead zone and the confirmation
+   count in §6.1d are about the *room* moving, not about the signal.
+4a. **The axis map is a board fact and belongs in the driver.** `hal::imu::State`'s `gx/gy/gz`
+   are in DIAL axes (+X right across the face, +Y at the printed 12, +Z out through the glass),
+   because nothing above the HAL should know how the sensor board was soldered into the cube.
+   Whatever permutation and sign flips the mounting turns out to need, they happen once, in the
+   driver, and `sensor imu read` on the bench is how you confirm them: stand the clock upright
+   and `up` must read 0°, lay it on its right-hand face and it must read 270°.
 5. **Allow generous I²C timeouts.** The BNO085 clock-stretches; the ESP32-S3 master handles it, but
    the per-transaction timeout must not be tuned down to what the MCP23017 needs.
 6. **Power is materially higher** than the LIS3DH this replaced (mA, not µA). It is on the always-on
@@ -1086,6 +1162,10 @@ unchanged, but the driver is a different class of thing and the estimate should 
 **Owns:** PCNT unit0 (IO47/48, glitch filter, polled at 20 ms and diffed), `ENC_SW` IRQ (IO17,
 5 ms debounce), SK6812 chain (SPI3 → IO7, 7 pixels: 1–2 dial wash on-PCB, 3–7 status off-board
 via J12), wake LEDC (IO45 warm / IO46 cool).
+
+**Borrows, until `board` exists** (§12.0.2, and all three move together): the tap counter, the
+cell reading, and the gravity poll that tells `motion` which way up the cube is (§6.1d). None
+of them is a knob or a light; they are here because `ui` is the AO that already has a tick.
 
 There is one knob and five unlabelled lights, so the entire vocabulary of this product is
 *which pixel is lit*, *what it is doing*, and *where the hands are pointing*. §6.6a–c are the
@@ -1720,7 +1800,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
-| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` — *`motion sweep` and `motion power` arrive with `board`* |
+| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` — *`motion sweep` and `motion power` arrive with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
@@ -1729,7 +1809,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · `net ble status` · `net ble pair` · `net ble unbond` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
-| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw>]` · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
+| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
 | *(top)* | ▲`help [<group> [<verb>]]` · ▲`?` · `unsafe <on\|off>` |
 
 > Anything reachable here is reachable over BLE and vice versa (rule 6) — including `sys debug`,
@@ -1815,7 +1895,7 @@ your hand. All of it goes through the owning AO (rule 12) — `sensor` is a *vie
 | `vbat` | `board` | mV, SoC %, divider-enable state | 10 Hz | Charge curve, `CELL_TEST` before/after |
 | `als` | `board` | lux, gain, integration, `ALS_INT` | 10 Hz | ALS gating thresholds; proves GPB3 + R-BOARD-4 |
 | `env` | `board` | T / RH / P / IAQ / accuracy | 1 Hz | BSEC warm-up is slow — watch `accuracy` climb |
-| `imu` | `board` | tap events, SHTP packet count, liveness | event | Confirms the hub booted at all (R-BOARD-3) |
+| `imu` | `board` | gravity vector + `up`/tilt, tap events, SHTP packet count, liveness | event + 2 Hz | Confirms the hub booted at all (R-BOARD-3); `up` is how the §6.1d axis map gets confirmed on the bench |
 | `exp` | `board` | both MCP23017 ports, decoded by signal name | 20 Hz | Watch `PD_PG`/`CHRG`/`FAULT` change as you plug in |
 | `chg` | `board` | `CHRG` `FAULT` `PD_PG` + derived charger state | 10 Hz | LT3652 state machine, without a scope |
 | `amp` | `board` | TAS5760M fault register + `SPK_FAULT` | 10 Hz | Catches OC/OT/DC-detect during a loud test |
@@ -1935,6 +2015,7 @@ Covers everything that actually carries bugs, because all of it is pure:
 | Homing FSM | Homes from an arbitrary unknown hand position; faults when there is no index and recovers on a re-home; a target arriving mid-home is held, not obeyed |
 | Motion profile | Lands *exactly* on an absolute target; takes the short way at the 12:00 wrap **when told to and the way it was told to otherwise** (§6.6e); de-energises 2 s after the last move; `run()` rejects a velocity pointing away from its target |
 | Alarm scheduler | DST spring-forward (skipped local time), fall-back (doubled time), TZ change mid-week, dow masks, leap day, alarm set to "now" |
+| Levelling (§6.1d) | Where `up` is on a turned dial, for every tick and both ways round; the 6° hysteresis holds a tick across the halfway line and the answer legitimately depends on which side you came from; one bad sample is a knock, two agreeing are a shelf; the flat dead zone is a Schmitt and `FlatPolicy::Hold` is the same code with one field changed; zeroes and NaNs move nothing at all; **a cube turned slowly through 720° steps exactly 24 times, in order, never skipping or reversing** ✅ |
 | Hand math | Wrap at 12:00, shortest-path direction, **directed and chased moves from every position to every other** (§6.6e), backlash overshoot, `steps_per_rev` trim, angle↔time round-trip for all 43 200 minute positions ✅ |
 | DSP | Biquad impulse response vs a reference; limiter never exceeds ceiling for a full-scale square wave; `audio dsp limit` above `kLimitCeilDbfs` is rejected, and a config restored from NVS is re-clamped; no NaN on denormals |
 | `Command` dispatch | Authorization matrix per `Origin`; malformed TLV; every command round-trips CLI text → `Command` → BLE TLV → `Command` |
@@ -2185,7 +2266,7 @@ and a wrong model is worse than none.
 | ADC (opto, VBAT) | `sim opto 0..1\|auto` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` | Calibration constants (200/3000 mV) are **placeholders** until milestone 3 |
 | **The movement** | `sim hand <h\|m> <deg>` · `sim motor <on\|off>` | Velocity + stop target, integrated in sim time; the index window is 3° wide and **can be stepped over** |
 | Knob | `sim turn ±n` · `sim knob ±counts` · `sim press [ms\|down\|up]` | 4 counts/detent is real; contact/optical timing is not modelled |
-| IMU | `sim imu <yaw>` · `sim tap` | A tap counter and an orientation, nothing else — R14 is retired, so nothing may branch on yaw |
+| IMU | `sim imu <yaw> [<pitch>]` · `sim tap` | A tap counter and a **gravity vector** synthesised from the two angles (§6.1d). No hub, no SHTP, no fusion — the fake hands over the one report the firmware reads. `pitch 85` is the dial on its back, which is the dead zone. Nothing branches on yaw/pitch themselves |
 | Expander | `sim radio <on\|off>` | Named signals at their **electrical** levels, not an MCP23017 register model |
 | Pixels | read back as `[..R....]`, exact RGBW per pixel | SK6812 wire timing and the level shifter are not modelled — that is milestone 4b |
 | Wake light | `sim plug` / `sim unplug` | **Enforces the §6.8 plugged-only interlock** — a service that forgets it fails in `clocksim`, not on a bench |

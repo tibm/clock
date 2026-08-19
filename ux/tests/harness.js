@@ -538,12 +538,23 @@ class Ux {
     // Does the DIAL agree with the CLOCK?  Both read off the page, both fed by the firmware,
     // and the expected angle worked out from first principles rather than from anything the
     // app said about it: the hour hand is continuous, so 07:30 is halfway between 7 and 8.
+    // How far round the dial's own 12 has been moved to meet gravity (§6.1d), in degrees.
+    // Off the mechanism card, so it is what the FIRMWARE holds; "printed" means none.
+    async dialOffsetDeg() {
+        const m = /\+(\d+)°/.exec(await this.text('m-dial'));
+        return m ? parseFloat(m[1]) : 0;
+    }
+
     async dialTimeError() {
         const c = await this.clock();
         if (!c) return 999;
         const hands = await this.hands();
-        const hourDeg = (((c.h % 12) * 3600 + c.m * 60 + c.s) / 43200) * 360;
-        const minDeg = ((c.m * 60 + c.s) / 3600) * 360;
+        // The hands are read in the DIAL's frame and the time is a direction in the ROOM, so
+        // a cube standing on another face puts a whole offset between them.  Upright that is
+        // zero and this reads exactly as it did before levelling existed.
+        const off = await this.dialOffsetDeg();
+        const hourDeg = (((c.h % 12) * 3600 + c.m * 60 + c.s) / 43200) * 360 + off;
+        const minDeg = ((c.m * 60 + c.s) / 3600) * 360 + off;
         return Math.max(angleDiff(hands.h, hourDeg), angleDiff(hands.m, minDeg));
     }
 
