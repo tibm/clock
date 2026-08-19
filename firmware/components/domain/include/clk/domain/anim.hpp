@@ -1,6 +1,6 @@
 // Light, over time.                                            [FIRMWARE.md §6.6a, led.md]
 //
-// Four patterns and two trivial ones, one envelope, one gamma.  Everything the product does
+// Five patterns and two trivial ones, one envelope, one gamma.  Everything the product does
 // with a pixel is one of these, which is the point: a breathing bell and a breathing battery
 // warning must look like the same instrument, and they only do if they are the same code.
 //
@@ -31,7 +31,8 @@ enum class Pattern : uint8_t {
     Solid,     // hold at `level`
     RampUp,    // 0 -> level over `ms`, then hold          -- one-shot
     RampDown,  // level -> 0 over `ms`, then hold at 0     -- one-shot
-    Breathe,   // 0 -> level -> 0, forever, period `ms`
+    Swell,     // 0 -> level -> hold -> 0, then dark       -- one-shot; times from the config
+    Breathe,   // 0 -> level -> 0, period `ms`; `repeats` of them, or forever at 0
     Blink,     // hard on/off square, period `ms`, duty from the config
     Flash,     // `repeats` quick flashes, then dark       -- one-shot when repeats > 0
 };
@@ -46,6 +47,8 @@ enum class Pattern : uint8_t {
             return "ramp-up";
         case Pattern::RampDown:
             return "ramp-down";
+        case Pattern::Swell:
+            return "swell";
         case Pattern::Breathe:
             return "breathe";
         case Pattern::Blink:
@@ -67,8 +70,14 @@ struct AnimCfg {
     uint32_t blink_ms = 220;      // "fast blinking": one on+off period
     uint32_t flash_ms = 90;       // one flash of a burst, lit
     uint32_t flash_gap_ms = 110;  // and dark, between flashes
-    uint8_t blink_duty = 45;      // percent of blink_ms that is lit
-    uint8_t breathe_floor = 0;    // 0..255: a breath that never goes fully dark
+    // The Swell -- the one pattern with three durations, because it is the one pattern that
+    // is a whole gesture rather than a state: it arrives, it stays long enough to be read,
+    // and it leaves slower than it came so the room never sees it switch off.
+    uint32_t swell_in_ms = 1000;
+    uint32_t swell_hold_ms = 5000;
+    uint32_t swell_out_ms = 4000;
+    uint8_t blink_duty = 45;    // percent of blink_ms that is lit
+    uint8_t breathe_floor = 0;  // 0..255: a breath that never goes fully dark
 };
 
 // ---- one animation -------------------------------------------------------------------------
@@ -80,8 +89,9 @@ struct Anim {
     Pattern pattern = Pattern::Off;
     Rgbw color{};
     uint8_t level = 255;  // "x": the destination intensity, perceptual
-    uint8_t repeats = 0;  // Flash: how many.  0 = forever (and never `done`)
-    uint32_t ms = 0;      // duration/period override; 0 = take it from AnimCfg
+    uint8_t repeats = 0;  // Flash / Breathe: how many.  0 = forever (and never `done`)
+    uint32_t ms = 0;      // duration/period override; 0 = take it from AnimCfg.  Swell: unused
+                          //   -- all three of its durations live in the config
     uint64_t t0_us = 0;   // when this animation was armed
 };
 
@@ -146,8 +156,20 @@ namespace detail {
             return t >= p ? 255 : detail::smooth_u8(t, p);
         case Pattern::RampDown:
             return t >= p ? 0 : static_cast<uint8_t>(255 - detail::smooth_u8(t, p));
+        case Pattern::Swell: {
+            // Rise, hold, fall, dark -- and the same eased curve on both ramps, so the way in
+            // and the way out are recognisably one gesture at two speeds.
+            if (t < c.swell_in_ms) return detail::smooth_u8(t, c.swell_in_ms);
+            const uint32_t lit = c.swell_in_ms + c.swell_hold_ms;
+            if (t < lit) return 255;
+            if (t >= lit + c.swell_out_ms) return 0;
+            return static_cast<uint8_t>(255 - detail::smooth_u8(t - lit, c.swell_out_ms));
+        }
         case Pattern::Breathe: {
             if (p == 0) return 255;
+            // A COUNTED breath ends dark on its own boundary rather than being cut off part
+            // way up -- which is why the count is breaths and not milliseconds.
+            if (a.repeats && t >= p * a.repeats) return 0;
             const uint32_t x = t % p;
             const uint32_t half = p / 2;
             const uint8_t s =
@@ -188,6 +210,10 @@ namespace detail {
         case Pattern::RampUp:
         case Pattern::RampDown:
             return t >= detail::period_of(a, c);
+        case Pattern::Swell:
+            return t >= c.swell_in_ms + c.swell_hold_ms + c.swell_out_ms;
+        case Pattern::Breathe:
+            return a.repeats && t >= detail::period_of(a, c) * a.repeats;
         case Pattern::Flash:
             return a.repeats && t >= (c.flash_ms + c.flash_gap_ms) * a.repeats;
         default:
@@ -220,8 +246,13 @@ inline constexpr Rgbw kAmber{255, 90, 0, 0};
 [[nodiscard]] constexpr Anim ramp_down(Rgbw c, uint8_t level, uint32_t ms = 0) noexcept {
     return {Pattern::RampDown, c, level, 0, ms, 0};
 }
-[[nodiscard]] constexpr Anim breathe(Rgbw c, uint8_t level, uint32_t ms = 0) noexcept {
-    return {Pattern::Breathe, c, level, 0, ms, 0};
+// `times` 0 breathes forever (the alarm, the low cell, pairing); a count ends it dark.
+[[nodiscard]] constexpr Anim breathe(Rgbw c, uint8_t level, uint32_t ms = 0,
+                                     uint8_t times = 0) noexcept {
+    return {Pattern::Breathe, c, level, times, ms, 0};
+}
+[[nodiscard]] constexpr Anim swell(Rgbw c, uint8_t level) noexcept {
+    return {Pattern::Swell, c, level, 0, 0, 0};
 }
 [[nodiscard]] constexpr Anim blink(Rgbw c, uint8_t level, uint32_t ms = 0) noexcept {
     return {Pattern::Blink, c, level, 0, ms, 0};

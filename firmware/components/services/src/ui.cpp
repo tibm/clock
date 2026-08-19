@@ -23,10 +23,15 @@ constexpr uint8_t kLowBattPct = 20;
 // costs four times less.  Sim time, so `sim warp` scales them with everything else.
 constexpr uint32_t kLevelPluggedMs = 500;
 constexpr uint32_t kLevelBatteryMs = 2000;
-constexpr uint32_t kTapAckMs = 400;  // the tap flash, long enough to be seen on a 50 Hz feed
 
 // Chain order is dial first (§9.2): 0-1 on-PCB dial wash, 2-6 the status row through J12.
+constexpr std::size_t kDial0 = 0, kDial1 = 1;
 constexpr std::size_t kBell = 2, kAlarmPx = 3, kClockPx = 4, kVol = 5, kBatt = 6;
+
+// How many breaths the bell takes while the dial wash is up.  A COUNT rather than a duration:
+// the bell has to end dark exactly on the boundary, and a period that does not divide the
+// window leaves it cut off half way up -- which reads as a glitch, not as an ending.
+constexpr uint8_t kTapBreaths = 2;
 
 // The volume gauge (README §12): 0 % straight up, 100 % at 10 o'clock the long way round,
 // so the whole range is 300 degrees of dial and both hands carry it together.  The remaining
@@ -135,11 +140,9 @@ void Ui::on_event(Event const& e) {
     if (as<Tap>(e)) {
         // Tap-to-snooze (README §12).  Until the alarm exists it is a visible
         // acknowledgement, which is still the interaction worth tuning: a tap must feel
-        // like it did something.  It goes on the OVERLAY layer, so it outranks whatever the
-        // mode is showing and hands the pixel straight back when it has faded -- the
-        // previous arrangement painted over it on the next tick and nobody ever saw it.
+        // like it did something.
         CLK_LOGI(ui, "tap");
-        arm(over_, kBell, domain::ramp_down(domain::kWhite, level(), kTapAckMs));
+        tap_ack();
         last_input_us_ = port::now_us();
     }
 }
@@ -573,10 +576,35 @@ domain::Anim Ui::alarm_cue() const noexcept {
 // behind five pixels breathing in sync: cue() runs 50 times a second, and re-arming an
 // unchanged cue would pin every animation to t=0 forever -- a breath would never get past
 // its first millisecond, and a burst would never end.
-void Ui::arm(domain::Anim* layer, std::size_t i, domain::Anim a) noexcept {
-    if (domain::same(layer[i], a)) return;
+// `restart` is for the gestures rather than the states: a second tap while the first one is
+// still on screen asks for the same animation, so the same-cue check would leave the first one
+// running and the tap would look ignored.  A MODE must never pass it -- that is the bug the
+// check exists to prevent.
+void Ui::arm(domain::Anim* layer, std::size_t i, domain::Anim a, bool restart) noexcept {
+    if (!restart && domain::same(layer[i], a)) return;
     a.t0_us = port::now_us();
     layer[i] = a;
+}
+
+// What a tap looks like (§6.6b).  The dial washes up over a second, holds five, and takes four
+// to leave -- slower out than in, so the room never sees it switch off -- and the bell breathes
+// alongside it for the first five seconds.
+//
+// The COLOUR is the answer to the only question worth asking a clock in the dark: red if the
+// alarm is armed, white if it is not.  It is the same red/white rule mode 1 uses (alarm_cue),
+// which is what makes the two readable as one instrument rather than two conventions.
+//
+// All three pixels are armed in one pass, so they share a t0 and the two dial pixels are one
+// wash rather than two lights that nearly agree.
+void Ui::tap_ack() noexcept {
+    const Rgbw c = alarm_armed_ ? domain::kRed : domain::kWhite;
+    const uint8_t l = level();
+    arm(over_, kDial0, domain::swell(c, l), true);
+    arm(over_, kDial1, domain::swell(c, l), true);
+    // The bell's window IS the wash's hold: the same five seconds, so retuning one retunes
+    // both and the two can never drift into looking like separate events.
+    const uint32_t per = anim_.swell_hold_ms / kTapBreaths;
+    arm(over_, kBell, domain::breathe(c, l, per, kTapBreaths), true);
 }
 
 void Ui::fade_out(std::size_t i) noexcept {

@@ -1219,9 +1219,9 @@ Orthogonal regions running in parallel with the above: **`Sunrise`** (30 min war
 plugged-only; on battery it degrades to a slow dial-pixel glow since the 12 V boost is off) and
 **`Fault`** (blink code across the status row).
 
-#### 6.6a The light engine — four patterns, one config (`domain/anim.hpp`)
+#### 6.6a The light engine — five patterns, one config (`domain/anim.hpp`)
 
-Every emitter in the product does one of six things, and they are the same six things
+Every emitter in the product does one of seven things, and they are the same seven things
 everywhere: a breathing bell and a breathing battery warning have to *look like the same
 instrument*, and they only do if they are the same code.
 
@@ -1230,26 +1230,37 @@ instrument*, and they only do if they are the same code.
 | `Off` | dark | — | idle |
 | `Solid` | hold at `level` | — | `ui led`, fault codes |
 | `RampUp` | 0 → `level`, then **hold** | ✅ | entering a steady mode; the sunrise |
-| `RampDown` | `level` → 0, then hold at 0 | ✅ | leaving any mode; the tap acknowledgement |
-| `Breathe` | 0 → `level` → 0, forever | — | the alarm, armed **and** off; low battery; pairing |
+| `RampDown` | `level` → 0, then hold at 0 | ✅ | leaving any mode |
+| `Swell` | 0 → `level` → **hold** → 0, then dark | ✅ | the tap's dial wash |
+| `Breathe ×n` | 0 → `level` → 0; *n* of them, or forever at 0 | ✅ (n>0) | the alarm, armed **and** off; low battery; pairing (all n=0); the tap's bell (n=2) |
 | `Blink` | hard-edged square, `duty` % lit | — | fault codes — **no mode uses it** since 2026-08-15 |
 | `Flash ×n` | *n* quick flashes, then dark | ✅ (n>0) | the refusal (n=3); fault codes (n=0) |
 
 ```cpp
-struct AnimCfg {                  // THE config file: every duration the light has
-    uint32_t ramp_ms      = 250;  // the UI's own fade in / fade out
-    uint32_t breathe_ms   = 3200; // one full dark -> lit -> dark cycle
-    uint32_t blink_ms     = 220;  // "fast blinking": one on+off period
-    uint32_t flash_ms     = 90;   // one flash of a burst, lit
-    uint32_t flash_gap_ms = 110;  //   ... and dark, between flashes
-    uint8_t  blink_duty   = 45;   // percent of blink_ms that is lit
-    uint8_t  breathe_floor= 0;    // 0..255: a breath that never goes fully dark
+struct AnimCfg {                   // THE config file: every duration the light has
+    uint32_t ramp_ms       = 250;  // the UI's own fade in / fade out
+    uint32_t breathe_ms    = 3200; // one full dark -> lit -> dark cycle
+    uint32_t blink_ms      = 220;  // "fast blinking": one on+off period
+    uint32_t flash_ms      = 90;   // one flash of a burst, lit
+    uint32_t flash_gap_ms  = 110;  //   ... and dark, between flashes
+    uint32_t swell_in_ms   = 1000; // the Swell: up ...
+    uint32_t swell_hold_ms = 5000; //   ... lit ...
+    uint32_t swell_out_ms  = 4000; //   ... and away, slower than it came
+    uint8_t  blink_duty    = 45;   // percent of blink_ms that is lit
+    uint8_t  breathe_floor = 0;    // 0..255: a breath that never goes fully dark
 };
 ```
 
-- Live from the CLI as **`ui anim <ramp|breathe|blink|duty|flash|gap|floor> <ms>`**, and it
-  lands in NVS with the rest of §7.5. One number changes every pattern that uses it, which is
-  the point of there being nowhere else to put it.
+- Live from the CLI as **`ui anim <ramp|breathe|blink|duty|flash|gap|floor|rise|hold|fall>
+  <ms>`**, and it lands in NVS with the rest of §7.5. One number changes every pattern that
+  uses it, which is the point of there being nowhere else to put it.
+- **The `Swell` is the one pattern with three durations**, because it is the one pattern that
+  is a whole *gesture* rather than a state: it arrives, it stays long enough to be read, and it
+  leaves slower than it came so the room never sees it switch off. It is therefore also the one
+  pattern that ignores the per-instance `ms` — all three numbers live in the config.
+- **A counted `Breathe` ends dark on its own boundary**, which is why the bound is breaths and
+  not milliseconds: a window that does not divide the period cuts the light off part way up,
+  and that reads as a glitch rather than as an ending.
 - An `Anim` may **override the duration** per instance (`ms`), which is how the same `RampUp`
   serves a 250 ms mode fade and a 30-minute sunrise. "Hard-coded or a parameter" is both.
 - **Gamma is applied once, at the end** (γ≈2.0, integer). An SK6812's duty is linear and the
@@ -1290,7 +1301,8 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | — | `pairing` | all five | **breathe blue, in sync** | untouched — the clock keeps them |
 | — | *(overlay)* | `batt` | **breathe amber** below 20 % SoC on battery | — |
 | — | *(overlay)* | `clock` | **flash red ×3** — the refusal | — |
-| — | *(overlay)* | `bell` | 400 ms fade — tap-to-snooze acknowledged | — |
+| — | *(overlay)* | `dial0` `dial1` | **swell** — the tap's dial wash, armed → red · off → white | — |
+| — | *(overlay)* | `bell` | **breathe ×2** over the wash's five seconds, same colour | — |
 
 - **Armed and disarmed both *breathe*; the answer is the colour** (changed 2026-08-15 — it was
   a fast red blink). Same curve, same period, one difference, which is what makes the pair
@@ -1312,6 +1324,14 @@ bring-up command overwritten 20 ms later is not a bring-up command.
   one — "the alarm is off" and "it is midnight" looked identical.
 - **Setting the alarm time does not arm it.** Arming is mode 1's whole job; mode 2 shows the
   armed state (same pattern) so you can see what you are editing towards.
+- **A tap lights the dial, and the colour is the alarm's state** (added 2026-08-18). The two
+  dial pixels `Swell` — 1 s up, 5 s lit, 4 s down — and the `bell` icon breathes twice over the
+  same five seconds, both **red if armed, white if not**. It is the same red/white rule as mode
+  1, deliberately: a tap in the dark is the one moment the clock is asked *is the alarm on?*,
+  and answering it with a different vocabulary would make it two conventions instead of one.
+  All three pixels are armed in one pass so they share a `t0` — two dial pixels that nearly
+  agree are two lights, not one wash. The gesture **restarts** on a second tap, which is the
+  one place `arm()`'s same-cue check has to be overridden (a mode must never do it).
 - **Zero emission when idle is a hard invariant** (R2/R6) — with one documented exception, the
   low-cell warning, because a clock that dies in the night without saying so is worse than an
   amber pixel. Leaving a mode *fades* rather than cuts, and the fade ends at a hard zero.
@@ -1802,7 +1822,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` — *`motion sweep` and `motion power` arrive with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
-| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` — §6.6a) |
+| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |

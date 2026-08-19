@@ -74,6 +74,59 @@ void test_ramp_duration_override() {
     CHECK(at(sunrise, 30 * 60 * 1000) == 255);
 }
 
+// ---- swell ---------------------------------------------------------------------------------
+
+// The tap's dial wash (§6.6b): 1 s up, 5 s lit, 4 s down, dark.  One animation rather than a
+// sequencer in `ui`, so the whole gesture is a pure function of (cue, cfg, now) like the rest.
+void test_swell() {
+    const auto a = domain::swell(domain::kRed, 200);
+
+    CHECK(at(a, 0) == 0);       // begins dark
+    CHECK(at(a, 1000) == 200);  // up in a second, exactly at `level`
+    CHECK(at(a, 3500) == 200);  // and holds through the middle
+    CHECK(at(a, 6000) == 200);  // right to the end of the hold
+    CHECK(at(a, 8000) == 100);  // half way down the four-second fall
+    CHECK(at(a, 10'000) == 0);  // dark again, and stays there
+    CHECK(at(a, 60'000) == 0);
+
+    CHECK(!domain::done(a, kCfg, 9999 * kMs));
+    CHECK(domain::done(a, kCfg, 10'000 * kMs));
+
+    // Up then flat then down, and never back up: a wash that wobbles reads as a fault.
+    uint8_t prev = 0;
+    bool ok = true;
+    for (uint32_t t = 0; t <= 6000; t += 20) {
+        const uint8_t v = at(a, t);
+        ok = ok && v >= prev;
+        prev = v;
+    }
+    for (uint32_t t = 6000; t <= 10'000; t += 20) {
+        const uint8_t v = at(a, t);
+        ok = ok && v <= prev;
+        prev = v;
+    }
+    CHECK(ok);
+
+    // Eased at all four corners -- the same 3t^2-2t^3 as every other curve here.
+    CHECK(at(a, 50) - at(a, 0) < at(a, 525) - at(a, 475));
+    CHECK(at(a, 6200) - at(a, 6000) < 8);
+
+    // Slower out than in is the whole point: at the same distance from each edge the fall has
+    // barely started while the rise is nearly done.
+    CHECK(at(a, 500) > at(a, 6000) - at(a, 6500));
+
+    // All three durations come from the config, and `ms` is not one of them.
+    AnimCfg c{};
+    c.swell_in_ms = 100;
+    c.swell_hold_ms = 100;
+    c.swell_out_ms = 100;
+    CHECK(at(a, 100, c) == 200);
+    CHECK(at(a, 300, c) == 0);
+    CHECK(domain::done(a, c, 300 * kMs));
+    CHECK(domain::render(a, kCfg, 3000 * kMs).r > 0);  // and it is red, not white
+    CHECK(domain::render(a, kCfg, 3000 * kMs).w == 0);
+}
+
 // ---- breathe -------------------------------------------------------------------------------
 
 void test_breathe() {
@@ -100,6 +153,32 @@ void test_breathe() {
     }
     CHECK(same_forever);
     CHECK(domain::same(p1, p2));
+}
+
+// A COUNTED breath: the bell alongside the tap wash (§6.6b).  It has to end, and it has to end
+// DARK -- a count of breaths does that where a count of milliseconds would cut it off part way.
+void test_breathe_counted() {
+    const auto a = domain::breathe(domain::kWhite, 200, 2500, 2);
+
+    CHECK(at(a, 0) == 0);
+    CHECK(at(a, 1250) == 200);  // first breath peaks
+    CHECK(at(a, 2500) == 0);    // ... and closes
+    CHECK(at(a, 3750) == 200);  // second
+    CHECK(at(a, 5000) == 0);    // done, on the boundary
+    CHECK(at(a, 7000) == 0);    // and there is no third
+
+    CHECK(!domain::done(a, kCfg, 4999 * kMs));
+    CHECK(domain::done(a, kCfg, 5000 * kMs));
+
+    // The floor does not outlive the count -- once the breaths are spent the pixel is off,
+    // not held at the floor forever.
+    AnimCfg c{};
+    c.breathe_floor = 40;
+    CHECK(at(a, 0, c) == 31);  // 40 * 200/255, the floor scaled by `level`
+    CHECK(at(a, 5000, c) == 0);
+
+    // Two breaths of half the window fill it exactly -- which is how `ui` picks the period.
+    CHECK(!domain::same(a, domain::breathe(domain::kWhite, 200, 2500, 0)));
 }
 
 void test_breathe_floor() {
@@ -193,7 +272,9 @@ void run_anim_tests() {
     test_ramp_up();
     test_ramp_down();
     test_ramp_duration_override();
+    test_swell();
     test_breathe();
+    test_breathe_counted();
     test_breathe_floor();
     test_blink();
     test_flash_burst();

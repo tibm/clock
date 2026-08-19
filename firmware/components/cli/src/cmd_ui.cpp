@@ -270,7 +270,10 @@ Status cmd_anim(Args const& a, Sink& out) {
                    c.ramp_ms, c.breathe_ms, c.blink_ms, c.blink_duty);
         out.printf("flash_ms=%" PRIu32 " flash_gap_ms=%" PRIu32 " breathe_floor=%u", c.flash_ms,
                    c.flash_gap_ms, c.breathe_floor);
+        out.printf("swell rise=%" PRIu32 " hold=%" PRIu32 " fall=%" PRIu32 " ms", c.swell_in_ms,
+                   c.swell_hold_ms, c.swell_out_ms);
         out.line("  ui anim <ramp|breathe|blink|duty|flash|gap|floor> <value>");
+        out.line("  ui anim <rise|hold|fall> <ms>   the tap's dial wash");
         return a.count() == 0 ? Status::Ok : Status::BadArg;
     }
     const char* k = a.arg(0);
@@ -295,6 +298,12 @@ Status cmd_anim(Args const& a, Sink& out) {
         c.flash_gap_ms = u32;
     } else if (std::strcmp(k, "floor") == 0) {
         c.breathe_floor = u8;
+    } else if (std::strcmp(k, "rise") == 0) {
+        c.swell_in_ms = u32;
+    } else if (std::strcmp(k, "hold") == 0) {
+        c.swell_hold_ms = u32;
+    } else if (std::strcmp(k, "fall") == 0) {
+        c.swell_out_ms = u32;
     } else {
         out.printf("no such timing '%s'", k);
         return Status::BadArg;

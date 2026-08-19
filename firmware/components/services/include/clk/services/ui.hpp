@@ -102,8 +102,9 @@ private:
     // pixel back when it finishes -- the tap acknowledgement, the refusal burst, and one
     // day the fault code.  Rendering is one pass over both, every tick.
     void cue() noexcept;  // recompute base_
-    void arm(domain::Anim* layer, std::size_t i, domain::Anim) noexcept;
+    void arm(domain::Anim* layer, std::size_t i, domain::Anim, bool restart = false) noexcept;
     void fade_out(std::size_t i) noexcept;
+    void tap_ack() noexcept;  // the dial wash + the breathing bell (§6.6b)
     void render() noexcept;
     [[nodiscard]] domain::Anim alarm_cue() const noexcept;  // the bell/alarm rule
     [[nodiscard]] uint8_t level() const noexcept;           // Tuning::brightness, 0..255
