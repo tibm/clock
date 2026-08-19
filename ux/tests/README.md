@@ -40,6 +40,19 @@ Every test gets its **own** `clocksim` + `uxapp.py` on ports the harness picks, 
 afterwards. No test depends on another having run, and none of them touch the pair you have
 open in a browser.
 
+Two things the rig passes clocksim, both of them about isolation rather than convenience:
+
+- **`--no-home`.** The product homes on boot (`FIRMWARE.md` §6.1a) and nine seconds of sweeping
+  before each of forty cases proves nothing the one case *about* boot homing does not. That
+  case asks for the real thing with `test.use({ simArgs: [] })`.
+- **`--nvs <a file of its own>`.** Calibration survives a reboot on purpose, so one shared file
+  would carry one case's trim into the next. The file is deleted with the rig.
+
+These tests measure a mechanism in **real time**, so they need the machine they run on. On a
+laptop busy with something else the whole suite slows down and the timing-sensitive cases start
+failing for reasons that have nothing to do with the firmware — if a run goes red in a block,
+check what else was running before you go looking in `motion`.
+
 ## The cases
 
 | file | what it pins |
@@ -49,14 +62,15 @@ open in a browser.
 | `03-homing` | `home` from a scrambled dial, from a hand parked on the index, from both hands on it; twice over; the fault when a sweep outruns the sensor; `stop` mid-run |
 | `04-set-time` | every preset button, `now`, and a typed time put the hands where that time is — 12:30 included |
 | `05-follow-release` | released, the clock runs on and the hands do not; the buttons report the firmware and not the last click |
-| `06-knob-edit` | one detent is one minute, the hands preview what you are setting, a long press commits, the sensitivity slider changes the ratio |
+| `06-knob-edit` | one detent is one minute, the hands preview what you are setting, a long press commits, the sensitivity slider changes the ratio, the arrow keys are a detent too |
 | `07-power-wake` | the plug toggle, two fast clicks being two flips, the wake light refusing on battery, the low-cell pixel |
 | `08-radio-tap` | the rear toggle's polarity and label; a tap lit long enough to see |
 | `09-warp-steps` | warp really warps; `jumps per minute` quantises the hands without touching the clock; the tuning sliders reach `motion tune` |
 | `10-reset-reboot` | `reset fakes` opens a gap the firmware does not know about; `reboot` loses everything and the page reconnects; a reload loses nothing |
 | `11-dial` | dragging a hand does **not** round-trip; the opto meter; the plate turning with yaw; PCNT counts |
 | `12-modes` | the UX itself: what each mode's pixel *does* (breathe / steady / a burst of three), what the hands show in each (the 6, the alarm, the time being set, the volume gauge — swept, never across the off-scale 10-to-12), where `clock` opens from, the network lock, the ten-second hold into pairing and the one five-second timeout |
-| `13-wind` | winding a time: two full turns of the hour hand in each direction, sampling the minute hand every 10 ms — it must never once go backwards, and it must travel all twenty-four of its own revolutions. Then the same for a knob that is **dragged** rather than stepped, which is the case a finger produces and a stepped test never sees |
+| `13-wind` | winding a time: two full turns of the hour hand in each direction, sampling the minute hand every 10 ms — it must never once go backwards, and it must travel all twenty-four of its own revolutions. Then the same for a knob that is **dragged** rather than stepped, which is the case a finger produces and a stepped test never sees. And the report that ended the bank: **the hands stop when the knob stops** |
+| `14-calibration` | the clock finds its own zero and remembers it: a fresh `clocksim` **homes on boot** with nobody clicking anything; the two calibration sliders move one hand each; the trim survives a `reboot` and the next home adopts it; a hand nudged half a degree **trims itself** the next time it crosses the sensor |
 
 ## Two things that look like cheating and are not
 

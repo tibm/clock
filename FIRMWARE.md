@@ -780,7 +780,68 @@ Two things this sequence has that the original did not, both of them from watchi
   control period, so it widens automatically under `sim warp`.
 
 **Re-home policy** (owned by `chrono`, executed here): cold boot · after an SNTP step > 2 s ·
-after 24 h of continuous running · on user request · after any `Fault`.
+after 24 h of continuous running · on user request · after any `Fault` · **three index
+crossings in a row that land nowhere near the index** (auto-home, below).
+
+#### 6.1a Homing on boot (2026-08-17)
+
+`motion` posts its own `HomeRequest` from `on_start()`. The hands are wherever the last
+power-off left them, nothing else can find that out, and every reading the clock gives until it
+does is a guess — so the first thing a booted movement does is go and look. Two conditions on
+it, and no others:
+
+- the movement and the opto must be **fitted** (`board::present`). On a devkit with nothing
+  wired this is not a failure to report, it is simply not the day (D16); it logs once and stays
+  `Uninit`.
+- `clocksim --no-home` turns it off, for the browser suite: a nine-second sweep before each of
+  forty cases buys nothing that the one case testing boot homing does not prove (§11.3).
+
+#### 6.1b The zero is per unit — `motion zero` (2026-08-17)
+
+**The opto answers "the index mark is over the window", which is not the question "the hand is
+due north".** The two differ by how the mark was printed, how the hand was pressed onto the
+shaft and how square the sensor sits under it — a fact about *one* clock, not about the design,
+and it is different for each of the two hands.
+
+So each hand carries a trim in microsteps, positive = clockwise, and homing adopts **`-zero`**
+where it used to adopt 0. That is the whole mechanism: the index is *defined* as the place the
+zero is measured from, so a calibrated movement asked for 12:00 puts the hand on north.
+
+| | |
+|---|---|
+| set it | `motion zero <h\|m> <±usteps>` — 48 usteps = 1°, and the `ux` page has a slider per hand |
+| stored | `hal::store` → NVS namespace `clock` on target, a `key = value` file on the host (`clocksim --nvs`, default `~/.clocksim.nvs`) |
+| applied | at the next home — and **immediately**, if the movement is already homed: the frame shifts and the hand turns to it while you watch, because a calibration you cannot see land is one nobody can perform |
+| range | ±¼ turn; further than that is a typo, and applying it would move the hand rather than say so |
+
+The mechanism underneath is one function, `shift_frame(hand, d)`: rename where the hand **is**
+and leave every target where it was. The obvious "shift the targets too" is wrong in both
+directions — a target is a *label* in this frame, the reason we are shifting is that the label
+pointed a few microsteps off north, and moving the labels as well would carry the error forward
+and no hand would move at all.
+
+#### 6.1c Auto-home — the index is crossed anyway (2026-08-17)
+
+Homing is nine seconds of sweeping. The hands cross that same index **every hour of every day**
+in the ordinary course of telling the time, and each crossing measures exactly what homing
+measures, for nothing. So `motion` watches the opto whenever it is *not* homing, and a hand
+that arrives at the index early or late is corrected on the spot — a missed microstep, a
+knocked cube, a shaft that slipped in the train, all quietly taken back out.
+
+Four rules decide whether a crossing is worth believing, and each exists because a wrong
+correction is worse than none:
+
+| rule | why |
+|---|---|
+| **clockwise only** | the rising edge is the one homing adopted on; approached the other way it sits on the far side of the window — half a window of systematic error |
+| **slow enough to be a measurement**: ≤ **0.25°** of travel per ADC sample | the opto is sampled once a control tick. During a slew that is a degree and a half — the whole accept window. While the clock is simply telling the time it is a few microsteps, which is >99 % of its life. What is left is halved out: the edge happened somewhere in the last sample, so the best estimate is half a sample back |
+| **one candidate**: the other hand must be > **5°** away | both hands pass the same window, and at noon they are both sitting in it. Nothing can then say which one lit the sensor, and a guess would be a coin toss that moves a hand |
+| **within ±1.5°**, or it is not drift | three crossings in a row that land outside it mean the movement has genuinely slipped, and the answer to that is not a bigger trim — it is a real home |
+
+`motion tune autohome 0` turns it off. There are exactly two reasons to: while measuring the
+error it corrects, and in a test that teleports the hands and does not want the movement
+quietly noticing. `motion status` reports the count and the last correction; so does the
+mechanism card in `ux`.
 
 ### 6.2 `audio`
 
@@ -1212,9 +1273,9 @@ today so the interlock is reachable on the bench.
 #### 6.6d Knob sensitivity — a detent is a minute, and the dial can keep up
 
 64 CPR × 4 = **256 counts/rev**, `counts_per_minute` of them to a minute: **one detent, one
-minute, at any speed you turn it.** Counts that do not add up to a whole unit are *carried,
-not dropped* — a dragged knob arrives as a stream of one- and two-count deltas, and dividing
-each delta on its own threw the whole turn away.
+minute, at any speed the dial can be read.** Counts that do not add up to a whole unit are
+*carried, not dropped* — a dragged knob arrives as a stream of one- and two-count deltas, and
+dividing each delta on its own threw the whole turn away.
 
 **Setting a time is paced to what the movement can draw** (changed 2026-08-16; before it, a
 fast turn was multiplied by an acceleration curve). `v_max` is 6000 usteps/s and a minute of
@@ -1229,18 +1290,35 @@ and the result is not slightly wrong, it is meaningless:
 > not move at all and appears to be **following the hour hand**. Both were reported, both were
 > the same wrap (§16c).
 
-So counts are **banked** and released one minute at a time, no faster than the hands run:
+So the setting advances one minute at a time, no faster than the hands run — and **what they
+cannot draw is dropped** (changed 2026-08-17):
 
 ```
-pace   = 1.25 x (one minute of dial) / v_max     ~60 ms at the shipping speed  (20..500 ms)
-release= (now - last release) / pace             minutes, so the rate is right under `sim warp`
-bank   <= 2 s of winding                         a flick coasts, a spin does not run away
+pace   = (one minute of dial) / v_max            ~48 ms at the shipping speed  (20..500 ms)
+spend  = (now - last spend) / pace               minutes, so the rate is right under `sim warp`
+keep   <= one DETENT's worth of minutes          4 counts, whatever `counts_per_minute` makes
+                                                 of them; the rest of a fast spin is gone
+carry  = the sub-minute remainder, always        a drag arrives as one- and two-count deltas
 ```
 
-A flick is therefore still worth **every minute you flicked** — it just arrives at a speed you
-can watch — and the hands are never more than a second or so behind the number. `ui knob`
-edits `counts_per_minute`; the pace follows `motion tune v_max` on its own, so tuning the
-movement cannot leave the knob lying about what the dial can show.
+**Dropping is the whole point, and it replaced a two-second bank.** Banking made a fast spin
+worth every minute you spun it, and the price was a dial that went on winding for a second or
+two after your finger stopped: *"when the dial is released the hands still move, the minute
+hand by roughly a hundred and eighty degrees"*. You cannot both spin faster than the hands can
+draw **and** have them stop when you do, and of the two the one worth keeping is that what the
+dial says is what you set. The cost is stated plainly: **a turn faster than about twenty
+minutes of dial a second is worth less than you turned it** — the clock can only be set as
+fast as it can be read, and `motion tune v_max` is the one number that changes that.
+
+The single exception is one **detent**: never split. A detent is the smallest thing a person
+does to this knob and it is worth whatever `counts_per_minute` says — one minute at the
+shipping four counts (which is what dropping outright would have kept anyway), four minutes at
+`ui knob counts 1`. Splitting one would make the sensitivity setting a lie. A *queue* of
+detents still cannot accumulate: it is a cap, not a bank, and the whole of it is a fifth of a
+second of hand.
+
+`ui knob` edits `counts_per_minute`; the pace follows `motion tune v_max` on its own, so tuning
+the movement cannot leave the knob lying about what the dial can show.
 
 **The volume gauge keeps the acceleration curve** (`slow_max` 4 → gain 1, `fast_at` 24 → gain
 `accel_factor` 12, a straight line between). It is 300° end to end and cannot wrap, so 0 → 100 %
@@ -1429,6 +1507,22 @@ struct Config {
 
 `AnimCfg` is `domain/anim.hpp`'s own struct; `KnobCfg` is `Ui::Tuning` by another name — the
 plain-data half of it, so `storage` keeps depending on `domain` and not on `services` (§2).
+
+**Two of these fields exist already.** `zero_h`/`zero_m` (§6.1b) have to survive a power cut
+before anything else does — a per-unit calibration that a reboot forgets is not a calibration —
+so they went in ahead of `storage`, through a deliberately tiny HAL surface:
+
+```cpp
+namespace hal::store {                       // NVS namespace `clock` on target;
+Result<int32_t> get_i32(const char* key);    //   a `key = value` file on the host
+Status set_i32(const char* key, int32_t);    // a key never written answers NotPresent (D16)
+}
+```
+
+int32 only, because everything stored so far is a microstep count or a flag and a typed surface
+with one type has no casts in it. `motion` reads its two keys in `on_start()` and writes one on
+every `motion zero`. When `storage` (§6.3) lands it owns the whole `Config` and this becomes its
+back end rather than a second way in.
 
 `chrono`, `ui` and `audio` hold a `const Config&` snapshot; only `storage` writes, and it publishes
 `ConfigChanged` after a successful commit.
@@ -1626,7 +1720,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
-| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh`) · ▲`motion spr` — *`motion zero`, `motion sweep` and `motion power` arrive with `storage` and `board`* |
+| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` — *`motion sweep` and `motion power` arrive with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
@@ -1635,7 +1729,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · `net ble status` · `net ble pair` · `net ble unbond` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
-| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts>` · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw>]` · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
+| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw>]` · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
 | *(top)* | ▲`help [<group> [<verb>]]` · ▲`?` · `unsafe <on\|off>` |
 
 > Anything reachable here is reachable over BLE and vice versa (rule 6) — including `sys debug`,
@@ -1883,6 +1977,14 @@ ui: Ringing → Snoozed (9 min)
 
 `python3 ux/uxapp.py` watches the same session in a browser (§12.0.3).
 
+Two flags exist because the product does something on boot that a test rig should not have to
+sit through, and because persistence has to go somewhere:
+
+| flag | |
+|---|---|
+| `--no-home` | do not home on boot (§6.1a). `motion home` still works; the browser suite passes this for every case except the one that is about boot homing |
+| `--nvs <path>` | where `hal::store` keeps its `key = value` file. Default `~/.clocksim.nvs`, or `$CLOCKSIM_NVS`; the suite gives every rig its own, since calibration surviving a reboot is the point and one file would carry it between cases |
+
 | Faked | How faithfully | Not faked |
 |---|---|---|
 | `Adc` (opto, VBAT) | scriptable value + noise; **the opto is derived from where the hands actually are** | real ADC nonlinearity |
@@ -1891,7 +1993,7 @@ ui: Ringing → Snoozed (9 min)
 | `I2cBus` | address map + presence; register-level device models still to come | clock stretching, bus errors |
 | `I2sTx` | consumes blocks on a timer, writes a WAV file | DMA underrun timing |
 | The movement | a velocity-controlled µstep axis integrated in sim time, plus **an unknown mechanical offset** so homing has something to find | coil current, torque, missed steps |
-| `Nvs` | file-backed | flash wear, power-loss corruption |
+| `Nvs` | `hal::store`, a `key = value` file (`--nvs`); survives `sim reset` and `sys reboot` exactly as flash survives a power cut | flash wear, power-loss corruption |
 | Wall clock | `sim warp <x>` accelerates it | SNTP jitter |
 
 **The seam for the movement is `hal::motor`: run at a signed velocity, stop at an absolute
@@ -2331,3 +2433,28 @@ first-time user gets wrong.
 `net`'s (§6.7), which does not exist. The mode, its exit conditions and its light are real; the
 radio underneath is a stub. Same for the chime, which drives `hal::audio::enable()` directly
 until the `audio` AO (§6.2) owns the amp; both carry a MOVE-IT comment naming their future owner.
+
+### 16d. The fourth pass (2026-08-17) — the clock finds its own zero
+
+Six reports. Two were the same sentence read two ways, one was a page that had stopped
+describing the firmware, and three were the movement not knowing where north is.
+
+| # | Reported | Answer |
+|---|---|---|
+| 24 | "the timeout is 5 s, not 0.8 s — where do the 0.8 come from?" | Both are real and the knob card named only one of them. 0.8 s is the **hold** that leaves a mode at once; 5 s is the **inactivity timeout**, and it is the number counting down on the mode pill, which is what made the other one look wrong. The hint now names all three ways out (§6.6c is unchanged) |
+| 25 | "on boot, the first thing should be homing" | It is (§6.1a). `motion` posts its own `HomeRequest` from `on_start()`, gated only on the movement and the opto being fitted. Every reading before that is a guess about where the last power-off left the hands |
+| 26 | "the sensor detects the hand, but the hand is not perfectly north — one calibration per hand" | `motion zero <h\|m> <±usteps>`, NVS-backed, adopted by homing and applied live when already homed (§6.1b). Two sliders on the `ux` calibration card. The index is now *defined* as the place the zero is measured from, which is what lets #27 exist at all |
+| 27 | "the clock should auto-home: when a hand crosses the sensor, adjust if it is early or late" | Auto-home (§6.1c). The hands cross the index every hour anyway, so every crossing is a free calibration; four rules decide whether one is worth believing, and three bad ones in a row are a movement that has slipped, which re-homes |
+| 28 | "the arrow keys do not move the dial" | They sent counts and never turned the mark on the knob, so in `idle` — where a turn is correctly ignored — the key looked dead. And a slider took the arrows the moment it had focus, silently, for the rest of the session. Both fixed in `app.js`; the keys are the knob's |
+| 29 | **"when the dial is released the hands still move — the minute hand by roughly 180°"** | The bank. §16c paced the setting to the hands and let the surplus *queue*: up to two seconds of winding, which at twenty minutes of dial a second is most of a turn arriving after your finger stopped. The surplus is **dropped** now (§6.6d) — measured in the app afterwards at **2.0°** of residual travel, against a deliberate ten-detent turn still landing all ten minutes |
+
+The trade in #29 is worth stating because it is a product decision, not a bug fix: **a turn
+faster than the hands can draw is now worth less than you turned it.** Twenty minutes of dial a
+second is the ceiling, so a twelve-hour change of alarm is a long deliberate wind rather than a
+flick. The clock can only be set as fast as it can be read; `motion tune v_max` is the one
+number that moves that ceiling, and the knob's pace follows it automatically.
+
+**Not done, and deliberate:** auto-home cannot help at noon. Both hands pass the same window
+and when the other one is sitting in it nothing can say which lit the sensor, so those crossings
+are skipped rather than guessed (§6.1c, rule 3). One sensor, two hands — the alternative is a
+second opto, and a clock that trims itself every hour except around twelve is not worth one.

@@ -80,7 +80,8 @@ python3 ux/uxapp.py --sim-port 4748 --http-port 8788
 | | |
 |---|---|
 | **Drag a hand** | Moves it *physically* — `sim hand h\|m <deg>`. The firmware is not told. The gap you just opened is exactly what `motion home` has to discover. |
-| **Drag or scroll the knob** | `sim knob ±n`, raw PCNT counts (256/rev). ←/→ nudge a detent. |
+| **Drag or scroll the knob** | `sim knob ±n`, raw PCNT counts (256/rev). **←/→ nudge a detent** — they turn the mark on the knob too, and they win over a focused slider, because a documented key that silently moves something else is worse than no key. |
+| **calibration** | Two sliders, one per hand: `motion zero h\|m <±µsteps>`, the per-unit trim between "the sensor sees the mark" and "the hand looks north" (§6.1b). Home first, then drag until it does — the hand moves as you drag. It lands in storage, so it survives a reboot and the next home adopts it. |
 | **press & hold** | `sim press down` / `up` on the real button edges, so a long press is just a long hold. Space works too. |
 | **radio off** | The rear J11 toggle. Note the polarity: the pin idles *high* and the switch pulls it low, so a broken harness fails to radios-enabled. |
 | **tap** | One BNO085 top-tap — tap-to-snooze. |
@@ -107,6 +108,18 @@ The homing window at the top of the dial glows with the QRE1113 reading, and the
 *mechanism* is the same number — watching both while a hand sweeps past 0° is the fastest way
 to see why a sweep that is too fast never finds home.
 
+**The clock homes itself on boot** (§6.1a), the way the real one does when the cable goes in — so
+a freshly started `clocksim` is already sweeping when the page attaches. The test rig turns that
+off (`--no-home`) because forty cases do not each need nine seconds of it.
+
+**And it keeps itself homed.** Every crossing of the index during ordinary running is a free
+calibration, so a hand that arrives early or late is trimmed on the spot — *auto-home* counts
+those on the mechanism card next to `faults`. Drag a hand a degree with the mouse, walk it
+slowly past the top of the dial (`motion tune v_max 400` makes a crossing slow enough to be a
+measurement) and watch the count tick and the error vanish. Three crossings that land nowhere
+near the index mean the hands have genuinely slipped, and it re-homes on its own. `motion tune
+autohome 0` while you are measuring the very thing it corrects.
+
 **Homing is sampled, so it can genuinely miss.** The lit window is about 3.6° wide and the
 control loop reads the opto once per tick, so a coarse pass that travels further than that
 between two reads steps clean over the index and the run ends in `Fault` — the *home* button
@@ -125,14 +138,17 @@ Two sliders that sound alike and are not:
   to move.
 - **counts per minute of adjustment** (*knob*, `ui knob counts`) — how far a *turn* moves
   the thing you are setting. PCNT counts, and the encoder is 4 counts per detent: `4` = one
-  minute per detent, `1` = one minute per count.
+  minute per detent, `1` = one minute per count. Turn it up and you will find the ceiling
+  below — the hands, not the knob, decide how fast a time can be set.
 
 The **knob only edits in a mode** — press it to cycle idle → **bell** → **alarm** →
 **clock** → **volume**, each named after the icon it lights. A turn while idle is ignored by
 design (§6.6), so the sensitivity slider appears to do nothing until you are actually
-setting something. A detent is a minute however fast you turn, and a spin is **banked**: it
-is worth every minute you spun it, paid out at the speed the hands can draw (§6.6d), because
-a setting that outruns its own readout stops meaning anything. Hold ~0.8 s to commit and leave; hold **ten seconds** and all five status
+setting something. A detent is a minute, and the setting moves **no faster than the hands can
+draw it** — about twenty minutes of dial a second. What arrives faster than that is **dropped**
+(§6.6d): a spin is worth less than you spun it, and in exchange the hands stop when your finger
+does rather than winding on for another second and a half. Watch it either way with `sim knob
+40` (a lump, mostly refused) against `sim knob 40 over 1000` (a turn, all ten minutes of it). Hold ~0.8 s to commit and leave; hold **ten seconds** and all five status
 pixels breathe blue — that is BLE pairing, and the mode pill counts the hold so you can see
 it coming.
 

@@ -36,7 +36,11 @@ void set_seed(uint32_t) noexcept;           // reproducible streams for tests
 // ---- knob ------------------------------------------------------------------------------
 void turn(int32_t detents) noexcept;        // 4 PCNT counts per detent
 void turn_counts(int32_t counts) noexcept;  // raw counts -- what a dragged knob produces
-void press(uint32_t hold_ms) noexcept;      // held for hold_ms of SIM time
+// The same counts spread over `ms` of sim time: a knob being TURNED rather than teleported.
+// A finger cannot deliver forty counts inside one 20 ms poll, and the ui now paces a setting
+// to what the hands can draw (§6.6d), so the difference decides how much of a spin survives.
+void turn_counts_over(int32_t counts, uint32_t ms) noexcept;
+void press(uint32_t hold_ms) noexcept;  // held for hold_ms of SIM time
 
 // ---- the mechanism ---------------------------------------------------------------------
 // Where the hands PHYSICALLY sit, against what the firmware commanded.  A cold boot has no
@@ -62,6 +66,13 @@ void set_speaker(bool on) noexcept;  // stands in for the `audio` AO until it ex
 // ---- power -----------------------------------------------------------------------------
 void set_plugged(bool) noexcept;
 bool plugged() noexcept;
+
+// ---- persistent settings ---------------------------------------------------------------
+// Where hal::store keeps its `key = value` file.  The app sets it; a test binary that leaves
+// it unset gets an honest NotPresent out of every read, which is what keeps a unit test from
+// writing calibration into somebody's home directory.
+void set_store_path(const char* path) noexcept;
+const char* store_path() noexcept;
 
 // ---- readback (for the CLI and for tests) ----------------------------------------------
 // 7 chars + NUL, one per pixel, dominant-channel letter: '.' off, R G B W C M Y, 'o' other.

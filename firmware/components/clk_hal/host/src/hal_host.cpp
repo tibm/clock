@@ -7,9 +7,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
@@ -70,6 +74,13 @@ struct State {
     // knob
     int32_t count = 0;
     int32_t last_read = 0;
+    // A knob being TURNED rather than teleported.  `sim knob <n> over <ms>` ramps the count
+    // across sim time the way a finger does, and that matters now that the ui paces a setting
+    // to what the hands can draw (§6.6d): a lump of forty counts in one poll is a spin no
+    // hand ever performed, and the firmware is right to refuse most of it.
+    int32_t turn_from = 0, turn_to = 0;
+    uint64_t turn_t0 = 0;
+    uint64_t turn_us = 0;  // 0 = nothing in flight
     uint64_t sw_until_us = 0;
     // ENC_SW is an INTERRUPT on IO17 (§3.3): the board cannot miss a closure, however brief.
     // Here the same edge is found by polling, and a press shorter than the poll period would
@@ -212,6 +223,68 @@ float opto_norm_locked() noexcept { return g_st.opto_auto ? opto_from_hands_lock
 // Charger state, shared by power::read() and the expander's open-drain CHRG pin.
 bool charging_locked() noexcept { return g_st.plugged && g_st.vbat_mv < kVbatFullMv; }
 
+// The knob count as it stands right now, mid-ramp included.  Evaluated lazily like the axes:
+// no thread, exact under `sim warp`, and a ramp that has run out settles into `count`.
+int32_t knob_count_locked() noexcept {
+    if (g_st.turn_us == 0) return g_st.count;
+    const uint64_t dt = sim_us_locked() - g_st.turn_t0;
+    if (dt >= g_st.turn_us) {
+        g_st.count = g_st.turn_to;
+        g_st.turn_us = 0;
+        return g_st.count;
+    }
+    const int64_t span = static_cast<int64_t>(g_st.turn_to) - g_st.turn_from;
+    return g_st.turn_from + static_cast<int32_t>(span * static_cast<int64_t>(dt) /
+                                                 static_cast<int64_t>(g_st.turn_us));
+}
+
+// Freeze the ramp where it is, so the next turn accumulates onto what the user has already
+// been given rather than onto where the last one was heading.
+void knob_settle_locked() noexcept {
+    g_st.count = knob_count_locked();
+    g_st.turn_us = 0;
+}
+
+// ---- persistent settings ----------------------------------------------------------------
+// `key = value` lines, read whole and written whole.  There are a handful of keys and a
+// laptop's page cache in front of the file, so anything cleverer would be cleverness for its
+// own sake.  The path is set by the app (clocksim), never defaulted here: a test binary that
+// wrote calibration into somebody's home directory would be a fake with side effects, and the
+// honest answer for "no store configured" is the same NotPresent as an unfitted device.
+struct Kv {
+    std::string key;
+    int32_t val;
+};
+std::string g_store_path;
+std::vector<Kv> g_store;
+
+void store_load_locked() noexcept {
+    g_store.clear();
+    if (g_store_path.empty()) return;
+    std::FILE* f = std::fopen(g_store_path.c_str(), "r");
+    if (!f) return;  // never written yet -- every key is simply absent
+    char line[256];
+    while (std::fgets(line, sizeof line, f)) {
+        char* eq = std::strchr(line, '=');
+        if (!eq) continue;
+        *eq = '\0';
+        std::string k{line};
+        while (!k.empty() && (k.back() == ' ' || k.back() == '\t')) k.pop_back();
+        if (k.empty()) continue;
+        g_store.push_back({k, static_cast<int32_t>(std::strtol(eq + 1, nullptr, 10))});
+    }
+    std::fclose(f);
+}
+
+bool store_save_locked() noexcept {
+    if (g_store_path.empty()) return false;
+    std::FILE* f = std::fopen(g_store_path.c_str(), "w");
+    if (!f) return false;
+    for (auto const& kv : g_store) std::fprintf(f, "%s = %d\n", kv.key.c_str(), kv.val);
+    std::fclose(f);
+    return true;
+}
+
 }  // namespace
 
 // ============================ hal::clock_ ================================================
@@ -269,8 +342,8 @@ Result<State> read() noexcept {
     std::lock_guard lk{g_mx};
     if (!board::present(board::Dev::Knob)) return Result<State>::bad(Status::NotPresent);
     State s{};
-    s.count = g_st.count;
-    s.delta = g_st.count - g_st.last_read;
+    s.count = knob_count_locked();
+    s.delta = s.count - g_st.last_read;
     bool down = sim_us_locked() < g_st.sw_until_us;
     if (!down && g_st.sw_held_over) {
         down = true;                // the closure this reader would otherwise have missed
@@ -278,7 +351,7 @@ Result<State> read() noexcept {
     }
     if (down) g_st.sw_seen = true;
     s.sw = down;
-    g_st.last_read = g_st.count;
+    g_st.last_read = s.count;
     return Result<State>::good(s);
 }
 
@@ -566,6 +639,37 @@ Result<State> read() noexcept {
 
 }  // namespace power
 
+// ============================ hal::store =================================================
+namespace store {
+
+Result<int32_t> get_i32(const char* key) noexcept {
+    if (!key || !*key) return Result<int32_t>::bad(Status::BadArg);
+    std::lock_guard lk{g_mx};
+    if (g_store_path.empty()) return Result<int32_t>::bad(Status::NotPresent);
+    for (auto const& kv : g_store) {
+        if (kv.key == key) return Result<int32_t>::good(kv.val);
+    }
+    return Result<int32_t>::bad(Status::NotPresent);
+}
+
+Status set_i32(const char* key, int32_t value) noexcept {
+    if (!key || !*key) return Status::BadArg;
+    std::lock_guard lk{g_mx};
+    if (g_store_path.empty()) return Status::NotPresent;
+    bool found = false;
+    for (auto& kv : g_store) {
+        if (kv.key == key) {
+            kv.val = value;
+            found = true;
+            break;
+        }
+    }
+    if (!found) g_store.push_back({std::string{key}, value});
+    return store_save_locked() ? Status::Ok : Status::Failed;
+}
+
+}  // namespace store
+
 Status init() noexcept {
     {
         std::lock_guard lk{g_mx};
@@ -630,12 +734,32 @@ void set_seed(uint32_t s) noexcept {
 
 void turn(int32_t detents) noexcept {
     std::lock_guard lk{g_mx};
+    knob_settle_locked();
     g_st.count += detents * 4;
 }
 
 void turn_counts(int32_t counts) noexcept {
     std::lock_guard lk{g_mx};
+    knob_settle_locked();
     g_st.count += counts;
+}
+
+// The same counts, delivered at a RATE.  A finger cannot put forty counts into one 20 ms
+// poll, and since the ui paces a setting to what the hands can draw (§6.6d) the difference is
+// no longer cosmetic: a lump is a spin the movement is right to refuse most of, and a ramp is
+// a spin it can follow.  Anything already in flight settles first, so two overlapping turns
+// add up the way two pushes of the same knob would.
+void turn_counts_over(int32_t counts, uint32_t ms) noexcept {
+    std::lock_guard lk{g_mx};
+    knob_settle_locked();
+    if (ms == 0) {
+        g_st.count += counts;
+        return;
+    }
+    g_st.turn_from = g_st.count;
+    g_st.turn_to = g_st.count + counts;
+    g_st.turn_t0 = sim_us_locked();
+    g_st.turn_us = static_cast<uint64_t>(ms) * 1000u;
 }
 
 void press(uint32_t hold_ms) noexcept {
@@ -667,6 +791,17 @@ float hand_offset(motor::Hand h) noexcept {
 float hand_angle(motor::Hand h) noexcept {
     std::lock_guard lk{g_mx};
     return hand_deg_locked(hand_idx(h));
+}
+
+void set_store_path(const char* path) noexcept {
+    std::lock_guard lk{g_mx};
+    g_store_path = path ? path : "";
+    store_load_locked();
+}
+
+const char* store_path() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_store_path.c_str();
 }
 
 void set_orientation(float yaw, float pitch, float roll) noexcept {
@@ -769,7 +904,7 @@ Snapshot snapshot() noexcept {
     s.charging = charging_locked();
     // Raw, NOT knob::read() -- that call consumes `delta`, and a viewer that eats the ui
     // AO's deltas would be changing the thing it is watching.
-    s.knob_count = g_st.count;
+    s.knob_count = knob_count_locked();
     s.knob_sw = sim_us_locked() < g_st.sw_until_us;
     s.opto = opto_norm_locked();
     s.opto_auto = g_st.opto_auto;

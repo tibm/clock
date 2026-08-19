@@ -188,6 +188,19 @@ Status set_volume_pct(uint8_t) noexcept;
 uint8_t volume_pct() noexcept;
 }  // namespace audio
 
+// ---- persistent settings ----------------------------------------------------------------
+// NVS on target, a file on the host.  The little that must survive a power cut and cannot be
+// derived: today the per-unit hand calibration (§6.1), tomorrow the whole of §7.5's Config.
+//
+// int32 only, deliberately.  Everything stored so far is a microstep count or a flag, and a
+// typed surface with exactly one type is a surface with no casts in it.  A key that has never
+// been written answers NotPresent -- the same D16 answer as a device that is not fitted, and
+// the caller's cue to keep its compiled-in default.
+namespace store {
+Result<int32_t> get_i32(const char* key) noexcept;
+Status set_i32(const char* key, int32_t value) noexcept;
+}  // namespace store
+
 // ---- power -----------------------------------------------------------------------------
 namespace power {
 struct State {

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "clk/board.hpp"
 #include "clk/domain/hand.hpp"
 #include "clk/log.hpp"
 
@@ -23,6 +24,19 @@ constexpr int32_t kMaxBackoff = kRev / 6;    // 60 deg -- and its ceiling, under
 constexpr int32_t kParkAway = kRev / 4;      // 90 deg: thirty times the width of the window
 constexpr int32_t kClearSweep = kRev / 8;    // 45 deg is enough to prove a hand left the mark
 constexpr int32_t kSweepMargin = kRev / 20;  // sweep a rev plus a bit, to cross a start-on-edge
+
+// ---- auto-home (§6.1): a crossing of the index is a free calibration --------------------
+//
+// The numbers that decide whether a crossing is worth believing:
+constexpr int32_t kTrimWindow = kRev / 240;      // 1.5 deg -- further off than this is not drift
+constexpr int32_t kTrimApart = kRev / 72;        // 5 deg -- how far the OTHER hand must be, or
+                                                 //   nothing can say which of the two lit it
+constexpr int32_t kTrimPrecision = kRev / 1440;  // 0.25 deg of travel per ADC sample, tops
+constexpr uint8_t kLostBeforeHome = 3;           // ... in a row, and the movement has slipped
+
+// NVS keys (§7.5).  Fifteen characters is the NVS limit and these are thirteen.
+constexpr const char* kKeyZeroH = "motion.zero_h";
+constexpr const char* kKeyZeroM = "motion.zero_m";
 
 const char* name_of(Motion::State s) noexcept {
     switch (s) {
@@ -69,6 +83,10 @@ void Motion::home() noexcept { post(HomeRequest{}); }
 // Halt, not Stop: `Stop` is the AO framework's shutdown event and never reaches on_event().
 void Motion::halt() noexcept { post(Halt{}); }
 
+void Motion::set_zero(Hand h, int32_t usteps) noexcept {
+    post(ZeroSet{static_cast<uint8_t>(h), usteps});
+}
+
 Motion::Snapshot Motion::snapshot() const noexcept {
     port::Lock lk{mx_};
     return snap_;
@@ -81,15 +99,47 @@ Motion::Tuning Motion::tuning() const noexcept {
 
 void Motion::set_tuning(Tuning const& t) noexcept {
     port::Lock lk{mx_};
+    // The zeros are not a setting to be assigned: changing one moves a hand and shifts every
+    // pending target with it, so it goes through set_zero() and this keeps what it had.
+    const int32_t zh = tune_.zero_h, zm = tune_.zero_m;
     tune_ = t;
+    tune_.zero_h = zh;
+    tune_.zero_m = zm;
 }
 
 // ---- lifecycle -----------------------------------------------------------------------------
 
 void Motion::on_start() {
+    // The calibration first: it is what the homing run below is going to adopt.  A key that
+    // has never been written answers NotPresent and leaves the compiled-in zero, which is the
+    // right answer for a movement nobody has trimmed yet.
+    {
+        port::Lock lk{mx_};
+        const auto zh = hal::store::get_i32(kKeyZeroH);
+        const auto zm = hal::store::get_i32(kKeyZeroM);
+        if (zh.ok()) tune_.zero_h = zh.v;
+        if (zm.ok()) tune_.zero_m = zm.v;
+        if (zh.ok() || zm.ok()) {
+            CLK_LOGI(motion, "zero h=%" PRId32 " m=%" PRId32 " usteps (stored)", tune_.zero_h,
+                     tune_.zero_m);
+        }
+    }
     CLK_LOGI(motion, "up; %" PRId32 " usteps/rev, not homed", kRev);
     state_ = State::Uninit;
     publish();
+
+    // And then home, unasked.  The hands are wherever the last power-off left them, nothing
+    // else can find that out, and every reading the clock gives until it does is a guess --
+    // so the first thing a booted movement does is go and look (§6.1).  Absent hardware is
+    // not a failure to report: on a devkit with nothing wired this is simply not the day.
+    if (!home_on_start_) {
+        CLK_LOGI(motion, "boot homing disabled -- `motion home` when you want it");
+    } else if (board::present(board::Dev::Motor) && board::present(board::Dev::Opto)) {
+        CLK_LOGI(motion, "homing on boot");
+        home();
+    } else {
+        CLK_LOGI(motion, "no movement fitted -- not homing");
+    }
 }
 
 void Motion::on_event(Event const& e) {
@@ -101,11 +151,29 @@ void Motion::on_event(Event const& e) {
             CLK_LOGD(motion, "target held: %s", name_of(state_));
             return;
         }
-        plan(hour_, want_h_);
-        plan(min_, want_m_);
-        if (hour_.active || min_.active) {
-            power(true);
-            state_ = State::Moving;
+        retarget();
+        publish();
+        return;
+    }
+    if (const auto* z = as<ZeroSet>(e)) {
+        const Hand h = static_cast<Hand>(z->hand);
+        int32_t d = 0;
+        {
+            port::Lock lk{mx_};
+            int32_t& zero = h == Hand::Hour ? tune_.zero_h : tune_.zero_m;
+            d = z->usteps - zero;
+            zero = z->usteps;
+        }
+        hal::store::set_i32(h == Hand::Hour ? kKeyZeroH : kKeyZeroM, z->usteps);
+        CLK_LOGI(motion, "zero %s = %" PRId32 " usteps (%+.2f deg)",
+                 h == Hand::Hour ? "hour" : "minute", z->usteps,
+                 static_cast<double>(z->usteps) * 360.0 / kRev);
+        // A movement that has never found its index has no frame to shift: the number is
+        // stored and the next home adopts it.  One that HAS is trimmed live, hand and all,
+        // because a calibration you cannot watch land is a calibration nobody can perform.
+        if (d != 0 && homed_ && state_ != State::Homing) {
+            shift_frame(h, -d);
+            retarget();
         }
         publish();
         return;
@@ -159,7 +227,13 @@ void Motion::on_tick() {
 
     if (state_ == State::Homing) {
         run_homing(opto_);
-    } else if (state_ == State::Moving) {
+    } else {
+        // Auto-home.  Homing is what finds the zero; this is what keeps it, and it costs one
+        // comparison per tick because the sensor is already being read.
+        watch_index(opto_);
+    }
+
+    if (state_ == State::Moving) {
         const bool a = step_axis(hour_, dt);
         const bool b = step_axis(min_, dt);
         if (!a && !b) {
@@ -202,6 +276,40 @@ int32_t Motion::resolve(int32_t prev, int32_t from, int32_t to, int dir) const n
     if (dir == 0) return from + domain::shortest(from, to);
     const int32_t base = want_valid_ ? prev : from;
     return base + domain::directed(base, to, dir);
+}
+
+// Both axes onto what was last asked for, and go if that turned out to be somewhere else.
+void Motion::retarget() noexcept {
+    plan(hour_, want_h_);
+    plan(min_, want_m_);
+    if (hour_.active || min_.active) {
+        power(true);
+        state_ = State::Moving;
+    }
+}
+
+Motion::Axis& Motion::axis_of(Hand h) noexcept { return h == Hand::Hour ? hour_ : min_; }
+
+// Where the index sits in a hand's own frame.  Homing adopts `-zero` when it finds the edge,
+// so that is where the edge is by definition -- and moving the zero moves this with it, which
+// is what makes the manual trim and the automatic one talk about the same place (§6.1).
+int32_t Motion::index_pos(Hand h) const noexcept {
+    const auto t = tuning();
+    return domain::normalise(-(h == Hand::Hour ? t.zero_h : t.zero_m));
+}
+
+// Rename where the hand IS by `d`, and leave every target exactly where it was.
+//
+// That asymmetry is the whole mechanism, and it is worth being explicit about because the
+// obvious "shift the targets too" is wrong in both directions.  A target is a LABEL in this
+// frame -- "12:05" is 1440 -- and the reason we are shifting is that the frame was wrong: the
+// label pointed a few microsteps off north, and after the shift the same label points at the
+// right place.  Moving the labels as well would carry the error forward untouched and no hand
+// would move at all.  So: adopt() renames the position without turning the shaft, step_axis()
+// re-issues the unchanged target on the next tick, and the hand travels the difference.
+void Motion::shift_frame(Hand h, int32_t d) noexcept {
+    if (d == 0) return;
+    hal::motor::adopt(h, pos(h) + d);
 }
 
 void Motion::plan(Axis& ax, int32_t target) noexcept {
@@ -318,10 +426,120 @@ void Motion::publish() noexcept {
     s.powered = powered_;
     s.opto = opto_;
     s.faults = faults_;
+    s.trims = trims_;
+    s.last_trim = last_trim_;
     port::Lock lk{mx_};
     const uint32_t keep = snap_.home_ms;
     s.home_ms = keep;
+    s.zero_h = tune_.zero_h;
+    s.zero_m = tune_.zero_m;
     snap_ = s;
+}
+
+// ---- auto-home: the index, crossed in the ordinary course of telling the time -------------
+//
+// Homing establishes the zero once, in nine seconds of sweeping nobody wants to watch twice.
+// But the hands cross that same index every hour of every day, and each crossing measures the
+// same thing for free -- so a movement that is drifting (a missed microstep, a knocked cube,
+// a shaft that slipped in the gear train) can put itself right without ever saying so.
+//
+// Four rules keep it from making things worse, and every one of them exists because a wrong
+// correction is worse than no correction:
+//
+//  1. CLOCKWISE only.  The rising edge is the one homing adopted on, and it sits on the far
+//     side of the window when approached the other way -- half a window of systematic error
+//     if we did not care which direction the hand came from.
+//  2. SLOW only.  The sensor is sampled once a tick, so a crossing is known to within one
+//     sample of travel.  At a slew that is a degree and a half, which is the whole accept
+//     window; while the clock is simply telling the time it is a few microsteps.  The hands
+//     spend >99 % of their life in the second case, so requiring it costs nothing and makes
+//     the measurement exact.  (What is left is halved out: the edge happened somewhere in the
+//     last sample, so the best estimate of where the hand was is half a sample back.)
+//  3. ONE candidate.  Both hands pass the same window and at 12:00 they are both sitting in
+//     it.  If the other hand is anywhere near, nothing can say which one lit the sensor, and
+//     a guess would be a coin toss that moves a hand.
+//  4. Within the window, or it is not drift.  Three crossings in a row that land nowhere near
+//     where they should mean the movement has genuinely slipped -- and the answer to that is
+//     not a bigger trim, it is a real home.
+void Motion::watch_index(float opto) noexcept {
+    const Tuning t = tuning();
+    const bool high = opto > t.opto_thresh;
+    const bool rising = high && !opto_high_;
+    opto_high_ = high;
+    if (!rising || !homed_ || !t.autohome || state_ == State::Fault) return;
+
+    struct Look {
+        int32_t err;  // where the index is, from where the hand thinks it is
+        bool near;    // ... close enough that this hand COULD be what lit the sensor
+        bool usable;  // clockwise, and slow enough for the reading to mean anything
+    } look[2]{};
+
+    const Hand kHands[2] = {Hand::Hour, Hand::Minute};
+    for (int i = 0; i < 2; ++i) {
+        const auto ax = hal::motor::state(kHands[i]);
+        // Where the hand was when the edge actually happened, not where the sample caught it.
+        const int32_t travel = static_cast<int32_t>(static_cast<int64_t>(ax.vel) * dt_ms_ / 1000);
+        const int32_t at = pos(kHands[i]) - travel / 2;
+        look[i].err = domain::shortest(at, index_pos(kHands[i]));
+        look[i].near = std::abs(look[i].err) <= kTrimApart;
+        look[i].usable = ax.vel > 0 && travel <= kTrimPrecision;
+    }
+
+    // Rule 2 first, and it gates the whole mechanism rather than just the correction: if
+    // nothing was crossing slowly enough for the sample to mean anything, this edge is not a
+    // measurement and NO conclusion may be drawn from it -- not "the hand is out by half a
+    // degree", and not "the hands are lost" either.  A slew at 48 000 usteps/s covers ten
+    // degrees between two reads, which is further than the attribution window is wide; before
+    // this returned, a long fast wind looked exactly like a movement that had slipped and
+    // re-homed itself in the middle of one.
+    if (!look[0].usable && !look[1].usable) return;
+
+    if (look[0].near && look[1].near) {
+        CLK_LOGD(motion, "index: both hands are on it -- nothing can say which");
+        return;
+    }
+    if (!look[0].near && !look[1].near) {
+        // A hand WAS crossing, slowly and clockwise, and neither hand believes it is anywhere
+        // near the index.  That is a movement that has lost its place, and rule 4 counts it.
+        if (++lost_ >= kLostBeforeHome) {
+            CLK_LOGW(motion, "index lit with neither hand near it, %u times -- re-homing", lost_);
+            lost_ = 0;
+            home();
+        }
+        return;
+    }
+
+    const int i = look[0].near ? 0 : 1;
+    const Hand best = kHands[i];
+    const int32_t best_err = look[i].err;
+    if (!look[i].usable) return;  // the hand at the index is not the one that measured
+    if (std::abs(best_err) > kTrimWindow) {
+        if (++lost_ < kLostBeforeHome) {
+            CLK_LOGW(motion, "index crossed %" PRId32 " usteps out (%u/%u) -- watching", best_err,
+                     lost_, kLostBeforeHome);
+            return;
+        }
+        CLK_LOGW(motion, "index %u crossings out of place -- the hands have slipped, re-homing",
+                 lost_);
+        lost_ = 0;
+        home();
+        return;
+    }
+    lost_ = 0;
+    if (best_err == 0) return;
+    trim_hand(best, best_err);
+}
+
+void Motion::trim_hand(Hand h, int32_t err) noexcept {
+    // adopt() implies hold(), so a hand that was moving stops for exactly one tick: step_axis
+    // re-issues run() below with the shifted leg and the speed it already had, and the hand
+    // carries on.  Ten milliseconds, once an hour, a few microsteps -- nobody sees it.
+    shift_frame(h, err);
+    ++trims_;
+    last_trim_ = err;
+    CLK_LOGI(motion, "auto-home: %s hand was %" PRId32 " usteps (%+.2f deg) out -- corrected",
+             h == Hand::Hour ? "hour" : "minute", err, static_cast<double>(err) * 360.0 / kRev);
+    if (axis_of(h).active && state_ != State::Moving) state_ = State::Moving;
 }
 
 // ---- homing ------------------------------------------------------------------------------
@@ -444,8 +662,9 @@ void Motion::run_homing(float opto) noexcept {
             if (rising) {
                 hal::motor::hold(h);
                 // Coarse: good to one sample of travel, which is all the fine pass needs in
-                // order to know where to look.
-                hal::motor::adopt(h, 0);
+                // order to know where to look.  `index_pos` rather than 0 -- the per-unit
+                // trim is where the two frames meet, and both passes adopt in the same one.
+                hal::motor::adopt(h, index_pos(h));
                 enter(is_minute ? Phase::FineMinute : Phase::FineHour);
                 return;
             }
@@ -462,15 +681,16 @@ void Motion::run_homing(float opto) noexcept {
             const Hand h = is_minute ? Hand::Minute : Hand::Hour;
             if (fine_pass_ == 1 && rising) {
                 hal::motor::hold(h);
-                const int32_t err = domain::shortest(0, pos(h));
+                const int32_t err = domain::shortest(index_pos(h), pos(h));
                 if (std::abs(err) > backoff_) {
                     fail("the edge moved between passes");
                     return;
                 }
                 // The rising edge sits half an index-mark short of centre.  That systematic
-                // offset is identical for both hands, so it shows up as one `motion zero`
-                // trim on the bench rather than as an error between them.
-                hal::motor::adopt(h, 0);
+                // offset is identical for both hands, so it comes out as one `motion zero`
+                // trim per hand on the bench rather than as an error between them -- which is
+                // exactly what index_pos() is: the edge is the zero, plus what you measured.
+                hal::motor::adopt(h, index_pos(h));
                 CLK_LOGI(motion, "home: %s zero confirmed, coarse was off by %" PRId32 " usteps",
                          is_minute ? "minute" : "hour", err);
                 if (is_minute) {
@@ -506,6 +726,7 @@ void Motion::run_homing(float opto) noexcept {
 void Motion::finish_home() noexcept {
     homed_ = true;
     phase_ = Phase::Done;
+    lost_ = 0;  // whatever the hands had lost, they have just found again
     const auto took = static_cast<uint32_t>((port::now_us() - home_start_us_) / 1000u);
     CLK_LOGI(motion, "homed in %" PRIu32 " ms of sim time", took);
     {

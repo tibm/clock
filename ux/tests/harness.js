@@ -18,6 +18,7 @@ const { spawn } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const SIM = path.join(ROOT, 'firmware', 'build', 'host-dev', 'apps', 'clocksim', 'clocksim');
@@ -73,9 +74,17 @@ class Rig {
         this.uxLines = [];
         this.simPort = 0;
         this.httpPort = 0;
+        this.nvs = '';
     }
 
-    static async start() {
+    // `extra` goes on clocksim's command line.  Two flags matter here:
+    //
+    //   --no-home   the real clock homes the moment it powers up (§6.1), and this suite does
+    //               not want nine seconds of sweeping before every case.  The spec that is
+    //               ABOUT boot homing turns it back on with `test.use({ simArgs: [] })`.
+    //   --nvs       persistent settings, one file per rig.  Calibration survives a reboot on
+    //               purpose, so a shared file would carry one case's trim into the next.
+    static async start(extra = ['--no-home']) {
         const r = new Rig();
         if (!fs.existsSync(SIM)) {
             throw new Error(
@@ -89,7 +98,9 @@ class Rig {
         // on EOF, so a child spawned with stdin closed exits the instant it starts -- the
         // failure looks like "the port never opened" and costs an hour if you have not seen
         // it before.
-        r.sim = spawn(SIM, ['--ui-port', String(r.simPort)], {
+        r.nvs = path.join(os.tmpdir(), `clocksim-${WORKER}-${r.simPort}.nvs`);
+        try { fs.unlinkSync(r.nvs); } catch { /* first run */ }
+        r.sim = spawn(SIM, ['--ui-port', String(r.simPort), '--nvs', r.nvs, ...extra], {
             stdio: ['pipe', 'pipe', 'pipe'],
             cwd: ROOT,
         });
@@ -137,6 +148,7 @@ class Rig {
         for (const p of [this.ux, this.sim]) {
             if (p && p.exitCode === null) p.kill('SIGKILL');
         }
+        if (this.nvs) { try { fs.unlinkSync(this.nvs); } catch { /* never written */ } }
     }
 }
 
@@ -364,6 +376,22 @@ class Ux {
 
     async text(id) { return (await this.page.locator(`#${id}`).textContent()).trim(); }
 
+    // The per-unit trim, off the calibration sliders -- which are painted from the state
+    // frame, so this is what the FIRMWARE holds and not what was last dragged.
+    async zeros() {
+        return {
+            h: parseInt(await this.page.locator('#r-zeroh').inputValue(), 10),
+            m: parseInt(await this.page.locator('#r-zerom').inputValue(), 10),
+        };
+    }
+
+    // "3 · +12" -> {count: 3, last: 12}; "0" -> {count: 0, last: 0}
+    async trims() {
+        const t = await this.text('m-trims');
+        const m = /^(\d+)(?:\s*·\s*([+-]?\d+))?$/.exec(t);
+        return m ? { count: +m[1], last: m[2] ? +m[2] : 0 } : { count: 0, last: 0 };
+    }
+
     // "07:38:04" -> {h, m, s}.  The page's own clock pill, from chrono's snapshot.
     async clock() {
         const t = await this.text('pill-clock');
@@ -393,27 +421,37 @@ class Ux {
     }
 
     // One notch of the wheel over the knob is one detent, which the encoder delivers as 4
-    // PCNT counts.  The wheel rather than the arrow keys because it needs no focus: an arrow
-    // key with a slider focused moves the SLIDER, and app.js correctly ignores it.
-    async turn(detents) {
+    // PCNT counts.
+    //
+    // The gap between them is not politeness, it is the movement: a setting may not run
+    // faster than the hands can draw it, and what arrives faster is DROPPED rather than
+    // banked (§6.6d).  One minute of dial is 288 microsteps, which at the shipping 6000
+    // usteps/s is 48 ms -- so a "one detent, one minute" case has to turn slower than that
+    // or it is asking the dial for something no dial can show, and the answer is correctly
+    // fewer minutes.  140 ms is a brisk turn with a lot of room: the margin is there because
+    // a LOADED machine delays the ui's poll, several detents then arrive in one read, and
+    // only one detent's worth of them survives -- which is correct firmware behaviour and a
+    // flaky test.  (Cases that want a spin faster than the hands say so explicitly:
+    // `sim knob n`, or `sim knob n over ms`.)
+    async turn(detents, gapMs = 140) {
         const box = await this.page.locator('#knob').boundingBox();
         await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         for (let i = 0; i < Math.abs(detents); i++) {
             await this.page.mouse.wheel(0, detents > 0 ? 120 : -120);
-            await this.page.waitForTimeout(45);   // app.js coalesces counts on a 33 ms timer
+            await this.page.waitForTimeout(gapMs);  // app.js coalesces counts on a 33 ms timer
         }
-        await this.page.waitForTimeout(80);
+        await this.page.waitForTimeout(150);
     }
 
     // The same detent through the keyboard, which is the other documented way to nudge it.
     async arrowTurn(detents) {
-        await this.page.locator('h1').click();   // focus off any slider first
+        await this.page.locator('h1').click();   // somewhere that is not the CLI box
         const key = detents > 0 ? 'ArrowRight' : 'ArrowLeft';
         for (let i = 0; i < Math.abs(detents); i++) {
             await this.page.keyboard.press(key);
-            await this.page.waitForTimeout(45);
+            await this.page.waitForTimeout(140);
         }
-        await this.page.waitForTimeout(80);
+        await this.page.waitForTimeout(120);
     }
 
     // Drag a hand round the dial -- reaching through the glass, not telling the firmware.
@@ -519,8 +557,12 @@ class Ux {
 // ---- the fixture --------------------------------------------------------------------------
 
 const test = base.extend({
-    ux: async ({ page }, use, testInfo) => {
-        const rig = await Rig.start();
+    // What to add to clocksim's command line, so a spec can ask for a different clock:
+    // `test.use({ simArgs: [] })` gets one that homes on boot, the way the product does.
+    simArgs: [['--no-home'], { option: true }],
+
+    ux: async ({ page, simArgs }, use, testInfo) => {
+        const rig = await Rig.start(simArgs);
         // Everything from here on must reach the stop() in `finally`.  A throw during setup
         // that leaks a clocksim leaks its PORT too, and the next test's attach then fails for
         // a reason that has nothing to do with the next test -- one flake becomes a cascade

@@ -8,7 +8,17 @@ cmake --preset host-dev && cmake --build --preset host-dev
 ./build/host-dev/apps/clocksim/clocksim            # console + UI bridge on 4747
 ./build/host-dev/apps/clocksim/clocksim --no-ui    # console only
 ./build/host-dev/apps/clocksim/clocksim --ui-port 5000
+./build/host-dev/apps/clocksim/clocksim --no-home  # do not home on boot (the test rig)
+./build/host-dev/apps/clocksim/clocksim --nvs /tmp/x.nvs   # ... and where settings live
 ```
+
+It **homes the moment it starts**, because the clock does (`FIRMWARE.md` §6.1a) — the hands are
+wherever the last run left them and nothing else can find that out. `--no-home` is for the
+browser suite, which would otherwise sit through a nine-second sweep forty times over.
+
+`--nvs` is the flash: a `key = value` file holding what has to survive a power cut, which today
+is the per-hand calibration (§6.1b). It defaults to `~/.clocksim.nvs` (or `$CLOCKSIM_NVS`) and
+it survives `sim reset` and `sys reboot`, exactly as the real NVS survives a power cycle.
 
 `uibridge.{hpp,cpp}` is the pipe [`ux/`](../../../ux/) attaches to. It lives **in the app and
 not under `components/`** on purpose: `apps/clock` puts `components/` on
@@ -24,6 +34,7 @@ Newline-delimited, UTF-8, deliberately asymmetric.
 ```
 #7 motion goto 07:30
 sim knob -12
+sim knob 40 over 1000
 ```
 
 So there is no JSON parser in the firmware, every input the app can produce is one you can
@@ -43,7 +54,8 @@ still sent, just unlabelled.
 ```json
 {"t":"state","ms":1552,"warp":1.000,
  "hands":{"h":100.000,"m":0.500,"hp":0,"mp":0,"hv":0,"mv":0,"moving":false,"motor":false},
- "motion":{"state":"idle","phase":"","homed":true,"th":0,"tm":0,"home_ms":6698,"faults":0},
+ "motion":{"state":"idle","phase":"","homed":true,"th":0,"tm":0,"home_ms":6698,"faults":0,
+            "zero_h":0,"zero_m":0,"trims":0,"trim":0},
  "ui":{"mode":"bell","armed":false,"alarm_h":7,"alarm_m":0,"vol":40,"idle_in":4820,
        "locked":false,"held":0},
  "clock":{"h":7,"m":38,"s":4,"valid":true,"follow":true,"prov":false,"sync":false},

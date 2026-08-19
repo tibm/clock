@@ -84,11 +84,12 @@ private:
     void press(uint32_t held_ms) noexcept;
     void commit_clock() noexcept;
     void show_hands(int dir = 0) noexcept;  // dir: which way the knob just turned
-    // Setting a time is paced to what the movement can actually draw: counts are banked by
-    // rotate() and released here, one minute at a time, no faster than the hands run.
+    // Setting a time is paced to what the movement can actually draw: counts arrive at
+    // rotate() and are spent here, one minute at a time, no faster than the hands run --
+    // and what arrives faster than that is DROPPED rather than paid out after the knob has
+    // stopped, because a dial that carries on winding is a time nobody chose (§6.6d).
     void drain_setting() noexcept;
     [[nodiscard]] uint32_t pace_ms() const noexcept;
-    [[nodiscard]] int32_t bank_cap(int32_t counts_per_minute) const noexcept;
     void publish() noexcept;
     [[nodiscard]] bool net_owns_time() const noexcept;
     [[nodiscard]] int32_t gain_for(int32_t magnitude) const noexcept;
@@ -139,10 +140,10 @@ private:
     int set_min_of_day_ = 0;  // what the knob is editing in Alarm / Clock
     // Counts the knob has delivered and the setting has not spent yet.  Not an optimisation:
     // a turn arrives as a stream of small deltas, and dividing each one on its own discards
-    // the remainder EVERY time.  In `alarm` and `clock` it is also the BANK -- what you
-    // turned but the hands have not had time to show (Ui::drain_setting).
+    // the remainder EVERY time.  Sub-minute only in `alarm` and `clock` -- whole minutes are
+    // either spent or dropped on the spot, never carried (Ui::drain_setting).
     int32_t counts_resid_ = 0;
-    uint64_t last_unit_us_ = 0;  // when the last banked minute was released
+    uint64_t last_unit_us_ = 0;  // when the last minute of setting was spent
     int32_t arm_resid_ = 0;      // and the same for the bell's direction deadband
     uint8_t volume_ = 40;
     uint64_t chime_at_us_ = 0;   // next chime starts

@@ -24,6 +24,14 @@ struct HandTarget {
 
 struct HomeRequest {};
 
+// The per-unit hand calibration (§6.1): how far past the index a hand has to sit to look
+// north, in microsteps, positive = clockwise.  An event rather than a setter because it moves
+// the hand and carries every pending target with it, which only the owning AO may do.
+struct ZeroSet {
+    uint8_t hand;  // hal::motor::Hand -- core/ sits below hal/ and may not name it (§2)
+    int32_t usteps;
+};
+
 // "Stop moving", which is emphatically NOT `Stop` below.  `Stop` is the framework's shutdown
 // event and ActiveObject::run() consumes it by leaving its loop -- so a service that posted
 // `Stop` to mean "hold the hands where they are" killed its own thread instead, and the
@@ -71,8 +79,9 @@ struct PowerState {
 
 struct Stop {};  // shutdown, posted by stop() and swallowed by run().  See Halt.
 
-using Event = std::variant<std::monostate, HandTarget, HomeRequest, Halt, HomeDone, HandState,
-                           KnobDelta, KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
+using Event =
+    std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, Halt, HomeDone, HandState,
+                 KnobDelta, KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
 
 // std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
 // abort, and get_if reads better in a handler that only cares about three of these.

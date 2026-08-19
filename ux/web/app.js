@@ -109,6 +109,11 @@ const lit = (p) => p[0] + p[1] + p[2] + p[3] > 0;
 let uiFrozenUntil = 0;   // do not fight the user while they are dragging a slider
 let plateYaw = 0;        // where the cube is pointing, so a hand drag can be un-rotated
 
+// 48 microsteps to the degree.  The firmware speaks microsteps; a person calibrating a hand by
+// eye is thinking in degrees, so the label says both.
+const kUstepsPerDeg = 17280 / 360;
+const zeroLabel = (v) => `${v > 0 ? '+' : ''}${v} · ${(v / kUstepsPerDeg).toFixed(2)}°`;
+
 // A toggle is a REQUEST, not a mirror of the last frame.  Deciding what to send by reading
 // the class that is currently painted loses the race: two clicks inside one round trip both
 // read the old state, both send the same command, and the second one appears to do nothing.
@@ -193,6 +198,11 @@ function onState(s) {
     $('m-vel').textContent = `${s.hands.hv} / ${s.hands.mv}`;
     $('m-home').textContent = s.motion.home_ms ? `${(s.motion.home_ms / 1000).toFixed(1)} s` : '—';
     $('m-faults').textContent = s.motion.faults;
+    // How many index crossings have corrected a hand, and by how much the last one did.  Zero
+    // is the healthy reading on a clock that has just homed; a number that climbs slowly is a
+    // movement being kept honest, and a number that jumps is one worth watching.
+    $('m-trims').textContent = s.motion.trims
+        ? `${s.motion.trims} · ${s.motion.trim > 0 ? '+' : ''}${s.motion.trim}` : '0';
     // The button is the one place that says whether the hands are trustworthy, because it is
     // where you look when they are not.  Blue only while a run is actually in progress: a
     // colour that never changes is a colour nobody reads.
@@ -258,6 +268,12 @@ function onState(s) {
                                    : 'no network';
 
     if (Date.now() > uiFrozenUntil) {
+        // The calibration is the firmware's, not the page's: it comes back from NVS at boot, so
+        // a reloaded page shows what this unit is actually trimmed to rather than zero.
+        $('r-zeroh').value = s.motion.zero_h;
+        $('v-zeroh').textContent = zeroLabel(s.motion.zero_h);
+        $('r-zerom').value = s.motion.zero_m;
+        $('v-zerom').textContent = zeroLabel(s.motion.zero_m);
         $('r-yaw').value = Math.round(s.imu.yaw);
         $('v-yaw').textContent = `${s.imu.yaw.toFixed(0)}°`;
         $('r-vbat').value = s.pwr.mv;
@@ -297,6 +313,16 @@ function wireKnob() {
     let last = null;
     let visual = 0;
 
+    // Turning the knob is one gesture with three inputs -- drag, wheel, arrow keys -- and all
+    // three have to move the same two things: the mark on the knob, and the count in the
+    // firmware.  The arrows used to send counts without turning the mark, so a keyboard nudge
+    // in `idle` (where a turn is correctly ignored) looked exactly like a dead key.
+    const spin = (counts) => {
+        visual += counts * 360 / 256;
+        $('knob-dial').setAttribute('transform', `rotate(${visual})`);
+        knobBy(counts);
+    };
+
     knob.addEventListener('pointerdown', (e) => {
         knob.setPointerCapture(e.pointerId);
         last = angleAt(knob, e);
@@ -321,10 +347,7 @@ function wireKnob() {
     knob.addEventListener('pointercancel', drop);
     knob.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const d = Math.sign(e.deltaY) * 4;      // one detent per notch
-        visual += d * 360 / 256;
-        $('knob-dial').setAttribute('transform', `rotate(${visual})`);
-        knobBy(d);
+        spin(Math.sign(e.deltaY) * 4);          // one detent per notch
     }, { passive: false });
 
     const press = $('press');
@@ -337,9 +360,13 @@ function wireKnob() {
     });
 
     addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        if (e.key === 'ArrowRight') knobBy(4);
-        else if (e.key === 'ArrowLeft') knobBy(-4);
+        // The CLI box owns every key while it has focus -- but a slider does not own the
+        // arrows.  It used to: click any slider and the next arrow key moved THAT, silently,
+        // and the knob appeared broken for the rest of the session.  The keys are documented
+        // as the knob's, so they are the knob's, and preventDefault keeps the slider still.
+        if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+        if (e.key === 'ArrowRight') { e.preventDefault(); spin(4); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); spin(-4); }
         else if (e.code === 'Space' && !e.repeat) { e.preventDefault(); down(); }
     });
     addEventListener('keyup', (e) => {
@@ -430,6 +457,10 @@ function wireControls() {
     live('r-vcoarse', 'v-vcoarse', (v) => `${v}`, (v) => `motion tune v_coarse ${v}`);
     live('r-backlash', 'v-backlash', (v) => `${v}`, (v) => `motion tune backlash ${v}`);
     live('r-cpm', 'v-cpm', (v) => `${v}`, (v) => `ui knob counts ${v}`);
+    // The per-unit trim, in microsteps, shown in both units because one of them is what you
+    // type on the bench and the other is what you can see through the glass.
+    live('r-zeroh', 'v-zeroh', zeroLabel, (v) => `motion zero h ${v}`);
+    live('r-zerom', 'v-zerom', zeroLabel, (v) => `motion zero m ${v}`);
     live('r-steps', 'v-steps', (v) => `${v}`, (v) => `chrono steps ${v}`);
     $('r-steps').addEventListener('input', () => {
         const n = +$('r-steps').value;

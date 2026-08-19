@@ -154,10 +154,31 @@ bool wait_until(Fn pred, int max_ms = 4000) {
 // this the control loop samples the opto too rarely in SIM time and the sweep steps straight
 // over the 3-degree index window.  That is the same aliasing a too-fast sweep hits on the
 // bench, so the honest thing is to respect it here rather than widen the window in the fake.
+// Auto-home (§6.1) is ON in the product and OFF in most of these cases, and the reason is
+// worth stating: `sim::reset()` teleports the hands while `motion` goes on believing whatever
+// it believed, so every case that starts that way has a movement whose hands really HAVE
+// slipped -- and a movement that notices is exactly what auto-home is for.  It would notice
+// here, three crossings in, in the middle of somebody else's measurement.  So the cases that
+// are not about it turn it off, and the ones that are turn it back on.
+void autohome(bool on) {
+    RecordingSink r;
+    run(on ? "motion tune autohome 1" : "motion tune autohome 0", r);
+}
+
+void motion_speed(int32_t v_max, int32_t accel) {
+    RecordingSink r;
+    char line[48];
+    std::snprintf(line, sizeof line, "motion tune v_max %d", v_max);
+    run(line, r);
+    std::snprintf(line, sizeof line, "motion tune accel %d", accel);
+    run(line, r);
+}
+
 void fresh_motion() {
     sim::reset();
     cli::unsafe_set(true);
     sim::set_warp(20.0);
+    autohome(false);
 }
 
 }  // namespace
@@ -237,6 +258,229 @@ void test_motion_faults_and_recovers() {
     mo().home();
     CHECK(wait_until([] { return mo().snapshot().homed; }, 8000));
     CHECK(mo().snapshot().state != svc::Motion::State::Fault);
+}
+
+// ---- the per-unit calibration, and the trim that keeps it -------------------------------
+
+namespace {
+
+// The smallest angle between two bearings, signed, so 359.6 and 0.2 are 0.6 apart.
+float angle_delta(float from, float to) {
+    float d = to - from;
+    while (d > 180.0f) d -= 360.0f;
+    while (d < -180.0f) d += 360.0f;
+    return d;
+}
+
+// Does the firmware's idea of where a hand is agree with where it actually is?  Homing makes
+// this true; auto-home is what keeps it true.  It is never zero: the rising edge sits a mark's
+// width short of centre, so the residue is a degree or two until `motion zero` says otherwise
+// -- which is why every case below measures a CHANGE in it and not the number itself.
+float belief_error_deg(Hand h) {
+    const auto s = mo().snapshot();
+    return angle_delta(domain::to_deg(h == Hand::Hour ? s.hour : s.minute), sim::hand_angle(h));
+}
+
+// `motion zero`, and wait for the AO to have acted on it.  Everything here is posted, so a
+// measurement taken on the next line is a measurement of the state before the command.
+bool zero_hand(Hand h, int32_t n) {
+    RecordingSink r;
+    char line[40];
+    std::snprintf(line, sizeof line, "motion zero %s %d", h == Hand::Hour ? "h" : "m", n);
+    run(line, r);
+    return wait_until(
+        [&] {
+            const auto s = mo().snapshot();
+            return (h == Hand::Hour ? s.zero_h : s.zero_m) == n;
+        },
+        2000);
+}
+
+// Home, and wait for THIS home rather than for the last one: `homed` is usually already true
+// when the request goes in, so a wait on it alone returns before the sweep has begun and the
+// case then measures the hands mid-run.
+bool home_and_wait(int ms = 12000) {
+    mo().home();
+    if (!wait_until(
+            [] {
+                const auto s = mo().snapshot();
+                return !s.homed || s.state == svc::Motion::State::Homing;
+            },
+            2000)) {
+        return false;
+    }
+    return wait_until([] { return mo().snapshot().homed; }, ms);
+}
+
+// Both hands to a known place, and settled there.  Homing re-issues whatever target was
+// outstanding when it started, so "just homed" is not a position -- it is a position plus
+// whatever the last case left in flight.
+bool park_at(int32_t h, int32_t m, int ms = 8000) {
+    mo().goto_usteps(h, m);
+    return wait_until(
+        [&] {
+            const auto s = mo().snapshot();
+            return s.state == svc::Motion::State::Idle &&
+                   domain::normalise(s.hour) == domain::normalise(h) &&
+                   domain::normalise(s.minute) == domain::normalise(m);
+        },
+        ms);
+}
+
+}  // namespace
+
+// §6.1: the opto answers "the mark is over the window", which is not the same question as "the
+// hand is due north".  The gap is a fact about how ONE clock was assembled -- how the mark was
+// printed, how the hand was pressed on, how square the sensor sits -- so it is a number per
+// hand, set once by eye, and every zero the movement adopts is measured from it.
+void test_motion_zero_offsets_the_hand() {
+    fresh_motion();
+    CHECK(zero_hand(Hand::Hour, 0));
+    CHECK(zero_hand(Hand::Minute, 0));
+    sim::set_hand_angle(Hand::Hour, 137.0f);
+    sim::set_hand_angle(Hand::Minute, 41.0f);
+    CHECK(home_and_wait());
+    CHECK(park_at(0, 0));
+
+    // 96 usteps is two degrees.  The hand turns clockwise by exactly that, and what the
+    // firmware has for it does not change: the FRAME moved, not the target.  It is still
+    // twelve o'clock -- twelve o'clock is now two degrees further round.
+    constexpr int32_t kTrim = 96;
+    const float before = sim::hand_angle(Hand::Hour);
+    const float minute_before = sim::hand_angle(Hand::Minute);
+    CHECK(zero_hand(Hand::Hour, kTrim));
+    CHECK(wait_until(
+        [] {
+            const auto s = mo().snapshot();
+            return s.state == svc::Motion::State::Idle && domain::normalise(s.hour) == 0;
+        },
+        4000));
+    const float moved = angle_delta(before, sim::hand_angle(Hand::Hour));
+    CHECK(moved > 1.7f && moved < 2.3f);
+    // ... and the other hand did not budge, because the two are separate pieces of assembly
+    // error and one number could never describe both.
+    CHECK(mo().snapshot().zero_m == 0);
+    CHECK(std::abs(angle_delta(minute_before, sim::hand_angle(Hand::Minute))) < 0.2f);
+
+    // The next home adopts it too -- otherwise the calibration would last exactly until the
+    // hands next went looking for their index, which is every boot.
+    const float placed = sim::hand_angle(Hand::Hour);
+    sim::set_hand_angle(Hand::Hour, 210.0f);
+    CHECK(home_and_wait());
+    CHECK(park_at(0, 0));
+    const float again = angle_delta(placed, sim::hand_angle(Hand::Hour));
+    if (std::abs(again) >= 1.5f) {
+        std::printf("  (zero: the re-home landed %.2f deg from where the trim put it)\n",
+                    static_cast<double>(again));
+    }
+    CHECK(std::abs(again) < 1.5f);
+
+    CHECK(zero_hand(Hand::Hour, 0));
+}
+
+// Auto-home (§6.1).  Homing is nine seconds of sweeping; the hands cross that same index every
+// hour anyway, and each crossing measures the same thing for free.  So a movement that has
+// drifted half a degree -- a missed microstep, a knock, a shaft that slipped in the train --
+// puts itself right without anybody asking and without any of it being visible.
+void test_motion_autohome_trims_a_drifted_hand() {
+    fresh_motion();
+    CHECK(zero_hand(Hand::Hour, 0));
+    CHECK(zero_hand(Hand::Minute, 0));
+    sim::set_hand_angle(Hand::Hour, 137.0f);
+    sim::set_hand_angle(Hand::Minute, 41.0f);
+    mo().home();
+    CHECK(wait_until([] { return mo().snapshot().homed; }, 8000));
+    // The hour hand goes to the SIX.  Both hands pass the same window, so a crossing while the
+    // other hand is sitting in it is unattributable on purpose -- which is also why a real
+    // clock cannot trim itself at noon (rule 3).
+    CHECK(park_at(kRev / 2, 0));
+    const float base = belief_error_deg(Hand::Minute);
+
+    // A crossing is only a measurement if it is slow enough to be one: the sensor is sampled
+    // once a control tick, which at 4x warp is 20 ms of dial.  300 usteps/s is six microsteps
+    // of it -- a tenth of a degree, which is what makes a full correction safe.
+    sim::set_warp(4.0);
+    motion_speed(300, 20000);
+    autohome(true);
+
+    // Reach in and push the minute hand half a degree clockwise.  The firmware is not told --
+    // that is the whole point -- and it now believes the hand is somewhere it is not.
+    sim::set_hand_angle(Hand::Minute, sim::hand_angle(Hand::Minute) + 0.5f);
+    CHECK(angle_delta(base, belief_error_deg(Hand::Minute)) > 0.3f);
+
+    // Now walk it clockwise across the index, the way the clock does every hour: four degrees
+    // back into the dark first, so there is a real edge to find.
+    CHECK(park_at(kRev / 2, -kRev / 90));
+    const uint32_t trims = mo().snapshot().trims;
+    mo().goto_usteps(kRev / 2, kRev / 90);
+    CHECK(wait_until([&] { return mo().snapshot().trims > trims; }, 8000));
+
+    // The correction went the right way: the hand was AHEAD of where the firmware had it, so
+    // the edge arrived early and the count had to catch up.
+    CHECK(mo().snapshot().last_trim > 0);
+    CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Idle; }, 8000));
+    // And the drift is gone -- back to exactly the relationship homing left behind.
+    CHECK(std::abs(angle_delta(base, belief_error_deg(Hand::Minute))) < 0.2f);
+
+    autohome(false);
+    motion_speed(6000, 20000);
+    sim::set_warp(20.0);
+}
+
+// The other half of rule 4: a crossing that lands nowhere near where it should is not drift,
+// and the answer to it is not a bigger trim.  One is noise or the other hand; three in a row is
+// a movement that has genuinely slipped, and what that needs is a real home.
+void test_motion_autohome_rehomes_when_the_hands_have_slipped() {
+    fresh_motion();
+    CHECK(zero_hand(Hand::Hour, 0));
+    CHECK(zero_hand(Hand::Minute, 0));
+    sim::set_hand_angle(Hand::Hour, 137.0f);
+    sim::set_hand_angle(Hand::Minute, 41.0f);
+    CHECK(home_and_wait());
+    CHECK(park_at(kRev / 2, 0));  // the hour hand off the index -- see rule 3, above
+    const float base = belief_error_deg(Hand::Minute);
+
+    sim::set_warp(4.0);
+    motion_speed(300, 20000);
+    autohome(true);
+    // Three degrees: too far to be drift (the accept window is one and a half), close enough
+    // that the hand is still plainly the one lighting the sensor.
+    sim::set_hand_angle(Hand::Minute, sim::hand_angle(Hand::Minute) + 3.0f);
+
+    // Shuttle across the index.  Only the clockwise passes count -- coming back the other way
+    // the edge sits on the far side of the window and measures nothing.
+    const uint32_t trims = mo().snapshot().trims;
+    bool rehoming = false;
+    for (int i = 0; i < 4 && !rehoming; ++i) {
+        CHECK(park_at(kRev / 2, -kRev / 90));
+        mo().goto_usteps(kRev / 2, kRev / 90);
+        // Wait for the pass to ARRIVE -- or for the re-home that a bad crossing posts from
+        // inside it.  Waiting on `state != Moving` looks equivalent and is not: the target is
+        // posted, so for a tick or two the movement is still Idle and the wait returns before
+        // the hand has set off, which is a shuttle that never crosses anything.
+        CHECK(wait_until(
+            [] {
+                const auto s = mo().snapshot();
+                return s.state == svc::Motion::State::Homing ||
+                       (s.state == svc::Motion::State::Idle &&
+                        domain::normalise(s.minute) == domain::normalise(kRev / 90));
+            },
+            8000));
+        rehoming = mo().snapshot().state == svc::Motion::State::Homing;
+    }
+    CHECK(rehoming);
+    // ... and not once did it trim towards one of those bad readings.
+    CHECK(mo().snapshot().trims == trims);
+
+    // ... and the re-home is a real one: it ends with the firmware and the hand agreeing again.
+    // Back to the shipping speed for the rest of it -- the crossing had to be slow, a homing
+    // sweep does not, and eight seconds of ParkMinute at 300 usteps/s is eight seconds of CI.
+    motion_speed(6000, 20000);
+    sim::set_warp(20.0);
+    CHECK(wait_until([] { return mo().snapshot().homed; }, 20000));
+    CHECK(std::abs(angle_delta(base, belief_error_deg(Hand::Minute))) < 1.5f);
+
+    autohome(false);
 }
 
 void test_motion_lands_exactly_on_an_absolute_target() {
@@ -372,10 +616,12 @@ int alarm_min_of_day() {
 }
 
 // One detent, and WAIT for it to land before delivering the next.  A plain sleep is not
-// enough on a loaded machine: two nudges that arrive inside one 20 ms poll are, correctly, a
-// FAST turn, the acceleration curve multiplies them, and the test fails for a reason that has
-// nothing to do with what it is testing.  Waiting for each minute makes it deterministic.
+// enough on a loaded machine: two nudges that arrive inside one 20 ms poll are, correctly,
+// one turn too fast for the hands to draw, the second minute is DROPPED (§6.6d), and the
+// test fails for a reason that has nothing to do with what it is testing.  So: one pace of
+// clearance in front of each detent, then wait for the minute to land.
 bool turn_one_minute(int dir) {
+    hal::clock_::sleep_ms(60);  // > one minute of dial at the default v_max
     const int before = alarm_min_of_day();
     sim::turn_counts(4 * dir);
     return wait_until([&] { return alarm_min_of_day() == before + dir; }, 1500);
@@ -409,6 +655,7 @@ void fresh_ui(double warp = 1.0) {
     sim::reset();
     cli::unsafe_set(true);
     sim::set_warp(warp);
+    autohome(false);  // see above: these hands have "slipped" by construction
     hal::clock_::sleep_ms(60);
 }
 
@@ -428,15 +675,6 @@ void knob_defaults() {
     run("ui knob counts 4", r);
     run("ui knob slow 4", r);
     run("ui knob timeout 5000", r);
-}
-
-void motion_speed(int32_t v_max, int32_t accel) {
-    RecordingSink r;
-    char line[48];
-    std::snprintf(line, sizeof line, "motion tune v_max %d", v_max);
-    run(line, r);
-    std::snprintf(line, sizeof line, "motion tune accel %d", accel);
-    run(line, r);
 }
 
 // What a pixel DID over a window, which is the only way to tell a breath from a blink: a
@@ -506,12 +744,11 @@ void test_ui_mode_cycle() {
     CHECK(turn_one_minute(+1));
     CHECK(alarm_min_of_day() == before + 3);
 
-    // ... and a SPIN is worth every minute you spun it, delivered at the speed the hands can
-    // draw (§6.6d, changed 2026-08-16).  40 counts is ten minutes at 4 counts a minute: they
-    // are banked, not multiplied, and they arrive one at a time rather than in a jump the
-    // dial cannot render.
+    // ... and a TURN is worth every minute you turned it, as long as it is a turn the hands
+    // can draw (§6.6d, changed 2026-08-16).  Forty counts is ten minutes at four counts a
+    // minute; spread over a second they all land, one at a time, at the speed of the dial.
     const int fine = alarm_min_of_day();
-    sim::turn_counts(40);
+    sim::turn_counts_over(40, 1000);
     CHECK(alarm_min_of_day() < fine + 10);  // not all at once ...
     CHECK(wait_until([&] { return alarm_min_of_day() == fine + 10; }, 3000));  // ... but all
 
@@ -748,7 +985,10 @@ bool wind_a_day(int dir) {
     static_assert(36 * kStepMin == 24 * 60, "thirty-six steps is a whole day");
 
     for (int step = 1; step <= 36; ++step) {
-        sim::turn_counts(kStepMin * dir);
+        // As a TURN, not a lump: one count is one minute here, and a minute of dial takes a
+        // pace whatever the movement is set to, so forty of them delivered inside one poll
+        // are forty minutes the hands cannot draw and thirty-nine that get dropped (§6.6d).
+        sim::turn_counts_over(kStepMin * dir, kStepMin * 25);
         const int32_t want_m = start.minute + dir * step * kPerMinute;
         const int32_t want_h = start.hour + dir * step * kPerHour;
         bool backwards = false;
@@ -832,15 +1072,34 @@ void test_ui_a_dragged_knob_never_reverses() {
             }
         };
         // Two minutes of setting every 40 ms, against a movement that can draw twenty a
-        // second: the knob is asking for six times what the hands can do.
-        for (int i = 0; i < 12; ++i) {
+        // second: the knob is asking for four times what the hands can do.
+        for (int i = 0; i < 30; ++i) {
             sim::turn_counts(8 * dir);
             sample(40);
         }
-        sample(2000);  // ... and while the bank pays out what is left of it
+        // And now the finger stops.  What the hands could not draw was DROPPED, not banked, so
+        // what is left to travel is the minute in flight plus at most the one detent the
+        // sensitivity is allowed to hold -- against the two seconds of coasting this used to
+        // do, which was a hundred and eighty degrees of minute hand arriving somewhere nobody
+        // chose (§6.6d, changed 2026-08-16).
+        hal::clock_::sleep_ms(120);
+        const int32_t settled = mo().snapshot().minute;
+        sample(1500);
+        const int32_t crept = std::abs(mo().snapshot().minute - settled);
 
         if (wrong) std::printf("  (drag %s: a hand went backwards)\n", dir > 0 ? "CW" : "CCW");
         CHECK(!wrong);
+        if (crept > 4 * kRev / 60) {
+            std::printf("  (drag %s: the hands wound on %d usteps after the knob stopped)\n",
+                        dir > 0 ? "CW" : "CCW", crept);
+        }
+        // Four minutes of dial, and it is worth saying what they are made of: the minute
+        // already in flight, the one detent drain_setting may hold, and the ramp out of
+        // whatever speed the hand had reached.  Against a bank that used to pay out
+        // thirty-three of them, this is the difference between "it stopped" and "it is
+        // still going".  Generous on purpose: a loaded machine delays the ui's poll, the
+        // next release is then several minutes at once, and the hand ramps further.
+        CHECK(crept <= 4 * kRev / 60);
         // It moved, and it moved a long way -- this is not "monotone because it never budged",
         // which is exactly what the clockwise half of the bug looked like.
         CHECK(dir > 0 ? last - from > kRev / 4 : last - from < -kRev / 4);
@@ -850,31 +1109,41 @@ void test_ui_a_dragged_knob_never_reverses() {
     knob_defaults();
 }
 
-// A spin is worth every minute you spun it, and no more -- delivered at the speed the hands
-// can draw rather than in a jump the dial cannot render (§6.6d, changed 2026-08-16).
-void test_ui_a_spin_is_banked_not_multiplied() {
+// The setting goes no faster than the hands can draw it, and what it cannot draw it DROPS
+// (§6.6d, changed 2026-08-16 -- it used to bank two seconds of winding and pay it out after
+// the knob had stopped, which is a dial that keeps moving after you let go).
+void test_ui_a_spin_is_paced_not_banked() {
     fresh_ui(1.0);
     RecordingSink r;
     run("ui knob timeout 60000", r);
     run("ui mode alarm", r);
     CHECK(in_mode("alarm"));
+
+    // Forty counts inside one poll is ten minutes of setting in twenty milliseconds -- a turn
+    // no finger performed.  One minute of it lands, and the other nine are gone: nothing
+    // arrives afterwards, which is the whole point.
     const int before = alarm_min_of_day();
+    sim::turn_counts(40);
+    hal::clock_::sleep_ms(400);
+    const int lump = alarm_min_of_day();
+    CHECK(lump > before);      // the knob is not dead ...
+    CHECK(lump < before + 4);  // ... but a lump is not ten minutes either
+    hal::clock_::sleep_ms(600);
+    CHECK(alarm_min_of_day() == lump);  // and it does NOT carry on winding
 
-    sim::turn_counts(40);  // ten minutes at four counts a minute
-    hal::clock_::sleep_ms(30);
-    const int right_after = alarm_min_of_day();
-    CHECK(right_after > before);       // something happened straight away ...
-    CHECK(right_after < before + 10);  // ... but not all of it
-    CHECK(wait_until([&] { return alarm_min_of_day() == before + 10; }, 3000));
-    hal::clock_::sleep_ms(300);
-    CHECK(alarm_min_of_day() == before + 10);  // and it stops there rather than coasting on
-
-    // The bank is bounded: a violent spin cannot wind for the rest of the afternoon.
+    // The same forty counts as an actual turn -- delivered over a second, which is a speed
+    // the hands can follow -- are worth every one of their ten minutes.
     const int mid = alarm_min_of_day();
-    sim::turn_counts(4000);  // a thousand minutes' worth of counts
-    CHECK(wait_until([&] { return alarm_min_of_day() > mid + 20; }, 8000));
+    sim::turn_counts_over(40, 1000);
+    CHECK(wait_until([&] { return alarm_min_of_day() == mid + 10; }, 4000));
+    hal::clock_::sleep_ms(400);
+    CHECK(alarm_min_of_day() == mid + 10);
+
+    // And a violent spin cannot wind for the rest of the afternoon.
+    const int fast = alarm_min_of_day();
+    sim::turn_counts(4000);  // a thousand minutes' worth of counts, all at once
     hal::clock_::sleep_ms(1500);
-    CHECK(alarm_min_of_day() < mid + 200);
+    CHECK(alarm_min_of_day() < fast + 4);
 
     run("ui mode idle", r);
     knob_defaults();
@@ -892,7 +1161,7 @@ void test_ui_a_wind_past_the_half_hour_goes_forwards() {
     CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Idle; }, 6000));
     const auto before = mo().snapshot();
 
-    sim::turn_counts(31);
+    sim::turn_counts_over(31, 2000);  // a turn, not a lump: 31 minutes at a minute a pace
     const int32_t want = before.minute + 31 * kRev / 60;
     CHECK(wait_until([&] { return mo().snapshot().minute == want; }, 6000));
     // Not just "it arrived": it arrived the way the knob turned.  The shortest way here is
@@ -902,7 +1171,7 @@ void test_ui_a_wind_past_the_half_hour_goes_forwards() {
 
     // ... and back the other way, which is under half a turn and was never broken.
     const auto mid = mo().snapshot();
-    sim::turn_counts(-31);
+    sim::turn_counts_over(-31, 2000);
     CHECK(wait_until([&] { return mo().snapshot().minute == before.minute; }, 6000));
     CHECK(mo().snapshot().minute - mid.minute < 0);
 
@@ -974,6 +1243,7 @@ void test_chrono_drives_the_hands() {
     sim::reset();
     cli::unsafe_set(true);
     sim::set_warp(20.0);
+    autohome(false);
     sim::set_hand_angle(Hand::Hour, 0.0f);
     sim::set_hand_angle(Hand::Minute, 0.0f);
 
@@ -1027,6 +1297,9 @@ void run_motion_service_tests() {
     test_motion_a_step_lands_in_the_hands_own_turn();
     test_motion_de_energises_when_idle();
     test_motion_faults_and_recovers();
+    test_motion_zero_offsets_the_hand();
+    test_motion_autohome_trims_a_drifted_hand();
+    test_motion_autohome_rehomes_when_the_hands_have_slipped();
     // First: an unset clock is a starting condition there is no way back to -- and merely
     // VISITING `clock` sets one, because leaving the mode commits what the hands showed.
     test_ui_clock_starts_from_the_clock();
@@ -1037,7 +1310,7 @@ void run_motion_service_tests() {
     test_ui_hands_show_the_mode();
     test_ui_a_wind_past_the_half_hour_goes_forwards();
     test_ui_a_dragged_knob_never_reverses();
-    test_ui_a_spin_is_banked_not_multiplied();
+    test_ui_a_spin_is_paced_not_banked();
     test_ui_winds_a_day_without_reversing();
     test_ui_volume_sweeps_the_gauge();
     test_chrono_drives_the_hands();

@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <thread>
 
 #include "uibridge.hpp"
@@ -43,11 +44,23 @@ void reboot_now() {
     CLK_LOGE(sys, "reboot: execv failed (%s) -- still the old image", std::strerror(errno));
 }
 
+// Where the NVS stand-in lives.  A real clock's calibration survives the power cord being
+// pulled, so the sim's has to survive a restart too -- `sim reset`, `sys reboot` and closing
+// the terminal all leave this file exactly where it was.
+std::string store_path() {
+    if (const char* env = std::getenv("CLOCKSIM_NVS")) return env;
+    const char* home = std::getenv("HOME");
+    return home ? std::string{home} + "/.clocksim.nvs" : std::string{".clocksim.nvs"};
+}
+
 void usage() {
     std::printf(
         "clocksim -- the clock firmware against fake hardware\n"
         "  --ui-port <n>   serve the ux/ bridge on 127.0.0.1:<n>  (default %u)\n"
         "  --no-ui         console only\n"
+        "  --no-home       do not home on boot (the test rig; `motion home` still works)\n"
+        "  --nvs <path>    where persistent settings live  (default ~/.clocksim.nvs,\n"
+        "                  or $CLOCKSIM_NVS)\n"
         "  -h, --help      this\n",
         clk::uibridge::kDefaultPort);
 }
@@ -56,12 +69,18 @@ void usage() {
 
 int main(int argc, char** argv) {
     uint16_t ui_port = clk::uibridge::kDefaultPort;
+    bool home_on_boot = true;
+    std::string nvs = store_path();
     g_argv = argv;
 
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
         if (std::strcmp(a, "--no-ui") == 0) {
             ui_port = 0;
+        } else if (std::strcmp(a, "--no-home") == 0) {
+            home_on_boot = false;
+        } else if (std::strcmp(a, "--nvs") == 0 && i + 1 < argc) {
+            nvs = argv[++i];
         } else if (std::strcmp(a, "--ui-port") == 0 && i + 1 < argc) {
             ui_port = static_cast<uint16_t>(std::strtoul(argv[++i], nullptr, 10));
         } else if (std::strcmp(a, "-h") == 0 || std::strcmp(a, "--help") == 0) {
@@ -77,6 +96,8 @@ int main(int argc, char** argv) {
     clk::log::init(clk::log::Level::Info);
     clk::hal::init();
     clk::hal::host::set_reboot_hook(reboot_now);
+    clk::hal::host::set_store_path(nvs.c_str());
+    CLK_LOGI(sys, "nvs: %s", nvs.c_str());
 
     // Same construction order as app_main: wire the AOs to each other, then start them in
     // priority order.  motion has no dependencies; chrono drives it; ui drives both.
@@ -86,6 +107,10 @@ int main(int argc, char** argv) {
     motion.subscribe(&chrono);
     chrono.bind(&motion);
     ui.bind(&motion, &chrono);
+    // A real clock homes the moment it powers up (§6.1).  The test rig turns that off: a
+    // nine-second sweep before every case buys nothing there, and the case that is ABOUT
+    // boot homing simply starts a clocksim without the flag.
+    motion.set_home_on_start(home_on_boot);
     motion.start();
     chrono.start();
     ui.start();

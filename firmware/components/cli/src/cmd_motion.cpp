@@ -60,12 +60,17 @@ Status cmd_status(Args const&, Sink& out) {
     out.printf("target h=%" PRId32 " m=%" PRId32, s.target_hour, s.target_minute);
     out.printf("coils  %s   opto %.3f   faults %" PRIu32, s.powered ? "live" : "off",
                static_cast<double>(s.opto), s.faults);
+    out.printf("zero   h=%" PRId32 " m=%" PRId32 " usteps  (%+.2f / %+.2f deg, per unit)", s.zero_h,
+               s.zero_m, static_cast<double>(s.zero_h) * 360.0 / domain::kRev,
+               static_cast<double>(s.zero_m) * 360.0 / domain::kRev);
+    out.printf("trims  %" PRIu32 "  last %+" PRId32 " usteps  (auto-home, on every crossing)",
+               s.trims, s.last_trim);
     if (s.home_ms) out.printf("last home took %" PRIu32 " ms of sim time", s.home_ms);
     const auto t = svc::motion().tuning();
     out.printf("tune   v_max=%" PRId32 " accel=%" PRId32 " v_coarse=%" PRId32 " v_fine=%" PRId32
-               " backlash=%" PRId32 " thresh=%.2f",
+               " backlash=%" PRId32 " thresh=%.2f autohome=%d",
                t.v_max, t.accel, t.v_coarse, t.v_fine, t.backlash,
-               static_cast<double>(t.opto_thresh));
+               static_cast<double>(t.opto_thresh), t.autohome ? 1 : 0);
     return Status::Ok;
 }
 
@@ -112,11 +117,12 @@ Status cmd_stop(Args const&, Sink& out) {
 Status cmd_tune(Args const& a, Sink& out) {
     auto t = svc::motion().tuning();
     if (a.count() < 2) {
-        out.line("usage: motion tune <v_max|accel|v_coarse|v_fine|backlash|thresh> <value>");
+        out.line(
+            "usage: motion tune <v_max|accel|v_coarse|v_fine|backlash|thresh|autohome> <value>");
         out.printf("  v_max=%" PRId32 " accel=%" PRId32 " v_coarse=%" PRId32 " v_fine=%" PRId32
-                   " backlash=%" PRId32 " thresh=%.2f",
+                   " backlash=%" PRId32 " thresh=%.2f autohome=%d",
                    t.v_max, t.accel, t.v_coarse, t.v_fine, t.backlash,
-                   static_cast<double>(t.opto_thresh));
+                   static_cast<double>(t.opto_thresh), t.autohome ? 1 : 0);
         return a.count() == 0 ? Status::Ok : Status::BadArg;
     }
     const char* k = a.arg(0);
@@ -134,12 +140,47 @@ Status cmd_tune(Args const& a, Sink& out) {
         t.backlash = i;
     } else if (std::strcmp(k, "thresh") == 0) {
         t.opto_thresh = static_cast<float>(v);
+    } else if (std::strcmp(k, "autohome") == 0) {
+        t.autohome = i != 0;
     } else {
         out.printf("no such knob '%s'", k);
         return Status::BadArg;
     }
     svc::motion().set_tuning(t);
     out.printf("%s = %g", k, v);
+    return Status::Ok;
+}
+
+// The per-unit calibration, and the only number in this file that is about ONE clock rather
+// than about the design.  The opto says "the mark is over the window"; north is where the
+// hand has to point for the dial to be right, and the gap between the two is a fact about how
+// this movement was assembled.  Positive pushes the hand clockwise.  It lands in NVS, it is
+// what homing adopts, and it is what the automatic trim measures against (§6.1).
+Status cmd_zero(Args const& a, Sink& out) {
+    const auto s = svc::motion().snapshot();
+    if (a.count() == 0) {
+        out.printf("zero h=%" PRId32 " m=%" PRId32 " usteps  (%+.2f / %+.2f deg)", s.zero_h,
+                   s.zero_m, static_cast<double>(s.zero_h) * 360.0 / domain::kRev,
+                   static_cast<double>(s.zero_m) * 360.0 / domain::kRev);
+        out.line("  usage: motion zero <h|m> <+/-usteps>   (48 usteps = 1 deg, + = clockwise)");
+        return Status::Ok;
+    }
+    hal::motor::Hand hand{};
+    if (!parse_hand(a.arg(0), hand) || a.count() < 2) {
+        out.line("usage: motion zero [<h|m> <+/-usteps>]");
+        return Status::BadArg;
+    }
+    const auto n = static_cast<int32_t>(std::strtol(a.arg(1), nullptr, 10));
+    // A trim is a trim: anything approaching a whole revolution is a typo, and applying it
+    // would move the hand there rather than tell you so.
+    if (n <= -domain::kRev / 4 || n >= domain::kRev / 4) {
+        out.printf("out of range: %+" PRId32 " usteps is not a calibration, it is a move", n);
+        return Status::BadArg;
+    }
+    svc::motion().set_zero(hand, n);
+    out.printf("zero %s = %+" PRId32 " usteps (%+.2f deg)%s", a.arg(0), n,
+               static_cast<double>(n) * 360.0 / domain::kRev,
+               s.homed ? " -- the hand moves to it now" : " -- applied at the next home");
     return Status::Ok;
 }
 
@@ -159,6 +200,7 @@ constexpr CmdSpec kRows[] = {
      cmd_step},
     {"motion", nullptr, "stop", "", "stop where you are", None, cmd_stop},
     {"motion", nullptr, "tune", "[<knob> <value>]", "profile + homing parameters", None, cmd_tune},
+    {"motion", nullptr, "zero", "[<h|m> <+/-usteps>]", "per-unit index trim (NVS)", None, cmd_zero},
     {"motion", nullptr, "spr", "", "microsteps per revolution", ReleaseOk, cmd_spr},
 };
 

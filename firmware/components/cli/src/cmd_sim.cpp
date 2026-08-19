@@ -241,17 +241,35 @@ Status cmd_press(Args const& a, Sink& out) {
 
 // Raw PCNT counts rather than detents: a knob being dragged in the UI produces a continuous
 // angle, and 256 counts/rev is fine enough that rounding it to detents would be visible.
+//
+// `over <ms>` is the same counts delivered at a RATE, which is the only way to say "a spin"
+// rather than "a teleport".  It matters because the ui paces a setting to what the hands can
+// draw (§6.6d): forty counts inside one 20 ms poll is a turn no finger performed, and the
+// firmware is right to spend one minute of it and drop the rest.  Spread the same forty over
+// a second and every one of them lands.
 Status cmd_knob(Args const& a, Sink& out) {
     const long c = arg_l(a, 0, 0);
     if (c == 0) {
-        out.line("usage: sim knob <+/-counts>   (256 counts/rev; `sim turn` for detents)");
+        out.line("usage: sim knob <+/-counts> [over <ms>]   (256 counts/rev; `sim turn` too)");
         return Status::BadArg;
     }
-    sim::turn_counts(static_cast<int32_t>(c));
+    long ms = 0;
+    if (a.count() >= 2) {
+        const char* w = a.arg(1);
+        const bool worded = std::strcmp(w, "over") == 0;
+        if (worded && a.count() < 3) {
+            out.line("usage: sim knob <+/-counts> over <ms>");
+            return Status::BadArg;
+        }
+        ms = std::strtol(worded ? a.arg(2) : w, nullptr, 10);
+        if (ms < 0) return Status::BadArg;
+    }
+    sim::turn_counts_over(static_cast<int32_t>(c), static_cast<uint32_t>(ms));
     const auto k = hal::knob::read();
     if (k.ok())
-        out.printf("knob count=%" PRId32 " (%+ld counts = %+.1f deg)", k.v.count, c,
-                   static_cast<double>(c) * 360.0 / 256.0);
+        out.printf("knob count=%" PRId32 " (%+ld counts = %+.1f deg%s%ld%s)", k.v.count, c,
+                   static_cast<double>(c) * 360.0 / 256.0, ms ? ", over " : "", ms ? ms : 0,
+                   ms ? " ms" : "");
     else
         out.printf("knob %s", cmd::name(k.st));
     return Status::Ok;
@@ -368,7 +386,8 @@ constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "noise", "<mV>", "ADC noise, deterministic", kHost, cmd_noise},
     {"sim", nullptr, "seed", "<n>", "reseed the noise PRNG", kHost, cmd_seed},
     {"sim", nullptr, "turn", "<+/-detents>", "rotate the knob", kHost, cmd_turn},
-    {"sim", nullptr, "knob", "<+/-counts>", "rotate the knob, raw PCNT counts", kHost, cmd_knob},
+    {"sim", nullptr, "knob", "<+/-counts> [over <ms>]", "rotate the knob, raw PCNT counts", kHost,
+     cmd_knob},
     {"sim", nullptr, "press", "[<ms>|down|up]", "press ENC_SW", kHost, cmd_press},
     {"sim", nullptr, "plug", "", "PD_PG high", kHost, cmd_plug},
     {"sim", nullptr, "unplug", "", "PD_PG low -- wake light gates off", kHost, cmd_plug},

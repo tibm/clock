@@ -57,7 +57,10 @@
         <input type="range" id="r-cpm" min="1" max="32" step="1" value="4"></label>
       <p class="hint left">press to cycle idle &rarr; <b>bell</b> &rarr; <b>alarm</b> &rarr;
         <b>clock</b> &rarr; <b>volume</b>, each named after its icon. A turn while idle is
-        ignored by design; hold ~0.8 s to commit and leave, <b>10 s to open BLE pairing</b>.</p>
+        ignored by design. Three ways out, and they all keep what you set:
+        <b>5 s</b> without input &mdash; the countdown on the mode pill &mdash; a
+        <b>hold of ~0.8 s</b> to leave at once, or one more press round the cycle.
+        Keep holding to <b>10 s</b> and it opens BLE pairing instead.</p>
     </div>
 
     <div class="card">
@@ -69,6 +72,8 @@
         <div class="kv"><span>velocity</span><b id="m-vel">—</b></div>
         <div class="kv"><span>last home</span><b id="m-home">—</b></div>
         <div class="kv"><span>faults</span><b id="m-faults">0</b></div>
+        <div class="kv"
+             title="auto-home — every crossing of the index is a free calibration, so `motion` trims the hand that made it. The count is how many crossings have corrected something and the number is the last correction. Three crossings that land nowhere near the index mean the hands have slipped, and it re-homes.">auto-home<b id="m-trims">0</b></div>
       </div>
       <div class="meter"><i id="opto-bar"></i><span id="opto-txt">opto —</span></div>
       <div class="btnrow">
@@ -92,6 +97,19 @@
         <input type="range" id="r-backlash" min="0" max="600" step="10" value="0"></label>
       <p class="hint left">a coarse sweep &mdash; or a big <b>warp</b> &mdash; that moves more than
         ~3.6&deg; between samples steps clean over the index window and homing faults.</p>
+    </div>
+
+    <div class="card">
+      <h2>calibration<small>per unit &middot; 48 &micro;steps = 1&deg;</small></h2>
+      <label class="slider"
+             title="motion zero h — the hour hand's index trim, in microsteps, positive = clockwise. The opto says the mark is over the window; north is where the hand has to point for the dial to be right. Homing adopts this instead of zero, and it is stored, so it survives a reboot.">hour hand <b id="v-zeroh">0</b>
+        <input type="range" id="r-zeroh" min="-240" max="240" step="1" value="0"></label>
+      <label class="slider"
+             title="motion zero m — the same for the minute hand. Two numbers, because the mark, the press-fit and the sensor are three separate pieces of assembly error and one number could never describe both hands.">minute hand <b id="v-zerom">0</b>
+        <input type="range" id="r-zerom" min="-240" max="240" step="1" value="0"></label>
+      <p class="hint left">home first, then drag until the hand looks <b>truly north</b>: the hand
+        moves as you drag and the number lands in storage, so the next boot &mdash; and every
+        auto-home after it &mdash; measures from here.</p>
     </div>
 
   </section>

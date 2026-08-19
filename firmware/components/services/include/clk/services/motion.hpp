@@ -33,6 +33,24 @@ public:
         int32_t v_fine = 400;
         int32_t backlash = 0;  // usteps of slop to take up; every move finishes clockwise
         float opto_thresh = 0.45f;
+        // ---- the per-unit calibration, one number per hand (`motion zero`, NVS-backed) ----
+        //
+        // The opto answers "the index mark is over the window", not "the hand is due north",
+        // and the two differ by however the mark was printed, the hand pressed on and the
+        // sensor soldered.  So each hand carries a trim in microsteps, POSITIVE = push the
+        // hand clockwise, applied where the two frames actually meet: homing adopts
+        // `-zero` at the index instead of 0, so asking for 12:00 afterwards lands on north.
+        //
+        // Written by set_zero() ONLY -- set_tuning() leaves them alone, because changing the
+        // zero has to move the hands and shift every target with them, which is a thing the
+        // AO does rather than a field a caller may assign.  Per unit, by hand, once.
+        int32_t zero_h = 0;
+        int32_t zero_m = 0;
+        // Auto-home (§6.1): trim the hands from index crossings that happen anyway.  On, and
+        // the switch is here because there are two times you want it off -- while measuring
+        // the very error it corrects, and in a test that teleports the hands and does not
+        // want the movement quietly noticing.
+        bool autohome = true;
     };
 
     struct Snapshot {
@@ -46,6 +64,9 @@ public:
         uint32_t home_ms;  // how long the last home took, sim ms
         float opto;
         uint32_t faults;
+        int32_t zero_h, zero_m;  // the per-unit trim, as `motion zero` last left it
+        uint32_t trims;          // index crossings that corrected the hands (§6.1 auto-home)
+        int32_t last_trim;       // ... and by how much the last one did, usteps, signed
     };
 
     Motion() noexcept;
@@ -62,9 +83,21 @@ public:
     void home() noexcept;
     void halt() noexcept;
 
+    // The per-unit trim, in microsteps, positive = clockwise (`motion zero`).  Posts, because
+    // it is not a setting but a change of frame: the hand moves to it, every pending target
+    // moves with it, and the new value goes to NVS.  Takes effect at the next home if the
+    // movement has never found its index.
+    void set_zero(hal::motor::Hand, int32_t usteps) noexcept;
+
+    // Whether to home as soon as the AO starts.  On by default -- the hands are wherever the
+    // last power-off left them and nothing else can find out where that is (§6.1).  clocksim
+    // turns it off for the test rig, where a nine-second sweep before every case buys
+    // nothing; the case that tests boot homing turns it back on.
+    void set_home_on_start(bool on) noexcept { home_on_start_ = on; }
+
     [[nodiscard]] Snapshot snapshot() const noexcept;
     [[nodiscard]] Tuning tuning() const noexcept;
-    void set_tuning(Tuning const&) noexcept;
+    void set_tuning(Tuning const&) noexcept;  // ... except zero_h/zero_m -- see set_zero
 
     // Gets HandState on every settle and HomeDone when homing finishes.  One subscriber is
     // enough for now (chrono); a real bus lands with §3.5.
@@ -119,6 +152,19 @@ private:
     void run_homing(float opto) noexcept;
     void finish_home() noexcept;
     void fail(const char* why) noexcept;
+    // ---- the index, outside a homing run -------------------------------------------------
+    // Where the index sits in a hand's own frame: `-zero`, because homing adopts it there.
+    [[nodiscard]] int32_t index_pos(hal::motor::Hand) const noexcept;
+    [[nodiscard]] Axis& axis_of(hal::motor::Hand) noexcept;
+    // Auto-home: every crossing of the index is a free calibration, so watch for one whenever
+    // we are NOT homing and correct the hand that made it.  Cheap, and it is the difference
+    // between a clock that is right at boot and a clock that stays right.
+    void watch_index(float opto) noexcept;
+    void trim_hand(hal::motor::Hand, int32_t err) noexcept;
+    // Shift one hand's whole coordinate frame by `d` usteps without moving it, and take every
+    // pending target with it.  Both `motion zero` and an auto-home trim are this.
+    void shift_frame(hal::motor::Hand, int32_t d) noexcept;
+    void retarget() noexcept;  // re-plan both axes onto want_h_/want_m_ and go
     // How far to back off before a fine re-approach: three coarse samples' worth of travel,
     // because that is exactly how far past the index the coarse pass can have carried us.
     // It scales with the measured tick, so a warped simulation widens it automatically.
@@ -151,6 +197,13 @@ private:
     uint8_t fine_pass_ = 0;
     int32_t backoff_ = 0;
     uint32_t faults_ = 0;
+    bool home_on_start_ = true;
+    // Auto-home bookkeeping.  `lost_` counts index crossings that landed nowhere near where
+    // they should have: one is noise or the other hand, three in a row is a movement that has
+    // genuinely slipped, and the answer to that is a real home.
+    uint32_t trims_ = 0;
+    int32_t last_trim_ = 0;
+    uint8_t lost_ = 0;
     // The last target asked for, re-issued after a home completes: whatever the clock wanted
     // while the hands were busy finding zero is still what it wants afterwards.  For a
     // DIRECTED target this is also the setpoint each new one is accumulated onto, so it is

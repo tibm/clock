@@ -66,7 +66,10 @@ test('the sensitivity slider changes how far a detent goes', async ({ ux }) => {
     await ux.slide('r-cpm', 1);
     await expect(ux.page.locator('#v-cpm')).toHaveText('1');
     await ux.toMode('alarm');
-    await ux.turn(3);
+    // Four minutes of dial is about a fifth of a second of minute hand, and the setting may
+    // not outrun that (§6.6d) -- so a knob this sensitive has to be turned this slowly, and a
+    // detent is then worth every one of its four minutes.
+    await ux.turn(3, 280);
     await expect(ux.page.locator('#c-alarm')).toContainText('07:12');
 });
 

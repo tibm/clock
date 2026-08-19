@@ -21,6 +21,8 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
@@ -97,6 +99,40 @@ uint8_t volume_pct() noexcept { return 0; }
 namespace power {
 Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
 }  // namespace power
+
+// NVS, and it is real on this side already: the per-unit hand calibration (§6.1) has to
+// survive a power cut before anything else does, and `nvs_flash_init()` has been in
+// app_main since milestone 0.  One namespace, `clock`, which is where §7.5's Config lands
+// when `storage` (§6.3) exists -- this is that drawer, opened early for two keys.
+namespace store {
+
+namespace {
+constexpr const char* kNs = "clock";
+}  // namespace
+
+Result<int32_t> get_i32(const char* key) noexcept {
+    if (!key || !*key) return Result<int32_t>::bad(Status::BadArg);
+    nvs_handle_t h{};
+    if (::nvs_open(kNs, NVS_READONLY, &h) != ESP_OK)
+        return Result<int32_t>::bad(Status::NotPresent);
+    int32_t v = 0;
+    const esp_err_t err = ::nvs_get_i32(h, key, &v);
+    ::nvs_close(h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) return Result<int32_t>::bad(Status::NotPresent);
+    return err == ESP_OK ? Result<int32_t>::good(v) : Result<int32_t>::bad(Status::Failed);
+}
+
+Status set_i32(const char* key, int32_t value) noexcept {
+    if (!key || !*key) return Status::BadArg;
+    nvs_handle_t h{};
+    if (::nvs_open(kNs, NVS_READWRITE, &h) != ESP_OK) return Status::NotPresent;
+    esp_err_t err = ::nvs_set_i32(h, key, value);
+    if (err == ESP_OK) err = ::nvs_commit(h);
+    ::nvs_close(h);
+    return err == ESP_OK ? Status::Ok : Status::Failed;
+}
+
+}  // namespace store
 
 Status init() noexcept {
     port::set_clock(&clock_::micros);  // core/ owns no clock of its own (§2)

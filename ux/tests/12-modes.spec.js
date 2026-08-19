@@ -101,23 +101,43 @@ test('alarm: the pixel says the same thing the bell did', async ({ ux }) => {
     expect(armed.everDark).toBe(true);
 });
 
-test('alarm: a detent is a minute, and a spin is worth the minutes you spun', async ({ ux }) => {
+test('alarm: a detent is a minute, and a turn is worth the minutes you turned', async ({ ux }) => {
     await ux.toMode('alarm');
     await expect(ux.page.locator('#c-alarm')).toContainText('07:00');
 
-    // ux.turn() waits 45 ms between detents, which is two ui ticks -- as slow as a hand.
+    // ux.turn() leaves 90 ms between detents, which is slower than a minute of dial takes to
+    // draw -- so every one of them lands.
     await ux.turn(3);
     await expect(ux.page.locator('#c-alarm')).toContainText('07:03');
 
-    // The same knob, spun.  40 counts is ten minutes at four counts a minute, and that is
-    // exactly what it is worth -- they are BANKED and paid out at the speed the hands can
-    // draw, not multiplied twelvefold into two hours of dial inside one 20 ms poll.  A
-    // setting that outruns its own readout stops meaning anything (FIRMWARE.md §6.6d).
-    await ux.cli('sim knob 40');
-    await expect(ux.page.locator('#c-alarm')).toContainText('07:13', { timeout: 5000 });
+    // The same knob, TURNED: 40 counts is ten minutes at four counts a minute, delivered over
+    // a second the way a finger delivers them.  All ten arrive, one at a time, at the speed
+    // the hands can draw -- not multiplied twelvefold into two hours of dial in one 20 ms poll.
+    await ux.cli('sim knob 40 over 1000');
+    await expect(ux.page.locator('#c-alarm')).toContainText('07:13', { timeout: 6000 });
     await ux.page.waitForTimeout(1000);
-    await expect(ux.page.locator('#c-alarm'), 'the spin carried on winding after it was spent')
+    await expect(ux.page.locator('#c-alarm'), 'the turn carried on winding after it was spent')
         .toContainText('07:13');
+});
+
+// §6.6d, changed 2026-08-17.  The same forty counts in ONE poll is not a turn, it is a
+// teleport: no finger can deliver ten minutes of setting in twenty milliseconds, and the dial
+// cannot draw it either.  What the hands cannot draw is dropped, so the knob does something
+// small and then stops -- rather than banking the difference and winding on for two seconds
+// after you have let go, which is where the missing hundred and eighty degrees came from.
+test('alarm: a spin faster than the hands can draw stops when the knob does', async ({ ux }) => {
+    await ux.home();
+    await ux.toMode('alarm');
+    await expect(ux.page.locator('#c-alarm')).toContainText('07:00');
+
+    await ux.cli('sim knob 40');                    // ten minutes, all inside one poll
+    await ux.page.waitForTimeout(500);
+    const landed = await ux.text('c-alarm');
+    expect(landed, 'the knob did nothing at all').not.toContain('07:00');
+    expect(landed, 'the whole lump landed anyway').not.toContain('07:10');
+
+    await ux.page.waitForTimeout(1200);
+    expect(await ux.text('c-alarm'), 'it went on winding after the knob stopped').toBe(landed);
 });
 
 test('alarm: the hands track what is being set, hour hand included', async ({ ux }) => {

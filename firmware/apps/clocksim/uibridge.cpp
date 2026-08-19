@@ -192,43 +192,44 @@ bool send_state(int fd) {
     const auto ch = svc::chrono().snapshot();
 
     char buf[2048];
-    std::snprintf(buf, sizeof buf,
-                  "{\"t\":\"state\",\"ms\":%" PRIu64
-                  ",\"warp\":%.3f,"
-                  "\"hands\":{\"h\":%.3f,\"m\":%.3f,\"hp\":%" PRId32 ",\"mp\":%" PRId32
-                  ",\"hv\":%" PRId32 ",\"mv\":%" PRId32
-                  ",\"moving\":%s,\"motor\":%s},"
-                  "\"motion\":{\"state\":\"%s\",\"phase\":\"%s\",\"homed\":%s,\"th\":%" PRId32
-                  ",\"tm\":%" PRId32 ",\"home_ms\":%" PRIu32 ",\"faults\":%" PRIu32
-                  "},"
-                  "\"ui\":{\"mode\":\"%s\",\"armed\":%s,\"alarm_h\":%d,\"alarm_m\":%d,\"vol\":%u,"
-                  "\"idle_in\":%u,\"locked\":%s,\"held\":%u},"
-                  "\"clock\":{\"h\":%d,\"m\":%d,\"s\":%d,\"valid\":%s,\"follow\":%s,\"prov\":%s,"
-                  "\"sync\":%s},"
-                  "\"px\":[%s],\"refreshed\":%s,"
-                  "\"wake\":{\"warm\":%u,\"cool\":%u},"
-                  "\"spk\":{\"on\":%s,\"vol\":%u},"
-                  "\"pwr\":{\"plugged\":%s,\"mv\":%u,\"soc\":%u,\"chrg\":%s},"
-                  "\"knob\":{\"count\":%" PRId32
-                  ",\"sw\":%s},"
-                  "\"opto\":{\"n\":%.4f,\"auto\":%s},"
-                  "\"imu\":{\"yaw\":%.2f,\"taps\":%u},"
-                  "\"radio_off\":%s}",
-                  s.sim_us / 1000u, s.warp, static_cast<double>(s.hand_deg[0]),
-                  static_cast<double>(s.hand_deg[1]), s.hand_pos[0], s.hand_pos[1], s.hand_vel[0],
-                  s.hand_vel[1], (s.hand_moving[0] || s.hand_moving[1]) ? "true" : "false",
-                  s.motor_on ? "true" : "false", mo.state_name, mo.phase,
-                  mo.homed ? "true" : "false", mo.target_hour, mo.target_minute, mo.home_ms,
-                  mo.faults, uo.mode_name, uo.alarm_armed ? "true" : "false", uo.alarm_hour,
-                  uo.alarm_minute, uo.volume, uo.idle_in_ms, uo.net_locked ? "true" : "false",
-                  uo.held_ms, ch.hour, ch.minute, ch.second, ch.valid ? "true" : "false",
-                  ch.follow ? "true" : "false", ch.net_provisioned ? "true" : "false",
-                  ch.net_synced ? "true" : "false", px, s.refreshed ? "true" : "false", s.warm_pct,
-                  s.cool_pct, s.spk_active ? "true" : "false", s.vol_pct,
-                  s.plugged ? "true" : "false", s.vbat_mv, s.soc_pct, s.charging ? "true" : "false",
-                  s.knob_count, s.knob_sw ? "true" : "false", static_cast<double>(s.opto),
-                  s.opto_auto ? "true" : "false", static_cast<double>(s.yaw_deg), s.taps,
-                  s.radio_off ? "true" : "false");
+    std::snprintf(
+        buf, sizeof buf,
+        "{\"t\":\"state\",\"ms\":%" PRIu64
+        ",\"warp\":%.3f,"
+        "\"hands\":{\"h\":%.3f,\"m\":%.3f,\"hp\":%" PRId32 ",\"mp\":%" PRId32 ",\"hv\":%" PRId32
+        ",\"mv\":%" PRId32
+        ",\"moving\":%s,\"motor\":%s},"
+        "\"motion\":{\"state\":\"%s\",\"phase\":\"%s\",\"homed\":%s,\"th\":%" PRId32
+        ",\"tm\":%" PRId32 ",\"home_ms\":%" PRIu32 ",\"faults\":%" PRIu32 ",\"zero_h\":%" PRId32
+        ",\"zero_m\":%" PRId32 ",\"trims\":%" PRIu32 ",\"trim\":%" PRId32
+        "},"
+        "\"ui\":{\"mode\":\"%s\",\"armed\":%s,\"alarm_h\":%d,\"alarm_m\":%d,\"vol\":%u,"
+        "\"idle_in\":%u,\"locked\":%s,\"held\":%u},"
+        "\"clock\":{\"h\":%d,\"m\":%d,\"s\":%d,\"valid\":%s,\"follow\":%s,\"prov\":%s,"
+        "\"sync\":%s},"
+        "\"px\":[%s],\"refreshed\":%s,"
+        "\"wake\":{\"warm\":%u,\"cool\":%u},"
+        "\"spk\":{\"on\":%s,\"vol\":%u},"
+        "\"pwr\":{\"plugged\":%s,\"mv\":%u,\"soc\":%u,\"chrg\":%s},"
+        "\"knob\":{\"count\":%" PRId32
+        ",\"sw\":%s},"
+        "\"opto\":{\"n\":%.4f,\"auto\":%s},"
+        "\"imu\":{\"yaw\":%.2f,\"taps\":%u},"
+        "\"radio_off\":%s}",
+        s.sim_us / 1000u, s.warp, static_cast<double>(s.hand_deg[0]),
+        static_cast<double>(s.hand_deg[1]), s.hand_pos[0], s.hand_pos[1], s.hand_vel[0],
+        s.hand_vel[1], (s.hand_moving[0] || s.hand_moving[1]) ? "true" : "false",
+        s.motor_on ? "true" : "false", mo.state_name, mo.phase, mo.homed ? "true" : "false",
+        mo.target_hour, mo.target_minute, mo.home_ms, mo.faults, mo.zero_h, mo.zero_m, mo.trims,
+        mo.last_trim, uo.mode_name, uo.alarm_armed ? "true" : "false", uo.alarm_hour,
+        uo.alarm_minute, uo.volume, uo.idle_in_ms, uo.net_locked ? "true" : "false", uo.held_ms,
+        ch.hour, ch.minute, ch.second, ch.valid ? "true" : "false", ch.follow ? "true" : "false",
+        ch.net_provisioned ? "true" : "false", ch.net_synced ? "true" : "false", px,
+        s.refreshed ? "true" : "false", s.warm_pct, s.cool_pct, s.spk_active ? "true" : "false",
+        s.vol_pct, s.plugged ? "true" : "false", s.vbat_mv, s.soc_pct,
+        s.charging ? "true" : "false", s.knob_count, s.knob_sw ? "true" : "false",
+        static_cast<double>(s.opto), s.opto_auto ? "true" : "false", static_cast<double>(s.yaw_deg),
+        s.taps, s.radio_off ? "true" : "false");
     return send_line(fd, buf);
 }
 

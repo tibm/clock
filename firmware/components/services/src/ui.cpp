@@ -35,11 +35,13 @@ static_assert(kUstepsPerVolPct * 100 == domain::kRev * kVolSweepDeg / 360, "gaug
 constexpr int32_t kSouth = domain::kRev / 2;
 
 // Setting a time is PACED to what the movement can draw (§6.6d, drain_setting below).  The
-// pace itself is derived from `motion`'s v_max; these are the bounds on it, and how much
-// winding the knob may run ahead of the hands while you are turning fast.
+// pace itself is derived from `motion`'s v_max; these are the bounds on it.
 constexpr uint32_t kPaceFloorMs = 20;  // never faster than `ui`'s own tick
 constexpr uint32_t kPaceCeilMs = 500;  // ... and never so slow the knob feels dead
-constexpr uint32_t kMaxBankMs = 2000;  // two seconds of winding, then the coast is over
+// The encoder has no detent -- it is optical, 256 counts/rev -- but four counts is the notch a
+// detented knob would have, and it is the unit `ui knob counts` is quoted in.  drain_setting()
+// will not split one.
+constexpr int32_t kDetentCounts = 4;
 
 // The preview chime, until `audio` (§6.2) owns the amp: you cannot set a volume you cannot
 // hear, so the mode plays at the level it is editing.
@@ -317,35 +319,27 @@ void Ui::rotate(int32_t counts) noexcept {
         return;
     }
 
-    // Alarm and Clock: BANK the counts, at face value, and let the tick release them one
-    // minute at a time (see drain_setting).  No acceleration curve here -- §6.6d's twelvefold
-    // gain made a single 20 ms poll worth two hours of dial, which the minute hand cannot be
-    // asked to draw.
+    // Alarm and Clock: hold the counts and let the tick spend them one minute at a time, no
+    // faster than the hands can render them (see drain_setting).  No acceleration curve here
+    // -- §6.6d's twelvefold gain made a single 20 ms poll worth two hours of dial, which the
+    // minute hand cannot be asked to draw.
     counts_resid_ += counts;
-    const int32_t cap = bank_cap(per);
-    if (counts_resid_ > cap) counts_resid_ = cap;
-    if (counts_resid_ < -cap) counts_resid_ = -cap;
     drain_setting();  // ... and let the first minute land now rather than on the next tick
 }
 
-// How far ahead of the hands the knob is allowed to get: two seconds of winding, in counts.
-// A flick delivers every minute you turned, and then the coast is over.
-int32_t Ui::bank_cap(int32_t per) const noexcept {
-    const int32_t minutes = static_cast<int32_t>(kMaxBankMs / pace_ms());
-    return (minutes < 1 ? 1 : minutes) * per;
-}
-
-// One minute of dial at the speed the movement is actually set to, plus a quarter for the
-// ramp at each end.  Derived rather than hard-coded, so tuning `motion` down for a quiet
-// bedroom or up for a test does not leave this lying about the hands' speed.
+// One minute of dial at the speed the movement is actually set to.  Exactly that, now that
+// the surplus is dropped rather than banked: every millisecond of margin here is a minute of
+// somebody's turn thrown away, and a hand that has to accelerate into the first minute is
+// one or two behind for the rest of the wind -- a tenth of a second of tail, once.
 uint32_t Ui::pace_ms() const noexcept {
     int32_t v = motion_ ? motion_->tuning().v_max : 6000;
     if (v < 1) v = 1;
-    const auto ms = static_cast<uint32_t>(1250ll * domain::kRev / 60 / v);
+    const auto ms = static_cast<uint32_t>(1000ll * domain::kRev / 60 / v);
     return ms < kPaceFloorMs ? kPaceFloorMs : (ms > kPaceCeilMs ? kPaceCeilMs : ms);
 }
 
-// The dial is the readout, so the SETTING may not move faster than the hands can show it.
+// The dial is the readout, so the SETTING may not move faster than the hands can show it --
+// and what it cannot show, it does not keep.
 //
 // v_max is 6000 usteps/s and a minute of dial is 288 of them, so the movement can draw about
 // twenty minutes of dial a second.  Beyond that the number is racing a hand that is nowhere
@@ -356,33 +350,57 @@ uint32_t Ui::pace_ms() const noexcept {
 // or (at exactly an hour a poll) does not move at all while the hour hand sails on. That last
 // one is what "the minute hand follows the hour hand" looks like from the outside (§16c).
 //
-// So: one minute per release, no faster than the hands run. Counts that arrive faster wait
-// their turn in the bank rather than being thrown away, which is what keeps a quick flick
-// worth exactly the minutes you flicked.
+// So: one minute per release, no faster than the hands run, and counts that arrive faster
+// than that are DROPPED (changed 2026-08-17; they used to bank up to two seconds of winding
+// and pay it out afterwards).  Banking made a fast spin worth every minute you spun it, and
+// the price was a dial that carried on winding for a second or two after the knob stopped --
+// a hundred and eighty degrees of minute hand, arriving somewhere you did not choose.  You
+// cannot both spin faster than the hands can draw AND stop when they do; of the two, the one
+// worth keeping is that what the dial says is what you set.
+//
+// The sub-minute remainder is still carried, so a deliberate turn loses nothing: a dragged
+// knob arrives as a stream of one- and two-count deltas, and dividing each on its own would
+// throw away the whole turn.
 void Ui::drain_setting() noexcept {
     if (mode_ != Mode::Alarm && mode_ != Mode::Clock) return;
     const int32_t per = tuning().counts_per_minute ? tuning().counts_per_minute : 1;
     const uint64_t now = port::now_us();
     const uint64_t pace_us = pace_ms() * 1000ull;
-    const int32_t banked = counts_resid_ / per;  // whole minutes, signed
-    if (banked == 0) {
-        // Nothing owed.  Hold exactly ONE minute of credit: the first detent of a turn lands
-        // the moment it arrives, which is what makes the knob feel connected -- and no more
-        // than one, or an idle minute would buy a jump as soon as it is touched again.
-        last_unit_us_ = now > pace_us ? now - pace_us : 0;
+    const int32_t held = counts_resid_ / per;  // whole minutes, signed
+    if (held == 0) {
+        // Nothing waiting.  Hold exactly ONE minute of credit: the first detent of a turn
+        // lands the moment it arrives, which is what makes the knob feel connected -- and no
+        // more than one, or an idle minute would buy a jump as soon as it is touched again.
+        // The bank empties every call now, so this cap is what keeps the pace a pace: a
+        // blanket reset here would hand out a free minute on every tick of a live turn.
+        if (now - last_unit_us_ > pace_us) last_unit_us_ = now - pace_us;
         return;
     }
     // How many minutes the hands have had TIME to draw since the last release.  Elapsed
     // rather than one-per-call, so the rate is the rate whatever the tick is doing -- under
     // `sim warp` a single 20 ms poll is several hundred milliseconds of dial.
     const auto allow = static_cast<int32_t>((now - last_unit_us_) / pace_us);
-    if (allow <= 0) return;
 
-    const int dir = banked > 0 ? 1 : -1;
-    const int32_t mag = banked > 0 ? banked : -banked;
+    const int dir = held > 0 ? 1 : -1;
+    const int32_t mag = held > 0 ? held : -held;
     const int32_t units = mag < allow ? mag : allow;
+    // Spend what the hands can draw, and drop the rest -- except for ONE DETENT'S WORTH.
+    //
+    // A detent is the smallest thing a person does to this knob, and it is worth whatever the
+    // sensitivity says it is worth: at the shipping four counts a minute that is one minute
+    // (so this keeps nothing the strict rule would not), and at `ui knob counts 1` it is four.
+    // Splitting one would make the sensitivity setting a lie -- turn the knob one notch, get a
+    // quarter of what it promised -- and the whole of it is a fifth of a second of hand.  A
+    // QUEUE of detents still cannot accumulate: this is a cap, not a bank.
+    const int32_t detent = kDetentCounts / per > 1 ? kDetentCounts / per : 1;
+    const int32_t left = mag - units;
+    const int32_t keep = left < detent ? left : detent;
+    counts_resid_ -= dir * (mag - keep) * per;
+    if (units == 0) return;
     last_unit_us_ += static_cast<uint64_t>(units) * pace_us;  // += keeps the average exact
-    counts_resid_ -= dir * units * per;
+    // ... but credit never accumulates while the knob is still: a minute of not turning must
+    // not buy a free minute the instant it is touched again.
+    if (now - last_unit_us_ > pace_us) last_unit_us_ = now - pace_us;
     set_min_of_day_ = wrap_day(set_min_of_day_ + dir * units);
     if (mode_ == Mode::Alarm) alarm_min_of_day_ = set_min_of_day_;
     // The hands are still moving to what the knob asked for, so the mode is not idle -- a
