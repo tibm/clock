@@ -2460,6 +2460,51 @@ between them, and **both dark** is `U15`, IO7, or 5 V at the pixels.
 during bring-up** (§12.0.3) — its pin 2 is the chain's data-out to those five. Power and data
 there need sorting before the status row can work.
 
+### 12.0.6 The expander answers, and the board is idle-safe — 2026-09-08
+
+`hal::expander` is the MCP23017 driver now (`clk_hal/shared/mcp23017.cpp`), talking through
+`hal::i2c`. It is compiled into **both** backends: on target it drives the real chip at 0x20,
+on the host it drives the register-level device model behind the fake `hal::i2c`. That is
+§11.2's destination — what gets tested on the host is the driver that ships, not a stand-in
+for it (`test_mcp23017_driver_configures_the_chip`).
+
+Config registers, **read back off the real chip**:
+
+| reg | value | why |
+|---|---|---|
+| `IOCON` | `0x40` | **R-BOARD-1** — `MIRROR = 1`. `INTA`/`INTB` are tied to one line, so this is written FIRST, before anything can enable an interrupt and put two push-pull outputs in contention |
+| `IODIRA` | `0xF8` | GPA0-2 out (`SPK_SD`, `STEP_STBY`, `BOOST12_EN`); GPA3-7 in |
+| `IODIRB` | `0x4F` | GPB4/5/7 out (`FULLCHG_EN`, `VBAT_DIV_EN`, `CELL_TEST`) |
+| `GPPUB` | `0x4F` | pull-up on every input, bit 3 included — **R-BOARD-4**'s `ALS_INT` |
+
+Both masks are `constexpr`-derived from `expander::is_output()` and `static_assert`ed, so a
+reordered `Sig` enum breaks the build rather than quietly moving `SPK_SD` onto `CELL_TEST`'s
+pin. Init order is a hardware requirement, not style: `IOCON` → `OLAT` → `GPPU` → `IODIR`,
+because a pin adopts its latch the instant `IODIR` makes it an output.
+
+**`sensor exp read` on the bare bench board** — the reference idle state:
+
+```
+exp  gpa=0001 gpb=11110010 radio=on stby=0
+```
+
+| all six outputs LOW | | every input at its designed idle |
+|---|---|---|
+| `SPK_SD` 0 | amp shut down | `RADIO_OFF` 1 — J11 unplugged, internal pull-up; **fails safe to radios-enabled** |
+| `STEP_STBY` 0 | both TB6612 in standby, coils dead | `PD_PG` 1 — open-drain, deasserted: no 15 V contract, correct on a 5 V host port |
+| `BOOST12_EN` 0 | 12 V boost off | `CHRG`/`FAULT` 1 — LT3652 idle, not charging, no fault |
+| `FULLCHG_EN` 0 | 4.05 V cap enforced | `ALS_INT` 1 — idle high |
+| `VBAT_DIV_EN` 0 | divider disconnected | `SPK_FAULT` 1 — TAS5760M reports no fault |
+| `CELL_TEST` 0 | unasserted (**R-BOARD-2**) | |
+
+That is milestone 1's "confirms `STEP_STBY`/`SPK_SD` idle-safe", measured rather than assumed.
+The write path is proven too: `OLATB ← 0x20` put `GPIOB` at `0x6F` and flipped `VBAT_DIV_EN` in
+the named view, then restored. **Milestone 1 is complete except `sensor vbat`, which needs the
+ADC.**
+
+`get()` reads `GPIO`, never the `OLAT` shadow, even for outputs — an output that cannot reach
+its latch (shorted, or fighting something) is exactly what you want a bench read to show.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |

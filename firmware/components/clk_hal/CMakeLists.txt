@@ -5,13 +5,13 @@
 # every IDF header that includes it.  The C++ include path stays clk/hal/hal.hpp.
 # [FIRMWARE.md §2, D14]
 if(ESP_PLATFORM)
-    idf_component_register(SRCS esp/src/hal_esp.cpp
+    idf_component_register(SRCS esp/src/hal_esp.cpp shared/mcp23017.cpp
                            INCLUDE_DIRS api
                            REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c
                                     espressif__led_strip)
 else()
     find_package(Threads REQUIRED)
-    add_library(clk_hal STATIC host/src/hal_host.cpp)
+    add_library(clk_hal STATIC host/src/hal_host.cpp shared/mcp23017.cpp)
     # host/include is public so cmd_sim.cpp can reach the fake-control surface.  Nothing
     # in services/ or drivers/ may include it -- if they could, they could detect the
     # fakes, and D14 would stop being true.

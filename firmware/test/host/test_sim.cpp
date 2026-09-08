@@ -5,6 +5,7 @@
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/sim.hpp"
+#include "clk/hal/mcp23017.hpp"
 
 using namespace clk;
 namespace sim = hal::host;
@@ -200,6 +201,60 @@ void test_i2c_expander_register_view() {
     board::set_present(board::Dev::Expander, true);
 }
 
+// The REAL MCP23017 driver, run against the register-level fake.  This is the pay-off for
+// modelling registers rather than named signals (§11.2): the code under test here is the code
+// that ships, and it is the config sequence -- the part that has hardware requirements
+// attached to it -- rather than anything the fake invents.
+void test_mcp23017_driver_configures_the_chip() {
+    using E = hal::expander::Sig;
+    constexpr uint8_t A = hal::mcp23017::kAddr;
+    constexpr uint8_t IOCON = 0x0A, IODIRA = 0x00, IODIRB = 0x01, GPPUA = 0x0C, GPPUB = 0x0D;
+    fresh();
+    hal::mcp23017::forget();
+
+    CHECK(hal::mcp23017::init() == Status::Ok);
+
+    // R-BOARD-1: INTA/INTB are tied on the board, so MIRROR must be set or two push-pull
+    // outputs contend the moment per-bank interrupts are enabled.
+    CHECK((hal::i2c::read_reg(A, IOCON).v & 0x40) == 0x40);
+
+    // Directions match the port map: GPA0-2 out, GPB4/5/7 out, everything else in.
+    CHECK(hal::i2c::read_reg(A, IODIRA).v == 0xF8);
+    CHECK(hal::i2c::read_reg(A, IODIRB).v == 0x4F);
+
+    // R-BOARD-4: GPB3 (ALS_INT) must have the internal pull-up, because its only other one
+    // lives on a daughterboard that is regularly unplugged.
+    CHECK((hal::i2c::read_reg(A, GPPUB).v & 0x08) == 0x08);
+    CHECK(hal::i2c::read_reg(A, GPPUA).v == 0xF8);  // and every other input, for the same reason
+
+    // Outputs park LOW, which is the idle-safe state for every one of them: amp muted, coils
+    // dead, 12 V gate shut, CELL_TEST unasserted (R-BOARD-2).
+    for (auto s : {E::SpkSd, E::StepStby, E::Boost12En, E::FullchgEn, E::VbatDivEn, E::CellTest}) {
+        const auto v = hal::mcp23017::get(s);
+        CHECK(v.ok() && v.v == false);
+    }
+
+    // A round trip through the driver reaches the pin and reads back off GPIO, not off the
+    // shadow -- so a latch that never made it to the chip would fail here.
+    CHECK(hal::mcp23017::set(E::Boost12En, true) == Status::Ok);
+    CHECK(hal::mcp23017::get(E::Boost12En).v == true);
+    CHECK(hal::mcp23017::set(E::Boost12En, false) == Status::Ok);
+    CHECK(hal::mcp23017::get(E::Boost12En).v == false);
+
+    // Inputs are the outside world's.
+    CHECK(hal::mcp23017::set(E::RadioOff, true) == Status::BadArg);
+    CHECK(hal::mcp23017::set(E::PdPg, false) == Status::BadArg);
+
+    // And the whole driver answers NotPresent when the chip does not, rather than pretending.
+    hal::mcp23017::forget();
+    board::set_present(board::Dev::Expander, false);
+    CHECK(hal::mcp23017::init() == Status::NotPresent);
+    CHECK(hal::mcp23017::get(E::SpkSd).st == Status::NotPresent);
+    CHECK(hal::mcp23017::set(E::SpkSd, true) == Status::NotPresent);
+    board::set_present(board::Dev::Expander, true);
+    hal::mcp23017::forget();
+}
+
 // ---- the sim + sensor + ui commands on top ----------------------------------------------
 
 void test_sim_commands() {
@@ -350,6 +405,7 @@ void run_sim_tests() {
     test_time();
     test_i2c_scan_follows_presence();
     test_i2c_expander_register_view();
+    test_mcp23017_driver_configures_the_chip();
     test_sim_commands();
     test_sensor_grammar();
     test_sensor_stream_is_bounded();

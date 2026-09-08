@@ -30,6 +30,7 @@
 
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
+#include "clk/hal/mcp23017.hpp"
 #include "clk/log.hpp"
 #include "clk/port.hpp"
 
@@ -283,9 +284,11 @@ namespace imu {
 Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
 }  // namespace imu
 
+// The named-signal surface is the MCP23017 driver now (shared/mcp23017.cpp), which reaches
+// the chip through hal::i2c above.  Nothing here knows a register.
 namespace expander {
-Result<bool> get(Sig) noexcept { return Result<bool>::bad(Status::NotPresent); }
-Status set(Sig, bool) noexcept { return Status::NotPresent; }
+Result<bool> get(Sig s) noexcept { return mcp23017::get(s); }
+Status set(Sig s, bool level) noexcept { return mcp23017::set(s, level); }
 }  // namespace expander
 
 namespace audio {
