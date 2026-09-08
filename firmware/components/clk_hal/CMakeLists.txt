@@ -7,7 +7,7 @@
 if(ESP_PLATFORM)
     idf_component_register(SRCS esp/src/hal_esp.cpp shared/mcp23017.cpp
                            INCLUDE_DIRS api
-                           REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c
+                           REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c esp_adc
                                     espressif__led_strip)
 else()
     find_package(Threads REQUIRED)

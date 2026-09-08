@@ -53,9 +53,16 @@ enum class Ch : uint8_t {
     Vbat,  // IO1, ADC1_CH0, behind VBAT_DIV_EN -- the /2 divider is undone here
     Opto,  // IO2, ADC1_CH1, QRE1113 phototransistor
 };
+// The QRE1113's dark and bright ends, in millivolts at the ADC pin.  PLACEHOLDERS until
+// milestone 3 puts a probe on the real sensor with a hand passing over it -- but ONE
+// definition, so the fake's span and the target's normalisation cannot drift apart and a
+// threshold tuned in clocksim keeps meaning the same thing on the bench.
+inline constexpr uint16_t kOptoDarkMv = 200;
+inline constexpr uint16_t kOptoBrightMv = 3000;
+
 Result<uint16_t> read_mv(Ch) noexcept;
-// Opto normalised to 0..1 against the calibrated dark/bright span; this is the number you
-// actually watch while placing the index mark.
+// Opto normalised to 0..1 against the span above; this is the number you actually watch
+// while placing the index mark.
 Result<float> read_opto_norm() noexcept;
 }  // namespace adc
 

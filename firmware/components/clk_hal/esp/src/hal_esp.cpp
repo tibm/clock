@@ -18,6 +18,9 @@
 // Each one is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
 #include "driver/i2c_master.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "esp_adc/adc_oneshot.h"
 #include "esp_err.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -60,9 +63,113 @@ SlowSrc slow_src() noexcept {
 
 }  // namespace clock_
 
+// ============================ hal::adc ===================================================
+// ADC1 one-shot with curve-fitting calibration.  ADC1 and not ADC2 because ADC2 is shared
+// with the Wi-Fi radio and reads fail while the radio is up -- which would present as a
+// homing sensor that works perfectly until the clock joins a network.
 namespace adc {
-Result<uint16_t> read_mv(Ch) noexcept { return Result<uint16_t>::bad(Status::NotPresent); }
-Result<float> read_opto_norm() noexcept { return Result<float>::bad(Status::NotPresent); }
+namespace {
+
+// IO1 = ADC1_CH0 (VBAT_SENSE), IO2 = ADC1_CH1 (HOME_OPTO).  esp32.md, and kPins agrees.
+constexpr adc_channel_t kChan[] = {ADC_CHANNEL_0, ADC_CHANNEL_1};
+// Four conversions a read.  A single sample off a phototransistor jitters by tens of mV,
+// which turns a threshold into a coin-flip; four is enough to steady the bench number and
+// still costs ~100 us, well inside homing's 1 kHz poll (Section 14).
+constexpr int kAvg = 4;
+// The divider node is 100k||100k with C110's 100 nF across it: tau = 5 ms, so five time
+// constants is 25 ms.  It only has to be paid when something asks for the cell voltage.
+constexpr uint32_t kVbatSettleMs = 30;
+
+adc_oneshot_unit_handle_t g_unit = nullptr;
+adc_cali_handle_t g_cali = nullptr;
+bool g_failed = false;
+
+bool ready() noexcept {
+    if (g_unit || g_failed) return g_unit != nullptr;
+    adc_oneshot_unit_init_cfg_t init{};
+    init.unit_id = ADC_UNIT_1;
+    if (const esp_err_t e = ::adc_oneshot_new_unit(&init, &g_unit); e != ESP_OK) {
+        g_unit = nullptr;
+        g_failed = true;
+        CLK_LOGE(drv_opto, "adc unit: %s", ::esp_err_to_name(e));
+        return false;
+    }
+    adc_oneshot_chan_cfg_t ch{};
+    // 12 dB gets the full 0-3.1 V span.  Both nodes swing most of the rail -- the opto's
+    // 10k pull-up against a saturating phototransistor, and Vbat halved to ~2.1 V -- so a
+    // narrower attenuation would clip the useful end of each.
+    ch.atten = ADC_ATTEN_DB_12;
+    ch.bitwidth = ADC_BITWIDTH_DEFAULT;
+    for (const auto c : kChan) (void)::adc_oneshot_config_channel(g_unit, c, &ch);
+
+    adc_cali_curve_fitting_config_t cal{};
+    cal.unit_id = ADC_UNIT_1;
+    cal.atten = ADC_ATTEN_DB_12;
+    cal.bitwidth = ADC_BITWIDTH_DEFAULT;
+    if (::adc_cali_create_scheme_curve_fitting(&cal, &g_cali) != ESP_OK) {
+        g_cali = nullptr;  // uncalibrated: raw counts scaled, and the log says so once
+        CLK_LOGW(drv_opto, "no eFuse ADC calibration; millivolts are approximate");
+    }
+    return true;
+}
+
+Result<uint16_t> sample(adc_channel_t c) noexcept {
+    int32_t acc = 0;
+    for (int i = 0; i < kAvg; ++i) {
+        int raw = 0;
+        if (::adc_oneshot_read(g_unit, c, &raw) != ESP_OK) {
+            return Result<uint16_t>::bad(Status::Failed);
+        }
+        int mv = raw;
+        if (g_cali) {
+            if (::adc_cali_raw_to_voltage(g_cali, raw, &mv) != ESP_OK) mv = raw;
+        } else {
+            mv = raw * 3100 / 4095;  // nominal full scale at 12 dB; honest enough to log
+        }
+        acc += mv;
+    }
+    return Result<uint16_t>::good(static_cast<uint16_t>(acc / kAvg));
+}
+
+}  // namespace
+
+Result<uint16_t> read_mv(Ch ch) noexcept {
+    const bool vbat = ch == Ch::Vbat;
+    if (!board::present(vbat ? board::Dev::Vbat : board::Dev::Opto)) {
+        return Result<uint16_t>::bad(Status::NotPresent);
+    }
+    if (!ready()) return Result<uint16_t>::bad(Status::NotPresent);
+    if (!vbat) return sample(kChan[1]);
+
+    // Vbat sits behind Q3.  With VBAT_DIV_EN low the divider's bottom leg is OPEN, and R22
+    // then pulls the ADC node up to the cell (D14 clamping it to ~3.5 V) -- a reading that
+    // looks entirely plausible and means nothing.  So switch the leg in, let C110 settle,
+    // read, and put it back the way it was: the default is disconnected because the divider
+    // is a permanent 20 uA drain on a backup cell otherwise.
+    const auto was = expander::get(expander::Sig::VbatDivEn);
+    if (!was.ok()) return Result<uint16_t>::bad(was.st);
+    if (const Status st = expander::set(expander::Sig::VbatDivEn, true); st != Status::Ok) {
+        return Result<uint16_t>::bad(st);
+    }
+    clock_::sleep_ms(kVbatSettleMs);
+    const auto mv = sample(kChan[0]);
+    (void)expander::set(expander::Sig::VbatDivEn, was.v);
+    if (!mv.ok()) return mv;
+    // R22/R23 are 100k/100k, so the pin sees half the cell.  Undoing it here keeps every
+    // caller in volts-at-the-cell and stops the divider ratio leaking upward.
+    return Result<uint16_t>::good(static_cast<uint16_t>(mv.v * 2));
+}
+
+Result<float> read_opto_norm() noexcept {
+    const auto mv = read_mv(Ch::Opto);
+    if (!mv.ok()) return Result<float>::bad(mv.st);
+    const float span = static_cast<float>(kOptoBrightMv - kOptoDarkMv);
+    float n = (static_cast<float>(mv.v) - static_cast<float>(kOptoDarkMv)) / span;
+    if (n < 0.0f) n = 0.0f;
+    if (n > 1.0f) n = 1.0f;
+    return Result<float>::good(n);
+}
+
 }  // namespace adc
 
 namespace knob {

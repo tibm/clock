@@ -27,8 +27,8 @@ namespace {
 // ---- calibration placeholders ----------------------------------------------------------
 // Real numbers arrive at milestone 3 with a probe on the QRE1113.  They live here rather
 // than in a driver so the fake and the eventual real calibration share one definition.
-constexpr uint16_t kOptoDarkMv = 200;
-constexpr uint16_t kOptoBrightMv = 3000;
+constexpr uint16_t kOptoDarkMv = adc::kOptoDarkMv;  // hal.hpp owns the span now
+constexpr uint16_t kOptoBrightMv = adc::kOptoBrightMv;
 constexpr uint16_t kVbatEmptyMv = 3300;
 constexpr uint16_t kVbatFullMv = 4050;  // the LT3652 float cap, not 4.2 (README §10)
 
