@@ -23,13 +23,17 @@ void fresh() {
 
 void test_opto() {
     fresh();
+    // The sensor is INVERTED: norm 0 (nothing in front) is the HIGH end, norm 1 (on the
+    // index mark) is the low one.  Getting this backwards is what would send the homing FSM
+    // hunting the wrong edge on real hardware -- rev0.3 measured it, 2026-09-08.
     sim::set_opto(0.0f);
     auto mv = hal::adc::read_mv(hal::adc::Ch::Opto);
-    CHECK(mv.ok() && mv.v == 200);  // dark end of the calibration span
+    CHECK(mv.ok() && mv.v == hal::adc::kOptoClearMv);
 
     sim::set_opto(1.0f);
     mv = hal::adc::read_mv(hal::adc::Ch::Opto);
-    CHECK(mv.ok() && mv.v == 3000);
+    CHECK(mv.ok() && mv.v == hal::adc::kOptoMarkMv);
+    CHECK(hal::adc::kOptoMarkMv < hal::adc::kOptoClearMv);  // the inversion, asserted
 
     sim::set_opto(0.5f);
     const auto n = hal::adc::read_opto_norm();

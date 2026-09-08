@@ -163,11 +163,7 @@ Result<uint16_t> read_mv(Ch ch) noexcept {
 Result<float> read_opto_norm() noexcept {
     const auto mv = read_mv(Ch::Opto);
     if (!mv.ok()) return Result<float>::bad(mv.st);
-    const float span = static_cast<float>(kOptoBrightMv - kOptoDarkMv);
-    float n = (static_cast<float>(mv.v) - static_cast<float>(kOptoDarkMv)) / span;
-    if (n < 0.0f) n = 0.0f;
-    if (n > 1.0f) n = 1.0f;
-    return Result<float>::good(n);
+    return Result<float>::good(opto_norm_from_mv(mv.v));
 }
 
 }  // namespace adc

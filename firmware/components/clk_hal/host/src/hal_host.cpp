@@ -25,10 +25,11 @@ namespace clk::hal {
 namespace {
 
 // ---- calibration placeholders ----------------------------------------------------------
-// Real numbers arrive at milestone 3 with a probe on the QRE1113.  They live here rather
-// than in a driver so the fake and the eventual real calibration share one definition.
-constexpr uint16_t kOptoDarkMv = adc::kOptoDarkMv;  // hal.hpp owns the span now
-constexpr uint16_t kOptoBrightMv = adc::kOptoBrightMv;
+// Real numbers arrive at milestone 3 with a probe on the QRE1113.  The opto span moved to
+// hal.hpp so the fake and the target cannot disagree about it -- including about its SENSE,
+// which they did until rev0.3 was measured.
+constexpr uint16_t kOptoClearMv = adc::kOptoClearMv;
+constexpr uint16_t kOptoMarkMv = adc::kOptoMarkMv;
 constexpr uint16_t kVbatEmptyMv = 3300;
 constexpr uint16_t kVbatFullMv = 4050;  // the LT3652 float cap, not 4.2 (README §10)
 
@@ -360,9 +361,10 @@ Result<uint16_t> read_mv(Ch ch) noexcept {
     switch (ch) {
         case Ch::Opto: {
             if (!board::present(board::Dev::Opto)) return Result<uint16_t>::bad(Status::NotPresent);
-            const float span = static_cast<float>(kOptoBrightMv - kOptoDarkMv);
+            // Inverted, like the real sensor: norm 1 (on the mark) is the LOW end.
+            const float span = static_cast<float>(kOptoClearMv - kOptoMarkMv);
             const int32_t mv =
-                static_cast<int32_t>(kOptoDarkMv + opto_norm_locked() * span) + noise_locked();
+                static_cast<int32_t>(kOptoClearMv - opto_norm_locked() * span) + noise_locked();
             return Result<uint16_t>::good(clamp_mv(mv));
         }
         case Ch::Vbat: {
@@ -377,9 +379,7 @@ Result<uint16_t> read_mv(Ch ch) noexcept {
 Result<float> read_opto_norm() noexcept {
     const auto mv = read_mv(Ch::Opto);
     if (!mv.ok()) return Result<float>::bad(mv.st);
-    const float span = static_cast<float>(kOptoBrightMv - kOptoDarkMv);
-    return Result<float>::good(
-        std::clamp((static_cast<float>(mv.v) - kOptoDarkMv) / span, 0.0f, 1.0f));
+    return Result<float>::good(adc::opto_norm_from_mv(mv.v));
 }
 
 }  // namespace adc

@@ -52,6 +52,27 @@ all routing.**
 
 ---
 
+## 🔵 v0.4 — carried out of rev0.3 bring-up
+
+Everything here was found by **building and running board #1**, not by review. Source: the
+bench notes in [`../PCB_v0.3_learnings.md`](../PCB_v0.3_learnings.md) plus what the firmware
+bring-up measured (`FIRMWARE.md` §12.0.3–§12.0.6). None of it is urgent — rev0.3 works — but
+none of it should be rediscovered.
+
+| # | Change | Cost | Why |
+|---|---|---|---|
+| V1 | **`M1` lower snap peg: (0, 9.62) → (0, 11.62)** — 2 mm further from the shaft | one footprint edit | **Required hand rework on build #1.** The two top pegs at (±8.49, −8.49) and the Ø4.6 shaft hole at (0, −6) are all correct; only the lone bottom peg is off. Edit `clock.pretty/Juken_X40-879_DualShaft.kicad_mod`, then re-verify against the factory STEP — the peg was derived from it, so a 2 mm error suggests the reference, not the transcription |
+| V2 | **`R99` 10k → 22k** (QRE1113 collector pull-up) | one resistor | Doubles the homing signal *and* moves the clear end out of the ADC's clipped region. Measured on rev0.3 (R99 = 10k, 3.3 V rail): nothing 3159 mV\* / minute-hand distance 3010 / hour-hand distance 2600 / covered 2200 — i.e. 14, 29, 70, 110 µA of photocurrent. The weakest signal that matters is the **149 mV** minute-hand step. At 22k it becomes **~330 mV** with the clear end at ~2990 mV, in range. 33k gives ~490 mV but saturates on full cover. *\*3159 is clipped: 12 dB attenuation tops out near 3100* |
+| V3 | **`J2` gains a +5 V pin** — bench power and flashing from one header | 1×04 → 1×05/06 header, one net | "Flashing is painful." A Mac cannot power this board at all (§12.0.3: VBUS reaches only the LT3652, which idles below 11.2 V), so bring-up means injecting 5 V at **`J12`** — the status-LED connector — while USB carries data. A labelled 5 V pin on the programming header replaces that hack. **Pin order is the actual design question:** 5 V next to +3V3 or to IO0 on an unkeyed 0.1″ header means one slipped position puts 5 V on a 3.3 V pin or an ESP32 GPIO. `GND · +5V · GND · +3V3 · EN · IO0` (1×06) is slip-tolerant; `+3V3 · GND · EN · IO0 · +5V` keeps the existing four positions but puts 5 V beside IO0, which is the worst neighbour |
+| V4 | **Sensor harness: make reversal non-destructive** | 1×08 on both boards + re-route J7 | A reversed cable **actually arrived** for build #1 (2026-09-08) and was caught by a continuity check, not by the design. §4 below rejected a 1×07 twice on cost; the new evidence is that the hazard is real, not theoretical. The insight the earlier rounds missed: **the damage comes from power landing on a signal pin, not from signals being swapped.** A *palindromic* 1×08 — `GND · SDA · SENSOR_INT · +3V3 · +3V3 · ALS_INT · SCL · GND` — survives reversal outright: GND meets GND, +3V3 meets +3V3, and only SDA↔SCL and the two INTs swap. The failure mode becomes "scan finds nothing", which is safe, obvious and diagnosable, instead of a dead $13.57 BNO085 |
+| V5 | **Gate the QRE1113 LED** from a spare expander pin (GPA4-6 are free) | one FET + one net | Buys two things with one change. Power: it is a permanent **14 mA** draw, which #14 already wants gated for backup runtime. Accuracy: with the LED switchable, firmware can read LED-on minus LED-off and **cancel ambient IR entirely** — worth having, because bench readings of the same "nothing in front" condition moved ~500 mV between two sessions under different room lighting. In the sealed cube ambient is close to zero, so this is an improvement rather than a fix |
+
+**Not for v0.4, deliberately:** the I²C probe timeouts (§12.0.4) are a `i2c_master_probe`
+artifact, not a board problem — 100 addressed reads of a known register came back exact with
+zero timeouts. Nothing to change in hardware.
+
+---
+
 ## Status overview
 
 **Legend** — ☑ done · ⏳ open · ⏸ deferred (accepted risk, revisit later) · ✔ accepted (no change)

@@ -53,12 +53,27 @@ enum class Ch : uint8_t {
     Vbat,  // IO1, ADC1_CH0, behind VBAT_DIV_EN -- the /2 divider is undone here
     Opto,  // IO2, ADC1_CH1, QRE1113 phototransistor
 };
-// The QRE1113's dark and bright ends, in millivolts at the ADC pin.  PLACEHOLDERS until
-// milestone 3 puts a probe on the real sensor with a hand passing over it -- but ONE
-// definition, so the fake's span and the target's normalisation cannot drift apart and a
-// threshold tuned in clocksim keeps meaning the same thing on the bench.
-inline constexpr uint16_t kOptoDarkMv = 200;
-inline constexpr uint16_t kOptoBrightMv = 3000;
+// The QRE1113 reads INVERTED, and the names say so because the old ones did not.  R99 pulls
+// HOME_OPTO up to +3V3 and the phototransistor pulls it down, so more reflected light is a
+// LOWER voltage: nothing in front of the sensor is the top of the range, the index mark is
+// down near the bottom.  Measured on rev0.3, 2026-09-08:
+//
+//     nothing 3159 mV* | minute-hand distance 3010 | hour-hand distance 2600 | covered 2200
+//     (* clipped -- 12 dB attenuation tops out around 3100, so the true clear level is higher)
+//
+// PROVISIONAL until milestone 3 measures the real hand tabs, and deliberately ONE definition
+// shared by the fake and the target: an inverted fake would have sent the homing FSM hunting
+// the wrong edge on hardware, which is a mechanical-looking bug with a firmware cause.
+inline constexpr uint16_t kOptoClearMv = 3150;  // nothing above the sensor
+inline constexpr uint16_t kOptoMarkMv = 2600;   // index tab crossing the window
+
+// 0 = nothing in front, 1 = fully on the mark.  Everything above the HAL is written in this
+// sense (the homing FSM looks for it rising), so the inversion is undone exactly here.
+inline constexpr float opto_norm_from_mv(uint16_t mv) noexcept {
+    const float span = static_cast<float>(kOptoClearMv) - static_cast<float>(kOptoMarkMv);
+    const float n = (static_cast<float>(kOptoClearMv) - static_cast<float>(mv)) / span;
+    return n < 0.0f ? 0.0f : (n > 1.0f ? 1.0f : n);
+}
 
 Result<uint16_t> read_mv(Ch) noexcept;
 // Opto normalised to 0..1 against the span above; this is the number you actually watch
