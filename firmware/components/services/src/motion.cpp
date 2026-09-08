@@ -225,10 +225,26 @@ void Motion::on_event(Event const& e) {
         return;
     }
     if (as<HomeRequest>(e)) {
+        // The coils answer first, because the answer decides whether there is a run to make.
+        // A movement that is not there cannot be homed: sweeping a full turn for an index no
+        // sensor will ever report spends the whole homing budget to reach a conclusion the
+        // first call already gave, and then reports it as an error -- which is precisely the
+        // spam D16 exists to prevent, on a bench where half the point is running with things
+        // missing.  Absent is Uninit, said once; a driver that answers and refuses is a Fault.
+        const Status st = power(true);
+        if (st == Status::NotPresent) {
+            CLK_LOGI(motion, "not homing: no movement fitted");
+            state_ = State::Uninit;
+            phase_ = Phase::None;
+            homed_ = false;
+            publish();
+            if (sub_) sub_->post(HomeDone{false, 0});
+            return;
+        }
         home_start_us_ = port::now_us();
         state_ = State::Homing;
         homed_ = false;
-        power(true);
+        if (st != Status::Ok) return fail("the coils would not energise");
         enter(Phase::Clear);
         publish();
         return;
@@ -434,25 +450,31 @@ bool Motion::step_axis(Axis& ax, uint32_t dt_ms) noexcept {
     return true;
 }
 
-void Motion::power(bool on) noexcept {
+Status Motion::power(bool on) noexcept {
     // Ask the driver rather than trusting a cached belief.  A cache that says "the coils are
     // live" while STEP_STBY is actually low is a clock whose hands quietly stop -- and the
     // ways that can happen (brownout, an expander reset, a reconnected harness) are all
     // things that do not announce themselves.
     powered_ = hal::motor::enabled();
-    if (on == powered_) return;
+    if (on == powered_) return Status::Ok;
     // On target this is a MotorPower event to `board`, which clears STEP_STBY over I2C and
     // replies (§6.1).  The HAL keeps the same shape so this line does not change.
     const Status st = hal::motor::enable(on);
     if (st != Status::Ok) {
-        CLK_LOGW(motion, "motor power %s: %s", on ? "on" : "off", clk::name(st));
-        return;
+        // NotPresent is not this function's news to report (D16) -- the caller knows what it
+        // was about to do with the coils and is the only one who can say what their absence
+        // costs.  A driver that answered and refused is a different thing, and gets a line.
+        if (st != Status::NotPresent) {
+            CLK_LOGW(motion, "motor power %s: %s", on ? "on" : "off", clk::name(st));
+        }
+        return st;
     }
     powered_ = on;
     if (!on) {
         hour_.active = min_.active = false;
     }
     CLK_LOGD(motion, "coils %s", on ? "live" : "off");
+    return Status::Ok;
 }
 
 // Snapshot for `motion status` and the UI bridge, both of which read from other threads.

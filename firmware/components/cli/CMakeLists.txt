@@ -10,6 +10,7 @@ set(CLK_CLI_SRCS
     src/cmd_ui.cpp
     src/cmd_motion.cpp
     src/cmd_chrono.cpp
+    src/cmd_board.cpp
     src/stream.cpp)
 
 if(ESP_PLATFORM)

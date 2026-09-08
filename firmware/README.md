@@ -61,6 +61,32 @@ tools/build.sh dev devkit-uart flash monitor   # UART console, for chasing a boo
 `sdkconfig.defaults` + fragments; `sdkconfig` itself is git-ignored so a hand-edited
 menuconfig can never be committed. Build dirs are `build/<profile>-<board>/`.
 
+### Name the port on macOS — auto-detect picks the wrong one
+
+Every Mac has a built-in `/dev/cu.debug-console`, and `idf.py`'s port scan takes it in
+preference to the board. It then fails the way a dead board would:
+
+```
+Serial port /dev/cu.debug-console
+Failed to get PID of a device on /dev/cu.debug-console, using standard reset sequence.
+/dev/cu.debug-console failed to connect: ... No serial data received.
+```
+
+Nothing is wrong with the board. Pass the port — anything after `PROFILE BOARD` goes
+straight through to `idf.py`, and `-p` covers `flash` and `monitor` in one invocation:
+
+```sh
+tools/build.sh dev rev0_3 -p /dev/cu.usbmodem101 flash monitor
+```
+
+`export ESPPORT=/dev/cu.usbmodem101` does the same for a whole session. Don't put it in a
+shell profile — the number changes with the USB port and with re-enumeration. Find the
+current one with `ls /dev/cu.usbmodem*`.
+
+**The board needs its own 5 V while you do this.** USB VBUS reaches the LT3652 and nothing
+else, and the charger idles below 11.2 V, so a Mac's 5 V port powers no rail: `J1` is data
+only. Inject 5 V at `J12` pins 1/3 — see `../FIRMWARE.md` §12.0.3.
+
 ## Host build — tests and `clocksim`
 
 Needs only cmake + ninja. No IDF, no hardware.

@@ -17,12 +17,15 @@
 //   imu     -> BNO085 SHTP/SH-2 over i2c, SENSOR_INT on IO42
 // Each one is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
+#include "driver/i2c_master.h"
+#include "esp_err.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "soc/rtc.h"
 
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
@@ -36,6 +39,22 @@ namespace clock_ {
 uint64_t micros() noexcept { return static_cast<uint64_t>(esp_timer_get_time()); }
 uint32_t millis() noexcept { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 void sleep_ms(uint32_t ms) noexcept { vTaskDelay(pdMS_TO_TICKS(ms)); }
+
+// The one peripheral answer on this side that is real today, and it is real because it costs
+// a register read: `esp_clk_init()` has already chosen the source by the time app_main runs,
+// and it announces a fallback exactly once, in a boot log nobody is reading a week later.
+SlowSrc slow_src() noexcept {
+    switch (::rtc_clk_slow_src_get()) {
+        case SOC_RTC_SLOW_CLK_SRC_XTAL32K:
+            return SlowSrc::Xtal32k;
+        case SOC_RTC_SLOW_CLK_SRC_RC_SLOW:
+            return SlowSrc::RcSlow;
+        case SOC_RTC_SLOW_CLK_SRC_RC_FAST_D256:
+            return SlowSrc::RcFastD256;
+        default:
+            return SlowSrc::Unknown;
+    }
+}
 
 }  // namespace clock_
 
@@ -70,14 +89,120 @@ uint8_t warm() noexcept { return 0; }
 uint8_t cool() noexcept { return 0; }
 }  // namespace wake
 
+// ============================ hal::i2c ===================================================
+// Real, as of 2026-09-07 -- the first peripheral on this side that is.  One bus, shared by
+// the expander, the amp and the sensor daughterboard (esp32.md), so the handle is a file
+// static and the devices hang off it.
 namespace i2c {
-Result<std::size_t> scan(uint8_t*, std::size_t) noexcept {
-    return Result<std::size_t>::bad(Status::NotPresent);
+namespace {
+
+constexpr uint32_t kFreqHz = 400'000;
+// Generous on purpose: the BNO085 clock-stretches, and a timeout tuned to the fastest device
+// on a shared bus is a timeout that fails intermittently on the slowest one.
+constexpr int kTimeoutMs = 50;
+constexpr uint8_t kAddrFirst = 0x08, kAddrLast = 0x77;  // the 7-bit range that is not reserved
+
+i2c_master_bus_handle_t g_bus = nullptr;
+bool g_bus_failed = false;
+
+// Four is every device this board can hold at once (expander, amp, and two of the three on
+// the daughterboard in any one conversation).  A miss evicts the oldest, which on a bus this
+// small never happens twice in a row.
+struct Slot {
+    uint8_t addr;
+    i2c_master_dev_handle_t h;
+};
+Slot g_dev[4]{};
+std::size_t g_next = 0;
+
+i2c_master_bus_handle_t bus() noexcept {
+    if (g_bus || g_bus_failed) return g_bus;
+    i2c_master_bus_config_t cfg{};
+    cfg.i2c_port = I2C_NUM_0;
+    cfg.sda_io_num = static_cast<gpio_num_t>(board::kPins.i2c_sda);
+    cfg.scl_io_num = static_cast<gpio_num_t>(board::kPins.i2c_scl);
+    cfg.clk_source = I2C_CLK_SRC_DEFAULT;
+    cfg.glitch_ignore_cnt = 7;
+    // R95/R96 are 4.7 k on the board and the sensor daughterboard parallels 10 k more
+    // (esp32.md). The internal pull-ups are tens of kilohms and could not hold 400 kHz
+    // anyway; enabling them would mask a missing external resistor, which is the one fault
+    // this bus can have that is worth finding on the bench rather than in the field.
+    cfg.flags.enable_internal_pullup = false;
+    if (const esp_err_t err = ::i2c_new_master_bus(&cfg, &g_bus); err != ESP_OK) {
+        g_bus = nullptr;
+        g_bus_failed = true;  // a bus that would not install will not install on retry either
+        CLK_LOGE(drv_exp, "i2c bus install failed: %s", ::esp_err_to_name(err));
+    }
+    return g_bus;
 }
-Result<uint8_t> read_reg(uint8_t, uint8_t) noexcept {
-    return Result<uint8_t>::bad(Status::NotPresent);
+
+i2c_master_dev_handle_t dev(uint8_t addr) noexcept {
+    auto* b = bus();
+    if (!b) return nullptr;
+    for (auto const& s : g_dev) {
+        if (s.h && s.addr == addr) return s.h;
+    }
+    i2c_device_config_t cfg{};
+    cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    cfg.device_address = addr;
+    cfg.scl_speed_hz = kFreqHz;
+    i2c_master_dev_handle_t h = nullptr;
+    if (::i2c_master_bus_add_device(b, &cfg, &h) != ESP_OK) return nullptr;
+    Slot& slot = g_dev[g_next];
+    g_next = (g_next + 1) % (sizeof(g_dev) / sizeof(g_dev[0]));
+    if (slot.h) (void)::i2c_master_bus_rm_device(slot.h);
+    slot = Slot{addr, h};
+    return h;
 }
-Status write_reg(uint8_t, uint8_t, uint8_t) noexcept { return Status::NotPresent; }
+
+// A device that does not ACK is ABSENT, not broken -- that is the whole of D16 and it is why
+// an unplugged daughterboard reads as NotPresent rather than as a bus error.  A timeout is
+// the other thing entirely: somebody is holding the line down, and that IS a failure.
+Status err_to_status(esp_err_t e) noexcept {
+    if (e == ESP_OK) return Status::Ok;
+    return e == ESP_ERR_TIMEOUT ? Status::Failed : Status::NotPresent;
+}
+
+}  // namespace
+
+Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
+    auto* b = bus();
+    if (!b) return Result<std::size_t>::bad(Status::NotPresent);
+    std::size_t n = 0;
+    for (uint8_t a = kAddrFirst; a <= kAddrLast; ++a) {
+        if (::i2c_master_probe(b, a, kTimeoutMs) != ESP_OK) continue;
+        // Confirm before believing it.  Measured on rev0.3, 2026-09-08: a single probe
+        // false-ACKs at a RANDOM address roughly once every 500 probes -- three hits across
+        // fifteen sweeps, at 0x27, 0x33 and 0x4E, never the same address twice.  The two real
+        // devices answered 15 sweeps out of 15, and twenty register reads of a known value
+        // came back exact, so the bus is fine and it is the probe that lies.  A second
+        // independent ACK costs a millisecond and 112 probes, and it is the difference
+        // between a scan you can act on and a scan that sends you hunting a chip that was
+        // never on the schematic.
+        ::vTaskDelay(pdMS_TO_TICKS(2));
+        if (::i2c_master_probe(b, a, kTimeoutMs) != ESP_OK) continue;
+        if (out && n < cap) out[n] = a;
+        ++n;  // counted even past `cap`, so a caller with a small buffer still learns the truth
+    }
+    return Result<std::size_t>::good(n);
+}
+
+Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept {
+    auto* h = dev(addr);
+    if (!h) return Result<uint8_t>::bad(Status::NotPresent);
+    uint8_t v = 0;
+    const esp_err_t err = ::i2c_master_transmit_receive(h, &reg, 1, &v, 1, kTimeoutMs);
+    if (err != ESP_OK) return Result<uint8_t>::bad(err_to_status(err));
+    return Result<uint8_t>::good(v);
+}
+
+Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept {
+    auto* h = dev(addr);
+    if (!h) return Status::NotPresent;
+    const uint8_t buf[2] = {reg, val};
+    return err_to_status(::i2c_master_transmit(h, buf, sizeof buf, kTimeoutMs));
+}
+
 }  // namespace i2c
 
 namespace imu {

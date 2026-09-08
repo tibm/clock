@@ -160,7 +160,9 @@ private:
     void plan(Axis&, int32_t target) noexcept;  // target: absolute, already resolved
     [[nodiscard]] int32_t resolve(int32_t prev, int32_t from, int32_t to, int dir) const noexcept;
     bool step_axis(Axis&, uint32_t dt_ms) noexcept;  // true while still moving
-    void power(bool on) noexcept;
+    // Ok, or what the driver said.  NotPresent is a legitimate answer and the caller decides
+    // what it means -- for a homing run it means there is nothing to home (D16).
+    Status power(bool on) noexcept;
     void publish() noexcept;
     void enter(Phase) noexcept;
     void run_homing(float opto) noexcept;

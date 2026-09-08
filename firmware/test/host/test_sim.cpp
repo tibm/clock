@@ -153,6 +153,53 @@ void test_i2c_scan_follows_presence() {
     CHECK(hal::i2c::read_reg(0x4A, 0).st == Status::NotPresent);
 }
 
+// The MCP23017 at register level, which exists so the driver that replaces
+// `hal::expander`'s named signals can be written and tested with no board (§11.2, §13.9-9).
+// The property that matters is that the two views of the expander are ONE device: what the
+// named surface sets, the register surface reads, and the other way round.
+void test_i2c_expander_register_view() {
+    using E = hal::expander::Sig;
+    constexpr uint8_t kAddr = 0x20, kIodirA = 0x00, kGpioA = 0x12, kOlatA = 0x14, kGppuB = 0x0D;
+    fresh();
+
+    // POR: both IODIR all-inputs.  A driver that assumes otherwise is a driver that will
+    // drive nothing on the bench and be very hard to explain.
+    CHECK(hal::i2c::read_reg(kAddr, kIodirA).v == 0xFF);
+
+    // Named -> registers.  SPK_SD is GPA0.
+    CHECK(hal::expander::set(E::SpkSd, true) == Status::Ok);
+    CHECK((hal::i2c::read_reg(kAddr, kGpioA).v & 0x01) == 0x01);
+    CHECK(hal::expander::set(E::SpkSd, false) == Status::Ok);
+    CHECK((hal::i2c::read_reg(kAddr, kGpioA).v & 0x01) == 0x00);
+
+    // Registers -> named, but ONLY once the pin is configured as an output.  Forgetting
+    // IODIR is the classic MCP23017 bug and the fake has to reproduce it, not paper over it.
+    CHECK(hal::i2c::write_reg(kAddr, kOlatA, 0x01) == Status::Ok);
+    CHECK(hal::expander::get(E::SpkSd).v == false);  // still an input: the write went nowhere
+    CHECK(hal::i2c::write_reg(kAddr, kIodirA, 0xFE) == Status::Ok);  // GPA0 out
+    CHECK(hal::i2c::write_reg(kAddr, kOlatA, 0x01) == Status::Ok);
+    CHECK(hal::expander::get(E::SpkSd).v == true);
+
+    // An input pin stays the outside world's to drive, whatever IODIR says.  RADIO_OFF is
+    // GPA3 and a write must not move it.
+    const bool radio = hal::expander::get(E::RadioOff).v;
+    CHECK(hal::i2c::write_reg(kAddr, kIodirA, 0x00) == Status::Ok);  // claim ALL of port A
+    CHECK(hal::i2c::write_reg(kAddr, kOlatA, static_cast<uint8_t>(radio ? 0x00 : 0x08)) ==
+          Status::Ok);
+    CHECK(hal::expander::get(E::RadioOff).v == radio);
+
+    // R-BOARD-4's register is real and readable back, so the `board` AO's GPPU.3 write can
+    // be asserted rather than assumed.
+    CHECK(hal::i2c::write_reg(kAddr, kGppuB, 0x08) == Status::Ok);
+    CHECK(hal::i2c::read_reg(kAddr, kGppuB).v == 0x08);
+
+    // And the whole device disappears with the presence flag, registers included.
+    board::set_present(board::Dev::Expander, false);
+    CHECK(hal::i2c::read_reg(kAddr, kGpioA).st == Status::NotPresent);
+    CHECK(hal::expander::get(E::SpkSd).st == Status::NotPresent);
+    board::set_present(board::Dev::Expander, true);
+}
+
 // ---- the sim + sensor + ui commands on top ----------------------------------------------
 
 void test_sim_commands() {
@@ -302,6 +349,7 @@ void run_sim_tests() {
     test_wake_is_plugged_only();
     test_time();
     test_i2c_scan_follows_presence();
+    test_i2c_expander_register_view();
     test_sim_commands();
     test_sensor_grammar();
     test_sensor_stream_is_bounded();

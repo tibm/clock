@@ -98,11 +98,16 @@ Status s_exp(char* out, std::size_t cap) {
 }
 
 Status s_clk(char* out, std::size_t cap) {
-    // The real slow-clock source check (§7.1) arrives with `chrono`; for now this reports
-    // the monotonic base the whole system schedules on, which is the thing you would be
-    // staring at while debugging a warped simulation.
-    std::snprintf(out, cap, "sim_ms=%" PRIu32 " src=%s", hal::clock_::millis(),
-                  board::present(board::Dev::Xtal32k) ? "XTAL32K" : "INT_RC");
+    // `src` is asked of the silicon, not of the presence flag.  Reporting the flag made this
+    // line say XTAL32K on any board built with a crystal footprint -- including one whose
+    // crystal never started and whose RTC has been on the internal RC since boot, which is
+    // the single fact this row exists to carry (kicad/REVIEW.md #24, §7.1).  When the two
+    // disagree the row says so: the part is fitted and it is not oscillating.
+    const auto src = hal::clock_::slow_src();
+    const bool fell_back =
+        board::present(board::Dev::Xtal32k) && src != hal::clock_::SlowSrc::Xtal32k;
+    std::snprintf(out, cap, "sim_ms=%" PRIu32 " src=%s%s", hal::clock_::millis(),
+                  hal::clock_::name(src), fell_back ? " (XTAL32K FITTED, NOT RUNNING)" : "");
     return Status::Ok;
 }
 
@@ -150,7 +155,10 @@ Status cmd_list(Args const&, Sink& out) {
                        s.what);
         }
     }
+    // Three states can print here and the legend used to name two, leaving the one you
+    // actually see all through bring-up -- the driver asked and got NotPresent -- unexplained.
     out.line("  absent = not fitted on this board · no-drv = fitted, but no driver reads it yet");
+    out.line("  not-present = a driver asked and the device did not answer");
     return Status::Ok;
 }
 

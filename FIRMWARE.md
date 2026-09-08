@@ -2331,6 +2331,111 @@ drag a hand or spin the knob is the C++ that ships. State is read through
 `hal::host::snapshot()` rather than the `hal::` calls, because `knob::read()` consumes its
 delta and a viewer that ate the `ui` AO's deltas would be changing what it was watching.
 
+### 12.0.3 The rev0.3 board, first power — 2026-09-07
+
+Board #1 back from PCBWay, fully assembled except **`M1`** (stepper) and **`F1`** (77 °C TCO),
+both `[DNP]` on purpose (`kicad/REVIEW.md`, assembly-quote items 23 and 37). Nothing else
+connected: no cell, and `J3`/`J7`/`J9`/`J10`/`J11` all empty. It boots and runs the console
+in that state. What that first evening cost, so the second one doesn't:
+
+**Power: the Mac cannot run this board, and that is by design.** `J1` VBUS goes to the
+LT3652's `VIN` and nowhere else, and `R10`/`R11` (316k/100k on `VIN_REG`, 2.7 V) put the
+input-regulation knee at **11.2 V**, so below that the charger commands zero current — no BAT
+node, no 5 V, no 3V3. Apple's downstream ports are 5 V, the CH224K's 15 V request is refused,
+and the board stays dark. It is not a fault and there is nothing to debug.
+
+**So the bench configuration is two cables:** 5 V injected at **`J12` pins 1 and 3**
+(`1=+5V · 2=DATA · 3=GND`, JST-PH, back side, pin 1 is the square pad — verified against
+`clock.kicad_pcb`, one net, no series element), and `J1` to the host for **data only**. The
+`J12` feed is a 1.0 mm F.Cu trunk sized for the 5 off-board pixels, which is ample. `U5`'s
+`EN` is tied to VBAT so the boost stays off and does not fight the injection; `U6` self-starts
+off the rail and makes 3V3. That powers everything except the 12 V rail and charging — knob,
+pixels, expander, SD, stepper VM, and audio at 5 V PVDD through the LTC4412. The Mac's own
+5 V on VBUS lands on the idle charger and cannot collide with it.
+
+Injecting 3.3 V at **`J2` pin 1** is the deeper bypass if `U5`/`U6` are ever suspect. `J2` is
+`1=+3V3 · 2=GND · 3=EN · 4=IO0` — **not** a data port (§9.1: there is no UART console,
+`IO43`/`IO44` are spoken for). Jumper pin 3 to pin 2 to hold the S3 in reset while measuring
+rails; `SW1`/`SW2` do reset/boot by hand.
+
+| measured, EN released, ROM only | |
+|---|---|
+| injected 5 V | **45 mA** — of which `R98`/`U14`'s homing LED is a permanent 14 mA off 3V3 |
+| `+3V3` at `J2` pin 1 | 3.30 V |
+
+**A healthy first boot, read from the log:**
+
+- **No `W … clk: 32 kHz XTAL not found, switching to internal 150 kHz oscillator`.** IDF
+  probes the crystal during `esp_clk_init()` because `sdkconfig.rev0_3` sets
+  `CONFIG_RTC_CLK_SRC_EXT_CRYS`; it logs only on failure, so silence is the pass. **That is
+  `kicad/REVIEW.md` #24 item 3 answered on the first article: `Y1` starts.** (Drift is a
+  separate question and belongs to `chrono`, §7.1.)
+- `octal_psram: Found 8MB PSRAM` + `SPI SRAM memory test OK` and `SPI Flash Size : 8MB` —
+  the N8R8 confirmed, both halves.
+- `rst:0x15 (USB_UART_CHIP_RESET)` with `reset reason 11` (`ESP_RST_USB`) is esptool's own
+  reset after flashing. The `Saved PC:` line decoded next to it is where the *previous* run
+  was interrupted, not a crash — on a board that has just been flashed it usually points into
+  `esp_psram`, which looks alarming and means nothing.
+- Partition table prints byte-for-byte as §1.2.
+
+**And one real bug it found**, worth recording because the bench is what found it: `motion`
+homed on boot, `hal::motor::enable()` answered `NotPresent` (no `M1`, and the ESP HAL is still
+stubs), and the FSM **ran anyway** — sweeping for an index no sensor would report and closing
+with `E home failed: the minute hand found no index in a full turn` on every boot. That is
+exactly the error spam D16 exists to prevent, on the bench D16 was written for. Fixed: a
+homing request now asks the coils first, and `NotPresent` leaves the hands `Uninit` — unknown,
+which is true — for one Info line, while a driver that answers and *refuses* still faults.
+Regression test: `test_motion_absent_movement_does_not_fault`.
+
+`rev0_3`'s presence mask is `kAll` ("everything is soldered down"), which is a claim about the
+design and is false for any board with parts deliberately left off. There is no target-side
+command to correct it yet — `sim present` is host-only — so the authority at the moment of use
+is the HAL's own answer, which is where the fix went. Probing will set the mask honestly when
+`board` (§6.5) lands.
+
+### 12.0.4 The I²C bus, and two ways to be fooled by it — 2026-09-08
+
+`board i2c scan` on the bare board (no daughterboard on J7) returns exactly:
+
+```
+0x20  MCP23017 expander (main board)
+0x6C  TAS5760M amp (main board)
+```
+
+Both on-board devices, both address straps correct, the bus good at 400 kHz — and `0x29`/`0x4A`/
+`0x77` correctly absent, because J7 is empty. That is the electrical half of milestone 1.
+
+**`i2c_master_probe()` false-ACKs, and it will cost you an afternoon.** The first build of the
+scan believed a single probe. Measured over fifteen sweeps: the two real devices answered
+**15/15**, while `0x27`, `0x33` and `0x4E` each appeared **once**, never the same address twice —
+roughly one false ACK per 500 probes. Meanwhile twenty reads of a register with a known value
+(`0x20[0x00]`, the MCP23017's `IODIRA`, `0xFF` at POR) came back **exact, 20/20**, and a register
+read at a phantom address answered `NotPresent` **10/10**. So the bus was never the problem: an
+addressed transaction is completely reliable and it is the probe alone that lies. `scan()` now
+requires **two independent ACKs** 2 ms apart; twenty sweeps after that change returned `0x20`
+and `0x6C`, twenty times, with nothing else. If you ever see a scan report a device that is not
+on `esp32.md`'s address table, read one of its registers before believing it.
+
+The IDF warning `i2c.master: Please check pull-up resistances...` is unconditional whenever
+`flags.enable_internal_pullup` is false (`i2c_master.c:1067`) — a blanket reminder printed
+before any transaction, not a measurement. We disable the internal pull-ups deliberately because
+R95/R96 are on the board.
+
+**Scripting the console needs a terminal, not a pipe.** linenoise probes with `ESC[6n` (cursor
+position report) and *waits for the answer*. A plain `pyserial` script never replies, so commands
+come back truncated or empty and every measurement taken through one is worthless — which two of
+them were, before this was spotted in a raw byte dump. A harness must watch for `ESC[6n` and
+answer (e.g. `ESC[1;1R`); there is a working one in this session's scratchpad. `idf.py monitor`
+holding the port has the same effect for a different reason: it consumes the replies.
+
+**A log-line "line guard" was tried here and reverted.** The idea was to erase linenoise's edit
+line before each log line and redraw the prompt after, to stop logs printing over a half-typed
+command (§9.1, the console is "shaky" while an AO logs). It is the wrong shape: writing to the
+terminal from the producing task desynchronises linenoise's own cursor and column model, which
+then re-probes with `ESC[6n` mid-session. Do not re-add it in that form. If the interleaving is
+worth fixing, defer the log lines and flush them between commands — do not draw over a terminal
+another component owns. `sys debug <mod> warn` is the cheap mitigation in the meantime.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |

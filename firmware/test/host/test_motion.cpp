@@ -10,6 +10,7 @@
 #include "check.hpp"
 #include "testutil.hpp"
 
+#include "clk/board.hpp"
 #include "clk/domain/hand.hpp"
 #include "clk/hal/host/sim.hpp"
 #include "clk/services/chrono.hpp"
@@ -258,6 +259,35 @@ void test_motion_faults_and_recovers() {
     mo().home();
     CHECK(wait_until([] { return mo().snapshot().homed; }, 8000));
     CHECK(mo().snapshot().state != svc::Motion::State::Fault);
+}
+
+// Homing a movement that is NOT FITTED is not the same failure as homing one that is fitted
+// and finds no index -- and the difference is the whole of D16.  Found on the rev0.3 board on
+// 2026-09-07, whose M1 is deliberately unpopulated: the run started anyway, swept for an
+// index no absent sensor would ever report, and closed with `E home failed: the minute hand
+// found no index in a full turn` on every single boot.  An absent movement leaves the hands
+// Uninit -- unknown, which is true -- and costs one Info line, not a fault.
+void test_motion_absent_movement_does_not_fault() {
+    fresh_motion();
+    board::set_present(board::Dev::Motor, false);
+    // `faults` counts the session, not the run, and the case above deliberately raised it.
+    const uint32_t faults_before = mo().snapshot().faults;
+
+    mo().home();
+    // Uninit is reachable only down the new path (the case before this one leaves Idle), and
+    // 500 ms is far inside the homing budget -- so this asserts promptly, not just eventually.
+    CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Uninit; }, 500));
+
+    const auto s = mo().snapshot();
+    CHECK(s.faults == faults_before);  // not a fault: nothing failed, it is not there
+    CHECK(!s.homed);
+
+    // And the moment the movement IS fitted, the same request homes normally -- absence is a
+    // runtime answer, not a latched state (D15).
+    board::set_present(board::Dev::Motor, true);
+    mo().home();
+    CHECK(wait_until([] { return mo().snapshot().homed; }, 8000));
+    CHECK(mo().snapshot().faults == faults_before);
 }
 
 // ---- the per-unit calibration, and the trim that keeps it -------------------------------
@@ -1381,6 +1411,7 @@ void run_motion_service_tests() {
     test_motion_levels_the_dial_to_gravity();
     test_motion_de_energises_when_idle();
     test_motion_faults_and_recovers();
+    test_motion_absent_movement_does_not_fault();
     test_motion_zero_offsets_the_hand();
     test_motion_autohome_trims_a_drifted_hand();
     test_motion_autohome_rehomes_when_the_hands_have_slipped();

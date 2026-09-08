@@ -46,16 +46,14 @@ constexpr const char* kGroups[] = {
     "hand",
     "ui",
     "led",
-    "audio",
-    "snd",
     "board",
     "i2c",
     "chrono",
     "time",
-    "storage",
-    "fs",
-    "net",
     "sensor",
+// `audio`/`snd`, `storage`/`fs` and `net` are NOT here: offering a completion for a group
+// `help` does not list sends you to a wall, which cost an evening on 2026-09-07.  Add
+// each one in the commit that adds its rows.
 #if CLK_HAVE_SIM
     "sim",  // host-only today: the fake-HAL rows do not exist on target
 #endif

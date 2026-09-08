@@ -7,7 +7,7 @@
 if(ESP_PLATFORM)
     idf_component_register(SRCS esp/src/hal_esp.cpp
                            INCLUDE_DIRS api
-                           REQUIRES core board_cfg esp_timer nvs_flash)
+                           REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c)
 else()
     find_package(Threads REQUIRED)
     add_library(clk_hal STATIC host/src/hal_host.cpp)

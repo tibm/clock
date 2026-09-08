@@ -24,6 +24,27 @@ namespace clock_ {
 uint64_t micros() noexcept;
 uint32_t millis() noexcept;
 void sleep_ms(uint32_t) noexcept;  // real time, never warped -- it paces the CLI
+
+// What the RTC slow clock is ACTUALLY running on, asked of the silicon -- not what the board
+// was built to have.  The two differ exactly when it matters: `Y1` fails to start, IDF falls
+// back to the internal RC at boot, and every holdover interval from then on drifts percent-
+// level instead of ppm (§7.1, kicad/REVIEW.md #24).  A presence flag cannot see that.
+enum class SlowSrc : uint8_t { RcSlow, Xtal32k, RcFastD256, Unknown };
+SlowSrc slow_src() noexcept;
+// Inline: the only thing that differs per platform is the register read above, and a second
+// copy of this table in the other backend is a second place for the strings to drift.
+constexpr const char* name(SlowSrc s) noexcept {
+    switch (s) {
+        case SlowSrc::Xtal32k:
+            return "XTAL32K";
+        case SlowSrc::RcSlow:
+            return "INT_RC";
+        case SlowSrc::RcFastD256:
+            return "RC_FAST/256";
+        default:
+            return "?";
+    }
+}
 }  // namespace clock_
 
 // ---- ADC -------------------------------------------------------------------------------

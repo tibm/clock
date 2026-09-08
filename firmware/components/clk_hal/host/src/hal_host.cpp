@@ -246,6 +246,25 @@ float opto_norm_locked() noexcept { return g_st.opto_auto ? opto_from_hands_lock
 // Charger state, shared by power::read() and the expander's open-drain CHRG pin.
 bool charging_locked() noexcept { return g_st.plugged && g_st.vbat_mv < kVbatFullMv; }
 
+// One truth about every expander pin, read by BOTH views of it: the named-signal surface
+// (hal::expander, what the firmware uses today) and the register surface (hal::i2c, what a
+// real Mcp23017 driver will use).  Two independent fakes that could disagree would be a
+// simulator that fails a driver the hardware would have passed.
+bool sig_level_locked(expander::Sig s) noexcept {
+    switch (s) {
+        // Derived rather than stored, so there is exactly one truth about being plugged in
+        // and one about charging -- power::read() and this pin cannot disagree.
+        case expander::Sig::PdPg:
+            return g_st.plugged;
+        case expander::Sig::Chrg:
+            return !charging_locked();  // OD: low while charging
+        case expander::Sig::StepStby:
+            return g_st.motor_on;
+        default:
+            return g_st.exp[static_cast<std::size_t>(s)];
+    }
+}
+
 // The knob count as it stands right now, mid-ramp included.  Evaluated lazily like the axes:
 // no thread, exact under `sim warp`, and a ramp that has run out settles into `count`.
 int32_t knob_count_locked() noexcept {
@@ -323,6 +342,13 @@ uint32_t millis() noexcept { return static_cast<uint32_t>(micros() / 1000); }
 // Real time on purpose: this paces the console and the stream producer, and warping it
 // would make `sensor ... stream 100` sample at 6 kHz when warp is 60.
 void sleep_ms(uint32_t ms) noexcept { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+
+// The fake has no oscillator to fail, so it answers from the presence flag -- and `sim present
+// xtal32k off` is then how you exercise the fallback path without a board that has a dud
+// crystal on it (§13.9: model what the firmware branches on).
+SlowSrc slow_src() noexcept {
+    return board::present(board::Dev::Xtal32k) ? SlowSrc::Xtal32k : SlowSrc::RcSlow;
+}
 
 }  // namespace clock_
 
@@ -538,7 +564,82 @@ Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
     return Result<std::size_t>::good(n);
 }
 
-Result<uint8_t> read_reg(uint8_t addr, uint8_t) noexcept {
+// ---- the MCP23017 at 0x20, at register level (§11.2, §13.9 item 9) ----------------------
+// Every other address on kBus still answers 0 to any register, which is enough to model
+// "something ACKs there" for a scan and nothing more.  The expander is different because it
+// is the one device a driver is about to be written against, and a driver is exactly what a
+// register file catches: BANK ordering, IODIR polarity, GPPU on GPB3 (R-BOARD-4), the
+// OLAT/GPIO distinction.  Modelled: the registers the firmware branches on.  Not modelled:
+// interrupt-on-change, sequential-address auto-increment, IOCON.BANK=1.
+namespace {
+
+constexpr uint8_t kMcpAddr = 0x20;
+enum Reg : uint8_t {
+    IODIRA = 0x00,
+    IODIRB = 0x01,
+    GPPUA = 0x0C,
+    GPPUB = 0x0D,
+    GPIOA = 0x12,
+    GPIOB = 0x13,
+    OLATA = 0x14,
+    OLATB = 0x15,
+    kRegCount = 0x16,
+};
+
+// Sig order IS the pin order (hal.hpp): 0-3 are GPA0-3, 4-11 are GPB0-7.  The static_assert
+// is the guard -- reorder the enum and this stops compiling rather than silently swapping
+// SPK_SD for CELL_TEST on a bench where both are one bit in a hex byte.
+constexpr std::size_t kPortASigs = 4;
+static_assert(static_cast<std::size_t>(expander::Sig::RadioOff) == 3);
+static_assert(static_cast<std::size_t>(expander::Sig::PdPg) == kPortASigs);
+static_assert(expander::kSigCount == kPortASigs + 8);
+
+uint8_t g_mcp[kRegCount] = {0xFF, 0xFF};  // POR: both IODIR all-inputs, everything else 0
+
+// The live pin levels as one byte per port, so a GPIO read answers what the pins are doing
+// and not what was last written to them.
+uint8_t port_level_locked(bool port_b) noexcept {
+    uint8_t v = 0;
+    const std::size_t first = port_b ? kPortASigs : 0;
+    const std::size_t n = port_b ? 8 : kPortASigs;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (sig_level_locked(static_cast<expander::Sig>(first + i)))
+            v |= static_cast<uint8_t>(1u << i);
+    }
+    return v;
+}
+
+// A write reaches a pin only where IODIR says the pin is an output -- which is what makes
+// "the driver forgot to clear IODIR" a visible failure here instead of on the bench.
+void port_drive_locked(bool port_b, uint8_t val) noexcept {
+    const uint8_t dir = g_mcp[port_b ? IODIRB : IODIRA];
+    const std::size_t first = port_b ? kPortASigs : 0;
+    const std::size_t n = port_b ? 8 : kPortASigs;
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto s = static_cast<expander::Sig>(first + i);
+        if ((dir & (1u << i)) || !expander::is_output(s)) continue;  // input: not ours to drive
+        g_st.exp[static_cast<std::size_t>(s)] = (val & (1u << i)) != 0;
+    }
+}
+
+// Called by sim::reset(): the register file is device state, and a test that inherits the
+// previous test's IODIR is a test that passes for the wrong reason.
+void mcp_reset_locked() noexcept {
+    for (auto& r : g_mcp) r = 0;
+    g_mcp[IODIRA] = g_mcp[IODIRB] = 0xFF;
+}
+
+}  // namespace
+
+Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept {
+    std::lock_guard lk{g_mx};
+    if (addr == kMcpAddr && board::present(board::Dev::Expander)) {
+        if (reg >= kRegCount) return Result<uint8_t>::bad(Status::BadArg);
+        if (reg == GPIOA || reg == GPIOB) {
+            return Result<uint8_t>::good(port_level_locked(reg == GPIOB));
+        }
+        return Result<uint8_t>::good(g_mcp[reg]);
+    }
     for (auto const& s : kBus) {
         if (s.addr == addr) {
             return board::present(s.dev) ? Result<uint8_t>::good(0)
@@ -548,7 +649,21 @@ Result<uint8_t> read_reg(uint8_t addr, uint8_t) noexcept {
     return Result<uint8_t>::bad(Status::NotPresent);
 }
 
-Status write_reg(uint8_t addr, uint8_t, uint8_t) noexcept {
+Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept {
+    std::lock_guard lk{g_mx};
+    if (addr == kMcpAddr && board::present(board::Dev::Expander)) {
+        if (reg >= kRegCount) return Status::BadArg;
+        g_mcp[reg] = val;
+        // GPIO and OLAT are the same latch seen twice; writing either drives the outputs.
+        if (reg == GPIOA || reg == OLATA) {
+            g_mcp[GPIOA] = g_mcp[OLATA] = val;
+            port_drive_locked(false, val);
+        } else if (reg == GPIOB || reg == OLATB) {
+            g_mcp[GPIOB] = g_mcp[OLATB] = val;
+            port_drive_locked(true, val);
+        }
+        return Status::Ok;
+    }
     for (auto const& s : kBus) {
         if (s.addr == addr) return board::present(s.dev) ? Status::Ok : Status::NotPresent;
     }
@@ -581,18 +696,7 @@ Result<bool> get(Sig s) noexcept {
     std::lock_guard lk{g_mx};
     if (static_cast<std::size_t>(s) >= kSigCount) return Result<bool>::bad(Status::BadArg);
     if (!board::present(board::Dev::Expander)) return Result<bool>::bad(Status::NotPresent);
-    switch (s) {
-        // Derived rather than stored, so there is exactly one truth about being plugged in
-        // and one about charging -- power::read() and this pin cannot disagree.
-        case Sig::PdPg:
-            return Result<bool>::good(g_st.plugged);
-        case Sig::Chrg:
-            return Result<bool>::good(!charging_locked());  // OD: low while charging
-        case Sig::StepStby:
-            return Result<bool>::good(g_st.motor_on);
-        default:
-            return Result<bool>::good(g_st.exp[static_cast<std::size_t>(s)]);
-    }
+    return Result<bool>::good(sig_level_locked(s));
 }
 
 Status set(Sig s, bool level) noexcept {
@@ -954,6 +1058,7 @@ void reset() noexcept {
     g_st = State{};
     g_st.sim_base_us = keep_us;
     g_st.real_base_us = real_us();
+    i2c::mcp_reset_locked();
     board::reset_presence();
 }
 
