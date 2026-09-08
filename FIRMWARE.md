@@ -2436,6 +2436,30 @@ then re-probes with `ESC[6n` mid-session. Do not re-add it in that form. If the 
 worth fixing, defer the log lines and flush them between commands — do not draw over a terminal
 another component owns. `sys debug <mod> warn` is the cheap mitigation in the meantime.
 
+### 12.0.5 The dial pixels light — 2026-09-08
+
+`hal::pixels` is real: `espressif/led_strip` 3.0.3 on the **SPI3 + DMA** backend (D4, not RMT),
+`LED_MODEL_SK6812` with `LED_STRIP_COLOR_COMPONENT_FMT_GRBW`. Everything above the HAL already
+existed, so `ui led`, `ui led test` and `ui status`'s `[##.....]` chain rendering all came up at
+once. Milestone **4a** is done and **4b** is done for the on-board half.
+
+**`ui led 0 red` lights the pixel on the LEFT of the shaft, viewed from the front** — which
+matches `D40` at x=8 against `D41` at x=102 (both y=55), so chain position 1 is the left-hand
+dial wash and the chain runs left → right. Worth having verified rather than assumed: the
+dial-wash animation indexes on it. Colours came out true, which independently confirms the
+`GRBW` byte order — the failure mode there is plausible-but-shifted colours that read like a
+wiring fault and are not one.
+
+One `ui led` command returning `Ok` proves the SPI transfer, **not** that a pixel lit: nothing
+on this chain reads back, so a dead pixel, a dead `U15` or an unstuffed part all still answer
+`Ok`. Eyes on the board are the only test. If it ever goes dark: pixel 0 dark with 1 lit is
+close to impossible (data passes through the chain), so **0 lit / 1 dark** is `D41` or the link
+between them, and **both dark** is `U15`, IO7, or 5 V at the pixels.
+
+⚠ Pixels 2-6 stay dark until the `J12` harness exists, and **`J12` is the 5 V injection point
+during bring-up** (§12.0.3) — its pin 2 is the chain's data-out to those five. Power and data
+there need sorting before the status row can work.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |

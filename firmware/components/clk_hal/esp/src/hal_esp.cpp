@@ -23,6 +23,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "led_strip.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "soc/rtc.h"
@@ -76,11 +77,75 @@ Status adopt(Hand, int32_t) noexcept { return Status::NotPresent; }
 Axis state(Hand) noexcept { return Axis{}; }
 }  // namespace motor
 
+// ============================ hal::pixels ================================================
+// SK6812 RGBW x7 on IO7 through the SN74AHCT1G125 3V3->5V buffer, driven by led_strip's
+// SPI3 backend with DMA -- not RMT (D4): RMT's channels are wanted elsewhere and the SPI
+// backend does not fight the GPTimer ISR that will be commutating the stepper.
 namespace pixels {
-Status set(std::size_t, Rgbw) noexcept { return Status::NotPresent; }
-Status set_all(Rgbw) noexcept { return Status::NotPresent; }
-Status refresh() noexcept { return Status::NotPresent; }
-Rgbw get(std::size_t) noexcept { return Rgbw{}; }
+namespace {
+
+led_strip_handle_t g_strip = nullptr;
+bool g_failed = false;
+// led_strip has no readback, and `get()` is documented as "last value written", so the
+// mirror IS the answer rather than a cache of one.  It also survives a driver that failed
+// to install, which keeps `ui led` printing something truthful on a board with no strip.
+Rgbw g_px[kCount]{};
+
+led_strip_handle_t strip() noexcept {
+    if (g_strip || g_failed) return g_strip;
+    led_strip_config_t cfg{};
+    cfg.strip_gpio_num = board::kPins.neopix;
+    cfg.max_leds = kCount;
+    cfg.led_model = LED_MODEL_SK6812;
+    // SK6812 RGBW: four bytes a pixel, white on its own die.  Getting this wrong shows up as
+    // colours that are right but shifted one channel along the chain, which reads like a
+    // wiring fault and is not one.
+    cfg.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRBW;
+    cfg.flags.invert_out = false;
+
+    led_strip_spi_config_t spi{};
+    spi.clk_src = SPI_CLK_SRC_DEFAULT;
+    spi.spi_bus = SPI3_HOST;
+    spi.flags.with_dma = true;
+
+    if (const esp_err_t err = ::led_strip_new_spi_device(&cfg, &spi, &g_strip); err != ESP_OK) {
+        g_strip = nullptr;
+        g_failed = true;
+        CLK_LOGE(drv_led, "led_strip install failed: %s", ::esp_err_to_name(err));
+    }
+    return g_strip;
+}
+
+}  // namespace
+
+Status set(std::size_t i, Rgbw c) noexcept {
+    if (i >= kCount) return Status::BadArg;
+    if (!board::present(board::Dev::Pixels)) return Status::NotPresent;
+    auto* s = strip();
+    if (!s) return Status::NotPresent;
+    // Mirror first: what the caller asked for is what `get()` must report, whether or not
+    // the chain is physically there to show it.
+    g_px[i] = c;
+    return ::led_strip_set_pixel_rgbw(s, i, c.r, c.g, c.b, c.w) == ESP_OK ? Status::Ok
+                                                                          : Status::Failed;
+}
+
+Status set_all(Rgbw c) noexcept {
+    for (std::size_t i = 0; i < kCount; ++i) {
+        if (const Status st = set(i, c); st != Status::Ok) return st;
+    }
+    return Status::Ok;
+}
+
+Status refresh() noexcept {
+    if (!board::present(board::Dev::Pixels)) return Status::NotPresent;
+    auto* s = strip();
+    if (!s) return Status::NotPresent;
+    return ::led_strip_refresh(s) == ESP_OK ? Status::Ok : Status::Failed;
+}
+
+Rgbw get(std::size_t i) noexcept { return i < kCount ? g_px[i] : Rgbw{}; }
+
 }  // namespace pixels
 
 namespace wake {
@@ -170,7 +235,14 @@ Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
     if (!b) return Result<std::size_t>::bad(Status::NotPresent);
     std::size_t n = 0;
     for (uint8_t a = kAddrFirst; a <= kAddrLast; ++a) {
-        if (::i2c_master_probe(b, a, kTimeoutMs) != ESP_OK) continue;
+        const esp_err_t first = ::i2c_master_probe(b, a, kTimeoutMs);
+        // A timeout is not a NACK: somebody is holding the bus down, and WHICH address the
+        // sweep was on when that happened is the whole diagnosis.  Random addresses mean a
+        // device is stretching SCL for everyone (the BNO085 does exactly this while it has an
+        // SHTP packet nobody has read); the same address every time means that one device.
+        // IDF logs the timeout at E from its own tag and does not say where, so say it here.
+        if (first == ESP_ERR_TIMEOUT) CLK_LOGW(drv_exp, "i2c: bus held at 0x%02X", a);
+        if (first != ESP_OK) continue;
         // Confirm before believing it.  Measured on rev0.3, 2026-09-08: a single probe
         // false-ACKs at a RANDOM address roughly once every 500 probes -- three hits across
         // fifteen sweeps, at 0x27, 0x33 and 0x4E, never the same address twice.  The two real
@@ -180,7 +252,9 @@ Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
         // between a scan you can act on and a scan that sends you hunting a chip that was
         // never on the schematic.
         ::vTaskDelay(pdMS_TO_TICKS(2));
-        if (::i2c_master_probe(b, a, kTimeoutMs) != ESP_OK) continue;
+        const esp_err_t second = ::i2c_master_probe(b, a, kTimeoutMs);
+        if (second == ESP_ERR_TIMEOUT) CLK_LOGW(drv_exp, "i2c: bus held at 0x%02X", a);
+        if (second != ESP_OK) continue;
         if (out && n < cap) out[n] = a;
         ++n;  // counted even past `cap`, so a caller with a small buffer still learns the truth
     }

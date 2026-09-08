@@ -7,7 +7,7 @@
 dependencies:
   idf:
     version: "==5.5.5"
-#  espressif/led_strip:
-#    version: "==3.0.3"
+  espressif/led_strip:
+    version: "==3.0.3"
 #  joltwallet/littlefs:
 #    version: "==1.22.3"
