@@ -63,6 +63,18 @@ cable loaded **backwards plugs in perfectly** — and J1.5 then receives J7.2
 R97 10 k: **assume U1 ($13.57, the most expensive part on either board) is
 destroyed.**
 
+**This is not a hypothetical, and it is not only a mis-crimp: JST sells the
+backwards cable as a catalogue part.** `A06ZR06ZR28H152`**`A`** is the
+*Reversed* build (pin 1 ↔ pin 6, DigiKey 455-3027-ND) and
+`A06ZR06ZR28H152`**`B`** is straight through (pin 1 ↔ pin 1, DigiKey
+455-3039-ND) — one character apart, indistinguishable in the bag. The BOM has
+always said `…B`; the cable that arrived for build #1 on **2026-09-08** was an
+`…A`, and a continuity check is the only reason U1 survived it.
+
+> **Standing procedure, before this harness ever goes into a powered board:**
+> DMM on continuity, cable out of both boards, **pin 1 of one end to pin 1 of
+> the other**. A beep on pin 1 ↔ pin 6 instead means re-pin it or bin it.
+
 Worse, the main board's **J10** (knob) is the *same* ZH 1×06 header **13.5 mm
 from J7**, with **+5 V on pin 2** — that mis-mate puts 5 V on `+3V3` and takes
 out all three sensors at once (abs max: BNO085 VDDIO 3.63 V, TSL2591 3.8 V,

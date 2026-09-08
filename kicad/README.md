@@ -47,7 +47,9 @@ rationale, constraint checklist, and verification results.
   a 3-pin JST-PH breakout, since 2026-07-21 — see `PCB_NOTES.md`.)*
 - **J10 knob connector** (reworked 2026-07-19/20 for the EM14 optical
   encoder): JST **ZH** 1×06 **B6B-ZR** — same family as J7, so ONE cheap
-  pre-crimped ZH↔ZH cable type (A06ZR06ZR28H102B-style) serves both.
+  pre-crimped ZH↔ZH cable type (A06ZR06ZR28H152B) serves both. The **B**
+  suffix is straight-through wiring; the otherwise-identical `…152A` is
+  JST's *Reversed* build and destroys the BNO085 (root README §16d).
   Pinout `1 GND · 2 +5V · 3 A · 4 B · 5 SW · 6 GND`. A/B are 5 V
   outputs → on-board **100k/200k dividers** (R111/R114, R112/R115) →
   IO47/48; SW → 10 k PU (R113) + 100 nF (C239) → IO17.
