@@ -1116,9 +1116,17 @@ unchanged, but the driver is a different class of thing and the estimate should 
 **What changes versus a register-map part**
 
 1. **Transport is SHTP, not registers.** Every exchange is a packet: a 4-byte SHTP header
-   (length LSB/MSB, channel, sequence) then payload, on top of the SH-2 command/report layer.
-   Use CEVA's reference `sh2` driver and give it an I²C read/write shim over the `board` bus —
-   do not hand-roll it.
+   (length LSB/MSB, channel, sequence — the length **includes** the header and bit 15 of it is
+   the continuation flag) then payload, on top of the SH-2 command/report layer. Use CEVA's
+   reference `sh2` driver and give it an I²C read/write shim over the `board` bus — do not
+   hand-roll it.
+   > ⚠ **What actually shipped on 2026-09-09 is a hand-rolled bring-up subset**, and that is a
+   > deliberate, reversible deviation from this line rather than a quiet one: `sh2` is not
+   > vendored, and being a C library with its own HAL it would put the BNO085 further out of
+   > `test_host`'s reach rather than closer. `clk_hal/shared/bno085.cpp` speaks only the boot
+   > drain, the product-ID handshake, two `Set Feature` commands and two input reports —
+   > everything it parses, `sh2` parses the same way, so swapping it in replaces a transport and
+   > keeps the surface. **Reasons, confidence per field and the bench procedure: §12.0.7.**
 2. **`SENSOR_INT` means "the hub has a packet for you"**, not "a tap happened". The ISR notifies
    `board`; `board` reads exactly one SHTP packet and lets `sh2` dispatch it. Most packets early
    on are not sensor reports.
@@ -1914,7 +1922,7 @@ your hand. All of it goes through the owning AO (rule 12) — `sensor` is a *vie
 | `knob` | `ui` | PCNT count, delta, direction, `ENC_SW` | 50 Hz | Proves the 100k/200k dividers and the glitch filter |
 | `vbat` | `board` | mV, SoC %, divider-enable state | 10 Hz | Charge curve, `CELL_TEST` before/after |
 | `als` | `board` | lux, gain, integration, `ALS_INT` | 10 Hz | ALS gating thresholds; proves GPB3 + R-BOARD-4 |
-| `env` | `board` | T / RH / P / IAQ / accuracy | 1 Hz | BSEC warm-up is slow — watch `accuracy` climb |
+| `env` | `board` | T / RH / P + **gas resistance in Ω**, `gas_valid`, `heat_stable` | 1 Hz | No IAQ here — that is BSEC's or a baseline's, a layer above (§12.0.7). A gas figure with `heat_stable` clear measures nothing |
 | `imu` | `board` | gravity vector + `up`/tilt, tap events, SHTP packet count, liveness | event + 2 Hz | Confirms the hub booted at all (R-BOARD-3); `up` is how the §6.1d axis map gets confirmed on the bench |
 | `exp` | `board` | both MCP23017 ports, decoded by signal name | 20 Hz | Watch `PD_PG`/`CHRG`/`FAULT` change as you plug in |
 | `chg` | `board` | `CHRG` `FAULT` `PD_PG` + derived charger state | 10 Hz | LT3652 state machine, without a scope |
@@ -2505,12 +2513,152 @@ ADC.**
 `get()` reads `GPIO`, never the `OLAT` shadow, even for outputs — an output that cannot reach
 its latch (shorted, or fighting something) is exactly what you want a bench read to show.
 
+### 12.0.7 The sensor board answers — three drivers, and what the datasheets actually say — 2026-09-09
+
+`hal::als`, `hal::env` and `hal::imu` are real drivers now: `clk_hal/shared/tsl2591.cpp`,
+`bme688.cpp` and `bno085.cpp`, all three compiled into **both** backends, all three reached
+through `hal::i2c`. `sensor list` on the host:
+
+```
+  imu      ok        g=0.00,-9.81,-0.00 up=0 tilt=1.00 taps=0 pkt=1
+  als      ok        lux=120.11 ch0=1057 ch1=175 gain=25x t=100ms int=0
+  env      ok        t=21.50C rh=44.0% p=1013.2hPa gas=120075ohm
+```
+
+⚠ **Everything below is host-verified and not yet bench-verified.** §12.0.3–§12.0.6 are bench
+notes; this one is not. No sensor daughterboard has been on the end of `J7` yet, so what is
+proven is that the drivers compile for both targets, that two of them round-trip physical
+quantities through register-level models of the real silicon, and that the third's parsing and
+axis map are correct against the datasheet. What is *not* proven is a single I²C transaction
+with a real TSL2591, BME688 or BNO085. Read §12.0.4 before believing a scan.
+
+> 🔴 **Before that harness goes into a powered board**, ring pin 1 to pin 1 — the cable that
+> arrived for build #1 on **2026-09-08 was an `…A`, the Reversed build**, and a continuity
+> check is the only reason `U1` survived it (`kicad-sensor/README.md`). A reversed harness puts
+> `+3V3` on the BNO085's `H_INTN` with `VDDIO` at 0 V; swapping the `J7` and `J10` harnesses
+> puts **+5 V on the sensor board's 3.3 V rail** and takes out all three parts at once.
+
+**`hal::i2c` grew buffer transfers, and it had to.** `read_reg`/`write_reg` describe a chip
+whose entire conversation is one address and one byte, and **none of these three parts is that
+chip**: the TSL2591 counts photons into a 16-bit pair that has to be read in one transaction or
+the halves belong to different integrations, the BME688 keeps 41 calibration coefficients in
+three bursts, and the BNO085 is not a register map at all. So `write_read(addr, w, wn, r, rn)`
+is now the primitive — either half may be empty, which is how the BNO085's bare header read and
+bare packet write are both expressed — and the byte forms are written in terms of it.
+`board i2c read <addr> <reg> [<n>]` exposes it.
+
+**Two register models, one deliberate absence.** §13.9 item 9 asked how far to take the
+`clocksim` I²C device models and answered "model what the firmware logic branches on, never the
+device's own physics". That line held exactly as written:
+
+| part | modelled? | why |
+|---|---|---|
+| TSL2591 | **yes**, at register level | the auto-range branches on gain, integration time and saturation; a scene in **lux** goes in and comes back out through the driver's own fit |
+| BME688 | **yes**, at register level | the compensation arithmetic is the driver, and a scene in **°C / %RH / hPa / Ω** round-trips through it |
+| BNO085 | **no**, on purpose | an SHTP responder is a week of work to test what only silicon can invalidate. `hal::imu` on the host stays the angle fake; the driver's pure half is tested instead |
+
+The BME688 model earns its keep by running the datasheet's compensation **backwards** — it
+bisects its own independent transcription of the formulas to produce raw ADC words. Two
+readings of the same tables that have to agree, rather than one checked against itself. It
+round-trips −5…40 °C, 15…95 %RH, 870…1100 hPa and 8 kΩ…900 kΩ to the printed digit.
+
+#### What the datasheets say that the folklore does not
+
+1. **The TSL2591's full scale at 100 ms is `37888`, not `36863`.** The datasheet says so twice
+   (p.6 ALS characteristics, p.13 the `ATIME` table). 36863 is everywhere in hobby drivers and
+   is not in this document; using it under-reports saturation by a thousand counts, at exactly
+   the top of the range where the auto-range makes its decisions.
+2. **The TSL2591 lux equation is not in the TSL2591 datasheet.** The datasheet gives two
+   channels' spectral responsivity and stops. `lux_from_counts()` implements ams **DN40**'s
+   single-coefficient fit (`LUX_DF = 408`), which is a first-order fit and not a calibration —
+   it assumes broadly white light through no glass, and this clock puts the part behind a dial
+   aperture. **Expect a scale error and trim it against a reference meter when the enclosure
+   exists.** Nothing branches on absolute lux today, which is why this is acceptable now.
+3. **The COMMAND byte is how a TSL2591 appears dead.** Every access is `0xA0 | reg` (bit 7
+   `CMD`, bits 6:5 `TRANSACTION` = `01`). The host model NACKs an access without it, on purpose:
+   that one check is worth more than every other modelled register put together.
+4. **`par_p6` and `par_p7` are out of numerical order in the BME688's memory map** — `0x98` is
+   `par_p7` and `0x99` is `par_p6` — and **`par_h1` and `par_h2` share the nibbles of `0xE2`
+   the awkward way round**: `h1` takes the low nibble with `0xE3` above it, `h2` the high nibble
+   with `0xE1` above it. These are the two places a careful transcription still goes wrong, and
+   neither crashes: they read 6 °C in a 21 °C room and look like a sensor fault for a week.
+5. **The BME688 datasheet's printed floating-point pressure listing has three typos** —
+   `var1_p`, `var2_p`, `var3_p` where it means `var1`, `var2`, `var3` (§3.5.2). The arithmetic
+   is unambiguous once resolved and matches Bosch's published API line for line, but read it
+   twice.
+6. **The BNO085's second I²C read returns the SHTP header again.** There is no "continue from
+   where I left off" on this interface: you read four bytes to learn the length, then repeat the
+   read for that many bytes, *including the header* (datasheet §1.3.1 — "a host could read the
+   first 4 bytes to determine the number of clocks to generate and then repeat the read"). A
+   driver written as though the second read starts at the payload is off by four bytes on every
+   packet and never re-syncs, which on a three-device bus looks like a hardware fault.
+7. **The SHTP length field includes the header**, and **bit 15 of it is the continuation flag**,
+   and **`0xFFFF` is reserved** precisely because a failed peripheral produces it too easily.
+   All three are one line in §1.3.1 and all three are desync bugs.
+
+#### The BNO085 driver is a deliberate, reversible deviation from §6.5.1
+
+§6.5.1 item 1 says to use CEVA's reference `sh2` driver and **not** to hand-roll SHTP. That is
+still right for the product and this file does not replace it. It is not what shipped today,
+for three reasons worth writing down: `vendor/` is empty and `sh2` is not fetched; `sh2` is a C
+library with its own HAL that the host build cannot exercise, so adopting it would put the
+BNO085 *further* out of reach of `test_host` rather than closer; and milestone 1 needs one
+question answered — is the hub alive, which way is up, did that tap register.
+
+So `bno085.cpp` speaks the smallest subset that answers it: drain the boot advertisement,
+product-ID handshake, two `Set Feature` commands, two input reports. Every byte layout in it is
+the datasheet's and cited inline. **Its confidence is not uniform, and the file says which is
+which**: the SHTP header, the six channels, the product-ID exchange and the 17-byte Set Feature
+layout are all in the datasheet (Figures 1-26…1-33, 5-1, 5-2); the two feature report IDs
+(gravity `0x06`, tap `0x10`), gravity's **Q point of 8** and the tap flags byte are CEVA SH-2
+constants that are **not** in this datasheet — stable across every `sh2` release, and the first
+lines to check if the hub answers and the numbers are nonsense.
+
+**R-BOARD-3 is implemented as a verdict and a backoff, not as a wait.** A hub with no reset line
+that has stopped answering will not start answering because we asked again 20 ms later, so a
+failed handshake is refused for 5 s before it is retried — a dead BNO085 does not get to decide
+how often the expander and the amp reach the bus. `sensor imu` prints `pkt=` and `NOTREADY` so
+"tap-to-snooze stopped working" is one command from an answer. The host test covers it: the fake
+bus ACKs `0x4A` and says nothing, which is exactly what a wedged hub looks like from the master's
+side.
+
+⚠ **`to_dial_axes()` is a provisional identity map and the bench has to confirm it.** The
+BNO085 reports in the Android frame (+X right, +Y to the top, +Z out of the face) and the dial
+frame is the same convention, so identity is *correct exactly when the daughterboard is mounted
+with its axes aligned to the dial* — which is how it should be fitted and is not yet how it is
+known to be fitted. §6.5.1 item 4a's procedure, now also written down as a test:
+
+| pose | `sensor imu read` must show |
+|---|---|
+| upright, facing you | `up=0` |
+| laid on its **right**-hand face | `up=270` |
+| laid on its **left**-hand face | `up=90` |
+| upside down | `up=180` |
+| dial to the ceiling | `tilt` near 0, `up` meaningless (§6.1d's dead zone) |
+
+If those come out permuted or negated, the fix is three lines in `to_dial_axes()` and nowhere
+else. Nothing above the HAL may learn how this board was soldered.
+
+#### Bench order when the daughterboard arrives
+
+1. Ring the harness pin 1 → pin 1. **Then** plug it in.
+2. `board i2c scan` — expect `0x20`, `0x29`, `0x4A`, `0x6C`, `0x77`. Anything else, read one of
+   its registers before believing it (§12.0.4).
+3. `board i2c read 0x29 0xB2` → `0x50`, and `board i2c read 0x77 0xD0` → `0x61`. Two ID reads
+   settle "is it there and is it what the schematic says" before any driver runs.
+4. `sensor als read` in a lit room, then with a hand over it: the gain must *move* between the
+   two. Auto-range is the only part of that driver a bench can see failing.
+5. `sensor env read` twice, a minute apart. `heat_stable` must be set; a `gas` figure taken with
+   it clear measures nothing.
+6. `sensor imu read` through the five poses above.
+7. `sensor imu stream 20 30` and tap the case — `taps=` must climb.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
 |---|---|---|
 | 0 | **Console + `help` + `sys stat` + `sys top` + `sys ev` + `sys debug`** | The CLI is milestone zero, not an afterthought — everything after this is debuggable |
-| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe |
+| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · *drivers written and host-verified 2026-09-09 (§12.0.7); `sensor vbat` and every daughterboard part still want a bench* |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
 | 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism |
 | 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness |
@@ -2543,10 +2691,14 @@ its latch (shorted, or fighting something) is exactly what you want a bench read
    able to toggle `CELL_TEST` or unmute the amp. Current thinking: keep the *surface* uniform
    (one `Command` enum) but make `Origin::Ble` fail every `Unsafe` row, so the asymmetry lives in the
    authorization matrix and not in two divergent command sets. Decide before §8 is implemented.
-9. **How far to take the `clocksim` I²C device models** (§11.2). Register-level MCP23017 and TSL2591
-   are cheap and clearly worth it. A behavioural TAS5760M or a BNO085 SHTP responder is a week of
-   work to test code that only real silicon can invalidate. Current line: model what the *firmware
-   logic* branches on, never model the device's own physics.
+9. ~~**How far to take the `clocksim` I²C device models** (§11.2).~~ **Answered 2026-09-09 (§12.0.7),
+   and the line held as written.** MCP23017, TSL2591 and BME688 are modelled at register level —
+   the BME688's is worth its weight on its own, because it bisects an independent transcription of
+   the compensation formulas and so catches a coefficient the driver read as the wrong type. The
+   BNO085 has **no** model and will not get one: `hal::imu` on the host stays the angle fake and
+   the driver's pure half (header parse, Q-point, axis map) is what `test_host` covers. The TAS5760M
+   is still open and the same rule decides it: model what the *firmware logic* branches on, never
+   the device's own physics.
 10. **Bench parts for the devkit.** §12.0 lists what each milestone needs. Ordering the SK6812 strip,
     a level shifter, an MCP23017 breakout and a QRE1113 now would put milestones 1, 3 and 4 in reach
     before the PCBs land; a TB6612 breakout + any bipolar stepper would add most of milestone 3.
@@ -2561,14 +2713,14 @@ its latch (shorted, or fighting something) is exactly what you want a bench read
 | IO2 | `HOME_OPTO` | `motion` | ADC1_CH1 oneshot @1 kHz while homing |
 | IO3-6 | minute coils | `motion` | MCPWM0 + GPTimer ISR |
 | IO7 | `NEOPIX_DATA` | `ui` | **SPI3 + DMA** via `led_strip` (D4) |
-| IO8/9 | I²C SDA/SCL | `board` | `i2c_master`, 400 kHz |
+| IO8/9 | I²C SDA/SCL | `board` | `i2c_master`, 400 kHz; `mcp23017` · `tsl2591` · `bme688` · `bno085` all sit on it |
 | IO10/11/12/43 | I²S BCLK/LRCLK/DOUT/**MCLK** | `audio` | I²S0, MCLK = 256 f_S |
 | IO13/14/21/18 | microSD | `storage` | SPI2, ~25 MHz |
 | IO15/16 | `XTAL32K` | *system* | RTC slow clock (D6) |
 | IO17 | `ENC_SW` | `ui` | GPIO IRQ + 5 ms debounce |
 | IO19/20 | USB D± | *system* | USB-Serial-JTAG: flash + CDC + JTAG |
 | IO38-41 | hour coils | `motion` | MCPWM1 + same ISR |
-| IO42 | `SENSOR_INT` | `board` | GPIO IRQ |
+| IO42 | `SENSOR_INT` | `board` | GPIO IRQ → `bno085::isr_tick()`; the drain is on a task, in `read()` |
 | IO44 | `EXPANDER_INT` | `board` | GPIO IRQ |
 | IO45/46 | wake warm/cool | `ui` | LEDC ~1 kHz, gamma |
 | IO47/48 | `ENC_A/B` | `ui` | PCNT unit0, glitch filter |

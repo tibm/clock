@@ -157,6 +157,35 @@ Status cmd_tap(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// The room, for the two devices with register models behind the fake bus.  Both of these
+// write a PHYSICAL quantity and read back through the shipping driver -- `sim lux 30000`
+// then `sensor als read` walks the auto-range the way a window does at noon, and a driver
+// that mishandles a gain change reports something other than 30000.
+Status cmd_lux(Args const& a, Sink& out) {
+    if (a.count() == 0) {
+        out.printf("lux %.1f (the room)", static_cast<double>(sim::lux()));
+        return Status::Ok;
+    }
+    const double v = arg_d(a, 0, 0.0);
+    if (v < 0.0) return Status::BadArg;
+    sim::set_lux(static_cast<float>(v));
+    out.printf("room at %.1f lux", v);
+    return Status::Ok;
+}
+
+Status cmd_env(Args const& a, Sink& out) {
+    if (a.count() < 3) {
+        out.line("usage: sim env <degC> <RH%> <hPa> [<gas ohms>]");
+        return Status::BadArg;
+    }
+    const auto gas = static_cast<uint32_t>(arg_d(a, 3, 120000.0));
+    sim::set_env(static_cast<float>(arg_d(a, 0, 21.0)), static_cast<float>(arg_d(a, 1, 45.0)),
+                 static_cast<float>(arg_d(a, 2, 1013.0)), gas);
+    out.printf("room %.2f C  %.1f %%RH  %.1f hPa  gas %lu ohm", arg_d(a, 0, 21.0),
+               arg_d(a, 1, 45.0), arg_d(a, 2, 1013.0), static_cast<unsigned long>(gas));
+    return Status::Ok;
+}
+
 Status cmd_radio(Args const& a, Sink& out) {
     bool off = false;
     if (!arg_on(a, 0, off)) {
@@ -374,6 +403,7 @@ Status cmd_status(Args const&, Sink& out) {
                s.plugged ? 1 : 0, s.charging ? 1 : 0);
     out.printf("knob   count=%" PRId32 " sw=%d", s.knob_count, s.knob_sw ? 1 : 0);
     out.printf("imu    yaw=%.1f taps=%u", static_cast<double>(s.yaw_deg), s.taps);
+    out.printf("room   %.1f lux", static_cast<double>(sim::lux()));
     out.printf("pixels [%s]  refreshed=%d", px, s.refreshed ? 1 : 0);
     out.printf("wake   warm=%u%% cool=%u%%", s.warm_pct, s.cool_pct);
     out.printf("sound  speaker=%s vol=%u%%", s.spk_active ? "on" : "off", s.vol_pct);
@@ -391,6 +421,8 @@ constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "imu", "[<yaw> [<pitch> <roll>]]", "how the cube sits -> gravity", kHost,
      cmd_imu},
     {"sim", nullptr, "tap", "", "one top-tap (tap-to-snooze)", kHost, cmd_tap},
+    {"sim", nullptr, "lux", "[<lux>]", "how bright the room is (TSL2591 model)", kHost, cmd_lux},
+    {"sim", nullptr, "env", "<degC> <RH%> <hPa> [<ohm>]", "the air (BME688 model)", kHost, cmd_env},
     {"sim", nullptr, "radio", "<on|off>", "rear J11 toggle; on = radios off", kHost, cmd_radio},
     {"sim", nullptr, "speaker", "<on|off>", "amp out of shutdown", kHost, cmd_speaker},
     {"sim", nullptr, "vbat", "<mV>", "cell voltage", kHost, cmd_vbat},

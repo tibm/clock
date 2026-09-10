@@ -25,6 +25,16 @@ uint64_t micros() noexcept;
 uint32_t millis() noexcept;
 void sleep_ms(uint32_t) noexcept;  // real time, never warped -- it paces the CLI
 
+// Has `deadline` passed?  Wrap-safe, and that is the whole reason it exists: millis() rolls
+// over every 49.7 days, and a plain `now >= deadline` written across that boundary either
+// gives up 49 days early or waits 49 days.  A driver's I/O timeout is precisely where nobody
+// would find it -- the device answers, the timeout never fires, and the one time it matters
+// is a hang seven weeks after a reboot.  The unsigned difference cast to signed is the
+// standard idiom and is correct for any interval under ~24.8 days.
+constexpr bool expired(uint32_t now, uint32_t deadline) noexcept {
+    return static_cast<int32_t>(now - deadline) >= 0;
+}
+
 // What the RTC slow clock is ACTUALLY running on, asked of the silicon -- not what the board
 // was built to have.  The two differ exactly when it matters: `Y1` fails to start, IDF falls
 // back to the internal RC at boot, and every holdover interval from then on drifts percent-
@@ -147,12 +157,76 @@ uint8_t cool() noexcept;
 }  // namespace wake
 
 // ---- I2C -------------------------------------------------------------------------------
+// Two levels, and the lower one is not a convenience: `read_reg`/`write_reg` cover a chip
+// whose whole conversation is one address and one byte, and NONE of the three parts on the
+// sensor daughterboard is that chip.  The TSL2591 counts photons into a 16-bit pair that
+// has to be read in one transaction or the two halves belong to different integrations;
+// the BME688 keeps its calibration in a 30-odd byte burst; and the BNO085 is not a register
+// map at all -- it is SHTP packets, header first, length in the header (S6.5.1).
+//
+// So the buffer forms are the primitive and the byte forms are written in terms of them.
 namespace i2c {
 // Returns how many addresses answered; fills `out` up to `cap`.
 Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept;
+
+// One START, `wn` bytes out, repeated START, `rn` bytes in.  A zero length on either side
+// is legal and means "skip that phase", which is how a raw read (the BNO085's header) and a
+// raw write (an SHTP packet) are both expressed here.
+Status write_read(uint8_t addr, const uint8_t* w, std::size_t wn, uint8_t* r,
+                  std::size_t rn) noexcept;
+Status write(uint8_t addr, const uint8_t* buf, std::size_t n) noexcept;
+Status read(uint8_t addr, uint8_t* buf, std::size_t n) noexcept;
+
 Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept;
+Status read_regs(uint8_t addr, uint8_t reg, uint8_t* out, std::size_t n) noexcept;
 Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept;
 }  // namespace i2c
+
+// ---- ambient light (TSL2591) -----------------------------------------------------------
+// Lux is the number the product will eventually branch on -- how bright to run the dial wash
+// and the status row in a dark bedroom -- so lux is what the HAL answers.  The two raw
+// channels come with it because they are how you tell a real reading from a saturated one on
+// the bench, and because lux is a FIT over them: full-spectrum minus infrared, which the
+// datasheet's own coefficients turn into something photopic.
+//
+// Gain and integration time are reported, not commanded.  The driver auto-ranges (a bedside
+// clock sees six decades between noon and 3 a.m.) and there is nothing above the HAL that
+// wants to argue with it; seeing WHICH rung the driver settled on is what makes a suspicious
+// lux value diagnosable.
+namespace als {
+struct State {
+    float lux;          // -1 when the channels are saturated and no fit is meaningful
+    uint16_t ch0;       // full spectrum (visible + IR), raw ADC
+    uint16_t ch1;       // infrared, raw ADC
+    uint16_t gain_x;    // 1 / 25 / 428 / 9876 -- the actual multiplier, not an enum index
+    uint16_t integ_ms;  // 100..600 in 100 ms steps
+    bool saturated;     // either channel at the full-scale for this integration time
+    bool int_asserted;  // the TSL2591's own INT pin, read back through expander GPB3
+};
+Result<State> read() noexcept;
+}  // namespace als
+
+// ---- ambient / air quality (BME688) ----------------------------------------------------
+// Temperature, humidity, pressure and the gas-sensor resistance -- and deliberately NOT an
+// IAQ index.  An index is BSEC's (S6.5, license-gated) or a baseline algorithm's, and both
+// are a layer that consumes this one.  `gas_ohms` is what the silicon measures; anything
+// that turns it into a number between 0 and 500 is making a judgement, and a judgement does
+// not belong under the HAL.
+//
+// The gas heater needs a few hundred ms at temperature and its first readings drift, so the
+// two flags are part of the measurement rather than metadata: a gas resistance taken before
+// `heat_stable` is a number, but not a measurement of anything.
+namespace env {
+struct State {
+    float temp_c;
+    float rh_pct;
+    float press_hpa;
+    uint32_t gas_ohms;
+    bool gas_valid;    // the ADC completed a gas conversion in this forced measurement
+    bool heat_stable;  // the heater reached its target -- until then gas_ohms drifts
+};
+Result<State> read() noexcept;
+}  // namespace env
 
 // ---- IMU (BNO085) ----------------------------------------------------------------------
 // Two things, and they are not the same kind of fact.
@@ -177,6 +251,20 @@ struct State {
     uint16_t taps;     // monotonic, wraps
 };
 Result<State> read() noexcept;
+
+// R-BOARD-3 in one struct.  `NRST` has no host line and the board cannot cycle +3V3 either,
+// so a wedged hub can be OBSERVED and never cleared -- which makes observing it the whole of
+// the remedy.  Nothing above the HAL branches on this; it is what `sensor imu` prints so that
+// "the clock stopped snoozing on taps" is one command away from an answer instead of a
+// morning of guessing.
+struct Link {
+    uint32_t packets;      // SHTP packets drained since boot
+    uint32_t errors;       // malformed headers, short reads, refused transactions
+    uint32_t last_ms_ago;  // since the last packet; kNever when there has not been one
+    bool ready;            // the hub answered a product-ID request and accepted its features
+};
+inline constexpr uint32_t kNever = 0xFFFF'FFFFu;
+Link link() noexcept;
 }  // namespace imu
 
 // ---- MCP23017 expander -----------------------------------------------------------------

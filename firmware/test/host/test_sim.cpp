@@ -301,11 +301,14 @@ void test_sensor_grammar() {
     RecordingSink l;
     CHECK(run("sensor list", l) == Status::Ok);
     CHECK(l.contains("homing"));
-    CHECK(l.contains("no-drv"));  // als/env/imu: fitted, no driver yet
+    CHECK(l.contains("no-drv"));  // amp: fitted, no driver yet
 
-    // absent hardware and a missing driver must not read the same
+    // absent hardware and a missing driver must not read the same.  `amp` is the row that
+    // still has no driver now that als/env/imu do -- and the day it gains one, this check
+    // starts failing, which is the correct way to be reminded that the legend needs a
+    // sensor that still exercises it.
     RecordingSink nodrv;
-    CHECK(run("sensor als read", nodrv) == Status::NotReady);
+    CHECK(run("sensor amp read", nodrv) == Status::NotReady);
     CHECK(nodrv.contains("no driver"));
 
     board::set_present(board::Dev::Opto, false);

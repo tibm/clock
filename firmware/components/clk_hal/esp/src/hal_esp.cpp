@@ -17,10 +17,12 @@
 //   imu     -> BNO085 SHTP/SH-2 over i2c, SENSOR_INT on IO42
 // Each one is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
+#include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_oneshot.h"
+#include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -32,8 +34,11 @@
 #include "soc/rtc.h"
 
 #include "clk/board.hpp"
+#include "clk/hal/bme688.hpp"
+#include "clk/hal/bno085.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/mcp23017.hpp"
+#include "clk/hal/tsl2591.hpp"
 #include "clk/log.hpp"
 #include "clk/port.hpp"
 
@@ -365,27 +370,63 @@ Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
     return Result<std::size_t>::good(n);
 }
 
-Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept {
+Status write_read(uint8_t addr, const uint8_t* w, std::size_t wn, uint8_t* r,
+                  std::size_t rn) noexcept {
+    if ((wn && !w) || (rn && !r)) return Status::BadArg;
+    if (!wn && !rn) return Status::BadArg;  // a bare address probe belongs in scan()
     auto* h = dev(addr);
-    if (!h) return Result<uint8_t>::bad(Status::NotPresent);
+    if (!h) return Status::NotPresent;
+    // Three IDF calls, not one: transmit_receive() requires both halves, and the BNO085
+    // needs each half on its own -- a header read with nothing written, a packet write with
+    // nothing read.  Splitting here keeps that a normal case rather than a special one.
+    if (wn && rn) return err_to_status(::i2c_master_transmit_receive(h, w, wn, r, rn, kTimeoutMs));
+    if (wn) return err_to_status(::i2c_master_transmit(h, w, wn, kTimeoutMs));
+    return err_to_status(::i2c_master_receive(h, r, rn, kTimeoutMs));
+}
+
+Status write(uint8_t addr, const uint8_t* buf, std::size_t n) noexcept {
+    return write_read(addr, buf, n, nullptr, 0);
+}
+
+Status read(uint8_t addr, uint8_t* buf, std::size_t n) noexcept {
+    return write_read(addr, nullptr, 0, buf, n);
+}
+
+Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept {
     uint8_t v = 0;
-    const esp_err_t err = ::i2c_master_transmit_receive(h, &reg, 1, &v, 1, kTimeoutMs);
-    if (err != ESP_OK) return Result<uint8_t>::bad(err_to_status(err));
-    return Result<uint8_t>::good(v);
+    const Status st = write_read(addr, &reg, 1, &v, 1);
+    return st == Status::Ok ? Result<uint8_t>::good(v) : Result<uint8_t>::bad(st);
+}
+
+// One transaction, not n.  Auto-increment is the device's, and the reason to use it is not
+// speed: a burst that the chip advances internally cannot be interleaved with anything, so
+// a 16-bit ADC pair belongs to one integration and a calibration block to one power-up.
+Status read_regs(uint8_t addr, uint8_t reg, uint8_t* out, std::size_t n) noexcept {
+    return write_read(addr, &reg, 1, out, n);
 }
 
 Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept {
-    auto* h = dev(addr);
-    if (!h) return Status::NotPresent;
     const uint8_t buf[2] = {reg, val};
-    return err_to_status(::i2c_master_transmit(h, buf, sizeof buf, kTimeoutMs));
+    return write(addr, buf, sizeof buf);
 }
 
 }  // namespace i2c
 
+// ============================ hal::imu / als / env ========================================
+// Three drivers, three forwards.  The device knowledge is in shared/, compiled into both
+// backends; nothing here knows a register, an SHTP channel or a compensation coefficient.
 namespace imu {
-Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
+Result<State> read() noexcept { return bno085::read(); }
+Link link() noexcept { return bno085::link(); }
 }  // namespace imu
+
+namespace als {
+Result<State> read() noexcept { return tsl2591::read(); }
+}  // namespace als
+
+namespace env {
+Result<State> read() noexcept { return bme688::read(); }
+}  // namespace env
 
 // The named-signal surface is the MCP23017 driver now (shared/mcp23017.cpp), which reaches
 // the chip through hal::i2c above.  Nothing here knows a register.
@@ -439,8 +480,49 @@ Status set_i32(const char* key, int32_t value) noexcept {
 
 }  // namespace store
 
+namespace {
+
+// SENSOR_INT (IO42) is the BNO085's `H_INTN`: active-low, push-pull, and it means "the hub
+// has an SHTP packet waiting", not "a tap happened" (§6.5.1 item 2).  The handler counts the
+// edge and stops there; draining is bno085::read()'s job, on a task, where a device that
+// clock-stretches is allowed to cost milliseconds.
+//
+// Counting it at all is what splits one bench symptom into two questions.  "No taps ever
+// arrive" with edges counting means the driver is not parsing what the hub sent; with the
+// count stuck at zero it means the hub never spoke, which is R-BOARD-3's failure and a
+// different afternoon entirely.
+void IRAM_ATTR sensor_int_isr(void*) noexcept { bno085::isr_tick(); }
+
+void install_sensor_int() noexcept {
+    if (!board::present(board::Dev::Imu)) return;
+    gpio_config_t cfg{};
+    cfg.pin_bit_mask = 1ULL << board::kPins.sensor_int;
+    cfg.mode = GPIO_MODE_INPUT;
+    // The hub drives this push-pull, so the pull-up is not electrically required.  It is here
+    // for the case the daughterboard is NOT plugged in, which is most of bring-up: an
+    // undriven IO42 would otherwise float and hand us an interrupt storm to explain.
+    cfg.pull_up_en = GPIO_PULLUP_ENABLE;
+    cfg.intr_type = GPIO_INTR_NEGEDGE;
+    if (const esp_err_t e = ::gpio_config(&cfg); e != ESP_OK) {
+        CLK_LOGW(drv_imu, "SENSOR_INT config: %s", ::esp_err_to_name(e));
+        return;
+    }
+    // ENC_SW (IO17) and EXPANDER_INT (IO44) will both want the same service, so
+    // INVALID_STATE here means somebody already installed it -- not a failure.
+    const esp_err_t e = ::gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
+    if (e != ESP_OK && e != ESP_ERR_INVALID_STATE) {
+        CLK_LOGW(drv_imu, "gpio isr service: %s", ::esp_err_to_name(e));
+        return;
+    }
+    (void)::gpio_isr_handler_add(static_cast<gpio_num_t>(board::kPins.sensor_int), &sensor_int_isr,
+                                 nullptr);
+}
+
+}  // namespace
+
 Status init() noexcept {
     port::set_clock(&clock_::micros);  // core/ owns no clock of its own (§2)
+    install_sensor_int();
     CLK_LOGI(sys, "hal: board=%s, peripherals not implemented yet (see hal/esp)",
              board::board_name());
     return Status::Ok;

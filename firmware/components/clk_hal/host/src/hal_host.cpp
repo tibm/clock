@@ -16,8 +16,11 @@
 #include <vector>
 
 #include "clk/board.hpp"
+#include "clk/hal/bme688.hpp"
 #include "clk/hal/hal.hpp"
+#include "clk/hal/host/models.hpp"
 #include "clk/hal/host/sim.hpp"
+#include "clk/hal/tsl2591.hpp"
 #include "clk/log.hpp"
 #include "clk/port.hpp"
 
@@ -542,19 +545,48 @@ uint8_t cool() noexcept {
 }  // namespace wake
 
 // ============================ hal::i2c ===================================================
+// The bus is a table of slaves, and a slave is either MODELLED or merely present.  The
+// distinction is §13.9 item 9's, made once here: a modelled device has a register file that
+// the shipping driver drives, so `hal::als::read()` on this host runs tsl2591.cpp.  A merely
+// present device ACKs its address so a scan finds it and answers nothing else, which is all
+// the firmware branches on for it today.
 namespace i2c {
 namespace {
+
+// Forward-declared so the table can point at it: the MCP23017's model needs g_st, so unlike
+// the daughterboard models it cannot live in a file of its own.
+Status mcp_xfer(const uint8_t* w, std::size_t wn, uint8_t* r, std::size_t rn) noexcept;
+void mcp_reset_locked() noexcept;
+
 struct Slave {
     uint8_t addr;
     board::Dev dev;
+    host::model::Xfer xfer;    // nullptr: ACKs its address, reads back zeros
+    void (*reset)() noexcept;  // nullptr: nothing to put back
 };
+
 constexpr Slave kBus[] = {
-    {0x20, board::Dev::Expander}, {0x29, board::Dev::Als}, {0x4A, board::Dev::Imu},
-    {0x6C, board::Dev::Amp},      {0x77, board::Dev::Env},
+    {0x20, board::Dev::Expander, &mcp_xfer, &mcp_reset_locked},
+    {0x29, board::Dev::Als, &host::model::tsl2591, &host::model::tsl2591_reset},
+    // 0x4A BNO085: no model, deliberately (§13.9 item 9).  An SHTP responder is a week of
+    // work to test code only real silicon can invalidate, so `hal::imu` here stays the
+    // angle-based fake and bno085.cpp is exercised on target.
+    {0x4A, board::Dev::Imu, nullptr, nullptr},
+    {0x6C, board::Dev::Amp, nullptr, nullptr},
+    {0x77, board::Dev::Env, &host::model::bme688, &host::model::bme688_reset},
 };
+
+const Slave* find(uint8_t addr) noexcept {
+    for (auto const& s : kBus) {
+        if (s.addr == addr) return &s;
+    }
+    return nullptr;
+}
+
 }  // namespace
 
 Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
+    std::lock_guard lk{g_mx};
     std::size_t n = 0;
     for (auto const& s : kBus) {
         if (!board::present(s.dev)) continue;
@@ -565,15 +597,12 @@ Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
 }
 
 // ---- the MCP23017 at 0x20, at register level (§11.2, §13.9 item 9) ----------------------
-// Every other address on kBus still answers 0 to any register, which is enough to model
-// "something ACKs there" for a scan and nothing more.  The expander is different because it
-// is the one device a driver is about to be written against, and a driver is exactly what a
-// register file catches: BANK ordering, IODIR polarity, GPPU on GPB3 (R-BOARD-4), the
-// OLAT/GPIO distinction.  Modelled: the registers the firmware branches on.  Not modelled:
-// interrupt-on-change, sequential-address auto-increment, IOCON.BANK=1.
+// The expander is the one device on the MAIN board a driver is written against, and a
+// driver is exactly what a register file catches: BANK ordering, IODIR polarity, GPPU on
+// GPB3 (R-BOARD-4), the OLAT/GPIO distinction.  Modelled: the registers the firmware
+// branches on.  Not modelled: interrupt-on-change, IOCON.BANK = 1.
 namespace {
 
-constexpr uint8_t kMcpAddr = 0x20;
 enum Reg : uint8_t {
     IODIRA = 0x00,
     IODIRB = 0x01,
@@ -622,6 +651,41 @@ void port_drive_locked(bool port_b, uint8_t val) noexcept {
     }
 }
 
+uint8_t mcp_read_locked(uint8_t reg) noexcept {
+    if (reg == GPIOA || reg == GPIOB) return port_level_locked(reg == GPIOB);
+    return g_mcp[reg];
+}
+
+void mcp_write_locked(uint8_t reg, uint8_t val) noexcept {
+    g_mcp[reg] = val;
+    // GPIO and OLAT are the same latch seen twice; writing either drives the outputs.
+    if (reg == GPIOA || reg == OLATA) {
+        g_mcp[GPIOA] = g_mcp[OLATA] = val;
+        port_drive_locked(false, val);
+    } else if (reg == GPIOB || reg == OLATB) {
+        g_mcp[GPIOB] = g_mcp[OLATB] = val;
+        port_drive_locked(true, val);
+    }
+}
+
+// BANK = 0, SEQOP = 0: the address pointer advances after every byte and wraps at 0x15.
+// Modelled because a burst read of both GPIO ports in one transaction is the obvious next
+// thing the driver will do, and a model that only answered single bytes would fail it.
+Status mcp_xfer(const uint8_t* w, std::size_t wn, uint8_t* r, std::size_t rn) noexcept {
+    if (wn == 0) return Status::BadArg;  // the chip always wants an address first
+    uint8_t reg = w[0];
+    if (reg >= kRegCount) return Status::BadArg;
+    for (std::size_t i = 1; i < wn; ++i) {
+        mcp_write_locked(reg, w[i]);
+        reg = static_cast<uint8_t>((reg + 1) % kRegCount);
+    }
+    for (std::size_t i = 0; i < rn; ++i) {
+        r[i] = mcp_read_locked(reg);
+        reg = static_cast<uint8_t>((reg + 1) % kRegCount);
+    }
+    return Status::Ok;
+}
+
 // Called by sim::reset(): the register file is device state, and a test that inherits the
 // previous test's IODIR is a test that passes for the wrong reason.
 void mcp_reset_locked() noexcept {
@@ -629,45 +693,50 @@ void mcp_reset_locked() noexcept {
     g_mcp[IODIRA] = g_mcp[IODIRB] = 0xFF;
 }
 
+// Every model back to power-on, in one place, so `sim reset` cannot forget one.
+void models_reset_locked() noexcept {
+    for (auto const& s : kBus) {
+        if (s.reset) s.reset();
+    }
+}
+
 }  // namespace
 
-Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept {
+Status write_read(uint8_t addr, const uint8_t* w, std::size_t wn, uint8_t* r,
+                  std::size_t rn) noexcept {
+    if ((wn && !w) || (rn && !r)) return Status::BadArg;
+    if (!wn && !rn) return Status::BadArg;
     std::lock_guard lk{g_mx};
-    if (addr == kMcpAddr && board::present(board::Dev::Expander)) {
-        if (reg >= kRegCount) return Result<uint8_t>::bad(Status::BadArg);
-        if (reg == GPIOA || reg == GPIOB) {
-            return Result<uint8_t>::good(port_level_locked(reg == GPIOB));
-        }
-        return Result<uint8_t>::good(g_mcp[reg]);
-    }
-    for (auto const& s : kBus) {
-        if (s.addr == addr) {
-            return board::present(s.dev) ? Result<uint8_t>::good(0)
-                                         : Result<uint8_t>::bad(Status::NotPresent);
-        }
-    }
-    return Result<uint8_t>::bad(Status::NotPresent);
+    const Slave* s = find(addr);
+    // An address nobody lives at and an unplugged daughterboard are the same answer, and
+    // that is right: NotPresent is D16's "the hardware is absent", not an error.
+    if (!s || !board::present(s->dev)) return Status::NotPresent;
+    if (s->xfer) return s->xfer(w, wn, r, rn);
+    for (std::size_t i = 0; i < rn; ++i) r[i] = 0;  // ACKs, says nothing
+    return Status::Ok;
+}
+
+Status write(uint8_t addr, const uint8_t* buf, std::size_t n) noexcept {
+    return write_read(addr, buf, n, nullptr, 0);
+}
+
+Status read(uint8_t addr, uint8_t* buf, std::size_t n) noexcept {
+    return write_read(addr, nullptr, 0, buf, n);
+}
+
+Result<uint8_t> read_reg(uint8_t addr, uint8_t reg) noexcept {
+    uint8_t v = 0;
+    const Status st = write_read(addr, &reg, 1, &v, 1);
+    return st == Status::Ok ? Result<uint8_t>::good(v) : Result<uint8_t>::bad(st);
+}
+
+Status read_regs(uint8_t addr, uint8_t reg, uint8_t* out, std::size_t n) noexcept {
+    return write_read(addr, &reg, 1, out, n);
 }
 
 Status write_reg(uint8_t addr, uint8_t reg, uint8_t val) noexcept {
-    std::lock_guard lk{g_mx};
-    if (addr == kMcpAddr && board::present(board::Dev::Expander)) {
-        if (reg >= kRegCount) return Status::BadArg;
-        g_mcp[reg] = val;
-        // GPIO and OLAT are the same latch seen twice; writing either drives the outputs.
-        if (reg == GPIOA || reg == OLATA) {
-            g_mcp[GPIOA] = g_mcp[OLATA] = val;
-            port_drive_locked(false, val);
-        } else if (reg == GPIOB || reg == OLATB) {
-            g_mcp[GPIOB] = g_mcp[OLATB] = val;
-            port_drive_locked(true, val);
-        }
-        return Status::Ok;
-    }
-    for (auto const& s : kBus) {
-        if (s.addr == addr) return board::present(s.dev) ? Status::Ok : Status::NotPresent;
-    }
-    return Status::NotPresent;
+    const uint8_t buf[2] = {reg, val};
+    return write(addr, buf, sizeof buf);
 }
 
 }  // namespace i2c
@@ -687,7 +756,27 @@ Result<State> read() noexcept {
     return Result<State>::good(s);
 }
 
+// There is no SHTP link here to be alive or wedged (§13.9 item 9), so the honest answer is
+// the presence flag: `sim present imu off` is how R-BOARD-3's degraded path gets exercised.
+Link link() noexcept {
+    std::lock_guard lk{g_mx};
+    const bool up = board::present(board::Dev::Imu);
+    return Link{up ? 1u : 0u, 0u, up ? 0u : kNever, up};
+}
+
 }  // namespace imu
+
+// ============================ hal::als / hal::env ========================================
+// The shipping drivers, running against the register models behind the fake bus.  Not a
+// forwarding stub each -- these two lines ARE §11.2: the same tsl2591.cpp and bme688.cpp the
+// ESP32 links, exercised by `test_host` with no hardware anywhere in the room.
+namespace als {
+Result<State> read() noexcept { return tsl2591::read(); }
+}  // namespace als
+
+namespace env {
+Result<State> read() noexcept { return bme688::read(); }
+}  // namespace env
 
 // ============================ hal::expander ==============================================
 namespace expander {
@@ -943,6 +1032,24 @@ void tap() noexcept {
     ++g_st.taps;
 }
 
+// ---- the room, as the two modelled sensors would see it ---------------------------------
+// These write the SCENE, not the chip: the models turn lux into counts through whatever gain
+// the driver has programmed, and temperature into a raw ADC word through the datasheet's
+// compensation run backwards.  So `sim lux 12000` genuinely exercises the auto-range, and
+// `sim env 21.5 ...` genuinely exercises the compensation arithmetic.
+void set_lux(float lux) noexcept {
+    std::lock_guard lk{g_mx};
+    model::set_lux(lux);
+}
+float lux() noexcept {
+    std::lock_guard lk{g_mx};
+    return model::lux();
+}
+void set_env(float temp_c, float rh_pct, float press_hpa, uint32_t gas_ohms) noexcept {
+    std::lock_guard lk{g_mx};
+    model::set_env(temp_c, rh_pct, press_hpa, gas_ohms);
+}
+
 void set_expander_in(expander::Sig s, bool level) noexcept {
     std::lock_guard lk{g_mx};
     if (static_cast<std::size_t>(s) < expander::kSigCount) {
@@ -1058,7 +1165,7 @@ void reset() noexcept {
     g_st = State{};
     g_st.sim_base_us = keep_us;
     g_st.real_base_us = real_us();
-    i2c::mcp_reset_locked();
+    i2c::models_reset_locked();
     board::reset_presence();
 }
 

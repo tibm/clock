@@ -9,6 +9,9 @@ void run_motor_tests();
 void run_anim_tests();
 void run_level_tests();
 void run_motion_service_tests();
+void run_tsl2591_tests();
+void run_bme688_tests();
+void run_bno085_tests();
 
 int main() {
     // Same first move as app_main and clocksim.  It is also what hands core/ its clock --
@@ -20,6 +23,12 @@ int main() {
     run_sim_tests();
     run_motor_tests();
     run_level_tests();
+    // The three sensor-board drivers.  Two of them run against register models behind the
+    // fake bus (§11.2); the BNO085's transport is target-only, so what is checked here is
+    // its pure half -- header parsing, Q-point maths, the dial-axis map.
+    run_tsl2591_tests();
+    run_bme688_tests();
+    run_bno085_tests();
     // Last: these start the active objects, and an AO thread outlives the test that woke it.
     run_motion_service_tests();
     return check_summary("host");

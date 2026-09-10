@@ -74,10 +74,42 @@ Status s_imu(char* out, std::size_t cap) {
     const double plane =
         std::sqrt(static_cast<double>(s.v.gx) * s.v.gx + static_cast<double>(s.v.gy) * s.v.gy);
     const double mag = std::sqrt(plane * plane + static_cast<double>(s.v.gz) * s.v.gz);
-    std::snprintf(out, cap, "g=%.2f,%.2f,%.2f up=%.0f tilt=%.2f yaw=%.1f taps=%u",
+    // `pkt` is R-BOARD-3 made visible: the hub has no host reset line, so the only thing
+    // firmware can do about a wedged BNO085 is notice.  A packet count that stops advancing
+    // while `up` looks plausible is a stale reading being reported as a live one.
+    const auto lk = hal::imu::link();
+    std::snprintf(out, cap, "g=%.2f,%.2f,%.2f up=%.0f tilt=%.2f taps=%u pkt=%lu%s",
                   static_cast<double>(s.v.gx), static_cast<double>(s.v.gy),
                   static_cast<double>(s.v.gz), static_cast<double>(domain::up_deg(s.v.gx, s.v.gy)),
-                  mag > 0.0 ? plane / mag : 0.0, static_cast<double>(s.v.yaw_deg), s.v.taps);
+                  mag > 0.0 ? plane / mag : 0.0, s.v.taps, static_cast<unsigned long>(lk.packets),
+                  lk.ready ? "" : " NOTREADY");
+    return Status::Ok;
+}
+
+Status s_als(char* out, std::size_t cap) {
+    const auto s = hal::als::read();
+    if (!s.ok()) return s.st;
+    // Lux first because lux is what the product will branch on, then the two raw channels and
+    // the rung the auto-range settled on -- which is the pair you need to tell "the room is
+    // dark" from "the driver left it on 9876x and clipped".  `int` is R-BOARD-4's pin, read
+    // back through the expander: seeing it here is how GPB3's pull-up gets confirmed.
+    std::snprintf(out, cap, "lux=%.2f ch0=%u ch1=%u gain=%ux t=%ums%s int=%d",
+                  static_cast<double>(s.v.lux), s.v.ch0, s.v.ch1, s.v.gain_x, s.v.integ_ms,
+                  s.v.saturated ? " SAT" : "", s.v.int_asserted ? 1 : 0);
+    return Status::Ok;
+}
+
+Status s_env(char* out, std::size_t cap) {
+    const auto s = hal::env::read();
+    if (!s.ok()) return s.st;
+    // `gas` is a resistance and nothing more (§6.5): high is clean air, low is something
+    // volatile in the room, and the mapping between the two is BSEC's job or a baseline's.
+    // The two flags travel with it because a gas reading taken before the heater settled is
+    // a number that means nothing, and it should not be possible to quote one by accident.
+    std::snprintf(out, cap, "t=%.2fC rh=%.1f%% p=%.1fhPa gas=%luohm%s",
+                  static_cast<double>(s.v.temp_c), static_cast<double>(s.v.rh_pct),
+                  static_cast<double>(s.v.press_hpa), static_cast<unsigned long>(s.v.gas_ohms),
+                  !s.v.gas_valid ? " (gas invalid)" : (!s.v.heat_stable ? " (heating)" : ""));
     return Status::Ok;
 }
 
@@ -126,8 +158,8 @@ constexpr SensorSpec kSensors[] = {
     {"clk", board::Dev::Xtal32k, 1, true, "slow-clock source, sim time", s_clk},
     {"imu", board::Dev::Imu, 20, true, "BNO085 gravity + taps", s_imu},
     {"exp", board::Dev::Expander, 20, true, "MCP23017 ports", s_exp},
-    {"als", board::Dev::Als, 10, false, "TSL2591 lux", s_needs_driver},
-    {"env", board::Dev::Env, 1, false, "BME688 T/RH/P/IAQ", s_needs_driver},
+    {"als", board::Dev::Als, 10, true, "TSL2591 lux + raw channels", s_als},
+    {"env", board::Dev::Env, 1, true, "BME688 T/RH/P + gas resistance", s_env},
     {"amp", board::Dev::Amp, 10, false, "TAS5760M faults", s_needs_driver},
 };
 const SensorSpec* find_sensor(const char* n) {

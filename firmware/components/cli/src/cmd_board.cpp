@@ -67,12 +67,33 @@ Status cmd_i2c_scan(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// `n` is not a convenience.  The three parts on the daughterboard all keep something that
+// only means anything read as a block -- the TSL2591's 16-bit channel pair, the BME688's
+// calibration, an SHTP header -- and reading those a byte at a time gives you bytes from
+// different moments and no way to tell.  One transaction, the device's own auto-increment.
 Status cmd_i2c_read(Args const& a, Sink& out) {
-    uint8_t addr = 0, reg = 0;
+    uint8_t addr = 0, reg = 0, n = 1;
     if (!parse_u8(a.arg(0), addr) || !parse_u8(a.arg(1), reg)) return Status::BadArg;
-    const auto v = hal::i2c::read_reg(addr, reg);
-    if (!v.ok()) return v.st;
-    out.printf("0x%02X[0x%02X] = 0x%02X", addr, reg, v.v);
+    if (a.arg(2) && !parse_u8(a.arg(2), n)) return Status::BadArg;
+    if (n == 0 || n > 32) return Status::BadArg;
+
+    uint8_t buf[32]{};
+    const Status st = hal::i2c::read_regs(addr, reg, buf, n);
+    if (st != Status::Ok) return st;
+    if (n == 1) {
+        out.printf("0x%02X[0x%02X] = 0x%02X", addr, reg, buf[0]);
+        return Status::Ok;
+    }
+    // Eight per line with the starting register on each, so a long block stays readable and
+    // a byte you are hunting can be found by its address rather than by counting.
+    for (uint8_t i = 0; i < n; i += 8) {
+        char hex[8 * 3 + 1]{};
+        int w = 0;
+        for (uint8_t j = i; j < n && j < i + 8; ++j) {
+            w += std::snprintf(hex + w, sizeof hex - static_cast<std::size_t>(w), "%02X ", buf[j]);
+        }
+        out.printf("0x%02X[0x%02X] %s", addr, static_cast<unsigned>(reg + i), hex);
+    }
     return Status::Ok;
 }
 
@@ -91,7 +112,8 @@ Status cmd_i2c_write(Args const& a, Sink& out) {
 
 constexpr CmdSpec kRows[] = {
     {"board", "i2c", "scan", "", "who answers on the shared bus", ReleaseOk, cmd_i2c_scan},
-    {"board", "i2c", "read", "<addr> <reg>", "one register, hex or decimal", None, cmd_i2c_read},
+    {"board", "i2c", "read", "<addr> <reg> [<n>]", "n registers in ONE transaction", None,
+     cmd_i2c_read},
     {"board", "i2c", "write", "<addr> <reg> <val>", "one register -- drives real pins", Unsafe,
      cmd_i2c_write},
 };

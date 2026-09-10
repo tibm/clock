@@ -56,6 +56,14 @@ float hand_offset(hal::motor::Hand) noexcept;
 void set_orientation(float yaw_deg, float pitch_deg, float roll_deg) noexcept;
 void tap() noexcept;  // one top-tap; bumps the counter the driver diffs
 
+// ---- the room (TSL2591 + BME688 register models) ----------------------------------------
+// The SCENE, not the chip.  These go in as physical quantities and come back out through the
+// shipping drivers -- lux through the auto-range, temperature through the compensation
+// arithmetic -- so a driver bug shows up here as a number that does not match what was set.
+void set_lux(float lux) noexcept;
+float lux() noexcept;
+void set_env(float temp_c, float rh_pct, float press_hpa, uint32_t gas_ohms) noexcept;
+
 // ---- expander --------------------------------------------------------------------------
 // Drives an INPUT signal -- the rear radio toggle, PD_PG, CHRG.  Outputs are the firmware's.
 void set_expander_in(hal::expander::Sig, bool level) noexcept;
