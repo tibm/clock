@@ -407,6 +407,14 @@ Result<State> read() noexcept {
     // The fake has no pin, so the closure itself is the raw level -- the held-over press is
     // the part that is synthetic, and it is exactly what `sw` adds on top.
     s.sw_raw = sim_us_locked() < g_st.sw_until_us;
+    // The fake has no pads.  Rather than invent a quadrature waveform nothing reads, derive a
+    // plausible A/B from the count so the field is never stale -- 4 counts per quadrature
+    // cycle, which is what x4 decoding means.
+    // Gray code, which is what quadrature IS: over four counts the pair walks 00, 10, 11, 01
+    // and never changes both lines at once.  Getting that wrong here would teach a bench the
+    // wrong pattern to look for on the real pads.
+    s.a_raw = (((s.count + 1) >> 1) & 1) != 0;
+    s.b_raw = ((s.count >> 1) & 1) != 0;
     g_st.last_read = s.count;
     return Result<State>::good(s);
 }

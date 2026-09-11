@@ -1830,7 +1830,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
-| `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
+| `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
@@ -2896,6 +2896,80 @@ Three details that are the whole of why it is safe:
 
 ⚠ **Flip `kMotorInhibited` to false for the physical boards when milestone 3 closes.**
 
+### 12.0.10 Isolating the knob, and the three lines that say which wire is wrong — 2026-09-10
+
+`ENC_SW` still would not register a press after §12.0.9, and the bench's own hypothesis was
+worth taking seriously: *rotations showing up as presses*, i.e. a harness in which `J10.5`
+does not land on the EM14's switch. Power was confirmed good — 5.1 V across the encoder's `+`
+and `–`.
+
+> 🔴 **Check this before powering the knob again.** `ENC_SW` (`IO17`) has **no divider** — it
+> is a dry contact with a 10 k pull-up and 100 nF (`esp32.md`), because a switch needs nothing
+> more. `ENC_A`/`ENC_B` reach `IO47`/`IO48` through **100k/200k dividers** precisely because
+> the EM14's outputs are **5 V** logic. So a harness that puts channel `A` or `B` on `J10.5`
+> drives **5 V straight into a pin that is not 5 V tolerant**, limited only by the encoder's
+> own 25 mA drive. That is the one mis-wire in this connector that damages the MCU rather than
+> simply not working, and 5.1 V measured at `+`/`–` does not rule it out: the ZH harness is
+> **palindromic in its power pins** — reversing it end-for-end leaves `+` and `–` exactly where
+> they were and moves everything else.
+>
+> With the encoder unplugged, ring `J10.5` to the EM14 body: it must reach one of the **middle
+> two** terminals (`1`/`2`), and must **not** reach `A`, `B`, `+` or `–`.
+
+Three changes, all of them about being able to see the knob rather than guess at it.
+
+#### `ui input off` — the knob drives nothing
+
+The knob driver and the knob HSM are two separate things to get working, and while the first
+is in doubt the second is noise sitting on top of it — a stray count changes mode, a stuck
+press arms pairing, and the movement was moving on rotation before §12.0.9 gave it an off
+switch. ⚠ `ui input [on|off]` stops `ui` **reading** the knob at all.
+
+At the read, not at the handler, and that is the point: skipping only the actions would still
+consume the HAL's shared delta every 20 ms, which is exactly what made `sensor knob` hard to
+read (§12.0.9). NVS-backed under `ui.input` for the same reason the movement inhibit is —
+bring-up means flashing all evening — and `ui` says `INPUT OFF` at Info on every start so it
+cannot be silently forgotten. `sensor knob` reads the hardware regardless.
+
+#### `sensor knob` now prints all three raw lines
+
+```
+knob  count=8 d=4 sw=0 pin=0 ab=10
+```
+
+| field | what it is |
+|---|---|
+| `count` | PCNT's absolute count — the number to watch; `d` is this view's own diff (§12.0.9) |
+| `sw` | the driver's answer: pressed or not |
+| `pin` | `ENC_SW` raw — 1 means `IO17` is being held LOW |
+| `ab` | `ENC_A` and `ENC_B` raw, straight off the pads PCNT is counting |
+
+PCNT reads its inputs through the GPIO matrix, which leaves the input buffer enabled, so the
+levels are still readable — and three raw lines beside the decoded answer is what turns "the
+knob does not work" into a wiring diagram.
+
+**The procedure, and it is decisive.** `ui input off`, then `sensor knob stream 20 20`, then:
+
+| what you do | what a correctly wired knob does |
+|---|---|
+| nothing | every field static, `pin=0` |
+| rotate slowly | `ab` walks **00 → 10 → 11 → 01** (gray code — never both at once), `count` follows, `pin` stays 0 |
+| press | `pin` and `sw` go to 1, `ab` does not move |
+
+Any other pattern names the fault:
+
+- **`ab` static while `pin` toggles as you rotate** — the quadrature pair is on the switch
+  line. This is the bench's hypothesis, and it is the damaging one: see the warning above.
+- **`pin=1` at rest, never 0** — `IO17` tied low. §12.0.9's guard keeps this from arming
+  pairing, and the press is correctly refused.
+- **`ab` walks but `count` does not** — PCNT configuration, not wiring; the one firmware fault
+  this table can still be pointing at.
+- **`ab` changing both bits at once** — not quadrature at all: the two lines are shorted, or
+  one of them is floating.
+
+The host fake derives `ab` from the count as the same gray code, so the pattern a person
+learns in `clocksim` is the pattern the pads produce.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
@@ -2904,7 +2978,7 @@ Three details that are the whole of why it is safe:
 | 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · *drivers written and host-verified 2026-09-09 (§12.0.7); `sensor vbat` and every daughterboard part still want a bench* |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
 | 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · *`hal::motor` written 2026-09-10 (§12.0.8); `M1` soldered, nothing has turned yet* |
-| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · *`hal::knob` written 2026-09-10 (§12.0.8)* |
+| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · *`hal::knob` written 2026-09-10 (§12.0.8); rotation works, `ENC_SW` under investigation — §12.0.10 has the wiring table* |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |

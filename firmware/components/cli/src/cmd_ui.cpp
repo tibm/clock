@@ -340,7 +340,27 @@ Status cmd_status(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// Bench isolation for the knob driver (§12.0.10).  Not `unsafe`: turning input OFF can only
+// ever make a bench quieter, and turning it back on is what the product does anyway.
+Status cmd_input(Args const& a, Sink& out) {
+    const char* v = a.arg(0);
+    if (!v) {
+        out.printf("input %s", svc::ui().input() ? "on" : "OFF -- the knob drives nothing");
+        return Status::Ok;
+    }
+    const bool on = std::strcmp(v, "on") == 0;
+    if (!on && std::strcmp(v, "off") != 0) {
+        out.line("usage: ui input [on|off]   (off = `ui` stops reading the knob entirely)");
+        return Status::BadArg;
+    }
+    svc::ui().set_input(on);
+    out.printf("input %s%s", on ? "on" : "OFF", on ? "" : " -- `sensor knob` still reads it");
+    return Status::Ok;
+}
+
 constexpr CmdSpec kRows[] = {
+    {"ui", nullptr, "input", "[on|off]", "let the knob drive the UI, or isolate it", None,
+     cmd_input},
     {"ui", nullptr, "status", "", "mode, pixels, wake duty, knob", ReleaseOk, cmd_status},
     {"ui", nullptr, "mode", "[<idle|bell|alarm|clock|volume|pairing>]", "the knob HSM", None,
      cmd_mode},

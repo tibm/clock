@@ -364,6 +364,10 @@ Result<State> read() noexcept {
     // latch; one already released is reported down exactly once and then lets go.  This is
     // deliberately the same behaviour clocksim's fake implements, so a quick click means the
     // same thing on a laptop and on the bench.
+    // PCNT reads these pads through the GPIO matrix, which leaves the input buffer enabled,
+    // so the levels are still readable here -- and on a bench they are the whole diagnosis.
+    s.a_raw = ::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_a)) != 0;
+    s.b_raw = ::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_b)) != 0;
     const bool low = ::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_sw)) == 0;
     s.sw_raw = low;
     if (!low) g_sw_seen_open = true;

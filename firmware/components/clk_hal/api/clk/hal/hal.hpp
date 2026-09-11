@@ -101,6 +101,11 @@ struct State {
     // stuck-at-boot guard.  `sw` is the answer; this is the evidence, and it is the one
     // number that separates "the driver is wrong" from "the harness is wrong" on a bench.
     bool sw_raw;
+    // And the same evidence for the quadrature pair: the instantaneous level of ENC_A and
+    // ENC_B, read straight off the pads that PCNT is counting.  Three raw lines beside the
+    // decoded answer is what turns "the knob does not work" into a wiring diagram -- rotate
+    // slowly and exactly one of {a,b} and {pin} should be moving.
+    bool a_raw, b_raw;
 };
 Result<State> read() noexcept;
 }  // namespace knob

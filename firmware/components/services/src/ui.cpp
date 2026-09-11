@@ -9,6 +9,9 @@
 namespace clk::svc {
 namespace {
 
+// NVS key (§7.5).  Fifteen characters is the NVS limit and this is eight.
+constexpr const char* kKeyInput = "ui.input";
+
 using hal::pixels::Rgbw;
 
 constexpr uint32_t kTickMs = 20;          // §6.6: PCNT is polled and diffed every 20 ms
@@ -94,6 +97,9 @@ Ui& ui() noexcept {
 }
 
 void Ui::on_start() {
+    // The bench gate first: it decides whether the seeding read below means anything.
+    if (const auto v = hal::store::get_i32(kKeyInput); v.ok()) input_ = v.v != 0;
+
     const auto k = hal::knob::read();
     knob_last_ = k.ok() ? k.v.count : 0;
     // Seed the tap counter here, exactly as the knob is seeded: whatever it already reads is
@@ -101,7 +107,8 @@ void Ui::on_start() {
     const auto s = hal::imu::read();
     taps_last_ = s.ok() ? s.v.taps : 0;
     last_input_us_ = port::now_us();
-    CLK_LOGI(ui, "up; knob %s", k.ok() ? "present" : clk::name(k.st));
+    CLK_LOGI(ui, "up; knob %s%s", k.ok() ? "present" : clk::name(k.st),
+             input_ ? "" : " -- INPUT OFF, `ui input on` to restore");
     cue();
     render();
     publish();
@@ -233,9 +240,36 @@ void Ui::watch_battery() noexcept {
     if (p.ok()) plugged_ = p.v.plugged;  // ... and that paces the gravity poll above
 }
 
+void Ui::set_input(bool on) noexcept {
+    // Re-seed BEFORE opening the gate, never after.  The order is the whole of the
+    // correctness here: counts accumulate in PCNT while nobody is reading, so a poll that
+    // slipped in between `input_ = true` and the re-seed would diff against a `knob_last_`
+    // from minutes ago and deliver the entire interval as one enormous turn.
+    if (on) {
+        const auto k = hal::knob::read();
+        knob_last_ = k.ok() ? k.v.count : knob_last_;
+        last_input_us_ = port::now_us();
+    }
+    {
+        port::Lock lk{mx_};
+        input_ = on;
+    }
+    (void)hal::store::set_i32(kKeyInput, on ? 1 : 0);
+    CLK_LOGI(ui, "input %s", on ? "on" : "OFF -- the knob drives nothing");
+}
+
+bool Ui::input() const noexcept {
+    port::Lock lk{mx_};
+    return input_;
+}
+
 // PCNT is hardware quadrature with a glitch filter; there is no ISR, we diff the count
 // (§3.3).  The switch is an IRQ on target -- here the same 20 ms poll sees it.
 void Ui::poll_knob() noexcept {
+    // Not even a read while input is off.  Skipping the ACTIONS would still consume the HAL's
+    // shared delta every 20 ms, which is precisely the thing that makes `sensor knob` hard to
+    // read on a bench -- so the isolation has to be at the read, not at the handler.
+    if (!input_) return;
     const auto k = hal::knob::read();
     if (!k.ok()) return;
 

@@ -65,6 +65,20 @@ public:
         chrono_ = c;
     }
     void set_mode(Mode) noexcept;
+
+    // Bench isolation for the knob (§12.0.10).  While input is OFF, `ui` still runs -- the
+    // pixels animate, the timeout ticks, the alarm chimes -- but it stops READING the knob
+    // entirely, so nothing rotates, nothing presses, and no ten-second hold can put the clock
+    // into pairing mode behind your back.  It exists because the knob driver and the knob HSM
+    // are two separate things to get working, and while the first is in doubt the second is
+    // noise sitting on top of it.
+    //
+    // Persisted, for the same reason the movement inhibit is: bring-up means flashing and
+    // rebooting all evening, and a switch you have to re-throw after every reset is one that
+    // gets forgotten once and then wastes an hour.  `ui` says so at Info on every start.
+    void set_input(bool on) noexcept;
+    [[nodiscard]] bool input() const noexcept;
+
     [[nodiscard]] Snapshot snapshot() const noexcept;
     [[nodiscard]] Tuning tuning() const noexcept;
     void set_tuning(Tuning const&) noexcept;
@@ -132,6 +146,7 @@ private:
     bool force_write_ = true;
 
     int32_t knob_last_ = 0;
+    bool input_ = true;
     bool sw_last_ = false;
     uint64_t sw_down_us_ = 0;
     bool pair_armed_ = false;  // the hold already became pairing; the release is spent

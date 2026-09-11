@@ -63,8 +63,8 @@ Status s_knob(char* out, std::size_t cap) {
     // next question is always "is the driver wrong or is the harness wrong", and pin answers
     // it without a meter.  pin=1 with the knob untouched means IO17 is being held low --
     // check J10.5 against the EM14's two switch terminals.
-    std::snprintf(out, cap, "count=%" PRId32 " d=%" PRId32 " sw=%d pin=%d", k.v.count, d,
-                  k.v.sw ? 1 : 0, k.v.sw_raw ? 1 : 0);
+    std::snprintf(out, cap, "count=%" PRId32 " d=%" PRId32 " sw=%d pin=%d ab=%d%d", k.v.count, d,
+                  k.v.sw ? 1 : 0, k.v.sw_raw ? 1 : 0, k.v.a_raw ? 1 : 0, k.v.b_raw ? 1 : 0);
     return Status::Ok;
 }
 
