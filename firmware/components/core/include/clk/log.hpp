@@ -45,6 +45,7 @@ enum class Mod : uint8_t {
     // drivers -- named "drv.xxx" so `sys debug drv.* debug` works
     drv_step,
     drv_opto,
+    drv_knob,
     drv_led,
     drv_amp,
     drv_exp,

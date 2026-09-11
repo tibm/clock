@@ -25,6 +25,13 @@ struct Pins {
     int wake_cool = 46;     // LEDC
     int enc_a = 47;         // PCNT
     int enc_b = 48;         // PCNT
+
+    // Stepper coils, one TB6612 per shaft.  Order is [A+, A-, B+, B-] because that is the
+    // order the commutation writes them in, and it is NOT ascending GPIO: the minute driver's
+    // B- landed on IO3 (esp32.md), which is a strap pin and therefore the one that had to be
+    // an output nobody drives at boot.  STEP_STBY keeps both drivers off until firmware asks.
+    int step_minute[4] = {4, 5, 6, 3};    // MCPWM group 0 -- AIN1, AIN2, BIN1, BIN2
+    int step_hour[4] = {38, 39, 40, 41};  // MCPWM group 1 -- also the JTAG pins, see esp32.md
 };
 inline constexpr Pins kPins{};
 

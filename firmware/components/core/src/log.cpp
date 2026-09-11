@@ -7,9 +7,10 @@ namespace {
 
 // Order must match enum Mod exactly.  The static_assert below is the guard.
 constexpr const char* kModNames[] = {
-    "sys",     "cli",     "cmd",     "trace",   "sim",     "idf",     "motion",   "audio",
-    "storage", "chrono",  "board",   "ui",      "net",     "sup",     "drv.step", "drv.opto",
-    "drv.led", "drv.amp", "drv.exp", "drv.imu", "drv.als", "drv.env", "drv.sd",   "drv.chg",
+    "sys",      "cli",      "cmd",      "trace",   "sim",     "idf",     "motion",
+    "audio",    "storage",  "chrono",   "board",   "ui",      "net",     "sup",
+    "drv.step", "drv.opto", "drv.knob", "drv.led", "drv.amp", "drv.exp", "drv.imu",
+    "drv.als",  "drv.env",  "drv.sd",   "drv.chg",
 };
 static_assert(std::size(kModNames) == kModCount, "kModNames out of sync with enum Mod");
 

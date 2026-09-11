@@ -19,6 +19,7 @@
 // exactly why the presence mask is per-device rather than per-board.
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "driver/pulse_cnt.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_oneshot.h"
@@ -67,6 +68,24 @@ SlowSrc slow_src() noexcept {
 }
 
 }  // namespace clock_
+
+// ============================ shared GPIO plumbing ========================================
+namespace {
+
+// Three pins on this board want an edge interrupt -- `SENSOR_INT` (IO42), `ENC_SW` (IO17) and
+// eventually `EXPANDER_INT` (IO44) -- and IDF's per-pin ISR dispatch is installed once for the
+// whole port.  Whoever gets there first installs it; ESP_ERR_INVALID_STATE means somebody
+// already did, which is success and not a failure.
+bool ensure_gpio_isr_service() noexcept {
+    static bool ok = false;
+    if (ok) return true;
+    const esp_err_t e = ::gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
+    ok = (e == ESP_OK || e == ESP_ERR_INVALID_STATE);
+    if (!ok) CLK_LOGE(sys, "gpio isr service: %s", ::esp_err_to_name(e));
+    return ok;
+}
+
+}  // namespace
 
 // ============================ hal::adc ===================================================
 // ADC1 one-shot with curve-fitting calibration.  ADC1 and not ADC2 because ADC2 is shared
@@ -173,18 +192,177 @@ Result<float> read_opto_norm() noexcept {
 
 }  // namespace adc
 
+// ============================ hal::knob ==================================================
+// PCNT unit 0 in x4 quadrature, plus `ENC_SW` as a debounced GPIO interrupt.  Two mechanisms
+// for two very different signals, and the split is the hardware's: A/B are a continuous
+// position that hardware can count without us, while the push is a single event that must not
+// be missed however briefly it happens (README §12 -- press is the entire mode UI).
 namespace knob {
-Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
+namespace {
+
+// The EM14 is an OPTICAL encoder: 64 CPR, x4 on the quadrature decoder, 256 counts/rev, and
+// no contact to bounce (§6.6d).  It also has no detent, so four counts is the notch a detented
+// knob would have had -- that unit lives in `ui`, not here; the HAL counts edges.
+constexpr int kHigh = 0x7FFF;  // the S3's counter is 16-bit; accum_count carries the rest
+constexpr int kLow = -0x7FFF;
+
+// 1 us rejects nothing a finger can produce -- 120 rpm at 64 CPR x4 is 512 edges a second,
+// two milliseconds apart -- while killing the ringing a 5 V edge induces on its neighbour.
+//
+// ⚠ Bench risk worth knowing before you blame the firmware: A and B arrive through 100k/200k
+// dividers (README §12), so the source impedance at the pin is ~67 k and stray capacitance
+// turns each edge into a microsecond-scale ramp.  A slow ramp through a CMOS threshold is
+// where a quadrature decoder invents counts.  The symptom is specific: counts moving while
+// the knob is STILL, or a single detent reporting more than four.  If that happens the fix is
+// the divider (10k/20k draws 0.24 mA at 5 V and is 10x stiffer), not this number -- raising
+// the filter far enough to hide it would start swallowing real edges at speed.
+constexpr uint32_t kGlitchNs = 1000;
+
+// ENC_SW is a dry contact to GND with a 10 k pull-up and 100 nF on the board, so the pin is
+// already RC-filtered to about a millisecond; 5 ms on top is §6.6's figure and covers the
+// tail of it.  Applied as a LOCKOUT after the first falling edge rather than as a settling
+// wait, because the first edge is the real one and everything within 5 ms of it is the same
+// press arriving twice.
+constexpr int64_t kDebounceUs = 5000;
+
+pcnt_unit_handle_t g_unit = nullptr;
+bool g_failed = false;
+int32_t g_last_read = 0;
+
+// Written by the ISR, read by a task.  `g_latched` is the whole reason the press is an
+// interrupt and not a poll: a closure shorter than the caller's poll period would otherwise
+// not exist, and `ui` ticks at 20 ms while a quick click is easily under that.
+volatile bool g_latched = false;
+volatile int64_t g_last_edge_us = 0;
+
+void IRAM_ATTR sw_isr(void*) noexcept {
+    const int64_t now = ::esp_timer_get_time();
+    if (now - g_last_edge_us < kDebounceUs) return;  // still inside the same press
+    g_last_edge_us = now;
+    if (::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_sw)) == 0) g_latched = true;
+}
+
+bool init_sw() noexcept {
+    gpio_config_t cfg{};
+    cfg.pin_bit_mask = 1ULL << board::kPins.enc_sw;
+    cfg.mode = GPIO_MODE_INPUT;
+    // R113 is the 10 k pull-up on the board.  The internal one is in parallel with it and
+    // harmless, and it is what defines the pin while J10 is unplugged -- which is most of
+    // bring-up, and a floating input on an edge interrupt is an interrupt storm.
+    cfg.pull_up_en = GPIO_PULLUP_ENABLE;
+    cfg.intr_type = GPIO_INTR_ANYEDGE;
+    if (const esp_err_t e = ::gpio_config(&cfg); e != ESP_OK) {
+        CLK_LOGE(drv_knob, "ENC_SW config: %s", ::esp_err_to_name(e));
+        return false;
+    }
+    if (!ensure_gpio_isr_service()) return false;
+    return ::gpio_isr_handler_add(static_cast<gpio_num_t>(board::kPins.enc_sw), &sw_isr, nullptr) ==
+           ESP_OK;
+}
+
+bool ready() noexcept {
+    if (g_unit || g_failed) return g_unit != nullptr;
+    g_failed = true;  // cleared only by reaching the end
+
+    pcnt_unit_config_t ucfg{};
+    ucfg.low_limit = kLow;
+    ucfg.high_limit = kHigh;
+    // Without this the count wraps at +-32767 and a knob turned 128 revolutions one way
+    // reports the far end of its range.  With it, IDF accumulates across the watch points
+    // below and `get_count` answers a 32-bit total -- which is what `ui` diffs.
+    ucfg.flags.accum_count = true;
+    if (const esp_err_t e = ::pcnt_new_unit(&ucfg, &g_unit); e != ESP_OK) {
+        g_unit = nullptr;
+        CLK_LOGE(drv_knob, "pcnt unit: %s", ::esp_err_to_name(e));
+        return false;
+    }
+
+    pcnt_glitch_filter_config_t filt{};
+    filt.max_glitch_ns = kGlitchNs;
+    (void)::pcnt_unit_set_glitch_filter(g_unit, &filt);
+
+    // x4 decoding: two channels, each watching one line's edges while reading the other's
+    // level.  Every one of the four transitions in a quadrature cycle therefore counts, which
+    // is where 64 CPR becomes 256 counts a revolution.
+    pcnt_channel_handle_t ca = nullptr, cb = nullptr;
+    pcnt_chan_config_t cfg_a{};
+    cfg_a.edge_gpio_num = board::kPins.enc_a;
+    cfg_a.level_gpio_num = board::kPins.enc_b;
+    pcnt_chan_config_t cfg_b{};
+    cfg_b.edge_gpio_num = board::kPins.enc_b;
+    cfg_b.level_gpio_num = board::kPins.enc_a;
+    if (::pcnt_new_channel(g_unit, &cfg_a, &ca) != ESP_OK ||
+        ::pcnt_new_channel(g_unit, &cfg_b, &cb) != ESP_OK) {
+        CLK_LOGE(drv_knob, "pcnt channels");
+        return false;
+    }
+
+    // ⚠ THE SIGN LIVES HERE, and clockwise must come out POSITIVE: §6.6c gives the knob its
+    // meaning by direction -- clockwise arms the alarm, anticlockwise disarms it -- so a
+    // backwards encoder is not a cosmetic bug, it is a clock that disarms when you meant to
+    // arm.  The EM14 datasheet says channel A leads B clockwise; if the bench disagrees
+    // (`sensor knob stream 20`, turn it clockwise, watch the sign) swap the two edge actions
+    // on channel A and nothing else.
+    (void)::pcnt_channel_set_edge_action(ca, PCNT_CHANNEL_EDGE_ACTION_DECREASE,
+                                         PCNT_CHANNEL_EDGE_ACTION_INCREASE);
+    (void)::pcnt_channel_set_level_action(ca, PCNT_CHANNEL_LEVEL_ACTION_KEEP,
+                                          PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+    (void)::pcnt_channel_set_edge_action(cb, PCNT_CHANNEL_EDGE_ACTION_INCREASE,
+                                         PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+    (void)::pcnt_channel_set_level_action(cb, PCNT_CHANNEL_LEVEL_ACTION_KEEP,
+                                          PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+
+    // accum_count only accumulates AT watch points, so the limits have to be watched or the
+    // flag above does nothing at all.
+    (void)::pcnt_unit_add_watch_point(g_unit, kLow);
+    (void)::pcnt_unit_add_watch_point(g_unit, kHigh);
+
+    if (::pcnt_unit_enable(g_unit) != ESP_OK || ::pcnt_unit_clear_count(g_unit) != ESP_OK ||
+        ::pcnt_unit_start(g_unit) != ESP_OK) {
+        CLK_LOGE(drv_knob, "pcnt start");
+        return false;
+    }
+
+    // A knob whose switch would not arm still counts, and counting is most of what the knob
+    // is for -- so this degrades rather than failing the unit.
+    if (!init_sw()) CLK_LOGW(drv_knob, "ENC_SW interrupt unavailable; rotation still works");
+
+    g_failed = false;
+    CLK_LOGI(drv_knob, "PCNT unit up on IO%d/IO%d, ENC_SW on IO%d", board::kPins.enc_a,
+             board::kPins.enc_b, board::kPins.enc_sw);
+    return true;
+}
+
+}  // namespace
+
+Result<State> read() noexcept {
+    if (!board::present(board::Dev::Knob)) return Result<State>::bad(Status::NotPresent);
+    if (!ready()) return Result<State>::bad(Status::NotPresent);
+
+    int raw = 0;
+    if (::pcnt_unit_get_count(g_unit, &raw) != ESP_OK) return Result<State>::bad(Status::Failed);
+
+    State s{};
+    s.count = raw;
+    s.delta = s.count - g_last_read;
+    g_last_read = s.count;
+
+    // The pin is the truth about what is happening NOW; the latch is the truth about what
+    // happened while nobody was looking.  A press still held reads down and consumes the
+    // latch; one already released is reported down exactly once and then lets go.  This is
+    // deliberately the same behaviour clocksim's fake implements, so a quick click means the
+    // same thing on a laptop and on the bench.
+    const bool held = ::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_sw)) == 0;
+    const bool latched = g_latched;
+    g_latched = false;
+    s.sw = held || latched;
+    return Result<State>::good(s);
+}
+
 }  // namespace knob
 
-namespace motor {
-Status enable(bool) noexcept { return Status::NotPresent; }
-bool enabled() noexcept { return false; }
-Status run(Hand, int32_t, int32_t) noexcept { return Status::NotPresent; }
-Status hold(Hand) noexcept { return Status::NotPresent; }
-Status adopt(Hand, int32_t) noexcept { return Status::NotPresent; }
-Axis state(Hand) noexcept { return Axis{}; }
-}  // namespace motor
+// hal::motor is real and lives in esp/src/motor_esp.cpp -- it is the one peripheral on this
+// side with an interrupt in the signal path, and it earns a file of its own.
 
 // ============================ hal::pixels ================================================
 // SK6812 RGBW x7 on IO7 through the SN74AHCT1G125 3V3->5V buffer, driven by led_strip's
@@ -507,13 +685,7 @@ void install_sensor_int() noexcept {
         CLK_LOGW(drv_imu, "SENSOR_INT config: %s", ::esp_err_to_name(e));
         return;
     }
-    // ENC_SW (IO17) and EXPANDER_INT (IO44) will both want the same service, so
-    // INVALID_STATE here means somebody already installed it -- not a failure.
-    const esp_err_t e = ::gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1);
-    if (e != ESP_OK && e != ESP_ERR_INVALID_STATE) {
-        CLK_LOGW(drv_imu, "gpio isr service: %s", ::esp_err_to_name(e));
-        return;
-    }
+    if (!ensure_gpio_isr_service()) return;
     (void)::gpio_isr_handler_add(static_cast<gpio_num_t>(board::kPins.sensor_int), &sensor_int_isr,
                                  nullptr);
 }

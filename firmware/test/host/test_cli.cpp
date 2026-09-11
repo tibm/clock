@@ -3,6 +3,7 @@
 #include "check.hpp"
 #include "testutil.hpp"
 
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -53,7 +54,11 @@ void test_debug_command_sets_levels() {
     RecordingSink g;
     CHECK(run("sys debug drv.* debug", g) == Status::Ok);
     CHECK(log::get(log::Mod::drv_opto) == log::Level::Debug);
-    CHECK(g.contains("10 modules"));
+    // Same reason as test_log's count: the number is whatever the driver list currently is.
+    char want[32];
+    std::snprintf(want, sizeof want, "%d modules",
+                  static_cast<int>(log::kModCount) - static_cast<int>(log::Mod::drv_step));
+    CHECK(g.contains(want));
 
     RecordingSink p;
     CHECK(run("sys debug ui v", p) == Status::Ok);  // prefix level

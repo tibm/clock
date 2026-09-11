@@ -2653,6 +2653,109 @@ else. Nothing above the HAL may learn how this board was soldered.
 6. `sensor imu read` through the five poses above.
 7. `sensor imu stream 20 30` and tap the case — `taps=` must climb.
 
+### 12.0.8 The knob counts and the coils commutate — 2026-09-10
+
+`hal::knob` and `hal::motor` are real on the ESP side. Both are pure-peripheral drivers with no
+I²C in the path, so unlike §12.0.7's three they are **target-only by nature** — the host keeps
+its own fakes, which is what `clocksim` has always driven.
+
+⚠ **Neither has been on hardware yet.** `F1`, `M1` and the knob harness were soldered
+2026-09-09; this is written against `esp32.md`, the EM14 datasheet and the X27 base spec. What
+is proven is that it builds clean for `rev0_3` and that the host suite is unaffected.
+
+#### `hal::knob` — PCNT for the rotation, an interrupt for the press
+
+Two mechanisms for two signals, and the split is the hardware's. A and B are a continuous
+position that PCNT unit 0 counts in **×4 quadrature** without the CPU (64 CPR → **256
+counts/rev**, §6.6d); the push is a single event that must not be missed however briefly it
+happens, because press *is* the entire mode UI (README §12).
+
+- **`accum_count` is not optional.** The S3's counter is 16 bits, so without accumulation a
+  knob turned 128 revolutions one way reports the far end of its range. The flag only
+  accumulates **at watch points**, so the limits have to be registered or it silently does
+  nothing.
+- **The press is latched in the ISR and held over for exactly one read** — the same contract
+  `clocksim`'s fake already implements, deliberately. A closure shorter than `ui`'s 20 ms tick
+  would otherwise not exist, and a quick click is easily under that. `read()` reports `sw` if
+  the pin is down *now* **or** a falling edge was latched since the last call.
+- **The sign lives in one place.** §6.6c gives the knob its meaning by direction — clockwise
+  arms the alarm, anticlockwise disarms — so a backwards encoder is not cosmetic, it is a clock
+  that disarms when you meant to arm. The EM14 datasheet says A leads B clockwise; if the bench
+  disagrees, swap the two edge actions on channel A and nothing else.
+
+> ⚠ **A bench risk worth knowing before you blame the firmware.** A and B reach the pin through
+> **100k/200k dividers** (README §12), so the source impedance is ~67 kΩ and stray capacitance
+> turns each edge into a microsecond-scale ramp. A slow ramp through a CMOS threshold is where a
+> quadrature decoder invents counts. The symptom is specific: **counts moving while the knob is
+> still**, or one detent reporting more than four. If that happens the fix is the divider —
+> 10k/20k is 10× stiffer and still only 0.24 mA at 5 V — not the 1 µs glitch filter, which
+> would have to be raised far enough to start swallowing real edges at speed.
+
+#### `hal::motor` — 2× TB6612, 2× MCPWM, one GPTimer ISR
+
+`esp/src/motor_esp.cpp`, split out of `hal_esp.cpp` because it is the only peripheral on this
+side with an interrupt in the signal path. D5's shape, implemented as written: a **20 kHz**
+GPTimer ISR advances a Q16.16 phase accumulator and writes **8 MCPWM comparators** from a
+`constexpr` quarter-sine LUT; the **25 kHz** carrier is separate so the two tune independently.
+The trapezoid stays in `motion`, above the HAL and identical on both platforms.
+
+**PWM-on-IN, and why it needs no current loop.** `esp32.md` straps `PWMA`/`PWMB` high and puts
+the modulation on the four `AIN`/`BIN` inputs, so a coil is a *pair* of pins and the sign of the
+current is which one of the pair is modulating. An X27-family winding is ~260 Ω and tens of
+millihenries, so at 25 kHz the electrical time constant spans several carrier periods and the
+coil integrates the PWM into a clean average. **The carrier is a voltage DAC, not a chopper** —
+about 19 mA at full duty on 5 V — which is why there is no sense resistor anywhere on this board
+and nothing to close a loop around.
+
+Three things in it that are not obvious and would each cost a bench session:
+
+1. **`pos` and `elec` are separate accumulators.** They advance together and are allowed to
+   diverge exactly once: `adopt()` renames the coordinate the hand is at without moving the
+   hand, so `pos` jumps and the electrical phase must *not*. Homing calls `adopt()` the instant
+   it knows where zero is, and a phase step there would physically lurch the rotor and undo the
+   measurement that earned the number.
+2. **The ISR skips a parked axis, so something else has to prime the comparators.** Not
+   re-writing 160 000 registers a second to change nothing is the whole reason the idle case is
+   cheap — but it means `enable(true)` must write the current phase itself. Without that the
+   bridges come out of standby holding **zero duty**: no current, no holding torque, and a rotor
+   free to be dragged by gear friction the moment the hands are asked to move. (Found by
+   re-reading, not by running.)
+3. **Standby ordering is asymmetric on purpose.** Coming up: prime the comparators, start the
+   tick, *then* release `STEP_STBY` — the pin is ~200 µs of I²C away, by which point the
+   comparators have latched on a carrier boundary, so the bridges never see a stale duty. Going
+   down: drop `STEP_STBY` **first**. It is the one action that is unconditionally safe, taking
+   both bridges high-impedance whatever the comparators hold and whatever the ISR is mid-way
+   through.
+
+**The ISR is not in IRAM, and that is a bring-up choice.**
+`mcpwm_comparator_set_compare_value()` lives in flash unless `CONFIG_MCPWM_CTRL_FUNC_IN_IRAM` is
+set, so an IRAM ISR could not call it and would have to poke registers through the private HAL.
+The cost of not being in IRAM is that a flash write stalls commutation while the cache is
+disabled — the hands twitch, nothing breaks. Revisit when OTA lands, which is the first thing
+that writes flash while the movement might be moving.
+
+**`std::sin` is not a constant expression** in standard C++, and leaning on the GCC builtin
+would make the file compile on exactly one toolchain — so the quarter LUT is built from a
+9-term Taylor series, good to ~1e-10 over `[0, π/2]` where fifteen bits are kept. It has **65
+entries, not 64**: including the endpoint costs 2 bytes and removes a special case from the hot
+path.
+
+#### Bench order for the movement
+
+⚠ **Current limit first.** `STEP_STBY` is idle-low and stays that way until firmware asks
+(§12.0.6 measured it), so the coils are dead at boot — but the first `motor enable` energises
+two windings. Have a current meter on the 5 V rail before the first one.
+
+1. `sensor hands` with the coils off — `pos` should be 0/0 and `mov=00`.
+2. `motion step` one microstep at a time and **watch which way it goes**. Backwards is one
+   constant: `kSwapB` in `motor_esp.cpp`.
+3. Count microsteps for one full revolution and confirm **17 280** (§13 open question 1 — this
+   is the one number the whole dial depends on, and `motion spr` writes it to NVS).
+4. Sweep the carrier and the microstep depth for **silence** (milestone 3). A 25 kHz carrier is
+   above hearing; the *mechanical* resonance of the gear train is not, and that is what the
+   depth tuning is for.
+5. Only then `sensor homing stream` to place the index mark, and the homing FSM after it.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
@@ -2660,8 +2763,8 @@ else. Nothing above the HAL may learn how this board was soldered.
 | 0 | **Console + `help` + `sys stat` + `sys top` + `sys ev` + `sys debug`** | The CLI is milestone zero, not an afterthought — everything after this is debuggable |
 | 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · *drivers written and host-verified 2026-09-09 (§12.0.7); `sensor vbat` and every daughterboard part still want a bench* |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
-| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism |
-| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness |
+| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · *`hal::motor` written 2026-09-10 (§12.0.8); `M1` soldered, nothing has turned yet* |
+| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · *`hal::knob` written 2026-09-10 (§12.0.8)* |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
@@ -2711,19 +2814,19 @@ else. Nothing above the HAL may learn how this board was soldered.
 |---|---|---|---|
 | IO1 | `VBAT_SENSE` | `board` | ADC1_CH0 + `adc_cali` |
 | IO2 | `HOME_OPTO` | `motion` | ADC1_CH1 oneshot @1 kHz while homing |
-| IO3-6 | minute coils | `motion` | MCPWM0 + GPTimer ISR |
+| IO3-6 | minute coils | `motion` | MCPWM0 group 0, 4 comparators + the GPTimer ISR |
 | IO7 | `NEOPIX_DATA` | `ui` | **SPI3 + DMA** via `led_strip` (D4) |
 | IO8/9 | I²C SDA/SCL | `board` | `i2c_master`, 400 kHz; `mcp23017` · `tsl2591` · `bme688` · `bno085` all sit on it |
 | IO10/11/12/43 | I²S BCLK/LRCLK/DOUT/**MCLK** | `audio` | I²S0, MCLK = 256 f_S |
 | IO13/14/21/18 | microSD | `storage` | SPI2, ~25 MHz |
 | IO15/16 | `XTAL32K` | *system* | RTC slow clock (D6) |
-| IO17 | `ENC_SW` | `ui` | GPIO IRQ + 5 ms debounce |
+| IO17 | `ENC_SW` | `ui` | GPIO ANYEDGE IRQ, 5 ms lockout, latched + held over one read |
 | IO19/20 | USB D± | *system* | USB-Serial-JTAG: flash + CDC + JTAG |
-| IO38-41 | hour coils | `motion` | MCPWM1 + same ISR |
+| IO38-41 | hour coils | `motion` | MCPWM1 group 1, 4 comparators + the same ISR |
 | IO42 | `SENSOR_INT` | `board` | GPIO IRQ → `bno085::isr_tick()`; the drain is on a task, in `read()` |
 | IO44 | `EXPANDER_INT` | `board` | GPIO IRQ |
 | IO45/46 | wake warm/cool | `ui` | LEDC ~1 kHz, gamma |
-| IO47/48 | `ENC_A/B` | `ui` | PCNT unit0, glitch filter |
+| IO47/48 | `ENC_A/B` | `ui` | PCNT unit0, x4 quadrature, 1 us glitch filter, `accum_count` |
 | MCP23017 GPA/GPB | STBY, SPK_SD, BOOST12_EN, RADIO_OFF, PD_PG, CHRG, FAULT, **ALS_INT (GPB3)** | `board` | Requested by peers via events |
 
 ---

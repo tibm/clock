@@ -52,9 +52,11 @@ void test_set_and_glob() {
     CHECK(log::get(Mod::motion) == Level::Verbose);
     CHECK(log::get(Mod::audio) == Level::Info);  // neighbours untouched
 
-    // glob: every driver at once
+    // glob: every driver at once.  Derived rather than written down, because the driver list
+    // grows with the board -- `drv.knob` arrived with the PCNT driver -- and a hard-coded
+    // count turns "we added a driver" into a failing assertion about globbing.
     const int n = log::setGlob("drv.*", Level::Debug);
-    CHECK(n == 10);
+    CHECK(n == static_cast<int>(log::kModCount) - static_cast<int>(Mod::drv_step));
     CHECK(log::get(Mod::drv_step) == Level::Debug);
     CHECK(log::get(Mod::drv_chg) == Level::Debug);
     CHECK(log::get(Mod::motion) == Level::Verbose);  // glob did not spill
