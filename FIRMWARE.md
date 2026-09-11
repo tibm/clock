@@ -2970,6 +2970,60 @@ Any other pattern names the fault:
 The host fake derives `ab` from the count as the same gray code, so the pattern a person
 learns in `clocksim` is the pattern the pads produce.
 
+#### Confirmed, same day: the harness was reversed end-for-end
+
+The bench's hypothesis was right, and the table above named it on the first stream. Rotating:
+
+```
+  46373     count=0 d=0 sw=1 pin=0 ab=00
+  46423     count=0 d=0 sw=1 pin=1 ab=00
+  ...
+  47473     count=0 d=0 sw=0 pin=0 ab=00
+```
+
+`ab` static, `count` static, `pin` toggling as the shaft turns — row one of the fault table.
+The as-built wiring, read off the board:
+
+| `J10` | carries | was soldered to | should be |
+|---|---|---|---|
+| 1 | GND | **`B`** | `–` |
+| 2 | +5 V | `+` | `+` ✔ |
+| 3 | `ENC_A` | **`2`** | `A` |
+| 4 | `ENC_B` | **`1`** | `B` |
+| 5 | `ENC_SW` | **`A`** | `1` |
+| 6 | GND | `–` | `2` |
+
+That is `J10.n ↔ EM14 position 7−n` exactly — the pigtail counted from the wrong end, or the
+body's `– A 1 2 + B` label read upside down. **Pins 2 and 6 land correctly either way**, which
+is precisely why 5.1 V across `+`/`–` measured healthy and proved nothing: the ZH connector is
+palindromic in its power pins and a reversal is invisible to that one measurement.
+
+Every field in the log follows from it, which is what makes the driver's own behaviour
+verified rather than merely un-blamed:
+
+- **`count=0` always** — `ENC_A`/`ENC_B` are on the switch terminals, an open contact. PCNT has
+  nothing to count.
+- **`ab=00` always** — those two pins sit behind 100k/200k dividers whose far end is now open,
+  so each reads its own 200k pull-down. Pressing the knob shorts `1` to `2`, which ties the two
+  dividers together and still leaves both low — so **a press is invisible on every line**,
+  exactly as reported.
+- **`pin` toggling while rotating** — `IO17` is on channel `A`, a 5 V push-pull output.
+- **`sw=1` held across samples where `pin=0`** — the latch doing its job: a falling edge on `A`
+  between two polls is a closure nobody saw, and §12.0.9 built that deliberately so a quick
+  click could not be missed. Fed a square wave it holds `sw` high, which is correct behaviour
+  on incorrect input.
+
+⚠ **Two damage checks before re-testing**, because this mis-wire is electrically live and not
+merely wrong:
+
+1. **`IO17` was driven at 5 V.** No divider on that net (a dry contact needs none) and the S3
+   is not 5 V tolerant — the pin's clamp has been conducting into `+3V3` on every `A` high, at
+   whatever the EM14's 25 mA driver would push. Check `IO17` still reads a clean high/low after
+   rewiring; `sensor knob` with a correct harness is the test.
+2. **Channel `B` was shorted to GND** through `J10.1` for the whole session. That is the EM14's
+   own output driving into a short every time it went high. If `ab` shows `A` moving and `B`
+   dead after rewiring, the encoder's B channel is the casualty, not the board.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
@@ -2978,7 +3032,7 @@ learns in `clocksim` is the pattern the pads produce.
 | 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · *drivers written and host-verified 2026-09-09 (§12.0.7); `sensor vbat` and every daughterboard part still want a bench* |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
 | 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · *`hal::motor` written 2026-09-10 (§12.0.8); `M1` soldered, nothing has turned yet* |
-| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · *`hal::knob` written 2026-09-10 (§12.0.8); rotation works, `ENC_SW` under investigation — §12.0.10 has the wiring table* |
+| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · *`hal::knob` written 2026-09-10 (§12.0.8); the J10 harness was found REVERSED end-for-end on the bench — §12.0.10 has the as-built table, the fix and two damage checks* |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
