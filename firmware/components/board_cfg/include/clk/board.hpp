@@ -66,4 +66,11 @@ void reset_presence() noexcept;  // back to the compile-time default
 
 const char* board_name() noexcept;  // "rev0_3" | "devkit" | "host"
 
+// Does this board start with the movement inhibited?  True on the physical boards while
+// milestone 3 is open -- a soldered-through movement cannot be unplugged, and homing on boot
+// drives both hands the instant the board powers up, which during sensor bring-up is a hazard
+// and a nuisance.  False on the host, so clocksim and the test suite are untouched.
+// ⚠ Flip this to false for the physical boards when milestone 3 closes.
+bool motor_inhibited_default() noexcept;
+
 }  // namespace clk::board

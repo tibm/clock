@@ -97,6 +97,10 @@ struct State {
     int32_t count;  // hardware quadrature, 256 counts/rev (64 CPR x4)
     int32_t delta;  // since the previous read
     bool sw;        // true = pressed (the pin is active-low; inverted here)
+    // The raw electrical level, true = the pin is LOW, before the latch and before the
+    // stuck-at-boot guard.  `sw` is the answer; this is the evidence, and it is the one
+    // number that separates "the driver is wrong" from "the harness is wrong" on a bench.
+    bool sw_raw;
 };
 Result<State> read() noexcept;
 }  // namespace knob
@@ -117,6 +121,18 @@ inline constexpr int32_t kUstepsPerRev = 17280;  // 1080 full steps x16 -- verif
 
 Status enable(bool on) noexcept;  // STEP_STBY (expander GPA1); coils dead when false
 bool enabled() noexcept;
+
+// A bench inhibit, above presence and above STEP_STBY: while it is set, enable(true) answers
+// Denied and no coil is ever energised.  It exists because during bring-up the movement moving
+// is a hazard and a nuisance -- homing on boot will drive both hands the moment the board comes
+// up -- and "unplug it" is not available on a part that is soldered through the board.
+//
+// Persisted in NVS under `mot_inh`, because a switch you have to re-throw after every reset is
+// a switch that will be forgotten once.  The compiled-in default is the board's (board.hpp):
+// the physical boards start INHIBITED while milestone 3 is open; the host does not, so nothing
+// in clocksim or the test suite changes.
+Status inhibit(bool on) noexcept;
+bool inhibited() noexcept;
 
 // Signed velocity: + is clockwise.  Stops on reaching `stop_at`, which is an absolute
 // UNWRAPPED position -- wrapping is the caller's, so "go the long way round" is expressible.

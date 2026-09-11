@@ -402,6 +402,55 @@ void test_ui_wake_gate() {
     CHECK(d.contains("plugged-only"));
 }
 
+// The bench inhibit (hal.hpp), which is new surface and therefore worth pinning: it is the
+// one thing that can refuse to energise a movement that is present, fitted and working.
+void test_motor_inhibit() {
+    fresh();
+    CHECK(!hal::motor::inhibited());  // the host default -- the physical boards differ
+    CHECK(hal::motor::enable(true) == Status::Ok);
+    CHECK(hal::motor::enabled());
+
+    // Inhibiting while the coils are LIVE must drop them there and then.  A "do not energise"
+    // that waits for somebody else to notice is not an inhibit, and the reason for typing it
+    // on a bench is usually that something is moving.
+    CHECK(hal::motor::inhibit(true) == Status::Ok);
+    CHECK(hal::motor::inhibited());
+    CHECK(!hal::motor::enabled());
+    CHECK(hal::expander::get(hal::expander::Sig::StepStby).v == false);
+
+    // Denied, not NotPresent: the movement is fitted and answering, it has been told not to.
+    // `motion` distinguishes the two -- absent is Uninit and silent, inhibited is Uninit and
+    // says how to undo it, and neither is a fault.
+    CHECK(hal::motor::enable(true) == Status::Denied);
+    CHECK(hal::motor::run(hal::motor::Hand::Minute, 100, 1000) == Status::NotReady);
+
+    // ...but switching the coils OFF is never refused.  That is the one direction that can
+    // only ever make a bench safer.
+    CHECK(hal::motor::enable(false) == Status::Ok);
+
+    CHECK(hal::motor::inhibit(false) == Status::Ok);
+    CHECK(hal::motor::enable(true) == Status::Ok);
+    CHECK(hal::motor::enabled());
+    (void)hal::motor::enable(false);
+}
+
+// `sw` is the answer and `sw_raw` is the evidence.  On the bench the two diverge exactly when
+// something is wrong -- a stuck-low ENC_SW reads pin=1 forever while the driver refuses to
+// call it a press -- so the CLI prints both and this pins the pair.
+void test_knob_raw_pin() {
+    fresh();
+    auto k = hal::knob::read();
+    CHECK(k.ok() && !k.v.sw && !k.v.sw_raw);
+
+    sim::press(50);
+    k = hal::knob::read();
+    CHECK(k.v.sw && k.v.sw_raw);
+
+    RecordingSink r;
+    CHECK(run("sensor knob read", r) == Status::Ok);
+    CHECK(r.contains("pin="));
+}
+
 void run_sim_tests() {
     test_opto();
     test_noise_is_deterministic();
@@ -413,6 +462,8 @@ void run_sim_tests() {
     test_i2c_scan_follows_presence();
     test_i2c_expander_register_view();
     test_mcp23017_driver_configures_the_chip();
+    test_motor_inhibit();
+    test_knob_raw_pin();
     test_sim_commands();
     test_sensor_grammar();
     test_sensor_stream_is_bounded();

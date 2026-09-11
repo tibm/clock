@@ -49,8 +49,22 @@ Status s_vbat(char* out, std::size_t cap) {
 Status s_knob(char* out, std::size_t cap) {
     const auto k = hal::knob::read();
     if (!k.ok()) return k.st;
-    std::snprintf(out, cap, "count=%" PRId32 " delta=%" PRId32 " sw=%d", k.v.count, k.v.delta,
-                  k.v.sw ? 1 : 0);
+    // `d` is computed HERE rather than taken from k.v.delta, and the difference matters on a
+    // bench.  hal::knob's delta is "since the previous read" by ANYONE, and `ui` polls the
+    // same knob every 20 ms -- so a stream sampling at 20 Hz would find that `ui` had already
+    // consumed almost every count and would print a column of zeros while the knob was
+    // plainly turning.  `count` is absolute and nobody can steal it, so the CLI diffs that.
+    static int32_t s_last = 0;
+    static bool s_have = false;
+    const int32_t d = s_have ? k.v.count - s_last : 0;
+    s_last = k.v.count;
+    s_have = true;
+    // `pin` is the raw ENC_SW level and it is here for one reason: when `sw` misbehaves, the
+    // next question is always "is the driver wrong or is the harness wrong", and pin answers
+    // it without a meter.  pin=1 with the knob untouched means IO17 is being held low --
+    // check J10.5 against the EM14's two switch terminals.
+    std::snprintf(out, cap, "count=%" PRId32 " d=%" PRId32 " sw=%d pin=%d", k.v.count, d,
+                  k.v.sw ? 1 : 0, k.v.sw_raw ? 1 : 0);
     return Status::Ok;
 }
 
@@ -152,7 +166,8 @@ Status s_needs_driver(char*, std::size_t) { return Status::NotPresent; }
 // different places.  `sensor list` prints them differently for exactly that reason.
 constexpr SensorSpec kSensors[] = {
     {"homing", board::Dev::Opto, 200, true, "QRE1113 opto: mV + normalised", s_homing},
-    {"knob", board::Dev::Knob, 50, true, "PCNT count, delta, ENC_SW", s_knob},
+    {"knob", board::Dev::Knob, 50, true, "PCNT count + this view's own delta, ENC_SW + raw pin",
+     s_knob},
     {"hands", board::Dev::Motor, 100, true, "microstep position + velocity", s_hands},
     {"vbat", board::Dev::Vbat, 10, true, "cell mV, SoC, charger state", s_vbat},
     {"clk", board::Dev::Xtal32k, 1, true, "slow-clock source, sim time", s_clk},

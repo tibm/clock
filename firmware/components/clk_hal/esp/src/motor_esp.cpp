@@ -131,6 +131,23 @@ bool g_built = false;
 bool g_build_failed = false;
 bool g_enabled = false;
 
+// The bench inhibit (hal.hpp).  Resolved lazily on first use rather than at static-init,
+// because reading it means reading NVS and NVS is not up until hal::init() has run.
+constexpr const char* kInhibitKey = "mot_inh";
+int8_t g_inhibit = -1;  // -1 = not resolved yet
+
+bool inhibit_now() noexcept {
+    if (g_inhibit < 0) {
+        const auto v = store::get_i32(kInhibitKey);
+        g_inhibit = static_cast<int8_t>(v.ok() ? (v.v != 0) : board::motor_inhibited_default());
+        if (g_inhibit) {
+            CLK_LOGW(drv_step, "movement INHIBITED (%s) -- `motion power on` to release",
+                     v.ok() ? "saved" : "board default");
+        }
+    }
+    return g_inhibit != 0;
+}
+
 int idx_of(Hand h) noexcept { return h == Hand::Hour ? 0 : 1; }
 
 // ---- the ISR -----------------------------------------------------------------------------
@@ -300,6 +317,9 @@ void all_coils_off() noexcept {
 
 Status enable(bool on) noexcept {
     if (!board::present(board::Dev::Motor)) return Status::NotPresent;
+    // The inhibit is checked on the way UP only.  Refusing to switch the coils OFF because
+    // somebody set a bench flag would be the one direction that can do damage.
+    if (on && inhibit_now()) return Status::Denied;
     if (on == g_enabled) return Status::Ok;
     if (!build()) return Status::NotPresent;
 
@@ -361,6 +381,23 @@ Status enable(bool on) noexcept {
 }
 
 bool enabled() noexcept { return g_enabled; }
+
+Status inhibit(bool on) noexcept {
+    (void)inhibit_now();  // resolve first, so the log line reads once and in the right order
+    g_inhibit = on ? 1 : 0;
+    if (on && g_enabled) {
+        // Asked to inhibit while the coils are live: drop them now rather than at the next
+        // enable(false).  "Do not energise" that waits for somebody else to notice is not an
+        // inhibit, and on a bench the reason for typing it is usually that something is moving.
+        (void)enable(false);
+    }
+    const Status st = store::set_i32(kInhibitKey, on ? 1 : 0);
+    CLK_LOGW(drv_step, "movement %s%s", on ? "INHIBITED" : "released",
+             st == Status::Ok ? " (saved)" : " (NOT saved)");
+    return st;
+}
+
+bool inhibited() noexcept { return inhibit_now(); }
 
 Status run(Hand h, int32_t usteps_per_s, int32_t stop_at) noexcept {
     if (!board::present(board::Dev::Motor)) return Status::NotPresent;

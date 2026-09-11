@@ -1828,7 +1828,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
-| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` — *`motion sweep` and `motion power` arrive with `board`* |
+| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
@@ -1919,7 +1919,7 @@ your hand. All of it goes through the owning AO (rule 12) — `sensor` is a *vie
 | `<name>` | Owner | Reads | Max rate | Why you'll use it |
 |---|---|---|---|---|
 | `homing` | `motion` | `HOME_OPTO` mV + normalized + edge state | 200 Hz | **Placing the index mark** — the single most fiddly bench task (§12 m3) |
-| `knob` | `ui` | PCNT count, delta, direction, `ENC_SW` | 50 Hz | Proves the 100k/200k dividers and the glitch filter |
+| `knob` | `ui` | PCNT `count`, this view's own delta, `ENC_SW` + the raw pin | 50 Hz | Proves the 100k/200k dividers and the glitch filter. Watch **`count`**: `hal::knob`'s own `delta` is "since anyone last read", and `ui` polls the same knob every 20 ms, so this view diffs `count` itself (§12.0.9) |
 | `vbat` | `board` | mV, SoC %, divider-enable state | 10 Hz | Charge curve, `CELL_TEST` before/after |
 | `als` | `board` | lux, gain, integration, `ALS_INT` | 10 Hz | ALS gating thresholds; proves GPB3 + R-BOARD-4 |
 | `env` | `board` | T / RH / P + **gas resistance in Ω**, `gas_valid`, `heat_stable` | 1 Hz | No IAQ here — that is BSEC's or a baseline's, a layer above (§12.0.7). A gas figure with `heat_stable` clear measures nothing |
@@ -2755,6 +2755,146 @@ two windings. Have a current meter on the 5 V rail before the first one.
    above hearing; the *mechanical* resonance of the gear train is not, and that is what the
    depth tuning is for.
 5. Only then `sensor homing stream` to place the index mark, and the homing FSM after it.
+
+### 12.0.9 First power-on with all of it, and four things it found — 2026-09-10
+
+The first boot with the sensor drivers, the knob and the movement all on a real `rev0_3`. None
+of the four faults below was visible on the host, and three of them presented as something
+other than what they were — which is the argument for §12.0.7/.8 having said "not bench-verified"
+rather than "done".
+
+#### 1. Two active objects installed the I²C bus at the same time
+
+```
+E i2c.common: I2C bus id(0) has already been acquired
+E i2c.master: i2c_new_master_bus(1058): I2C bus acquire failed
+I motion: not homing: no movement fitted
+```
+
+`hal::i2c::bus()` installed the bus lazily on first use. On a real boot `motion` homes and `ui`
+polls the knob within microseconds of each other, both found the handle null, and both called
+`i2c_new_master_bus()` on port 0. **The error lines are the harmless half.** The loser also set
+the `g_bus_failed` latch, which was designed to stop a dead bus being retried forever and here
+meant one lost race could take the expander, the amp and the whole daughterboard down for the
+rest of the boot. What actually happened was quieter and more misleading: the expander write
+inside `motor::enable()` failed, so `motion` concluded **"no movement fitted"** on a board whose
+movement is soldered through it.
+
+Fixed by removing the race rather than locking around it: the bus is installed in `hal::init()`,
+which `app_main` calls before it constructs a single AO, so there is exactly one caller and it
+is single-threaded. `bus()` is now a pure accessor.
+
+Two IDF log lines are also silenced **by tag**, with reasons rather than by turning a component
+down: `i2c.master`'s "check pull-up resistances" is printed unconditionally whenever internal
+pull-ups are disabled (§12.0.4 — we disable them because R95/R96 are fitted), and
+`led_strip_spi`'s "Only support WS2812" guesses at timing that §12.0.5 measured.
+
+#### 2. `run_gas` is bit 5 on the BME688, and bit 4 on the BME680
+
+```
+env  t=27.05C rh=49.0% p=1011.1hPa gas=6400000ohm (gas invalid)
+```
+
+Temperature, humidity and pressure all correct — so the calibration parse, the compensation
+arithmetic and the forced-mode handshake were all right. The driver wrote `0x10` to
+`ctrl_gas_1`, which is `run_gas` **on the BME680**. §5.3.4.7 of this datasheet says `run_gas<5>`.
+
+The failure mode is worth the paragraph: **it does not fail.** The measurement completes, three
+of the four readings are perfect, the gas conversion simply never runs, `gas_valid_r` reads 0
+and the resistance pegs at the top of its range. Had the driver not carried `gas_valid` up to
+the caller (§12.0.7 argued for it on the grounds that a reading taken before the heater settles
+measures nothing), this would have been a plausible 6.4 MΩ in every log for as long as anyone
+cared to look.
+
+#### 3. `sensor imu stream` overflowed the stream producer's stack
+
+```
+E task_wdt: esp_task_wdt_reset(707): task not found      (x hundreds)
+assert failed: xRingbufferSend ringbuf.c:1049 (pxRingbuffer)
+```
+
+Neither line names a stack, and that is the point. `run_stream` spawned its producer as a
+`std::thread`, which on ESP-IDF is a pthread with `CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT` —
+**3 KB**. That was survivable while every sampler was a HAL read and a `snprintf` of integers.
+`sensor imu` is not: `bno085::read()` drains SHTP packets through two 128-byte buffers, and the
+sample line is formatted with `%f`, which on xtensa pulls in a formatter wanting several hundred
+bytes of its own. It ran for about 290 s and then smashed its neighbour.
+
+Two fixes, both of which were wrong before and would have stayed wrong:
+
+- The producer is now a `port::thread_start` with an **explicit 8 KB** stack — roughly triple
+  the deepest sampler — instead of inheriting whatever pthread's default happens to be. The
+  port layer already existed for the AOs; the stream was the one thread in the system that was
+  not using it.
+- **`Ring` is static.** It is ~12.8 KB and it was a local, i.e. on the *console* task's stack.
+  Streams are bounded and hold the console until they end, so there is never a second one.
+
+The pacing changed with it: the producer now sleeps against elapsed time rather than
+accumulating deadlines, so a sampler that occasionally overruns its period (`sensor env` blocks
+~200 ms for the heater soak) slips one sample instead of spinning to catch up.
+
+`port::thread_join()` does not wait on target — it only reclaims the handle — so the producer
+sets a `done` flag and the console spins on that before its stack frame dies. The old code got
+away with `std::thread::join()`; the port layer has different semantics and says so.
+
+#### 4. `ENC_SW` read closed from boot, so the clock let itself into pairing mode
+
+```
+I (1421) ui: up; knob present
+I (11428) ui: held 10000 ms -> BLE pairing
+```
+
+Nobody touched the knob. `ui` starts its hold timer on the first `sw` it sees and commits at ten
+seconds, so a pin that reads low from the first poll is indistinguishable from a deliberate
+ten-second hold — and once committed, a real press does nothing, because the switch never
+appears to change state.
+
+The driver was reporting what the pin said, so this is a harness or wiring question and the
+firmware cannot answer it. What the firmware **can** do is refuse to be broken by it, and say
+what it sees:
+
+- `hal::knob` now requires `ENC_SW` to have been observed **open at least once** before it will
+  report a press. A person cannot be holding the knob before the firmware starts polling, so a
+  switch closed on the very first read is a fault, not input. One `Warn` line, and the knob goes
+  on rotating.
+- `knob::State` gains **`sw_raw`**, the unlatched electrical level, and `sensor knob` prints it
+  as `pin=`. `sw` is the answer; `pin` is the evidence, and the two together separate "the
+  driver is wrong" from "the harness is wrong" without a meter:
+
+Also note which column to watch, because the other one will mislead you: `hal::knob`'s `delta`
+is "since the previous read **by anyone**" and `ui` polls the same knob every 20 ms, so a
+stream at 20 Hz finds that `ui` has already consumed nearly every count. `sensor knob` therefore
+diffs the absolute `count` itself and prints that as `d`.
+
+| `sensor knob read` | means |
+|---|---|
+| `sw=0 pin=0` idle, `sw=1 pin=1` while pressed | working |
+| `pin=1` with nothing touching the knob | IO17 held low — check `J10.5` against the EM14's two switch terminals (`1` and `2`, the middle pair) |
+| `pin` never goes to 1 when pressed | the switch or its return (`J10.6`) is open |
+
+#### And one consequence: the movement now has an off switch
+
+Fixing #1 means `motor::enable()` starts working, which means **homing on boot drives both hands
+the moment the board powers up** — during sensor bring-up that is a hazard and a nuisance, and
+a movement soldered through the board cannot be unplugged.
+
+`hal::motor::inhibit()` is a hard "do not energise", above presence and above `STEP_STBY`,
+persisted in NVS under `mot_inh` and exposed as ⚠`motion power [on|off]`. The compiled-in
+default is the **board's** (`board.hpp`): the physical boards start inhibited while milestone 3
+is open, the host does not, so `clocksim` and the test suite are untouched.
+
+Three details that are the whole of why it is safe:
+
+- It is checked **on the way up only**. Refusing to switch coils *off* because a bench flag is
+  set would be the one direction that can do damage.
+- Inhibiting while the coils are live drops them immediately rather than at the next
+  `enable(false)`.
+- `enable()` answers **`Denied`**, and `motion` treats that like `NotPresent` — one Info line
+  naming the cure, `Uninit`, no fault. It is a deliberate configuration, not a mechanism that
+  failed, and logging an error every boot on a board doing exactly what it was told is the same
+  spam D16 exists to prevent, arrived at from the other direction.
+
+⚠ **Flip `kMotorInhibited` to false for the physical boards when milestone 3 closes.**
 
 ### 12.1 Milestones
 

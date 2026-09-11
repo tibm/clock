@@ -1,20 +1,33 @@
 #include "clk/cli/stream.hpp"
 
 #include <atomic>
-#include <chrono>
 #include <cinttypes>
 #include <cstdio>
 #include <cstring>
-#include <thread>
 
 #include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
+#include "clk/port.hpp"
 
 namespace clk::cli {
 namespace {
 
 constexpr std::size_t kRing = 128;
 constexpr std::size_t kTextLen = 96;
+
+// The producer's stack.  It used to be a std::thread, which on ESP-IDF is a pthread with
+// CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT -- 3 KB -- and that was fine for exactly as long as
+// the samplers were cheap.  `sensor imu stream` is not cheap: bno085::read() drains SHTP
+// packets through two 128-byte buffers, and the sample line is formatted with %f, which on
+// xtensa pulls in a formatter that wants several hundred bytes of its own.
+//
+// It overflowed, and the way it presented is worth recording because none of it names a
+// stack: hundreds of `task_wdt: esp_task_wdt_reset(707): task not found`, then
+// `assert failed: xRingbufferSend ringbuf.c:1049 (pxRingbuffer)` -- a smashed neighbour, not
+// a diagnosis.  8 KB is roughly triple the deepest sampler measured and the task exists only
+// for the length of one bounded stream.  (2026-09-10.)
+constexpr std::size_t kProducerStack = 8192;
+constexpr int kProducerPrio = 4;  // below the console (§4), above nothing that matters here
 
 struct Sample {
     uint32_t t_ms;
@@ -106,26 +119,69 @@ Status run_stream(const char* name, SampleFn sample, StreamOpts const& o, Sink& 
         }
     }
 
-    Ring ring;
-    std::atomic<bool> stop{false};
-    const uint32_t period_us = 1'000'000u / o.hz;
+    // STATIC, not a local.  sizeof(Ring) is about 12.8 KB and it used to sit on the console
+    // task's stack, which is a large thing to put somewhere small for no reason -- streams are
+    // bounded and hold the console until they end, so there is never a second one to collide
+    // with.  The `Args` below say the same thing in the `sensor stop` help text.
+    static Ring ring;
+    ring.head.store(0, std::memory_order_relaxed);
+    ring.tail.store(0, std::memory_order_relaxed);
+    ring.dropped.store(0, std::memory_order_relaxed);
+
+    // Everything the producer task touches, in one place: it outlives the lambda a std::thread
+    // used to capture, so the state has to be explicit rather than captured by reference.
+    struct Producer {
+        SampleFn sample;
+        Ring* ring;
+        uint32_t period_ms;
+        uint32_t want;  // total samples: the bound is a COUNT, see below
+        std::atomic<bool> stop{false};
+        std::atomic<bool> done{false};
+    };
+    // Bounded by a sample COUNT and paced by a fixed sleep, rather than by comparing a clock
+    // against a deadline.  Two reasons, and the second is the one that matters:
+    //
+    //   hal::clock_::millis() is SIM time on the host while sleep_ms() is real, so a loop that
+    //   paced itself by the difference would, under `sim warp 60`, find itself permanently
+    //   behind and spin at the sleep floor for the whole run -- starving the active objects it
+    //   shares a laptop with.  A count cannot do that whatever the clock is doing.
+    //
+    //   And it is honest about a slow sampler: `sensor env` blocks ~200 ms for the heater
+    //   soak, so a 1 Hz 30 s stream of it takes 36 s and yields the 30 samples asked for,
+    //   rather than yielding 25 and calling it 30.
+    const uint32_t period_ms = 1000u / o.hz;  // kMaxHz is 200, so this is never 0
+    Producer prod{sample, &ring, period_ms ? period_ms : 1, o.secs * o.hz, {}, {}};
 
     // Rule 12: sampling happens here, not on the console's thread.  When the AOs land this
     // becomes the owning AO's periodic timer and the ring becomes its stream sink (§6.9);
     // the drain loop below does not change.
-    std::thread producer([&] {
-        auto next = std::chrono::steady_clock::now();
-        const auto deadline = next + std::chrono::seconds(o.secs);
-        while (!stop.load(std::memory_order_relaxed) && next < deadline) {
+    auto body = [](void* p) {
+        auto* pr = static_cast<Producer*>(p);
+        for (uint32_t n = 0; n < pr->want; ++n) {
+            if (pr->stop.load(std::memory_order_relaxed)) break;
             Sample s{};
+            // The TIMESTAMP stays sim time -- that is the axis every other number in this
+            // system is plotted against.  It is only the PACING that must not be.
             s.t_ms = hal::clock_::millis();
-            if (sample(s.text, sizeof s.text) == Status::NotPresent) break;
-            ring.push(s);
-            next += std::chrono::microseconds(period_us);
-            std::this_thread::sleep_until(next);
+            if (pr->sample(s.text, sizeof s.text) == Status::NotPresent) break;
+            pr->ring->push(s);
+            hal::clock_::sleep_ms(pr->period_ms);
         }
-        stop.store(true, std::memory_order_relaxed);
-    });
+        pr->stop.store(true, std::memory_order_relaxed);
+        pr->done.store(true, std::memory_order_release);
+    };
+
+    void* handle = nullptr;
+    if (!port::thread_start({"clk.stream", kProducerPrio, kProducerStack, 1}, body, &prod,
+                            &handle)) {
+        out.line("could not start the stream producer");
+        if (!o.keep_logs) {
+            for (std::size_t i = 0; i < log::kModCount; ++i) {
+                log::set(static_cast<log::Mod>(i), static_cast<log::Level>(saved[i]));
+            }
+        }
+        return Status::Failed;
+    }
 
     bool header_done = false;
     uint32_t printed = 0;
@@ -155,11 +211,16 @@ Status run_stream(const char* name, SampleFn sample, StreamOpts const& o, Sink& 
             emit(s);
             continue;
         }
-        if (stop.load(std::memory_order_relaxed)) break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        if (prod.done.load(std::memory_order_acquire)) break;
+        hal::clock_::sleep_ms(2);
     }
-    producer.join();
-    for (Sample s{}; ring.pop(s);) emit(s);  // whatever landed during the join
+    // Wait for the task to have actually left `body` before the Producer on this stack dies.
+    // port::thread_join() only reclaims the handle on target -- it does not wait -- so the
+    // `done` flag is the join, and skipping it would free `prod` under a task still writing
+    // to it.
+    while (!prod.done.load(std::memory_order_acquire)) hal::clock_::sleep_ms(1);
+    port::thread_join(handle);
+    for (Sample s{}; ring.pop(s);) emit(s);  // whatever landed at the end
 
     if (!o.keep_logs) {
         for (std::size_t i = 0; i < log::kModCount; ++i) {

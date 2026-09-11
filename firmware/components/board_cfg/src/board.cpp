@@ -21,8 +21,10 @@ constexpr uint16_t kAll = bit(Dev::Opto) | bit(Dev::Vbat) | bit(Dev::Knob) | bit
 #if defined(CONFIG_CLOCK_BOARD_REV0_3)
 constexpr const char* kBoard = "rev0_3";
 constexpr uint16_t kDefault = kAll;  // everything is soldered down
+constexpr bool kMotorInhibited = true;
 #elif defined(CONFIG_CLOCK_BOARD_DEVKIT)
 constexpr const char* kBoard = "devkit";
+constexpr bool kMotorInhibited = true;
 // Nothing is fitted until you wire it, and the DevKitC has no 32.768 kHz crystal at all
 // (FIRMWARE.md §12.0).  Starting empty is the honest default: `sensor list` then reports
 // what you have actually connected, not what the schematic wishes you had.
@@ -30,6 +32,7 @@ constexpr uint16_t kDefault = 0;
 #else
 constexpr const char* kBoard = "host";
 constexpr uint16_t kDefault = kAll;  // all faked, all answering
+constexpr bool kMotorInhibited = false;
 #endif
 
 uint16_t g_present = kDefault;
@@ -64,5 +67,7 @@ void set_present(Dev d, bool on) noexcept {
 void reset_presence() noexcept { g_present = kDefault; }
 
 const char* board_name() noexcept { return kBoard; }
+
+bool motor_inhibited_default() noexcept { return kMotorInhibited; }
 
 }  // namespace clk::board

@@ -97,6 +97,7 @@ struct State {
     // movement
     AxisSt ax[2]{AxisSt{.offset_deg = kHourStartDeg}, AxisSt{.offset_deg = kMinuteStartDeg}};
     bool motor_on = false;
+    bool motor_inhibit = board::motor_inhibited_default();
     // imu
     float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
     uint16_t taps = 0;
@@ -403,6 +404,9 @@ Result<State> read() noexcept {
     }
     if (down) g_st.sw_seen = true;
     s.sw = down;
+    // The fake has no pin, so the closure itself is the raw level -- the held-over press is
+    // the part that is synthetic, and it is exactly what `sw` adds on top.
+    s.sw_raw = sim_us_locked() < g_st.sw_until_us;
     g_st.last_read = s.count;
     return Result<State>::good(s);
 }
@@ -415,6 +419,8 @@ namespace motor {
 Status enable(bool on) noexcept {
     std::lock_guard lk{g_mx};
     if (!board::present(board::Dev::Motor)) return Status::NotPresent;
+    // Same rule as the target: refused on the way up only (hal.hpp).
+    if (on && g_st.motor_inhibit) return Status::Denied;
     if (on == g_st.motor_on) return Status::Ok;
     // Dropping STEP_STBY kills the coils, and dead coils do not turn a rotor.  Parking both
     // axes here is what makes `motion` do the MotorPower handshake (§6.1) honestly instead
@@ -470,6 +476,23 @@ Status adopt(Hand h, int32_t pos) noexcept {
     g_st.ax[i].pos = pos;
     g_st.ax[i].stop_at = pos;
     return Status::Ok;
+}
+
+Status inhibit(bool on) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.motor_inhibit = on;
+    if (on && g_st.motor_on) {
+        axis_park_locked(0);
+        axis_park_locked(1);
+        g_st.motor_on = false;
+        g_st.exp[static_cast<std::size_t>(expander::Sig::StepStby)] = false;
+    }
+    return Status::Ok;
+}
+
+bool inhibited() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.motor_inhibit;
 }
 
 Axis state(Hand h) noexcept {

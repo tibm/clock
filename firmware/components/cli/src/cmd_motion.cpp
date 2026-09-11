@@ -198,7 +198,31 @@ Status cmd_spr(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// The bench switch for the movement (hal.hpp).  ⚠ Unsafe, and it is the one command here
+// whose UNSAFE direction is "on": releasing the inhibit means the next `motion home` drives
+// both hands, on a mechanism that may be half-assembled.
+Status cmd_power(Args const& a, Sink& out) {
+    const char* v = a.arg(0);
+    if (!v) {
+        out.printf("movement %s%s", hal::motor::inhibited() ? "INHIBITED" : "released",
+                   hal::motor::enabled() ? ", coils live" : ", coils off");
+        if (hal::motor::inhibited()) out.line("  `motion power on` releases it (saved to NVS)");
+        return Status::Ok;
+    }
+    const bool on = std::strcmp(v, "on") == 0;
+    if (!on && std::strcmp(v, "off") != 0) {
+        out.line("usage: motion power [on|off]");
+        return Status::BadArg;
+    }
+    const Status st = hal::motor::inhibit(!on);
+    out.printf("movement %s%s", on ? "released" : "INHIBITED",
+               st == Status::Ok ? " (saved)" : " (NOT saved -- NVS refused)");
+    return st;
+}
+
 constexpr CmdSpec kRows[] = {
+    {"motion", nullptr, "power", "[on|off]", "release or inhibit the movement (NVS)", Unsafe,
+     cmd_power},
     {"motion", nullptr, "status", "", "state, hands, coils, tuning", ReleaseOk, cmd_status},
     {"motion", nullptr, "home", "", "run the homing FSM", Unsafe, cmd_home},
     {"motion", nullptr, "goto", "<hh:mm>", "drive the hands to a time", Unsafe, cmd_goto},

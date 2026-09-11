@@ -25,6 +25,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_attr.h"
 #include "esp_err.h"
+#include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -228,6 +229,17 @@ constexpr int64_t kDebounceUs = 5000;
 pcnt_unit_handle_t g_unit = nullptr;
 bool g_failed = false;
 int32_t g_last_read = 0;
+// Has ENC_SW ever been observed OPEN?  Until it has, a low reading is not a press.
+//
+// A person cannot be holding the knob before the firmware starts polling it, so a switch that
+// reads closed from the very first read is a wiring fault, not input -- and believing it costs
+// the whole UI: `ui` starts its hold timer on the first `sw`, and ten seconds later the clock
+// is in BLE pairing mode with nobody having touched it.  That is what the bench saw on
+// 2026-09-10.  Refusing to report a press until the pin has been seen idle turns a dead
+// harness into one warning and a knob that still rotates, instead of a product stuck in a mode
+// it cannot be talked out of.
+bool g_sw_seen_open = false;
+bool g_sw_warned = false;
 
 // Written by the ISR, read by a task.  `g_latched` is the whole reason the press is an
 // interrupt and not a poll: a closure shorter than the caller's poll period would otherwise
@@ -352,10 +364,25 @@ Result<State> read() noexcept {
     // latch; one already released is reported down exactly once and then lets go.  This is
     // deliberately the same behaviour clocksim's fake implements, so a quick click means the
     // same thing on a laptop and on the bench.
-    const bool held = ::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_sw)) == 0;
+    const bool low = ::gpio_get_level(static_cast<gpio_num_t>(board::kPins.enc_sw)) == 0;
+    s.sw_raw = low;
+    if (!low) g_sw_seen_open = true;
     const bool latched = g_latched;
     g_latched = false;
-    s.sw = held || latched;
+    if (!g_sw_seen_open) {
+        // Stuck closed since boot.  Say so once -- at Warn, so it survives the drivers'
+        // default quiet -- and report the knob as un-pressed so rotation stays usable.
+        if (!g_sw_warned) {
+            g_sw_warned = true;
+            CLK_LOGW(drv_knob,
+                     "ENC_SW reads closed at boot (IO%d low) -- ignoring the press "
+                     "until it opens; check J10.5 against the EM14's switch pins",
+                     board::kPins.enc_sw);
+        }
+        s.sw = false;
+        return Result<State>::good(s);
+    }
+    s.sw = low || latched;
     return Result<State>::good(s);
 }
 
@@ -455,7 +482,6 @@ constexpr int kTimeoutMs = 50;
 constexpr uint8_t kAddrFirst = 0x08, kAddrLast = 0x77;  // the 7-bit range that is not reserved
 
 i2c_master_bus_handle_t g_bus = nullptr;
-bool g_bus_failed = false;
 
 // Four is every device this board can hold at once (expander, amp, and two of the three on
 // the daughterboard in any one conversation).  A miss evicts the oldest, which on a bus this
@@ -467,8 +493,26 @@ struct Slot {
 Slot g_dev[4]{};
 std::size_t g_next = 0;
 
-i2c_master_bus_handle_t bus() noexcept {
-    if (g_bus || g_bus_failed) return g_bus;
+// A pure accessor.  It used to install the bus lazily on first use, and on a real boot that
+// was a RACE: `motion` homes and `ui` polls the knob within microseconds of each other, both
+// found g_bus null, and both called i2c_new_master_bus() on port 0.  The loser got
+//
+//     E i2c.common: I2C bus id(0) has already been acquired
+//     E i2c.master: i2c_new_master_bus(1058): I2C bus acquire failed
+//
+// and -- worse than the noise -- set the old `g_bus_failed` latch, which would have killed
+// every I2C device on the board for the rest of the boot.  What actually happened on the
+// bench was subtler and more confusing: the expander write inside motor::enable() failed, so
+// `motion` concluded "no movement fitted" and skipped homing on a board whose movement was
+// soldered on.  (2026-09-10.)
+//
+// Installing it in hal::init() instead removes the race rather than locking around it:
+// app_main calls hal::init() before it constructs a single active object, so there is exactly
+// one caller and it is single-threaded.
+i2c_master_bus_handle_t bus() noexcept { return g_bus; }
+
+bool install_bus() noexcept {
+    if (g_bus) return true;
     i2c_master_bus_config_t cfg{};
     cfg.i2c_port = I2C_NUM_0;
     cfg.sda_io_num = static_cast<gpio_num_t>(board::kPins.i2c_sda);
@@ -482,10 +526,10 @@ i2c_master_bus_handle_t bus() noexcept {
     cfg.flags.enable_internal_pullup = false;
     if (const esp_err_t err = ::i2c_new_master_bus(&cfg, &g_bus); err != ESP_OK) {
         g_bus = nullptr;
-        g_bus_failed = true;  // a bus that would not install will not install on retry either
         CLK_LOGE(drv_exp, "i2c bus install failed: %s", ::esp_err_to_name(err));
+        return false;
     }
-    return g_bus;
+    return true;
 }
 
 i2c_master_dev_handle_t dev(uint8_t addr) noexcept {
@@ -516,6 +560,10 @@ Status err_to_status(esp_err_t e) noexcept {
 }
 
 }  // namespace
+
+// Called once by hal::init(), before any active object exists.  See bus() for why that is
+// the only safe time to do it.
+bool install() noexcept { return install_bus(); }
 
 Result<std::size_t> scan(uint8_t* out, std::size_t cap) noexcept {
     auto* b = bus();
@@ -658,6 +706,10 @@ Status set_i32(const char* key, int32_t value) noexcept {
 
 }  // namespace store
 
+namespace i2c {
+bool install() noexcept;
+}  // namespace i2c
+
 namespace {
 
 // SENSOR_INT (IO42) is the BNO085's `H_INTN`: active-low, push-pull, and it means "the hub
@@ -694,6 +746,24 @@ void install_sensor_int() noexcept {
 
 Status init() noexcept {
     port::set_clock(&clock_::micros);  // core/ owns no clock of its own (§2)
+
+    // Two IDF log lines that are noise on THIS board, silenced by tag rather than by turning
+    // the whole component down.  Both were chased on the bench before being understood, so
+    // both get a reason rather than a suppression:
+    //
+    //   i2c.master "check pull-up resistances" is printed unconditionally whenever internal
+    //     pull-ups are disabled (i2c_master.c:1067) -- a blanket reminder, not a measurement.
+    //     We disable them deliberately because R95/R96 are fitted (§12.0.4).
+    //   led_strip_spi "Only support WS2812" fires for any other led_model on the SPI backend.
+    //     The SK6812 timing was verified on rev0.3 on 2026-09-08: the dial pixels light and
+    //     the colours are true, which is what that warning is guessing about (§12.0.5).
+    ::esp_log_level_set("i2c.master", ESP_LOG_ERROR);
+    ::esp_log_level_set("led_strip_spi", ESP_LOG_ERROR);
+
+    // The bus BEFORE the active objects.  hal::init() is the last single-threaded moment in
+    // the boot, and i2c::bus() explains why that matters.
+    if (!i2c::install()) CLK_LOGE(sys, "i2c bus unavailable -- expander, amp and J7 are dark");
+
     install_sensor_int();
     CLK_LOGI(sys, "hal: board=%s, peripherals not implemented yet (see hal/esp)",
              board::board_name());

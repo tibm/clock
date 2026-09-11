@@ -285,8 +285,14 @@ Status init() noexcept {
     if (st == Status::Ok) st = write(kGasWait0, gas_wait_code(kHeatMs));
     if (st == Status::Ok) st = write(kResHeat0, res_heat_code(kHeatTargetC, kAmbC));
     if (st == Status::Ok) st = write(kCtrlGas0, 0x00);  // heat_off = 0: the heater may run
-    // run_gas = bit 4, nb_conv = 0 selects heater profile 0 -- the pair we just programmed.
-    if (st == Status::Ok) st = write(kCtrlGas1, 0x10);
+    // ⚠ run_gas is BIT 5 on the BME688 (§5.3.4.7, "run_gas<5>"), not bit 4.  It was bit 4 on
+    // the BME680 and that is the value in a great deal of code written for the older part.
+    // Getting it wrong does not fail: the measurement completes, T/RH/P are all correct, and
+    // the gas conversion simply never runs -- so `gas_valid_r` reads 0 and the resistance
+    // pegs at the top of its range.  Which is exactly what the bench saw on 2026-09-10:
+    // `t=27.05C rh=49.0% p=1011.1hPa gas=6400000ohm (gas invalid)`.  nb_conv = 0 selects
+    // heater profile 0, the pair programmed just above.
+    if (st == Status::Ok) st = write(kCtrlGas1, 0x20);
     if (st == Status::Ok) {
         st = write(kCtrlMeas, static_cast<uint8_t>((kOsT << 5) | (kOsP << 2)));  // mode = sleep
     }

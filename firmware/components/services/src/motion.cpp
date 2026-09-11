@@ -232,6 +232,20 @@ void Motion::on_event(Event const& e) {
         // spam D16 exists to prevent, on a bench where half the point is running with things
         // missing.  Absent is Uninit, said once; a driver that answers and refuses is a Fault.
         const Status st = power(true);
+        // Denied is the bench inhibit (`motion power off`, hal.hpp), and it belongs on this
+        // side of the line rather than with the faults: it is a deliberate configuration, not
+        // a mechanism that failed.  Treating it as a fault would log an error on every single
+        // boot of a board that is behaving exactly as it was told to -- the same spam D16
+        // exists to prevent, arrived at from the other direction.
+        if (st == Status::Denied) {
+            CLK_LOGI(motion, "not homing: movement inhibited -- `motion power on` to release");
+            state_ = State::Uninit;
+            phase_ = Phase::None;
+            homed_ = false;
+            publish();
+            if (sub_) sub_->post(HomeDone{false, 0});
+            return;
+        }
         if (st == Status::NotPresent) {
             CLK_LOGI(motion, "not homing: no movement fitted");
             state_ = State::Uninit;
@@ -463,8 +477,11 @@ Status Motion::power(bool on) noexcept {
     if (st != Status::Ok) {
         // NotPresent is not this function's news to report (D16) -- the caller knows what it
         // was about to do with the coils and is the only one who can say what their absence
-        // costs.  A driver that answered and refused is a different thing, and gets a line.
-        if (st != Status::NotPresent) {
+        // costs.  Denied is the same shape for the same reason: it is the bench inhibit, the
+        // caller already prints the one line that names the cure, and a warning here would
+        // make a correctly-configured board look like a failing one on every boot.  A driver
+        // that answered and refused for any OTHER reason is a real fault, and gets a line.
+        if (st != Status::NotPresent && st != Status::Denied) {
             CLK_LOGW(motion, "motor power %s: %s", on ? "on" : "off", clk::name(st));
         }
         return st;
