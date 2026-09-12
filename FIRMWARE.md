@@ -3024,15 +3024,91 @@ merely wrong:
    own output driving into a short every time it went high. If `ab` shows `A` moving and `B`
    dead after rewiring, the encoder's B channel is the casualty, not the board.
 
+### 12.0.11 Knob and movement confirmed — and the wall the next milestone runs into — 2026-09-11
+
+With `J10` re-pinned the right way round, **both work**. Rotation counts, the press registers,
+and the movement commutates and steps. `hal::knob` and `hal::motor` (§12.0.8) are bench-verified
+as written; neither needed a code change, which is the outcome §12.0.10's raw-line diagnosis was
+built to make possible.
+
+Still open on the movement, and none of it is blocked — it is the rest of milestone 3:
+
+- **`steps_per_rev`** — §13 open question 1, the one number the whole dial depends on. Count
+  microsteps for one full revolution and confirm **17 280**; `motion spr` writes it to NVS.
+- **Direction.** Clockwise must come out positive. If it does not, `kSwapB` in
+  `motor_esp.cpp` is the single line.
+- **Silence.** The 25 kHz carrier is above hearing; the gear train's own resonance is not, and
+  that is what the microstep-depth tuning is for.
+- **Homing** — needs the index mark placed with `sensor homing stream`, and `R99` is still 10 k
+  (v0.4 **V2** wants 22 k; the minute-hand step is only 149 mV until then).
+
+#### Next: power, and it is the only block everything else is standing on
+
+Everything measured so far has run on **5 V injected at `J12`** (§12.0.3). That rig powers the
+knob, the pixels, the expander, the SD slot, the stepper VM and the amp at 5 V PVDD — but by
+construction it powers **neither the 12 V rail nor charging**, so the entire chain from USB-C to
+the cell is still exactly as unvalidated as it was the day the board arrived. Two of the four
+candidates for "what next" are downstream of it: the **wake LED is 12 V, plugged-only**, and
+**audio above 5 V PVDD** needs the same boost. `sensor vbat` — the last open item of milestone 1
+— needs a BAT node, which the injection rig does not provide.
+
+It is also the block where being wrong is expensive. `F1`, the 77 °C TCO, was soldered on
+2026-09-09, so the safety chain is complete for the first time and has never been exercised.
+**Prove the charger with no cell in the holder** — the board is designed to run that way
+(`power.md`: the LT3652 regulates the BAT node to 4.05 V with no cell) — and only then insert one.
+
+#### Phase 1 needs no console, no rework and no firmware
+
+Plug a **PD brick** into `J1` and put a meter on four nodes. That is the whole of it:
+
+| node | expect | proves |
+|---|---|---|
+| `VBUS` | **15 V** | CH224K asked for the high-voltage contract and got it |
+| BAT node | **4.05 V** | LT3652 float, with no cell present |
+| 5 V rail | 5 V | TPS61023 boost off the BAT node |
+| 3.3 V rail | 3.3 V | the buck, and therefore the MCU |
+
+The board will boot and run on that. You simply cannot talk to it, which is Phase 2.
+
+#### Phase 2 — the console problem, and why it is real
+
+**The console is USB-CDC only.** There is no UART left to fall back to: `IO43` (`TXD0`) was
+reassigned to `I2S_MCLK` and `IO44` (`RXD0`) is the expander interrupt (`esp32.md`). So the
+console lives on USB-Serial-JTAG at `IO19`/`IO20` → `J1`'s `D±`, and `J1` is also the only power
+inlet. One connector, and the two things it must carry are mutually exclusive: a Mac will not
+source 15 V, and a PD brick has no data.
+
+> ⚠ **Do not solve it by leaving the `J12` 5 V injection in place and plugging a PD brick into
+> `J1` as well.** The injection is only safe *because* `U5`'s `EN` is tied to VBAT, so with no
+> BAT node the boost stays off and does not fight it (§12.0.3). Bring VBAT up and the boost
+> starts — and drives its output into the bench supply feeding the same rail.
+
+Three ways out, in the order they are worth trying:
+
+1. **Bring `D±` out to a second connector** — three wires (`D+`, `D−`, `GND`) from `J1`'s pads
+   or the module's `IO19`/`IO20` to any spare USB breakout, **`VBUS` on the breakout left
+   unconnected**. `J1` then carries the PD brick and the breakout carries the Mac. This is the
+   whole of power bring-up with a live console, and it is v0.4 **V6** prototyped by hand.
+2. **`VBUS`-cut USB-C cable + bench supply at 15 V.** Mac keeps `D±`, the supply feeds the
+   charger. Good enough for the LT3652 and the cell, but it **bypasses the CH224K**, so `PD_PG`
+   never asserts — which by §6.8's interlock leaves the 12 V boost gated off. Charger yes, PD
+   and wake light no.
+3. **Phase 1 only**, and read the result off a meter. Cheapest, and genuinely sufficient to know
+   whether the power tree works.
+
+⚠ When a cell does go in: **build #1 carries `HY2111-GB`, not `-HB`** (`kicad/REVIEW.md`), so
+`R-AUDIO-1`'s `-GB` budget applies — peak cell current under ~1.8 A, i.e. full-volume audio *or*
+the LED ramp, never both. Check the marking before assuming otherwise.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
 |---|---|---|
 | 0 | **Console + `help` + `sys stat` + `sys top` + `sys ev` + `sys debug`** | The CLI is milestone zero, not an afterthought — everything after this is debuggable |
-| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · *drivers written and host-verified 2026-09-09 (§12.0.7); `sensor vbat` and every daughterboard part still want a bench* |
+| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · sensors read on the bench 2026-09-09; **`sensor vbat` is the one item left**, and it needs a BAT node the `J12` injection rig cannot provide (§12.0.11) |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
-| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · *`hal::motor` written 2026-09-10 (§12.0.8); `M1` soldered, nothing has turned yet* |
-| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · *`hal::knob` written 2026-09-10 (§12.0.8); the J10 harness was found REVERSED end-for-end on the bench — §12.0.10 has the as-built table, the fix and two damage checks* |
+| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11); `steps_per_rev`, direction, silence and homing still open |
+| 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · **knob confirmed 2026-09-11** (§12.0.11), after the `J10` harness was found reversed end-for-end (§12.0.10); the J12 pixel row still wants its harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
