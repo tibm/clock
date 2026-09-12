@@ -3083,18 +3083,72 @@ source 15 V, and a PD brick has no data.
 > BAT node the boost stays off and does not fight it (§12.0.3). Bring VBAT up and the boost
 > starts — and drives its output into the bench supply feeding the same rail.
 
-Three ways out, in the order they are worth trying:
+##### The rig: an inline USB-C pass-through breakout, and no board rework
 
-1. **Bring `D±` out to a second connector** — three wires (`D+`, `D−`, `GND`) from `J1`'s pads
-   or the module's `IO19`/`IO20` to any spare USB breakout, **`VBUS` on the breakout left
-   unconnected**. `J1` then carries the PD brick and the breakout carries the Mac. This is the
-   whole of power bring-up with a live console, and it is v0.4 **V6** prototyped by hand.
-2. **`VBUS`-cut USB-C cable + bench supply at 15 V.** Mac keeps `D±`, the supply feeds the
-   charger. Good enough for the LT3652 and the cell, but it **bypasses the CH224K**, so `PD_PG`
-   never asserts — which by §6.8's interlock leaves the 12 V boost gated off. Charger yes, PD
-   and wake light no.
-3. **Phase 1 only**, and read the result off a meter. Cheapest, and genuinely sufficient to know
-   whether the power tree works.
+```
+   PD brick ──VBUS · CC1 · CC2 · GND──>  [ USB-C pass-through ]  ──all──>  J1
+                     (D± CUT on this side)        │
+                                          D+ · D− · GND  ──>  Mac
+                                             (Mac VBUS NOT connected)
+```
+
+`J1` still takes the brick, the breakout taps `D±` out to the host, and **nothing is soldered to
+the board** — which makes it strictly better than running three wires off `J1`'s pads. It is
+v0.4 **V6** in temporary form.
+
+Three things decide whether it works, and the schematic settles the first:
+
+1. **`D±` is orientation-independent, so the tap is safe either way up.** `b_powerin.py` ties
+   `A6-B6` and `A7-B7`, and the CH224K's own `DP`/`DM` are shorted to each other as a PD-only
+   config strap — *not* to the Type-C pair. So the board's `USB_DP`/`USB_DM` run to the MCU and
+   nothing else, unloaded, whichever way the cable goes in.
+2. **The breakout must pass `CC1` and `CC2` through.** This is the one that disqualifies most
+   cheap boards: a "USB-C breakout" is usually a single connector fanned out to a header, which
+   *terminates* the link. You need a **male-to-female pass-through** (a PD sniffer/analyser
+   board is the same shape). Without CC reaching `J1`, the CH224K never negotiates, `VBUS` stays
+   at 5 V and the LT3652 sits idle — which looks exactly like a dead charger.
+3. **The Mac's `VBUS` must not be connected.** 5 V from the host meeting 15 V from the brick on
+   one net is the one wiring mistake here that destroys something. Run `D+`, `D−` and **`GND`**
+   to the host and nothing else — GND included, or the pair has no reference.
+
+**Cut `D±` on the brick side**, as the bench proposed. It is not belt-and-braces: a PD charger
+commonly shorts `D+` to `D−` as a BC1.2 DCP signature, and that short lands straight across the
+host's differential pair and stops it enumerating. Cutting the pass-through there costs nothing
+and removes the possibility.
+
+⚠ **Verify, do not assume:** the S3 is *self-powered* in this rig, so it asserts its own `D+`
+pull-up rather than waiting on `VBUS` detection. S3 boards generally enumerate fine that way,
+but it has not been tried on this one — if the Mac sees nothing, that is the first thing to
+suspect and not the breakout.
+
+##### Two fallbacks, if the breakout does not arrive in time
+
+- **`VBUS`-cut USB-C cable + bench supply at 15 V.** Mac keeps `D±`, the supply feeds the
+  charger. Good enough for the LT3652 and the cell, but it **bypasses the CH224K**, so `PD_PG`
+  never asserts — which by §6.8's interlock leaves the 12 V boost gated off. Charger yes, PD and
+  wake light no.
+- **Phase 1 only**, read off a meter. Cheapest, and genuinely sufficient to know whether the
+  power tree works.
+
+#### The bench run, in order
+
+Nothing here needs a cell, and steps 1-6 must all pass before one goes in.
+
+| # | do | expect | if not |
+|---|---|---|---|
+| 1 | Cell holder **empty**. Remove the `J12` 5 V injection entirely | — | see the trap above — the injection and a live BAT node must never coexist |
+| 2 | PD brick → `J1`. Meter on `VBUS` | **15 V** | 5 V means no PD contract: CC not reaching the CH224K (breakout, or `CFG1`) |
+| 3 | Meter the BAT node | **4.05 V** | LT3652 not regulating. Check `VBUS` first, then the float divider |
+| 4 | Meter the 5 V and 3.3 V rails | 5 V, 3.3 V | TPS61023 / the buck. The MCU cannot boot without both |
+| 5 | Console up (breakout rig), then `board i2c scan` | `0x20` + `0x6C`, and the J7 three if fitted | the board is running on its own power tree for the first time |
+| 6 | `sensor exp read` | `PD_PG 0` — asserted, wall live | this is the bit `§6.8` gates the 12 V boost on, and the last of milestone 1's expander story |
+| 7 | `sensor vbat read` | a BAT-node reading, ~4.05 V, `plugged=1` | **closes milestone 1.** `VBAT_DIV_EN` switches the divider in and back out around the read (§12.0.7) |
+| 8 | Unplug. Meter `VBUS` and the rails | `VBUS` 0 V, rails dead, board off | correct with no cell: the BAT node is the system rail and there is nothing feeding it |
+| 9 | **Now** a cell. Check `F1` continuity first (~0 Ω) | board runs unplugged, `sensor vbat` tracks the cell | if `F1` is open it was cooked during soldering — replace before trusting the safety chain |
+| 10 | Plug in with the cell present. Watch `sensor vbat stream 1 600` | `chrg=1`, mV climbing, settling at **4.05 V** not 4.2 | the 80 % cap is fixed in hardware by the float divider; 4.2 V means `FULLCHG_EN` is asserted or the divider is wrong |
+
+Only after 10 does the 12 V boost become interesting — and it is what unlocks the wake light and
+audio above 5 V PVDD, in that order.
 
 ⚠ When a cell does go in: **build #1 carries `HY2111-GB`, not `-HB`** (`kicad/REVIEW.md`), so
 `R-AUDIO-1`'s `-GB` budget applies — peak cell current under ~1.8 A, i.e. full-volume audio *or*
