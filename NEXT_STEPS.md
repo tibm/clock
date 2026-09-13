@@ -20,7 +20,7 @@ AOSD32334C → AO4838** ([DK 3152401](https://www.digikey.com/en/products/detail
 
 ---
 
-## Phase 0 — the two things in the way (small, do first)
+## Phase 0 — what is in the way (small, do first)
 
 ### F0.1 · `motion step` is dead on a board whose homing failed — three defects
 **Found on the bench 2026-09-13**, and it is worse than a missing error message. The board
@@ -44,23 +44,16 @@ Bench workaround until this is fixed (no rebuild): `motion power off`, reboot �
 hits `Denied` and lands in **`Uninit`, not `Fault`** (`motion.cpp:240-247`) — then `unsafe on`,
 `motion power on`, and `motion step` works.
 
-### F0.1b · The original symptom, for the record: reports success on a refusal
-`firmware/components/cli/src/cmd_motion.cpp:98` — `cmd_step` calls `svc::motion().nudge()`,
-then unconditionally prints the success line and returns `Status::Ok`. Underneath,
-`motor_esp.cpp:322` answers `Status::Denied` while the bench inhibit is set, so an inhibited
-board prints `h +1000 usteps (20.83 deg)` and does nothing. Cost a bench session on
-2026-09-13.
+`cmd_step`'s silence has **two** sources below it, and both need the same treatment: the
+`Denied` from `motor_esp.cpp:322` when the bench inhibit is set, and the dropped target from
+`motion.cpp:170` when the FSM is in `Fault`. Rule to apply either way: **a CLI command must
+never print a success line for an operation the layer below refused.**
 
-- Make `cmd_step` surface the status from below.
-- **Audit the siblings for the same shape** — `cmd_goto`, `cmd_home`, `cmd_stop`. `motion home`
-  already logs *"not homing: movement inhibited"*; the others should be checked.
-- Rule to apply: a CLI command must never print a success line for an operation the layer
-  below refused.
-
-### F0.2 · Make the inhibit discoverable
+### F0.2 · Make both gates discoverable
 `board.hpp:74` `motor_inhibited_default()` is true on the physical boards, and the release is
 `motion power on` (NVS-backed) — *not* `unsafe on`, which only lifts the CLI's `Unsafe` flag.
-Once F0.1 lands, a refused `step` should say which one is missing.
+Once F0.1 lands, a refused `step` should name whichever gate stopped it — the inhibit, or a
+`Fault` the FSM never left.
 
 ⚠ `board.hpp:73` carries "flip this to false when milestone 3 closes". Leave it true until
 then.
