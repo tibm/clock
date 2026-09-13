@@ -22,7 +22,29 @@ AOSD32334C → AO4838** ([DK 3152401](https://www.digikey.com/en/products/detail
 
 ## Phase 0 — the two things in the way (small, do first)
 
-### F0.1 · `motion step` reports success on a refusal
+### F0.1 · `motion step` is dead on a board whose homing failed — three defects
+**Found on the bench 2026-09-13**, and it is worse than a missing error message. The board
+homes on boot (the inhibit was released and persisted), homing fails because no index mark is
+placed yet (F2.4), and `fail()` at `motion.cpp:688` leaves `state_ = State::Fault`. From there:
+
+1. **`motion.cpp:170` swallows every target in `Homing` or `Fault`** — `motion step` included —
+   and says so only at `CLK_LOGD`. A bench command whose whole purpose is raw, relative
+   stepping should be the one thing that still works when the FSM has given up. Let raw
+   targets (`HandTarget.raw`) through in `Fault`, or give `step` its own path.
+2. **`cmd_step` prints success anyway** (`cmd_motion.cpp:98`) — it calls `svc::motion().nudge()`
+   and unconditionally returns `Status::Ok`, never looking at what the layer below did. Audit
+   `cmd_goto` / `cmd_home` / `cmd_stop` for the same shape.
+3. **There is no CLI escape from `Fault`.** `motion stop` clears `Homing` but not `Fault`
+   (`motion.cpp:266-282`); the only transition out is `HomeRequest`, which fails again. So the
+   board is stuck: you need `motion step` to find the index mark, and the failed homing that
+   needs the index mark is what blocks `motion step`. Either `motion stop` should clear `Fault`
+   as an explicit operator action, or `motion home` should be joined by a `motion reset`.
+
+Bench workaround until this is fixed (no rebuild): `motion power off`, reboot — homing then
+hits `Denied` and lands in **`Uninit`, not `Fault`** (`motion.cpp:240-247`) — then `unsafe on`,
+`motion power on`, and `motion step` works.
+
+### F0.1b · The original symptom, for the record: reports success on a refusal
 `firmware/components/cli/src/cmd_motion.cpp:98` — `cmd_step` calls `svc::motion().nudge()`,
 then unconditionally prints the success line and returns `Status::Ok`. Underneath,
 `motor_esp.cpp:322` answers `Status::Denied` while the bench inhibit is set, so an inhibited
