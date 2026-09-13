@@ -6,14 +6,14 @@ Power tree + battery safety + bring-up. Supersedes `README.md` §10 (kept in syn
 - **HAND-SOLDERABLE PARTS ONLY** — every IC leaded (SOIC/SOP/SSOP/TSSOP/HTSSOP/MSOP/SOT-23); no QFN/DFN/BGA. See the root README mfg note.
 - **USB-PD in** (CH224K, resistor-set 15 V; fallback 5 V) → **LT3652** 1-cell buck charger (VIN ≤32 V, resistor-set 4.05 V + NTC + timer) → **BAT node = system supply** → rail converters.
 - Rails: **3.3 V** (MCU, from 5 V) · **5 V** (stepper + **NeoPixels** + knob encoder) · **12 V boost** (audio + **wake LEDs**, **plugged-only**) · **15 V VBUS** (charger in, plugged).
-- Battery: **user-supplied 18650, Li-ion ONLY** (labeled). **Safe for any 18650 that fits.** Runs with **no cell** on USB (LT3652 holds the BAT node at 4.05 V, sources ≤2 A).
+- Battery: **user-supplied 18650, Li-ion ONLY** (labeled). **Safe for any 18650 that fits.** Runs with **no cell** on USB (LT3652 holds the BAT node at 4.05 V, sources ≤2 A) — but it **cannot cold-start into a 0 V BAT node**: see *Cold-start with no cell* under [How to use it](#how-to-use-it-config--bring-up).
 - **48 h backup**, health-cap **~80 % (4.05 V)** — fixed by the float divider; no I²C, SoC via ADC.
 - Safety = **double-redundant** (charger CV + one independent protector) + reverse-polarity + NTC temp-qual — **simple, industry-standard for 1S** (not laptop-pack triple-redundant).
 
 ## Architecture
 ```
 USB-C ─ CH224K (PD sink, resistor-set 15 V) ─ VBUS 5–15 V ── LT3652 VIN (buck charger)
-   cell path:  holder ─ reverse P-FET ─ [HY2111 + AOSD32334C dual-FET] ─ 18650(+)   ; Vbat → ESP32 ADC divider
+   cell path:  holder ─ reverse P-FET ─ [HY2111 + dual-FET: AOSD32334C→AO4838 v0.4] ─ 18650(+)   ; Vbat → ESP32 ADC divider
                         LT3652 ── BAT node ─┬─ TPS61023 → 5 V   ─┬─ stepper VM + 7x SK6812 NeoPixels + EM14 encoder
                                             │                   ├─ TLV62569 → 3.3 V  (MCU/logic, always)
                                             │                   └─ (PVDD mux aux) ── amp PVDD on battery
@@ -21,7 +21,7 @@ USB-C ─ CH224K (PD sink, resistor-set 15 V) ─ VBUS 5–15 V ── LT3652 VI
                                                                                └─ wake LED strips (warm+cool)
         amp PVDD = LTC4412 mux: 12 V boost when plugged, else 5 V rail (quieter alarm). NeoPixels = 5 V (always).
 ```
-- **1S ≤4.2 V < input** always → buck charger is enough (no buck-boost). The **BAT node is the always-on system rail**: plugged, LT3652 regulates it to 4.05 V (runs with **no cell**); unplugged, the cell supplies it → the **alarm works on battery**. 3.3 V is bucked off the 5 V rail (avoids a leadless buck-boost).
+- **1S ≤4.2 V < input** always → buck charger is enough (no buck-boost). The **BAT node is the always-on system rail**: plugged, LT3652 regulates it to 4.05 V (runs with **no cell** — *once the node is above 2.84 V; it cannot start there, see Cold-start below*); unplugged, the cell supplies it → the **alarm works on battery**. 3.3 V is bucked off the 5 V rail (avoids a leadless buck-boost).
 
 ## Rails & budget
 | Rail | Source (leaded) | Loads | On |
@@ -61,9 +61,9 @@ worst-case all-white ≈ 0.6 A on 5 V, real status/dial duty ≪.
 
 ## Safety (board-level, MANDATORY — simple + redundant)
 Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must be safe.** Don't rely on the cell's PCM.
-- **Overcharge — 2 independent cutoffs:** LT3652 CV at 4.05 V (float divider + safety timer) **and** HY2111 OV 4.28 V → opens the AOSD32334C dual-FET.
-- **Over-discharge — layered:** firmware shutdown ~3.2 V (ADC) → HY2111 OD 2.90 V → AOSD32334C discharge-FET off.
-- **Over-current / short:** HY2111 OCD/SCP → AOSD32334C FET + LT3652 current limit.
+- **Overcharge — 2 independent cutoffs:** LT3652 CV at 4.05 V (float divider + safety timer) **and** HY2111 OV 4.28 V → opens the protector dual-FET (`AOSD32334C` as built; **AO4838** from v0.4, **V9**).
+- **Over-discharge — layered:** firmware shutdown ~3.2 V (ADC) → HY2111 OD 2.90 V → discharge-FET off.
+- **Over-current / short:** HY2111 OCD/SCP → protector FET pair + LT3652 current limit. ⚠ **v0.4 V9 deliberately raises the discharge-OC trip** from ~1.9–3.0 A to **5.3–8.7 A** (`-HB` `V_DIP` over the AO4838's 26–33 mΩ pair). This is a loosening of a safety threshold and is recorded as such: it is forced by the TPS61023's 3.7 A startup surge, which sets a floor under any usable trip point until **V8** gates the boost. It stays defensible because the board's own worst case is a **2.3 A** sunrise alarm (2.3× margin), short circuits are still caught by SCP (`V_SIP` 0.85 V ≈ 26–33 A, `T_SIP` 500 µs), and a sustained fault between those two bands is covered by the **NTC** and the **77 °C TCO**. Revisit the trip point once V8 lands.
 - **Reverse insertion:** P-FET on BAT+ (bare cell can't be keyed).
 - **Temperature:** NTC on holder → LT3652 NTC pin (charge paused <0/>45 °C — single hot/cold window, *not* multi-zone JEITA) + firmware monitor.
 - **One-shot thermal cutoff (TCO ~77 °C):** non-resettable thermal fuse in series with the cell (in the cell − / PACK− path with the protector FETs), mounted against the holder. Independent of the NTC/charger — trips on any runaway heat (charge *or* discharge) and permanently opens the pack. *(Added 2026-07-12 for extra abuse margin.)*
@@ -74,9 +74,47 @@ Assume any 18650: unprotected, wrong SoC, reversed, hot. **If it fits, it must b
 **Residual:** an internally-shorted/damaged cell can't be fully prevented — mitigated by NTC cutoff, compartment, FR barrier, venting.
 
 ## How to use it (config + bring-up)
-**CH224K (PD sink)** — set the **CFG1 resistor for 15 V** (no NVM/MCU). Auto-requests 15 V, **falls back to 5 V** if unavailable. VBUS feeds **LT3652 VIN only** — the LEDs run off the internal boosts (wake = 12 V, NeoPixels = 5 V), **not VBUS**. Read **PG** to confirm a high-V contract. (LT3652 VIN max 32 V → 15 V has ample margin; 20 V would also be safe, but 15 V is chosen for headroom over the 12 V audio/wake boost.)
+**CH224K (PD sink)** — set the **CFG1 resistor for 15 V** (no NVM/MCU). Auto-requests 15 V; if the source has no 15 V PDO it **falls back to the highest PDO below the request**, *not* to 5 V — bench-proven 2026-09-11, a 5 V/9 V brick yielded 9 V, below the LT3652's 11.2 V UVLO so nothing downstream came up (`FIRMWARE.md` §12.0.12). **The brick must advertise 15 V.** VBUS feeds **LT3652 VIN only** — the LEDs run off the internal boosts (wake = 12 V, NeoPixels = 5 V), **not VBUS**. Read **PG** to confirm a high-V contract. (LT3652 VIN max 32 V → 15 V has ample margin; 20 V would also be safe, but 15 V is chosen for headroom over the 12 V audio/wake boost.)
 
 **LT3652 (charger)** — autonomous, resistor/cap-programmed (no I²C): **float divider → 4.05 V** (health cap; a **976 k ∥ R_FB2 switched by a 2N7002** gives a **4.2 V "full" mode** — gate `FULLCHG_EN` on the IO expander), **R_SENSE → ICHG ≈ 1–1.75 A** (0.3–0.5 C, gentle/cool), **CTIMER cap → safety timer**, **NTC** on the holder for temp-qualified charge. **CHRG/FAULT** open-drain pins → 2 GPIO. The **BAT node feeds the rail converters** and is regulated to 4.05 V when plugged (runs with no cell, ≤2 A).
+
+**⚠ Cold-start with no cell — the precondition trap (bench, 2026-09-11).** The "runs with no cell" claim is true only once the BAT node is *already* above the precondition threshold. **From 0 V it is not.**
+
+The LT3652 enters precondition whenever `V_FB` < `V_FB(PRE)` = **2.3 V** — BAT node < **2.84 V**, 70 % of the 4.05 V float — and clamps charge current to `V_SENSE(PRE)` = **15 mV** across `R18` (0.1 Ω) = **150 mA**, 15 % of the programmed 1 A. But `U5`'s `EN` is **hard-tied to VBAT**, so the 5 V boost, the 3.3 V buck and a booting ESP32-S3 all switch on the moment the node has any voltage at all. The board's idle draw exceeds what 150 mA can supply, and it settles into a **stable collapsed operating point**:
+
+| node | measured | should be | feedback pin |
+|---|---|---|---|
+| BAT node | **1.3 V** | 4.05 V | `R15` pin 1 = 1.1 V ✓ (1.3 × 200/245.3) |
+| +5 V | **2.9 V** | 4.99 V | `R41` = 350 mV ✓ (2.9 × 100/832) |
+| +3V3 | **3.0 V** | 3.32 V | buck at 100 % duty, passing 2.9 V through |
+
+Every divider reads exactly right *for those voltages* — nothing downstream is broken.
+
+**It is a startup lockout, not a steady-state deficit** (refined 2026-09-11 with the board running: idle draw measured **90 mA at 3.5 V = 315 mW**). At the 4.05 V float, 150 mA is 608 mW — the charger has ample margin *once it gets there*. The trap is that the boost is a **constant-power sink**: it needs ~370 mW in (315 mW at ~85 %) regardless of input voltage, so below **~2.5 V** (0.15 A × 2.47 V = 370 mW) the 150 mA clamp cannot feed it, and it must also charge ~220 µF of BAT-node bulk (`C107` + `C129` + `C106` + `C120`) at the same time. The system is **bistable** — a stable low well at 1.3 V and a stable high point at 4.05 V — and a cold start from 0 V lands in the low one and stays.
+
+- **It latches.** After `t_PRE` = `t_EOC`/8 ≈ **33 min** (`C104` = 1 µF) the LT3652 declares **bad battery**, stops charging and pulls `FAULT` low. Unplug ~10 s to clear it before each attempt.
+- **Confirm it in one measurement:** ~**15 mV** across `R18` (pin 1 → pin 2) = 150 mA = precondition. 100 mV would be full CC and a different fault.
+- **Same trap in the field:** a deeply-discharged cell on USB. The 150 mA goes into the cell *and* the load draws from it — net negative, and the pack never recovers. `FIRMWARE.md` §12.0.12 fixed the **timer** half of this in review (`C104` 100 nF → 1 µF, so precondition is not *timed* out prematurely); this is the **current vs. load** half, and it is still open in hardware.
+- **Raising `I_CHG` is not the fix.** 150 mA would have to exceed the idle load, putting `I_CHG` near **2.7 A** — over the LT3652's 2 A ceiling and far too much for a 3 Ah 1S cell (0.9 C).
+- **Gate the load, not the charger.** Replace `U5`'s hard `EN`-to-VBAT tie with a supervisor (or a comparator off the existing `VBAT_SENSE` divider) that releases at **~3.0 V** and holds off below it. The numbers work: unloaded, 150 mA charges 220 µF from 0 to 3.0 V in **4.4 ms**, and it then releases into a node that can supply 450 mW against a 370 mW demand. Filed as **v0.4 V8** (`kicad/REVIEW.md`).
+- **Until then, bring the board up with a cell in the holder** (or inject the BAT node from a current-limited bench supply at ~4.0 V). This inverts `FIRMWARE.md` §12's "prove the charger with no cell first" — the empty-holder path cannot pass steps 3–4.
+
+**⚠ The two protector lockups — and the margin check that was never done (bench, 2026-09-13).** The HY2111 senses *both* discharge and charge current as the voltage across the AOSD32334C pair, on `CS`. Neither threshold was checked against this board's real currents, and **both are crossed in normal operation.**
+
+| | threshold | trips at | board's actual current |
+|---|---|---|---|
+| **Discharge OC** (`V_DIP`, `-GB`) | 150 mV, `T_DIP` 10 ms | **1.89 A** worst case | TPS61023 startup — valley limit **3.7 A** |
+| **Charge OC** (`V_CIP`) | **−100 mV typ, −60 mV worst case**, `T_CIP` 12 ms | **~1.15 A** at best | `I_CHG` = **1.0 A** (`R18` 0.1 Ω) |
+
+- **Discharge-OC.** The 5 V boost's startup current trips it on every cell insertion. §11.4 releases only when the impedance across PB+/PB− exceeds **(150 mV / `V_DIP`) × 450 kΩ = 450 kΩ**, or when a charger is connected. A soldered-down system board is a permanent ~40 Ω, so the first path can never happen — and the second is blocked by the precondition lockout above. Board dead, with no way out but an external bridge from cell − to PACK−.
+- **Charge-OC.** `I_CHG` × R_DS(pair) must stay under 60 mV. The AOSD32334C is ≤26 mΩ at **VGS = 4.5 V, its lowest characterised gate drive** — and here VGS *is* the cell voltage, which never exceeds 4.2 V, so the part always runs below that point. Even taking the optimistic 52 mΩ pair, 1 A gives 52 mV against a 60 mV worst-case threshold: **8 mV of margin**. Measured on build #1: charging a 3.4 V cell turned `OC` off inside `T_CIP` and the cell never took any charge at all. §11.5 releases only *"by removing the charger"*, so it re-trips on every replug.
+- **Root cause, shared with the cold-start trap.** An ungated constant-power load, and **no margin arithmetic between the protector's sense thresholds and the board's real currents.** The topology — protector + FET pair in the cell − path, PACK− as system ground — is standard and correct. Only the numbers were never checked.
+- **The design rule for any respin.** Both inequalities must hold with margin:
+  - `I_CHG` × R_DS(pair, at the **lowest cell voltage you must charge from**) < **60 mV**
+  - peak discharge × R_DS(pair) < **`V_DIP` − 25 mV**
+  - With `V_DIP` = 200 mV (`-HB`), a 2.3 A alarm peak needs R_DS(pair) ≤ **76 mΩ**; `I_CHG` = 1 A needs ≤ **60 mΩ** *at 3.0 V VGS, not 4.5 V*. The **AO4838** (≤13 mΩ @ 4.5 V, pin-identical SOIC-8 drop-in) is the pick — `kicad/REVIEW.md` **V9**. Derated the way `REVIEW.md` #6 derates (gate drive is V_cell, so R_DS ≈ 1.27× the 4.5 V spec) it gives a **26–33 mΩ** pair: **33 mV** on charge (1.8× under `V_CIP`) and **122 mV** on the boost's 3.7 A startup. ⚠ **That last number clears `-HB`'s 175 mV floor by 1.4× but sits 3 mV under `-GB`'s 125 mV — no margin at all. V9 requires V10.** The same arithmetic reproduces both observed failures on the AOSD32334C (244 mV startup, 66 mV charge), which is why it is trusted here.
+
+**⚠ `VBAT_SENSE` cannot see any of this.** The divider taps cell+ against **board GND**, not across the cell. With the charge FET open, cell − floats a full cell-voltage away from PACK− and the ADC reads the BAT node, not the cell — on build #1 it reported ~4.0 V for a cell actually sitting at 3.4 V. Firmware invariant, `FIRMWARE.md` R-BOARD-3.
 
 **HY2111 + AOSD32334C (protector)** — no config (thresholds fixed by the part-number suffix → **HY2111-HB = OV 4.28 V (release 4.08 V) / OD 2.90 V / OC 200 mV**, SOT-23-6). Wire the **AOSD32334C dual N-FET** (charge + discharge FETs) in the cell − path between the 18650 and PACK−, gated by the HY2111 **OC/OD** pins; support network per its datasheet §10: **R1 100 Ω** cell+→VDD, **C1 0.1 µF** VDD–VSS, **R2 2 kΩ** CS→PACK− — all delays are internal. Independent of the charger — the redundant OV/OD/OC/SC cutoff. *(Replaced the NRND/obsolete **AP9101CK6-BX** 2026-07-17 — same pin arrangement (1 OD · 2 CS · 3 OC · 4 NC · 5 VDD · 6 VSS), nets unchanged. The exact-threshold quality twins — ABLIC S-8261ABMMD, Nisshinbo R5478N — are reel-only/3000 MOQ at DigiKey, so the HY2111-GB comes from **LCSC C82747** like the CH224K.)*
 > ⚠ **As built, board #1 (2026-08-10): `-GB`, not `-HB`.** The -HB is LCSC **C160793** and was out of stock when PCBWay quoted the assembly, so the **150 mV** OC suffix went on the board instead of the 200 mV one. Everything else (OV 4.28 / OD 2.90 V, pinout, support network) is identical. The cost is a **1.89 A** worst-case discharge trip instead of 2.65 A, which a loud plugged sunrise alarm exceeds — held in check by `FIRMWARE.md` **R-AUDIO-1**'s `-GB` budget until a -HB is fitted. **Verify the marking on the assembled board.** (`kicad/REVIEW.md` #6)
@@ -94,7 +132,7 @@ Two hardening additions (2026-07-21): **D13 (BAT42W, SOD-123)** clamps the divid
 | PD sink | **CH224K** | ESSOP-10 | ~$0.4 | LCSC C970725 *(not DK)* |
 | Charger (1S buck, BAT-node path) | **LT3652EMSE#PBF** | MSOP-12E | ~$9.9 | DK 2225686 ✅ |
 | Fuel gauge | *(none — ESP32 ADC divider)* | — | ~$0 | — |
-| Cell protector | **HY2111-HB** + **AOSD32334C** dual-N FET | SOT-23-6 + SO-8 | ~$0.9 | ✅ (HYCON via LCSC / AOS via DigiKey) |
+| Cell protector | **HY2111-HB** + **AO4838** dual-N FET *(was `-GB` + AOSD32334C as built; 26 mΩ was the root of two lockups — v0.4 **V9 + V10, which must land together**)* | SOT-23-6 + SO-8 | ~$2.1 | ✅ (HYCON via LCSC / [AO4838 DK 3152401](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO4838/3152401)) |
 | Reverse-polarity | P-FET AO3401A / DMP3013 | SOT-23 | ~$0.2 | ✅ |
 | Cell temp | 10 k NTC (Murata NCP18XH103) | 0603 | ~$0.1 | ✅ |
 | **One-shot TCO (~77 °C)** | thermal fuse in cell − path (e.g. SEFUSE SF/Bourns bimetal ~77 °C) | radial/tab | ~$0.4 | ⚠ pick + file datasheet |

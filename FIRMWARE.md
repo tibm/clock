@@ -965,8 +965,11 @@ V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^
 > **R-AUDIO-1 — the cell protector, not the amp, is what limits a loud alarm.**
 > The rails are fed from the BAT node, and `R18` caps the LT3652's contribution to **~1 A**
 > (`kicad/REVIEW.md` #7). Everything above that comes out of the cell **even while plugged in**,
-> through the `HY2111-HB` + `AOSD32334C` pair. Trip is `V_DIP` / R_FET = 175–225 mV / 50–66 mΩ →
-> **2.65 A worst case**, and `T_DIP` is only 5–15 ms, so a held bass note trips it just as well as
+> through the `HY2111` + dual-FET pair. Trip is `V_DIP` / R_FET = 175–225 mV / 50–66 mΩ →
+> **2.65 A worst case** *(**retired by v0.4 V9 + V10**: the AO4838's 26–33 mΩ pair moves the trip to
+> **5.3–8.7 A**, so the 2.3 A sunrise-alarm peak goes from ~15 % margin to 2.3× and this constraint
+> stops binding — §12.0.13. Until both parts are fitted, the numbers below stand, and on build #1
+> the `-GB` makes them worse still)*, and `T_DIP` is only 5–15 ms, so a held bass note trips it just as well as
 > a DC load — a high-crest-factor asset lowers *average* draw but not the trip risk.
 >
 > | case | audio | + wake LEDs | BAT-node draw | from the cell | vs 2.65 A trip |
@@ -3132,13 +3135,17 @@ suspect and not the breakout.
 
 #### The bench run, in order
 
+> ⚠ **Superseded 2026-09-11 by §12.0.12.** This order cannot pass: steps 3-4 are exactly the
+> case the LT3652 refuses to start into with an empty holder. Kept because steps 1-2 and 5-10
+> still stand, and because the reasoning below is what the bench then disproved.
+
 Nothing here needs a cell, and steps 1-6 must all pass before one goes in.
 
 | # | do | expect | if not |
 |---|---|---|---|
 | 1 | Cell holder **empty**. Remove the `J12` 5 V injection entirely | — | see the trap above — the injection and a live BAT node must never coexist |
-| 2 | PD brick → `J1`. Meter on `VBUS` | **15 V** | 5 V means no PD contract: CC not reaching the CH224K (breakout, or `CFG1`) |
-| 3 | Meter the BAT node | **4.05 V** | LT3652 not regulating. Check `VBUS` first, then the float divider |
+| 2 | PD brick → `J1`. Meter on `VBUS` | **15 V** | 5 V means no PD contract: CC not reaching the CH224K (breakout, or `CFG1`). **9 V or 12 V means the contract worked but the brick has no 15 V PDO** (§12.0.12) |
+| 3 | Meter the BAT node | **4.05 V** | LT3652 not regulating. Check `VBUS` first, then the float divider — but with an empty holder the answer is **1.3 V and precondition**, §12.0.12 |
 | 4 | Meter the 5 V and 3.3 V rails | 5 V, 3.3 V | TPS61023 / the buck. The MCU cannot boot without both |
 | 5 | Console up (breakout rig), then `board i2c scan` | `0x20` + `0x6C`, and the J7 three if fitted | the board is running on its own power tree for the first time |
 | 6 | `sensor exp read` | `PD_PG 0` — asserted, wall live | this is the bit `§6.8` gates the 12 V boost on, and the last of milestone 1's expander story |
@@ -3153,6 +3160,214 @@ audio above 5 V PVDD, in that order.
 ⚠ When a cell does go in: **build #1 carries `HY2111-GB`, not `-HB`** (`kicad/REVIEW.md`), so
 `R-AUDIO-1`'s `-GB` budget applies — peak cell current under ~1.8 A, i.e. full-volume audio *or*
 the LED ramp, never both. Check the marking before assuming otherwise.
+
+### 12.0.12 Power, first plug — and the charger that will not let the board start — 2026-09-11
+
+The power tree was plugged into a PD brick for the first time. Two faults, found in that order,
+and the second one is a design finding rather than a build fault.
+
+#### 1. The first brick had no 15 V PDO
+
+`VBUS` came up at **9 V**, not 15 V. That is not the 5 V default — 9 V is a real PD contract, so
+CC reached the CH224K and negotiation worked; only the *selection* was wrong. The suspects were
+worth writing down because two of them are board faults and one is not:
+
+| cause | what it looks like |
+|---|---|
+| `CFG1` shorted to GND | `U1` is SSOP-10-**1EP**; pin 9 sits beside the GND belly pad. CFG2/CFG3 have internal pull-downs, so with CFG1 low the level table (datasheet §5.2.2) reads `0·0·0` = **9 V** |
+| wrong resistor at `R3` | 6.8 k is the 9 V code in the single-resistor table (§5.2.1); 56 k is 15 V |
+| **brick has no 15 V PDO** | ← what it was. 15 V generally starts at 30 W-class bricks; a 20–25 W phone brick is 5 V/9 V only, and 9 V is then the highest it can offer |
+
+Resolution: a different brick. `VBUS` = 15 V, stable. The diagnostic that separates these in one
+step is an ohmmeter, power off, `U1` pin 9 → GND: **~56 kΩ** means the board is right and the
+brick is the problem.
+
+> `power.md` says the CH224K "falls back to 5 V if unavailable". It does not — it took the
+> highest PDO below the request. Corrected there.
+
+#### 2. The LT3652 cannot cold-start the board with an empty holder
+
+With 15 V on `VBUS`, the whole rail stack came up **collapsed but self-consistent**:
+
+| node | measured | expected | its own feedback pin |
+|---|---|---|---|
+| `VBUS` | 15 V | 15 V | — |
+| BAT node (`R18` pin 2) | **1.3 V** | 4.05 V | `R15` pin 1 = **1.1 V** — and 1.3 × 200/245.3 = 1.06 ✓ |
+| +5 V (`C121`) | **2.9 V** | 4.99 V | `R41` = **350 mV** — and 2.9 × 100/832 = 349 mV ✓ |
+| +3V3 (`C125`) | **3.0 V** | 3.32 V | TLV62569 at 100 % duty, passing 2.9 V through |
+
+Every divider on the board is reading correctly *for the voltage in front of it*. The 3.0 V on
+3V3 looked at first like a wrong `R42`/`R43`; it is not — it is the buck in dropout. **One fault,
+four symptoms**, and the arithmetic is what proves it rather than more probing.
+
+The cause is in the LT3652's Electrical Characteristics table, not in anything we built:
+
+- `V_FB(PRE)` = **2.3 V** rising. Below it the charger is in **precondition**, which is 70 % of
+  float = **2.84 V** at the BAT node. Measured `V_FB` was 1.1 V — less than half.
+- `V_SENSE(PRE)` = **15 mV**. Across `R18` (0.1 Ω) that is **150 mA** — 15 % of the programmed
+  1 A, and a hard clamp.
+
+`U5`'s `EN` is hard-tied to VBAT (`b_rails.py`), so the 5 V boost, the 3.3 V buck and a booting
+S3 all turn on as soon as the node has *any* voltage. 150 mA at 1.3 V is **195 mW for the entire
+board**, and idle draw measured **90 mA at 3.5 V = 315 mW** once the board was running.
+
+**So it is a startup lockout, not a steady-state deficit** — worth being precise about, because the
+first reading of this was that the board simply draws more than the charger can give, and it does
+not. At the 4.05 V float, 150 mA is 608 mW against a 315 mW demand: ample, *once it gets there*.
+The boost is a **constant-power sink** — ~370 mW in (315 at ~85 %) whatever its input — so the
+crossover sits at **0.15 A × 2.47 V**, and below ~2.5 V the clamp cannot feed it. It must charge
+~220 µF of BAT-node bulk across the same 150 mA at the same time. The system is **bistable**: a
+stable well at 1.3 V, a stable point at 4.05 V, and a cold start from 0 V falls into the low one.
+Raising the node does not reduce the load, so it never leaves.
+
+**And it latches.** `t_PRE` = `t_EOC`/8 ≈ **33 min** with `C104` = 1 µF. Past that the LT3652
+declares **bad battery**, stops entirely and pulls `FAULT` low. Unplug ~10 s before each retry,
+or the next measurement is of a dead charger.
+
+> The irony is sharp: §12.0.11's review *raised* `C104` from 100 nF to 1 µF precisely because
+> "a deeply-discharged cell cannot clear the 2.84 V precondition threshold at 150 mA in 3.3 min".
+> That fixed the **timer** half of the problem. This is the **current vs. load** half, and the
+> bench found it the only way it could be found — by running it.
+
+#### What it costs, and the fix
+
+**In the field, not just on the bench.** A deeply-discharged cell on USB hits the same wall: the
+150 mA goes into the cell *and* the load draws from it, so the net is negative and the pack never
+recovers. That is a product failure mode, not a bring-up inconvenience.
+
+Raising `I_CHG` does not fix it — 150 mA would have to exceed idle load, putting `I_CHG` near
+**2.7 A**, over the LT3652's 2 A ceiling and far too much for a 3 Ah 1S cell. **Gate the load
+instead:** replace `U5`'s hard `EN`-to-VBAT tie with a supervisor (or a comparator off the
+existing `VBAT_SENSE` divider) releasing at **~3.0 V**. The arithmetic works: with the load held
+off, 150 mA takes 220 µF from 0 to 3.0 V in **4.4 ms**, and the supervisor then releases into a
+node good for 450 mW against a 370 mW demand. Filed as **v0.4 V8**.
+
+#### The bench run order is inverted by this
+
+§12.0.11's run says "prove the charger with no cell in the holder, and only then insert one".
+**That path cannot pass steps 3–4.** The empty-holder bring-up is exactly the case the charger
+refuses to start. Revised order, with the safety checks that the bench supply's current limit
+was otherwise buying:
+
+| # | do | expect | if not |
+|---|---|---|---|
+| 1 | Brick **unplugged**. `J12` 5 V injection physically off | — | the injection and a live BAT node must never coexist (§12.0.11) |
+| 2 | Ohm `F1` (the 77 °C TCO) | **~0 Ω** | open = cooked during soldering; replace before trusting the safety chain |
+| 3 | Ohm BAT node (`C107` +) → GND, let the caps settle | **» 1 kΩ** | a few ohms is a short — find it before a cell goes anywhere near the board. **This replaces the current limit** |
+| 4 | Insert a **charged** cell (3.4–4.0 V). Brick still unplugged | board runs **on the cell alone**: BAT = cell, +5 V 4.99, +3V3 3.32 | proves boost + buck + MCU with the LT3652 out of the picture entirely — a cleaner test than the charger version |
+| 5 | Nothing hot after ~30 s | — | pull the cell immediately if anything warms |
+| 6 | **Now** plug the brick | across `R18` **~100 mV** = 1 A full CC, `CHRG` low, node climbing to **4.05 V** | 15 mV = still in precondition, so the cell was below 2.84 V |
+| 7 | Console up, `board i2c scan`, `sensor exp read` | `0x20` + `0x6C`; `PD_PG 0` | as §12.0.11 steps 5–6 |
+| 8 | `sensor vbat stream 1 600` | `chrg=1`, mV settling at **4.05 V** not 4.2 | **closes milestone 1**; 4.2 V means `FULLCHG_EN` is asserted or the float divider is wrong |
+
+A cell at **3.5 V** is the ideal bring-up cell: comfortably above the 2.84 V precondition
+threshold so the charger never enters it, and far enough below the 4.05 V float that step 6
+actually shows a charge current to measure.
+
+⚠ Still true: build #1 carries **`HY2111-GB`**, so the discharge OC trips at **1.89 A**
+(`R-AUDIO-1`'s `-GB` budget). At bring-up idle that is irrelevant; it is also the only current
+limit protecting a short once a cell is in, which is why step 3 is not optional.
+
+### 12.0.13 The protector says no, twice — and the four findings that came out of one evening — 2026-09-13
+
+The board runs. Getting there took four separate lockups, three of which share a root cause, and
+**none of which is a schematic error or an assembly fault.** Every part, value and connection in
+the power block was verified against its datasheet on the physical board: `R20`, `C109`, `R21`,
+the `OD`/`OC` gate assignments, the `U4` drain tie, `F1`, the orientations. All correct.
+
+#### The four
+
+| # | lockup | mechanism | escape |
+|---|---|---|---|
+| 1 | **Wrong PD voltage** | CH224K takes the highest PDO *below* the request, not 5 V. A 20 W brick gave 9 V, under the LT3652's 11.2 V UVLO | a brick that advertises 15 V |
+| 2 | **Precondition well** | `V_FB` < 2.3 V ⇒ 150 mA clamp; the boost is a constant-power sink; bistable at 1.3 V | gate the load (**V8**) |
+| 3 | **Discharge-OC** | boost startup (3.7 A valley limit) > `-GB` trip (1.89 A) for > `T_DIP`; release needs **450 kΩ** across PB+/PB−, and the board is 40 Ω | lower R_DS (**V9**) |
+| 4 | **Charge-OC** | `I_CHG` 1 A × R_DS(pair) ≥ `V_CIP` (−60 mV worst case) for > `T_CIP` 12 ms; cell never charges | lower R_DS (**V9**) |
+
+2, 3 and 4 are one root cause wearing three hats: **an ungated constant-power load, and no margin
+arithmetic between the protector's sense thresholds and the board's real currents.** They also
+interlock — 3's charger-release path is blocked by 2, and 4 blocks the charge current 3 needs to
+release. There is no sequence of plugging things in that escapes all three.
+
+#### The arithmetic nobody did
+
+`V_CIP` is **−100 mV typ, −60 mV worst case**. The AOSD32334C is specified ≤26 mΩ at **VGS =
+4.5 V — its lowest characterised gate drive.** On this board VGS *is* the cell voltage, which
+never exceeds 4.2 V, so the part always operates below the only number the datasheet gives. Even
+taking 52 mΩ for the pair, `I_CHG` = 1 A lands at 52 mV against a 60 mV threshold: **8 mV of
+margin at the most favourable possible reading.** Measured: a 3.4 V cell took no charge at all.
+
+The same resistance sets the discharge trip. 150 mV / 52 mΩ ≈ 2.9 A typical, 1.89 A worst case —
+under the TPS61023's 3.7 A valley current limit. **One part's R_DS sits at the centre of both
+failures, and the fix is to make it small.**
+
+#### Bench SOP for build #1 as it stands today
+
+Until the rework, the board needs a temporary **bridge** — a wire from the cell − terminal to
+board GND, shorting `U4` and `F1` — to reset the protector. Order matters:
+
+| # | do | check |
+|---|---|---|
+| 1 | Everything unplugged. No brick, no `J12` injection | — |
+| 2 | Insert the cell | protector trips — expected |
+| 3 | Fit the bridge | board boots, ~90 mA |
+| 4 | **Measure `U3` pin 1 (`OD`), black on cell −** | **must read ≈ V_cell** — the release |
+| 5 | **Remove the bridge** | board keeps running |
+| 6 | Only now, plug `J1` | — |
+
+⚠ **Never plug `J1` with the bridge fitted** — that charges Li-ion with the protector *and* the
+TCO shorted out, and the LT3652's CV becomes the only overcharge cutoff. ⚠ **Leave the cell in.**
+Pulling it, a brownout, or any >1.89 A draw puts you back at step 2. ⚠ Charging does not work on
+build #1 at all (finding 4) — charge the cell externally between sessions.
+
+#### Console, at last: the cell powers the board and the Mac takes `J1`
+
+With the board running on the cell and the protection chain intact, `J1` is free for data. The
+Mac's 5 V on VBUS reaches only the LT3652's `VIN`, which idles below the 11.2 V UVLO (§12.0.3),
+so it lands on an idle charger and collides with nothing. **This retires the `J12` 5 V injection
+rig** — v0.4 **V3**'s motivation is gone, though **V6** (`D±` on `J2`) matters more than ever,
+because it is the only way to have the brick and the host connected at the same time.
+
+Budget the session: ~90 mA off a 3 Ah cell is ~30 h, and you cannot recharge over `J1` while the
+Mac is on it. Watch for the ~3.2 V firmware shutdown.
+
+#### The rework for build #1 — two parts, and they are one change
+
+| ref | from | to | why |
+|---|---|---|---|
+| `U4` | AOSD32334C (20/26 mΩ @4.5 V) | **AO4838** — 10.4/13 mΩ, [DK 3152401](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO4838/3152401), ~$1.15 | halves R_DS; fixes findings 3 and 4 |
+| `U3` | HY2111-**GB** (as substituted) | **HY2111-HB** — LCSC **C160793** | `V_DIP` 150→200 mV; **V9 has 3 mV of margin without it** |
+
+**`U4` is a literal drop-in.** Both are AOS SOIC-8 (JEDEC MS-012) on the same
+`Package_SO:SOIC-8_3.9x4.9mm_P1.27mm` land, and the pin assignment is identical — `1 S2 · 2 G2 ·
+3 S1 · 4 G1 · 5,6 D1 · 7,8 D2`. Nothing in the schematic or netlist changes. Also verified against
+the old part: VDS 30 V (same), VGS ±20 V (same), VSD 0.7/1.0 V (same — and it matters, because
+discharge runs through FET2's body diode whenever charge-OC is latched), ID 11 A vs 7 A (better),
+and `Qg`(4.5 V) **9.6 nC max vs 12 nC** (better, so the protector's weak gate drive turns it off no
+more slowly — the thing that would have quietly degraded short-circuit response).
+
+Practicals: cell **and** brick out first. `U4` is at board (15.0, 81.0); mask `U3` (6.5, 81.5) and
+`R21` (10.5, 78.0) from the hot air. SOIC-8 at 1.27 mm pitch is the most forgiving package on this
+board.
+
+**What it does and does not buy.** After the swap, with a cell in the holder: insert → boots, no
+bridge; plug the brick → charges at 1 A; `J1` → Mac → programs. What is *not* fixed is finding 2 —
+the board still cannot cold-start with **no** cell, and cannot recover a cell already under ~2.9 V
+(the protector opens the discharge FET there and you are back to a bare BAT node in the
+precondition well). Those need **V8**, which on build #1 means cutting a trace at a SOT-563 —
+not worth it. Keep a cell in.
+
+**Not applied to `kicad/gen/`.** V9/V10 are recorded in the v0.4 table and the generated schematic
+and PCB still carry the AOSD32334C, exactly as V1–V8 are handled. The generator changes at the
+respin, not now, so the checked-in `clock.kicad_sch`/`clock.kicad_pcb` keep matching their source.
+
+#### R-BOARD-3 (new invariant)
+
+**`VBAT_SENSE` measures the BAT node, not the cell.** The divider taps cell+ against board GND,
+so when the charge FET is open, cell − floats a full cell-voltage away from PACK− and the reading
+is the charger's output. Build #1 reported ~4.0 V for a cell sitting at 3.4 V. Firmware must not
+treat `sensor vbat` as a cell-health measurement unless `PD_PG` is deasserted *and* the board is
+running from the cell. There is no hardware fix short of a differential sense across the cell.
 
 ### 12.1 Milestones
 
