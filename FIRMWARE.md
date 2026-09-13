@@ -967,8 +967,9 @@ V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^
 > (`kicad/REVIEW.md` #7). Everything above that comes out of the cell **even while plugged in**,
 > through the `HY2111` + dual-FET pair. Trip is `V_DIP` / R_FET = 175–225 mV / 50–66 mΩ →
 > **2.65 A worst case** *(**retired by v0.4 V9 + V10**: the AO4838's 26–33 mΩ pair moves the trip to
-> **5.3–8.7 A**, so the 2.3 A sunrise-alarm peak goes from ~15 % margin to 2.3× and this constraint
-> stops binding — §12.0.13. Until both parts are fitted, the numbers below stand, and on build #1
+> **5.3–8.5 A**, so the 2.3 A sunrise-alarm peak goes from ~15 % margin to 2.3× and this constraint
+> stops binding. **V9 alone already relieves it** — with a `-GB` the trip is 3.8–6.6 A, i.e. 1.65×
+> worst case, where today's 1.89 A is *exceeded* by the same alarm — §12.0.13. Until both parts are fitted, the numbers below stand, and on build #1
 > the `-GB` makes them worse still)*, and `T_DIP` is only 5–15 ms, so a held bass note trips it just as well as
 > a DC load — a high-crest-factor asset lowers *average* draw but not the trip risk.
 >
@@ -3336,7 +3337,7 @@ Mac is on it. Watch for the ~3.2 V firmware shutdown.
 | ref | from | to | why |
 |---|---|---|---|
 | `U4` | AOSD32334C (20/26 mΩ @4.5 V) | **AO4838** — 10.4/13 mΩ, [DK 3152401](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO4838/3152401), ~$1.15 | halves R_DS; fixes findings 3 and 4 |
-| `U3` | HY2111-**GB** (as substituted) | **HY2111-HB** — LCSC **C160793** | `V_DIP` 150→200 mV; **V9 has 3 mV of margin without it** |
+| `U3` | HY2111-**GB** (as substituted) | **HY2111-HB** — LCSC C160793 — *if obtainable* | `V_DIP` 150→200 mV. Makes cell insertion deterministic; **not required for charging**, which V9 fixes alone. Out of stock 2026-09-13, and v0.4 **V11** exists so this never blocks again |
 
 **`U4` is a literal drop-in.** Both are AOS SOIC-8 (JEDEC MS-012) on the same
 `Package_SO:SOIC-8_3.9x4.9mm_P1.27mm` land, and the pin assignment is identical — `1 S2 · 2 G2 ·
