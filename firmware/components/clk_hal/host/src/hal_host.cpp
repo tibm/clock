@@ -20,6 +20,8 @@
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/models.hpp"
 #include "clk/hal/host/sim.hpp"
+#include "clk/hal/tas5760m.hpp"
+#include "clk/hal/tone.hpp"
 #include "clk/hal/tsl2591.hpp"
 #include "clk/log.hpp"
 #include "clk/port.hpp"
@@ -136,8 +138,15 @@ struct State {
     bool refreshed = false;
     uint8_t warm_pct = 0;
     uint8_t cool_pct = 0;
+    // audio.  `spk_active` is the fake's own idea of "the amp is up and unmuted"; the amp's
+    // REGISTERS live in the 0x6C model behind the fake bus, because the driver that writes
+    // them is the one the ESP32 runs (§11.2).
     bool spk_active = false;
-    uint8_t vol_pct = 40;
+    uint8_t vol_pct = audio::kDefaultVolPct;
+    bool tone_on = false;
+    uint32_t tone_hz = 0;
+    uint64_t tone_off_us = 0;  // sim time; 0 = until stop()
+    uint32_t tone_frames = 0;  // what the generator has actually produced
 };
 
 std::mutex g_mx;
@@ -651,7 +660,7 @@ constexpr Slave kBus[] = {
     // work to test code only real silicon can invalidate, so `hal::imu` here stays the
     // angle-based fake and bno085.cpp is exercised on target.
     {0x4A, board::Dev::Imu, nullptr, nullptr},
-    {0x6C, board::Dev::Amp, nullptr, nullptr},
+    {0x6C, board::Dev::Amp, &host::model::tas5760m, &host::model::tas5760m_reset},
     {0x77, board::Dev::Env, &host::model::bme688, &host::model::bme688_reset},
 };
 
@@ -886,32 +895,162 @@ Status set(Sig s, bool level) noexcept {
 }  // namespace expander
 
 // ============================ hal::audio =================================================
+// There is no sound here and there is not going to be one.  What this side DOES do is run the
+// same two pieces of shipping code the ESP32 runs -- the TAS5760M driver against the 0x6C
+// register model, and the sine generator -- so that the register set, the start-up ORDER and
+// the envelope are all covered before the board is on the bench (§11.2).
+//
+// The one thing it fakes outright is time: there is no DMA to feed, so the tone ends when sim
+// time says it does rather than when 48 000 frames have been consumed.  `sim warp` therefore
+// works on a beep exactly as it does on a sunrise.
+//
+// LOCKING, and it is the trap this file sets for you: hal::i2c takes `g_mx` itself, and it is
+// a plain std::mutex.  Every tas5760m:: call below therefore happens with the lock RELEASED,
+// exactly as hal::als and hal::env already do -- holding it across a driver call deadlocks on
+// the first register write.
 namespace audio {
+namespace {
+
+// The datasheet's order, the same one audio_esp.cpp walks: clocks (which here is nothing),
+// configure muted, SPK_SD high, unmute.  Running it through tas5760m.cpp rather than setting a
+// bool is what makes a reordered ESP-side sequence a host failure.
+Status bring_up() noexcept {
+    {
+        std::lock_guard lk{g_mx};
+        if (g_st.spk_active) return Status::Ok;
+        g_st.exp[static_cast<std::size_t>(expander::Sig::SpkSd)] = false;
+    }
+    uint8_t vol = 0;
+    {
+        std::lock_guard lk{g_mx};
+        vol = g_st.vol_pct;
+    }
+    if (const Status st = tas5760m::configure(true, tas5760m::db_for_pct(vol)); st != Status::Ok)
+        return st;
+    {
+        std::lock_guard lk{g_mx};
+        g_st.exp[static_cast<std::size_t>(expander::Sig::SpkSd)] = true;
+    }
+    if (const Status st = tas5760m::set_mute(false); st != Status::Ok) return st;
+    std::lock_guard lk{g_mx};
+    g_st.spk_active = true;
+    return Status::Ok;
+}
+
+void bring_down() noexcept {
+    {
+        std::lock_guard lk{g_mx};
+        if (!g_st.spk_active) return;
+    }
+    (void)tas5760m::set_mute(true);
+    std::lock_guard lk{g_mx};
+    g_st.exp[static_cast<std::size_t>(expander::Sig::SpkSd)] = false;
+    g_st.spk_active = false;
+    g_st.tone_on = false;
+}
+
+// The tone's own clock.  Called at the top of everything that reports on it, because nothing
+// on this side is running a writer task to notice the deadline on its own.  Returns true when
+// it just expired, so the caller can park the amp outside the lock.
+bool tone_expired() noexcept {
+    std::lock_guard lk{g_mx};
+    if (!g_st.tone_on || g_st.tone_off_us == 0) return false;
+    if (sim_us_locked() < g_st.tone_off_us) return false;
+    g_st.tone_on = false;
+    return true;
+}
+
+void age_tone() noexcept {
+    if (tone_expired()) bring_down();
+}
+
+}  // namespace
 
 Status enable(bool on) noexcept {
-    std::lock_guard lk{g_mx};
     if (!board::present(board::Dev::Amp)) return Status::NotPresent;
-    g_st.spk_active = on;
-    g_st.exp[static_cast<std::size_t>(expander::Sig::SpkSd)] = on;
+    if (on) return bring_up();
+    bring_down();
     return Status::Ok;
 }
 
 bool active() noexcept {
+    age_tone();
     std::lock_guard lk{g_mx};
-    return g_st.spk_active;
+    return g_st.spk_active && !tas5760m::shadow().muted;
 }
 
 Status set_volume_pct(uint8_t pct) noexcept {
     if (pct > 100) return Status::BadArg;
-    std::lock_guard lk{g_mx};
-    if (!board::present(board::Dev::Amp)) return Status::NotPresent;
-    g_st.vol_pct = pct;
-    return Status::Ok;
+    // The ceiling is R-AUDIO-1's, not the fake's, so it is enforced identically on both sides
+    // -- a `ui` that walks its volume gauge past it must fail here too.
+    if (pct > kMaxVolPct) return Status::Denied;
+    {
+        std::lock_guard lk{g_mx};
+        g_st.vol_pct = pct;
+    }
+    // No presence check: set_volume_db() remembers the level and answers NotPresent, which is
+    // what a devkit with no amp fitted should do -- D16 says absence is not an error, and a
+    // setting that silently reverts when the part arrives is worse than one that waits.
+    return tas5760m::set_volume_db(tas5760m::db_for_pct(pct));
 }
 
 uint8_t volume_pct() noexcept {
     std::lock_guard lk{g_mx};
     return g_st.vol_pct;
+}
+
+Status tone(uint32_t hz, uint32_t ms) noexcept {
+    if (hz < hal::tone::kMinHz || hz > hal::tone::kMaxHz) return Status::BadArg;
+    if (!board::present(board::Dev::Amp)) return Status::NotPresent;
+    if (const Status st = bring_up(); st != Status::Ok) return st;
+    // Generate one block for real.  Nothing listens to it, but it is what proves the generator
+    // is reachable from this path, and it gives a test a frame count that only moves when a
+    // tone actually ran.
+    hal::tone::Sine gen;
+    gen.start(hz, kRateHz, 1.0f, ms);
+    int16_t block[64 * 2];
+    const std::size_t made = gen.fill(block, 64);
+    std::lock_guard lk{g_mx};
+    g_st.tone_frames = static_cast<uint32_t>(made);
+    g_st.tone_on = true;
+    g_st.tone_hz = hz;
+    g_st.tone_off_us = ms == 0 ? 0 : sim_us_locked() + static_cast<uint64_t>(ms) * 1000ull;
+    return Status::Ok;
+}
+
+Status stop() noexcept {
+    {
+        std::lock_guard lk{g_mx};
+        g_st.tone_on = false;
+    }
+    bring_down();
+    return Status::Ok;
+}
+
+bool playing() noexcept {
+    age_tone();
+    std::lock_guard lk{g_mx};
+    return g_st.tone_on;
+}
+
+Result<State> state() noexcept {
+    if (!board::present(board::Dev::Amp)) return Result<State>::bad(Status::NotPresent);
+    age_tone();
+    const auto sh = tas5760m::shadow();
+    std::lock_guard lk{g_mx};
+    State s{};
+    s.clocks = g_st.spk_active;  // no port to ask; the amp being up is the whole of it here
+    s.sd_pin = g_st.exp[static_cast<std::size_t>(expander::Sig::SpkSd)];
+    s.muted = sh.muted;
+    s.playing = g_st.tone_on;
+    s.configured = sh.configured;
+    s.fault_pin = !g_st.exp[static_cast<std::size_t>(expander::Sig::SpkFault)];
+    s.vol_pct = g_st.vol_pct;
+    s.vol_db = tas5760m::db_for_pct(g_st.vol_pct);
+    s.mclk_hz = g_st.spk_active ? kRateHz * 256u : 0u;
+    s.bclk_hz = g_st.spk_active ? kRateHz * 32u : 0u;
+    s.underruns = 0;  // nothing to starve
+    return Result<State>::good(s);
 }
 
 }  // namespace audio
@@ -1122,11 +1261,10 @@ void set_expander_in(expander::Sig s, bool level) noexcept {
     }
 }
 
-void set_speaker(bool on) noexcept {
-    std::lock_guard lk{g_mx};
-    g_st.spk_active = on;
-    g_st.exp[static_cast<std::size_t>(expander::Sig::SpkSd)] = on;
-}
+// `sim speaker` predates hal::audio being real.  It routes through the HAL now rather than
+// poking the flag, so the fake cannot end up in a state the firmware could not have reached
+// -- the amp unmuted with no register set, which is what "just set spk_active" produced.
+void set_speaker(bool on) noexcept { (void)audio::enable(on); }
 
 void set_plugged(bool p) noexcept {
     std::lock_guard lk{g_mx};
@@ -1248,6 +1386,10 @@ void reset() noexcept {
     g_st.sim_base_us = keep_us;
     g_st.real_base_us = real_us();
     i2c::models_reset_locked();
+    // The models are the CHIPS; this is the DRIVER's shadow of one, and the two have to go
+    // back to power-on together or the next test inherits a "configured" amp whose register
+    // file was just wiped.
+    tas5760m::forget();
     board::reset_presence();
 }
 

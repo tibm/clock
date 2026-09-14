@@ -52,4 +52,19 @@ void bme688_reset() noexcept;
 void set_env(float temp_c, float rh_pct, float press_hpa, uint32_t gas_ohms) noexcept;
 void env_scene(float& temp_c, float& rh_pct, float& press_hpa, uint32_t& gas_ohms) noexcept;
 
+// ---- TAS5760M at 0x6C ------------------------------------------------------------------
+// The only main-board device besides the expander with a driver of its own.  There is no
+// scene here and there will not be one: the model stops at the control port, because the
+// firmware branches on registers and cannot hear a speaker.
+Status tas5760m(const uint8_t* w, std::size_t wn, uint8_t* r, std::size_t rn) noexcept;
+void tas5760m_reset() noexcept;
+
+// What the register file holds, for a test that wants to assert on PBTL or the volume ladder
+// without going back through the bus.
+uint8_t tas5760m_reg(uint8_t reg) noexcept;
+
+// Raise the four latching error bits of 0x08 (CLKE|OCE|DCE|OTE in bits 3..0) -- the only way
+// a host test can put the amp into a fault, since nothing here draws current or gets hot.
+void tas5760m_set_faults(uint8_t bits) noexcept;
+
 }  // namespace clk::hal::host::model

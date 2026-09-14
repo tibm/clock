@@ -234,23 +234,88 @@ re-measurement, since the real hand tabs may make it unnecessary.
 
 ---
 
-## Phase 4 — milestone 6+: the stubs that are left
-
-Two more ESP HAL namespaces are still `NotPresent` stubs, both gated on the 12 V boost, which
-is gated on `PD_PG`:
+## Phase 4 — milestone 6+: the stub that is left
 
 | stub | where | needs |
 |---|---|---|
-| `hal::audio` — `enable`, `set_volume_pct` | `hal_esp.cpp`, `namespace audio` | I²S + MCLK + TAS5760M over I²C, then the firmware biquad HPF + limiter |
-| `hal::wake` — `set`, `warm`, `cool` | `hal_esp.cpp`, `namespace wake` | the 12 V rail and the two AO3400A PWM channels |
+| `hal::wake` — `set`, `warm`, `cool` | `hal_esp.cpp`, `namespace wake` | the 12 V rail and the two AO3400A PWM channels — gated on the 12 V boost, which is gated on `PD_PG` |
 
-`hal::power` used to be the third row here. It is written (Phase 1), and the file's STATUS block
-at the top now lists what is real rather than what is not — these two are the whole of what is
-left on that side.
+`hal::power` used to be one of three rows here, and `hal::audio` the second. Both are written
+(Phase 1 and Phase 5); `hal_esp.cpp`'s STATUS block lists what is real rather than what is not,
+and `wake` is now the whole of what is left on that side.
 
 ⚠ Before any loud-audio work, re-read **R-AUDIO-1**. With the AO4838 fitted the protector trip
 moves to 3.8–6.6 A (`-GB`) and the 2.3 A sunrise alarm has 1.65× margin — the old `-GB` budget
-no longer binds. Until the swap, it does, and hard.
+no longer binds. Until the swap, it does, and hard — which is exactly what
+`hal::audio::kMaxVolPct` encodes (Phase 5).
+
+---
+
+## Phase 5 — milestone 6, the half that is written: **bench it** ⏳ written 2026-09-13, unheard
+
+`hal::audio` is real (`FIRMWARE.md` §12.0.15): I²S0 with MCLK on `IO43`, the TAS5760M's register
+set in the datasheet's start-up order, a generated sine, and the `audio` CLI group. Every bit of
+it is host-tested and none of it has been through a speaker. It needs **no** hardware gate — no
+hands, no pass-through rig, no AO4838 — just the bench setup at the top of this file and the
+speaker on `J3` (JST PH, `kicad/README.md`).
+
+⚠ **Before you plug the speaker in, read the ceiling.** `hal::audio::kMaxVolPct` is **25 %** and
+the default is **10 %**, and that is R-AUDIO-1, not caution: with no 15 V brick the amp runs off
+the 5 V rail and full scale is 3.1 W ≈ **1.9 A peak from the cell**, which is the `-GB`
+protector's 1.89 A trip. A trip self-clears, so it looks like **a spontaneous reboot** — if the
+board resets during a tone, that is the first thing to suspect, not the firmware.
+
+### F5.1 · Does it clock at all
+```
+board i2c scan          -> 0x6C TAS5760M amp (main board)
+audio status            -> clocks=off sd_pin=LOW configured=no
+audio tone 1000 2000
+audio status            -> clocks=on sd_pin=high configured=yes muted=no
+                           i2s 48000 Hz  mclk 12288000 Hz (256 x fs)  bclk 1536000 Hz
+                           regs 0x02=0x04 0x06=0xD1 vol=0xA7  PBTL mono, 19.2 dBV
+```
+A scope on `IO43`/`IO10`/`IO11` before the speaker goes on is worth the minute: 12.288 MHz,
+1.536 MHz and 48 kHz. ⚠ If `audio status` shows `CLK` in reg 0x08 the amp is not seeing a valid
+clock triplet, and that is the one fault bit that does **not** latch — it is telling you about
+right now.
+
+### F5.2 · Does it make a sound
+Speaker on, `audio tone 1000 2000` at the default 10 %. Then:
+
+| listen for | means |
+|---|---|
+| a clean 1 kHz | the whole chain |
+| a tick at each end | the 5 ms fade is not doing its job, or `SPK_SD` is moving while unmuted |
+| a buzz rather than a tone | DMA underrun — `audio status` counts them |
+| nothing, with `clocks=on sd_pin=high muted=no` | PVDD. Check the LTC4412 output, not the firmware |
+
+Then sweep it: `audio tone 100 1000`, `audio tone 440 1000`, `audio tone 5000 1000`. The 100 Hz
+one is the interesting one — the DMA58-4 has 2 mm of Xmax and **no HPF in front of it yet** (the
+~150 Hz Linkwitz-Riley is the firmware biquad, which does not exist). Keep it short and quiet.
+
+### F5.3 · Confirm the volume map with a meter
+`audio vol 10` then `audio vol 20` should move the output by **+6.0 dB** — percent is amplitude,
+so the map is `20·log10(pct/100)` and it is checkable with a multimeter on AC volts across the
+speaker. At 10 % expect ~0.9 V rms into 4 Ω. If the numbers come out 6 dB high, the digital boost
+did not get cleared (§12.0.15 finding 1) — read `audio reg 2`, it must be `0x04`.
+
+### F5.4 · The one that costs money if it is wrong
+`audio vol 25`, tone on, and **watch the cell current**. Under ~1.2 A peak is the prediction. If
+the board reboots, that is the protector and the ceiling is not conservative enough — say so here
+rather than raising it.
+
+### F5.5 · ⚠ Unrelated, found while building all four profiles: `BOARD=devkit-uart` does not compile
+Pre-existing, nothing to do with audio. `console_esp.cpp` calls
+`esp_console_new_repl_usb_serial_jtag()` unconditionally, and that profile sets
+`CONFIG_ESP_CONSOLE_UART_DEFAULT=y` — so the symbol is not declared and the build stops.
+The other three profiles (`dev/devkit`, `dev/rev0_3`, `release/rev0_3`) are clean. It is the
+profile you reach for when chasing a boot panic, so it is worth an `#if
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG` before you need it.
+
+### F5.6 · What is still missing after all that
+Not blockers for the above, just the honest list: `audio play <file>` (needs `storage` + the
+PSRAM ring), the biquad HPF + limiter (`audio dsp`), and the pop-free 12 V PVDD ramp — which
+cannot even be exercised until `PD_PG` is assertable, i.e. the pass-through rig.
 
 ---
 
@@ -264,6 +329,7 @@ no longer binds. Until the swap, it does, and hard.
 | `R99` 10 k → 22 k (v0.4 **V2**) | possibly nothing — decide after F2.4 re-measures with real hand tabs, which reflect far better than the bare surfaces V2's 149 mV came from |
 | v0.4 **V8** supervisor | no-cell operation; recovering a cell below ~2.9 V. Not worth reworking on build #1 |
 | v0.4 **V6** (`D±` on `J2`) | brick and host connected at the same time. Today it is one or the other |
+| **AO4838 + a 15 V brick, together** | the 25 % audio ceiling (`hal::audio::kMaxVolPct`) and `ui`'s matching send-clamp. Until both, PVDD is the 5 V rail and full scale sits on the `-GB` trip — R-AUDIO-1, `FIRMWARE.md` §6.2 |
 
 ---
 

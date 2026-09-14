@@ -4,9 +4,11 @@ ESP32-S3 firmware for the wooden smart clock. **Design doc: [`../FIRMWARE.md`](.
 it is the source of truth; this file is only how to build.
 
 Status: **early**. Logging, the CLI registry, both build systems, the fake HAL and the first
-three active objects (`motion`, `chrono`, `ui`) are real and tested. `audio`, `storage`,
-`board`, `net`, `supervisor`, the drivers and the ESP-side HAL are still directories with
-READMEs.
+three active objects (`motion`, `chrono`, `ui`) are real and tested. The ESP-side HAL is real
+apart from `hal::wake`, and that includes the amp since 2026-09-13 — I²S, the TAS5760M's
+registers and an `audio tone` (`FIRMWARE.md` §12.0.15), though nothing has been through a
+speaker yet. The `audio`, `storage`, `board`, `net` and `supervisor` **active objects** are
+still directories with READMEs.
 
 ## First time
 

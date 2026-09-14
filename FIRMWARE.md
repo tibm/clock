@@ -944,6 +944,14 @@ slider turns the plate and the hands stay upright.
 
 **Owns:** I²S0 (BCLK IO10, LRCLK IO11, DOUT IO12, **MCLK IO43 = 256 × f_S**).
 
+> **Built 2026-09-13 — everything below the pipeline.** The port, the amp's register set, the
+> start-up order, a generated sine and the `audio` CLI group are real
+> (`clk_hal/esp/src/audio_esp.cpp`, `clk_hal/shared/tas5760m.cpp`, `clk_hal/shared/tone.cpp`,
+> §12.0.15). The AO itself is not, and neither is the pipeline: there is no WAV, no PSRAM
+> ring, no HPF and no limiter, so the **only** source is `hal::audio::tone()`. See the
+> bring-up ceiling below — with no 15 V brick the amp's PVDD is the 5 V rail, and the cell
+> protector, not the amp, is what the volume has to be kept under.
+
 Pipeline, per 256-frame block (5.3 ms @ 48 kHz):
 
 ```
@@ -1047,9 +1055,59 @@ V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^
 - ⚠ Bench-confirm before trusting it: current probe on L5 at max volume with the real alarm sample,
   looking for the current peaks going non-linear (core saturation), not just for the dBFS number.
 
-**Pop-free sequencing** (both directions, via `board`):
-start → enable 12 V/5 V PVDD path → start I²S clocks → wait 10 ms → `SPK_SD` high (unmute) → ramp gain.
-stop → ramp gain to 0 → `SPK_SD` low → wait 5 ms → stop I²S.
+#### The bring-up volume ceiling — `hal::audio::kMaxVolPct = 25`, default 10 % (2026-09-13)
+
+Not a taste limit, a **cell-current** one, and it is R-AUDIO-1 read backwards. With no 15 V
+contract the 12 V boost never comes on, so amp PVDD is the 5 V rail through the LTC4412 and the
+bridge clips at 2 × 5 V pk-pk = **3.54 V rms = 3.1 W** into 4 Ω. R-AUDIO-1's own battery row puts
+that at **~1.9 A peak out of the cell** — exactly the `-GB` protector's 1.89 A worst-case trip,
+which is what build #1 is fitted with. A trip is self-clearing and **presents as a spontaneous
+reboot**, so a full-scale bring-up tone would look like a firmware crash.
+
+| volume | dBFS | demanded | into 4 Ω | ≈ peak from the cell |
+|---|---|---|---|---|
+| 10 % (default) | −20.0 | 0.91 V rms | **0.21 W** | ~0.35 A |
+| **25 % (the ceiling)** | −12.0 | 2.29 V rms | **1.31 W** | ~1.2 A — ~1.5× margin |
+| 39 % | −8.2 | 3.54 V rms | 3.1 W | ~1.9 A — **at the `-GB` trip** |
+
+`set_volume_pct()` answers **`Denied`** above it rather than clamping (ground rule 2: a refusal
+must never print as a success), and `audio vol` names the gate. The `ui` volume **gauge** still
+spans 0–100 % — §6.6d's 300° of dial is the product's scale, not a hardware fact — but what it
+*asks the amp for* is clamped, so above 25 % the hands keep climbing and the preview chime stops
+getting louder. ⚠ **Both are removed together** when NEXT_STEPS.md's two hardware gates close:
+the **AO4838** fitted (trip → 3.8–6.6 A) and a **15 V brick** in (PVDD → 12 V, and the binding
+limit becomes the 8 W inductor cap above instead).
+
+**Pop-free sequencing** — the datasheet's, not a preference (`amp_tas5760m.pdf` §9.2.1.2.1/2 and
+the NOTE under them: *"control port register changes should only occur when the device is placed
+into shutdown"*, volume excepted):
+
+```
+start  SPK_SD pin LOW → start I²S (MCLK/BCLK/LRCK) → prime silence
+       → configure over I²C, MUTED, volume included  → SPK_SD HIGH → wait 10 ms → unmute
+stop   mute → wait 5 ms → SPK_SD LOW → stop I²S
+```
+
+Two of those are easy to get backwards and both are **silent** when you do: configuring before
+the clocks are up is a chip that ACKs every write and does nothing, and unmuting before `SPK_SD`
+goes high loses the mute the instant the output stage powers on. The whole sequence therefore
+lives in one pair of functions in `audio_esp.cpp`, nothing else touches `SPK_SD`, and the host
+fake walks the same order so a reordering is a **host** failure (`test_audio.cpp`).
+
+The register set, and the one line in it that is not the datasheet default:
+
+| reg | value | why |
+|---|---|---|
+| 0x01 | `0xFD` | digital clipper wide open — the datasheet gives no numeric dBFS map for the 20-bit level, and the real guard is the firmware limiter, which does not exist yet |
+| 0x02 | `0x04` | HPF in, **digital boost +0 dB** (POR is **+6 dB**), single speed, I²S |
+| 0x03 | `0x80` / `0x83` | fade on; the low two bits are the mute |
+| 0x04/05 | from the volume ladder | 0xCF = 0 dB, 0.5 dB per step, < 0x07 mutes |
+| 0x06 | `0xD1` | **PBTL**, PWM 16 × LRCK, **A_GAIN 19.2 dBV**, ch-sel R, reserved LSB left at 1 |
+
+⚠ **The digital boost is the one to watch.** Its POR is +6 dB and the ceiling table above is
+computed from *0 dBFS = 9.12 V rms*, which is only true at +0 — so `configure()` writes it
+rather than leaving the default. `power_values.md` §10 says "digital boost default" and is
+**wrong against this arithmetic**; §6.2 is the one the inductor cap depends on.
 
 ### 6.3 `storage`
 
@@ -1872,13 +1930,13 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
-| `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
+| `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · ⚠`audio play <file>` *(waits on `storage`)* · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
 | `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · `net ble status` · `net ble pair` · `net ble unbond` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
-| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
+| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` *(routes through `hal::audio::enable()` now, so the fake cannot reach a state the firmware could not)* · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
 | *(top)* | ▲`help [<group> [<verb>]]` · ▲`?` · `unsafe <on\|off>` |
 
 > Anything reachable here is reachable over BLE and vice versa (rule 6) — including `sys debug`,
@@ -3483,6 +3541,67 @@ rig stopped being a power-bring-up convenience and became the thing that closes 
 (`NEXT_STEPS.md` F1.6, which also carries the firmware alternative: sample into a ring on the
 brick, swap to the Mac, read it back — the cell keeps the board alive across the swap).
 
+### 12.0.15 The amp makes a sound — I²S, the register set, and a ceiling that is not about taste — 2026-09-13
+
+Milestone 6's first half, brought forward because it needs neither the printed hands nor the
+pass-through rig: the port, the chip and one signal. No SD, no WAV, no DSP — deliberately. What
+landed is `hal::audio` for real (`clk_hal/esp/src/audio_esp.cpp`), the TAS5760M driver
+(`clk_hal/shared/tas5760m.cpp`, one copy for both backends like `mcp23017.cpp`), a sine generator
+(`clk_hal/shared/tone.cpp`), a 0x6C register model behind the fake bus, and the `audio` CLI group.
+
+**The one peripheral in the HAL that owns a task.** DMA has to be fed whether or not anyone is
+calling, so `hal::audio` has a writer at priority 18 (§3.2) and everything follows from that: a
+request slot rather than a blocking `tone()`, and an **idle park** — 500 ms after the last block
+the amp is taken down. Without the park, `ui`'s preview chime would re-run the whole start-up
+sequence every 1.5 s, and that sequence is ~20 ms of I²C and delay whose audible signature is the
+relay-like tick of `SPK_SD`.
+
+**The start-up ORDER is the whole driver.** §9.2.1.2.1 wants clocks *before* the control port and
+`SPK_SD` high *before* the unmute, and both mistakes are silent: configure with no MCLK and the
+chip ACKs every write and does nothing; unmute before the pin and the mute is lost the instant the
+output stage powers on. It is one pair of functions, nothing else touches `SPK_SD`, and the host
+fake walks the same order so a reordering fails in `test_audio.cpp` rather than on a bench.
+
+**Two things the datasheet says that the project's own notes did not.**
+
+1. **Digital boost defaults to +6 dB** (reg 0x02 [5:4]). §6.2's entire watt table is computed from
+   *0 dBFS = 9.12 V rms*, which is the 19.2 dBV analog gain **with no boost** — so every number in
+   it is 6 dB optimistic on a chip left at POR. `configure()` writes +0 dB. ⚠
+   `power_values.md` §10's "digital boost default" is wrong against that arithmetic and is flagged
+   there.
+2. **Volume is the one register change allowed while running** (§9.2.1.2.2's carve-out). Everything
+   else is rewritten on every unmute rather than assumed to have survived a shutdown.
+
+**The ceiling, and why 25 % is a number and not a mood.** R-AUDIO-1 read backwards. No 15 V brick
+means no 12 V boost, so PVDD is the 5 V rail and the bridge clips at 3.54 V rms = 3.1 W — which
+R-AUDIO-1's own battery row puts at ~1.9 A peak from the cell, i.e. **at the `-GB` protector's
+1.89 A trip that build #1 is fitted with**. The failure mode is the one that costs a day: a trip
+is self-clearing, so it presents as a spontaneous reboot in the middle of a bring-up session. 25 %
+is −12 dB → 1.31 W → ~1.5× margin; the default is 10 % → 0.21 W, which is plenty on a desk. It
+**refuses** rather than clamping (ground rule 2) and `audio vol` names the gate.
+
+That collided with §6.6d immediately, and the collision is worth recording because the first fix
+was wrong. Clamping `ui`'s volume gauge to 25 % broke `test_ui_volume_gauge_...`, and correctly:
+the gauge is 300° of dial and 0–100 % is the **product's** scale, not a hardware fact. What is
+clamped is what `ui` *asks the amp for*. Above 25 % the hands keep climbing and the chime stops
+getting louder — an honest wart with a dated exit, since both the clamp and the ceiling come out
+together when the AO4838 and the 15 V brick land.
+
+**The chime became a note.** `ui`'s volume-mode preview used to toggle `SPK_SD` around silence,
+which was a tick and nothing else. It is 440 Hz for 140 ms now, with the generator's 5 ms
+raised-cosine at each end — without that envelope a beep starts and stops on a step, and a step
+into a Class-D bridge is a click that reads on a bench as a bad solder joint.
+
+**What `IO43` costs, and why nothing grabs it at boot.** MCLK is the former `U0TXD`, so the port
+is only installed when something first asks for audio. On `BOARD=devkit-uart` — the profile that
+moves the REPL to UART0 — the devkit's presence mask starts empty and nothing on target ever sets
+it, so `hal::audio` answers `NotPresent` and the console is never taken. On `rev0_3` the console
+is USB-CDC and the boot-ROM banner on IO43 is the only thing that ever touches it.
+
+⏳ **Not bench-verified.** Everything above is the host suite plus a clean target build; nothing
+has been through a speaker. `NEXT_STEPS.md` Phase 5 has the bench sequence and what each step
+proves.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
@@ -3493,7 +3612,7 @@ brick, swap to the Mac, read it back — the cell keeps the board alive across t
 | 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11). F0.1 is **fixed 2026-09-13** — a raw target goes through in `Fault`, `motion stop` clears one, and every `motion` row prints the refusal and names the gate — and the hands **swapped shafts** the same day (§6.1e, minute to the inner pin). ⚠ Now gated on the **printed hands**, not on firmware: `steps_per_rev`, direction and homing all need something visible on a shaft, and §6.1e's arithmetic says today's opto span cannot see the far hand at all. Silence is the only item that works on bare shafts. ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on` (**`NEXT_STEPS.md` Phase 2**) |
 | 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · **knob confirmed 2026-09-11** (§12.0.11), after the `J10` harness was found reversed end-for-end (§12.0.10); the J12 pixel row still wants its harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
-| 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |
+| 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors · **the first four are written, 2026-09-13** (§12.0.15): the port, the register set, the datasheet's start-up order and a generated sine, with a **25 % bring-up volume ceiling** that comes out when the AO4838 and the 15 V brick do. ⏳ Nothing has been through a speaker yet — `NEXT_STEPS.md` Phase 5. The WAV path waits on `storage`, and `audio dsp` on the biquad + limiter |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
 | 8 | `supervisor` power modes + `backup_tick_s` deep-sleep loop, measure actual mA | The 48 h backup claim |
 | 9 | BLE provisioning + Clock Control service + OTA | The app |

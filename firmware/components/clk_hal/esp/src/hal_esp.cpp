@@ -4,10 +4,12 @@
 // three sensor-board drivers are real.  `hal::power` moved to shared/power.cpp -- it is
 // arithmetic over the ADC and the expander and had nothing platform-specific left in it.
 //
-// Two namespaces here are still honest NotPresent stubs, and both are gated on the 12 V boost
-// rather than on anything in this file (NEXT_STEPS.md Phase 4):
+// `hal::audio` moved to esp/src/audio_esp.cpp on 2026-09-13 -- it is the only peripheral that
+// owns a task, and the amp's own register set is shared/tas5760m.cpp.
+//
+// ONE namespace here is still an honest NotPresent stub, gated on the 12 V boost rather than
+// on anything in this file (NEXT_STEPS.md Phase 4):
 //   wake  -> ledc, ~1 kHz, gamma applied above this layer
-//   audio -> I2S + MCLK + TAS5760M over i2c, then the firmware biquad HPF + limiter
 //
 // A stub is not a placeholder apology.  On BOARD=devkit it is the *correct* answer until you
 // wire something up (board_cfg starts the devkit with an empty presence mask), and D16 says
@@ -662,12 +664,9 @@ Result<bool> get(Sig s) noexcept { return mcp23017::get(s); }
 Status set(Sig s, bool level) noexcept { return mcp23017::set(s, level); }
 }  // namespace expander
 
-namespace audio {
-Status enable(bool) noexcept { return Status::NotPresent; }
-bool active() noexcept { return false; }
-Status set_volume_pct(uint8_t) noexcept { return Status::NotPresent; }
-uint8_t volume_pct() noexcept { return 0; }
-}  // namespace audio
+// hal::audio is not here either: it is the one peripheral in the HAL that owns a task, so it
+// lives next to the reason for that in esp/src/audio_esp.cpp.  The chip half is
+// shared/tas5760m.cpp, compiled into both backends.
 
 // hal::power is not here: it is shared/power.cpp, compiled into both backends.  Everything it
 // needs is above -- the ADC (which owns the `VBAT_DIV_EN` leg) and the expander -- so there was

@@ -358,14 +358,68 @@ Status set(Sig, bool level) noexcept;
 }  // namespace expander
 
 // ---- audio (TAS5760M + I2S) ------------------------------------------------------------
-// Enough to answer "is the speaker making noise", which is all anything branches on today.
-// The WAV path, the HPF/limiter chain and the pop-free amp sequencing arrive with the
-// `audio` AO (§6.2) and sit on top of this.
+// I2S0 out (BCLK IO10, LRCLK IO11, DOUT IO12, MCLK IO43 = 256 x f_S) into the TAS5760M at
+// 0x6C, PBTL mono into the 4 Ohm DMA58-4.  The chip is tas5760m.cpp's; the PIN that gates it
+// (`SPK_SD`, expander GPA0), the port, the sequencing and the one signal source are here,
+// because all four are board wiring rather than silicon.
+//
+// The SOURCE is a generated sine and nothing else.  The WAV path, the PSRAM ring and the
+// HPF/limiter chain arrive with `audio` (§6.2) + `storage` (§6.3) and replace tone() with a
+// real block source; the clocks, the register set and the sequencing under it do not change.
 namespace audio {
-Status enable(bool on) noexcept;  // I2S clocks + amp out of shutdown
-bool active() noexcept;
+
+// 48 kHz because the amp wants MCLK = 256 x f_S and 12.288 MHz is what IDF's default
+// mclk_multiple gives at this rate (esp32.md, Table 6).  16-bit stereo frames.
+inline constexpr uint32_t kRateHz = 48000;
+
+// ⚠ THE BRING-UP VOLUME CEILING, and it is a cell-current limit, not a taste limit.
+//
+// With no 15 V contract the 12 V boost is off, so amp PVDD is the 5 V rail through the
+// LTC4412 mux and the bridge clips at 2 x 5 V pk-pk = 3.54 V rms = 3.1 W into 4 Ohm.  §6.2's
+// R-AUDIO-1 puts that case at ~1.9 A peak out of the cell -- exactly the `-GB` protector's
+// 1.89 A worst-case trip, which board #1 is fitted with.  A trip looks like a spontaneous
+// reboot, so a full-scale bring-up tone would present as a firmware crash.
+//
+// 25 % is -12 dB, i.e. 2.29 V rms demanded against a 3.54 V rail: 1.3 W, ~1.2 A peak from the
+// cell, ~1.5x margin.  The default of 10 % is -20 dB = 0.21 W, which a 2" driver is plenty
+// loud at on a desk.  ⚠ Raise this only with the AO4838 fitted AND the 15 V brick in -- both
+// gates are in NEXT_STEPS.md, and R-AUDIO-1 has the numbers for each combination.
+inline constexpr uint8_t kMaxVolPct = 25;
+inline constexpr uint8_t kDefaultVolPct = 10;
+
+Status enable(bool on) noexcept;  // I2S clocks + the datasheet's start-up order (§9.2.1.2.1)
+bool active() noexcept;           // amp out of shutdown and unmuted
+
+// Percent is amplitude: 100 % = 0 dB at the amp's volume register, 10 % = -20 dB
+// (tas5760m::db_for_pct).  Above kMaxVolPct answers Denied -- refusing by name rather than
+// clamping, because a volume that silently did something else is the bug that hides a trip.
 Status set_volume_pct(uint8_t) noexcept;
 uint8_t volume_pct() noexcept;
+
+// The bring-up signal.  `ms` == 0 plays until stop(); enable() is implied, and the amp parks
+// itself again a moment after the tone ends so a chime train does not leave a Class-D bridge
+// idling into the speaker.  Non-blocking: the request is handed to the writer task.
+Status tone(uint32_t hz, uint32_t ms) noexcept;
+Status stop() noexcept;  // fades the tail out rather than cutting it
+bool playing() noexcept;
+
+// What the port and the chip are actually doing -- for `audio status`, and for telling
+// "the amp is muted" apart from "there are no clocks" apart from "the driver never ran".
+struct State {
+    bool clocks;   // I2S channel enabled: MCLK/BCLK/LRCLK are running
+    bool sd_pin;   // SPK_SD (expander GPA0) high = out of shutdown
+    bool muted;    // reg 0x03
+    bool playing;  // a tone is being generated
+    bool configured;
+    bool fault_pin;  // SPK_FAULT (expander GPB6), open-drain active-low -- inverted here
+    uint8_t vol_pct;
+    float vol_db;
+    uint32_t mclk_hz;  // read back from the port, 0 when the clocks are down
+    uint32_t bclk_hz;
+    uint32_t underruns;  // DMA writes that timed out -- a source that cannot keep up
+};
+Result<State> state() noexcept;
+
 }  // namespace audio
 
 // ---- persistent settings ----------------------------------------------------------------

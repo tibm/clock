@@ -163,7 +163,7 @@ private:
     int32_t counts_resid_ = 0;
     uint64_t last_unit_us_ = 0;  // when the last minute of setting was spent
     int32_t arm_resid_ = 0;      // and the same for the bell's direction deadband
-    uint8_t volume_ = 40;
+    uint8_t volume_ = hal::audio::kDefaultVolPct;
     uint64_t chime_at_us_ = 0;   // next chime starts
     uint64_t chime_off_us_ = 0;  // ... and the current one ends
     // The cell warning is polled, not evented -- there is no producer of PowerState yet.

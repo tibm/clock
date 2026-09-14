@@ -51,9 +51,11 @@ constexpr const char* kGroups[] = {
     "chrono",
     "time",
     "sensor",
-// `audio`/`snd`, `storage`/`fs` and `net` are NOT here: offering a completion for a group
-// `help` does not list sends you to a wall, which cost an evening on 2026-09-07.  Add
-// each one in the commit that adds its rows.
+    "audio",
+    "snd",
+// `storage`/`fs` and `net` are NOT here: offering a completion for a group `help` does not
+// list sends you to a wall, which cost an evening on 2026-09-07.  Add each one in the commit
+// that adds its rows -- `audio` joined on 2026-09-13.
 #if CLK_HAVE_SIM
     "sim",  // host-only today: the fake-HAL rows do not exist on target
 #endif

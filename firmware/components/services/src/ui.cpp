@@ -60,7 +60,11 @@ constexpr uint32_t kPaceCeilMs = 500;  // ... and never so slow the knob feels d
 constexpr int32_t kDetentCounts = 4;
 
 // The preview chime, until `audio` (§6.2) owns the amp: you cannot set a volume you cannot
-// hear, so the mode plays at the level it is editing.
+// hear, so the mode plays at the level it is editing.  It became an actual note on
+// 2026-09-13 -- before that it toggled `SPK_SD` around silence, which on the bench was a tick
+// and nothing else.  A: 440 Hz, because a preview wants to be recognisable rather than
+// attention-getting; the alarm's own tones arrive as assets with `storage`.
+constexpr uint32_t kChimeHz = 440;
 constexpr uint32_t kChimeMs = 140;
 constexpr uint32_t kChimeEveryMs = 1500;
 
@@ -396,7 +400,15 @@ void Ui::rotate(int32_t counts) noexcept {
         if (units == 0) return;
         const int v = static_cast<int>(volume_) + units;
         volume_ = static_cast<uint8_t>(v < 0 ? 0 : (v > 100 ? 100 : v));
-        hal::audio::set_volume_pct(volume_);
+        // The GAUGE is 0..100 and stays 0..100 -- §6.6d's 300 degrees of dial is the product's
+        // volume scale and is not a hardware fact.  The AMP's bring-up ceiling is
+        // (R-AUDIO-1: PVDD is the 5 V rail until a 15 V brick is in, and a full-scale tone
+        // sits on the `-GB` protector's trip), so what is ASKED FOR is clamped and what is
+        // SHOWN is not.  ⚠ Until then the preview chime stops getting louder above
+        // kMaxVolPct while the hands keep climbing; drop this line when NEXT_STEPS.md's two
+        // hardware gates close and hal::audio stops refusing.
+        const uint8_t ask = volume_ < hal::audio::kMaxVolPct ? volume_ : hal::audio::kMaxVolPct;
+        (void)hal::audio::set_volume_pct(ask);
         chime_at_us_ = port::now_us();  // and hear the new level straight away
         show_hands(units > 0 ? 1 : -1);
         return;
@@ -724,23 +736,25 @@ void Ui::render() noexcept {
 // ---- sound -----------------------------------------------------------------------------------
 // A stand-in for `audio` (§6.2), same arrangement as the tap counter above: the gesture is
 // real and worth tuning now, the ownership moves when the AO lands.  MOVE IT then -- `ui`
-// has no business touching I2S once something else does.
+// has no business asking for a tone once something else owns the pipeline.
+//
+// `hal::audio::tone()` carries its own duration and its own fade, so nothing here has to
+// count the note out; `chime_off_us_` is kept only to hold the repeat off until the note is
+// done.  A refused chime is deliberately silent: on a board with no amp fitted this fires
+// every 1.5 s, and D16's answer to absence is not a log line per second.
 void Ui::chime_tick() noexcept {
     if (mode_ != Mode::Volume) return;
     const uint64_t now = port::now_us();
-    if (chime_off_us_ && now >= chime_off_us_) {
-        hal::audio::enable(false);
-        chime_off_us_ = 0;
-    }
+    if (chime_off_us_ && now >= chime_off_us_) chime_off_us_ = 0;
     if (!chime_off_us_ && chime_at_us_ && now >= chime_at_us_) {
-        hal::audio::enable(true);
+        (void)hal::audio::tone(kChimeHz, kChimeMs);
         chime_off_us_ = now + kChimeMs * 1000ull;
         chime_at_us_ = now + kChimeEveryMs * 1000ull;
     }
 }
 
 void Ui::chime_stop() noexcept {
-    if (chime_off_us_) hal::audio::enable(false);
+    if (chime_off_us_) (void)hal::audio::stop();
     chime_off_us_ = chime_at_us_ = 0;
 }
 
