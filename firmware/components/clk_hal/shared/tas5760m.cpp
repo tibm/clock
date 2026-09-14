@@ -45,7 +45,13 @@ constexpr uint8_t kVolCfgUnmuted = 0x80;
 constexpr uint8_t kVolCfgMuted = 0x83;  // + Mute R + Mute L
 
 // ---- reg 0x06, Analog Control ------------------------------------------------------------
-//   [7]   PBTL enable  = 1   OUTA+||OUTB+ and OUTA-||OUTB- into the one 4 Ohm DMA58-4
+//   [7]   PBTL enable  = 1   the two halves parallel INTERNALLY; externally the board ties
+//                            OUTA+(29)||OUTA-(26) as one leg and OUTB+(20)||OUTB-(23) as the
+//                            other, speaker between them through L5/L6 (datasheet Fig. 64).
+//                            ⚠ NOT OUTA+||OUTB+ -- that pairing is what `power_values.md`
+//                            §10 used to say, and it puts a PVDD->PGND path through two
+//                            120 mOhm FETs every switching cycle.  The board is right; the
+//                            doc was wrong (kicad/REVIEW.md fixed #2, and §10 is corrected).
 //   [6:4] PWM rate     = 101 16 x LRCK = 768 kHz at 48 kHz, the POR default; the LC filter
 //                            (10 uH + 0.68 uF, f_c ~30-40 kHz) is dimensioned for it
 //   [3:2] A_GAIN       = 00  19.2 dBV

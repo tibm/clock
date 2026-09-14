@@ -398,10 +398,22 @@ uint8_t volume_pct() noexcept;
 
 // The bring-up signal.  `ms` == 0 plays until stop(); enable() is implied, and the amp parks
 // itself again a moment after the tone ends so a chime train does not leave a Class-D bridge
-// idling into the speaker.  Non-blocking: the request is handed to the writer task.
+// idling into the speaker.
+//
+// NON-BLOCKING, and that costs something a caller has to know: an Ok here means the request
+// was QUEUED, not that a sound was made.  The amp comes up on the writer task, ~25 ms later,
+// and it can fail there.  `State::last_error` / `last_step` is where that failure surfaces --
+// a CLI row must wait for one of them before it reports success (ground rule 2).  `ui`'s
+// chime deliberately does not wait; it fires every 1.5 s and has nowhere to print.
 Status tone(uint32_t hz, uint32_t ms) noexcept;
 Status stop() noexcept;  // fades the tail out rather than cutting it
 bool playing() noexcept;
+
+// Bumped once per completed start attempt, after `last_error` is published.  A caller that
+// samples it before tone() and polls until it moves has waited for the answer rather than
+// for a duration -- which is the difference between "the amp is slow today" and a CLI row
+// that guesses.
+uint32_t start_seq() noexcept;
 
 // What the port and the chip are actually doing -- for `audio status`, and for telling
 // "the amp is muted" apart from "there are no clocks" apart from "the driver never ran".
@@ -417,6 +429,23 @@ struct State {
     uint32_t mclk_hz;  // read back from the port, 0 when the clocks are down
     uint32_t bclk_hz;
     uint32_t underruns;  // DMA writes that timed out -- a source that cannot keep up
+
+    // Why the amp is not up, from the last attempt to bring it up.  `Ok` with a null step
+    // means the last attempt worked (or none has been made).  This exists because tone() is
+    // asynchronous: without it, a start that failed on the writer task 25 ms after the CLI
+    // printed "tone 1000 Hz" is completely invisible, which is F0.1 all over again.
+    Status last_error;
+    const char* last_step;  // the §9.2.1.2.1 step that answered: "i2s", "cfg", "sd", "unmute"
+
+    // The three registers that decide whether a sound is possible, read LIVE off the chip
+    // rather than out of the driver's shadow.  A shadow that says `configured` over a chip
+    // that has been back through POR (a brown-out, or DVDD dropping with SPK_SD) is exactly
+    // the state where everything reports fine and nothing plays.
+    bool regs_live;       // the three reads below succeeded
+    uint8_t reg_digital;  // 0x02 -- expect 0x04
+    uint8_t reg_analog;   // 0x06 -- expect 0xD1
+    uint8_t reg_vol;      // 0x04
+    uint8_t reg_fault;    // 0x08
 };
 Result<State> state() noexcept;
 

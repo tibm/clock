@@ -271,6 +271,44 @@ void test_an_absent_amp_is_notpresent_everywhere() {
     CHECK(r.contains("no amp fitted"));
 }
 
+void test_a_start_that_fails_is_not_printed_as_a_tone() {
+    fresh();
+    // The board says the amp is not fitted: bring_up() fails, and tone() -- which only
+    // QUEUES -- has already returned by then.  The row must still refuse (ground rule 2, and
+    // F0.1 with a different peripheral).
+    board::set_present(board::Dev::Amp, false);
+    RecordingSink r;
+    CHECK(run("audio tone 1000", r) == Status::NotPresent);
+    CHECK(!r.contains("tone 1000 Hz at"));
+
+    // ...and the successful path waits for the real answer rather than for a duration.
+    board::set_present(board::Dev::Amp, true);
+    const uint32_t seq = hal::audio::start_seq();
+    RecordingSink g;
+    CHECK(run("audio tone 1000", g) == Status::Ok);
+    CHECK(hal::audio::start_seq() != seq);
+    CHECK(g.contains("until `audio stop`"));  // no <ms> means continuous, not a 1 s beep
+    const auto s = hal::audio::state();
+    CHECK(s.ok() && s.v.last_error == Status::Ok && s.v.last_step == nullptr);
+}
+
+void test_status_reads_the_registers_off_the_chip() {
+    fresh();
+    CHECK(hal::audio::enable(true) == Status::Ok);
+    // Put the chip back to POR underneath the driver -- a brown-out, or DVDD dropping with
+    // SPK_SD.  The shadow still says `configured`; the live read is what catches it, and
+    // 0x51 at 0x06 is BTL, i.e. both halves of the bridge across a PBTL speaker.
+    model::tas5760m_reset();
+    const auto s = hal::audio::state();
+    CHECK(s.ok());
+    CHECK(s.v.configured);          // the shadow, still confident
+    CHECK(s.v.reg_analog == 0x51);  // the chip, telling the truth
+    RecordingSink r;
+    CHECK(run("audio status", r) == Status::Ok);
+    CHECK(r.contains("0x06=0x51!"));
+    CHECK(r.contains("chip reset"));
+}
+
 void test_cli_reports_the_chain_and_the_refusals() {
     fresh();
     RecordingSink r;
@@ -308,6 +346,8 @@ void run_audio_tests() {
     test_a_tone_brings_the_amp_up_and_stop_parks_it();
     test_faults_are_read_from_the_chip();
     test_an_absent_amp_is_notpresent_everywhere();
+    test_a_start_that_fails_is_not_printed_as_a_tone();
+    test_status_reads_the_registers_off_the_chip();
     test_cli_reports_the_chain_and_the_refusals();
     sim::reset();
     cli::unsafe_set(false);

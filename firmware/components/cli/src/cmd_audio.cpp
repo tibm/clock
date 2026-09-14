@@ -24,8 +24,18 @@ namespace clk::cli {
 namespace {
 
 constexpr uint32_t kDefaultToneHz = 1000;
-constexpr uint32_t kDefaultToneMs = 1000;
-constexpr uint32_t kMaxToneMs = 30000;  // a TTL, same reasoning as a stream's (rule 12)
+// 0 = until `audio stop`, and that is the right default for a BENCH tool.  It was 1000 ms,
+// which meant `audio tone 1000` was a one-second beep that had ended -- and the amp parked
+// half a second after it -- before you could type `audio status` to see anything.  A tone you
+// have to end deliberately is a tone you can put a scope on.
+constexpr uint32_t kDefaultToneMs = 0;
+constexpr uint32_t kMaxToneMs = 30000;
+
+// How long to wait for the writer task to actually bring the amp up before reporting.  The
+// sequence is ~25 ms of I2C and vTaskDelay plus one 50 ms poll of the writer's idle wait, so
+// 400 ms is generous by a factor of five; a caller that hits it has a wedged I2C bus, and
+// saying THAT is better than either hanging or lying.
+constexpr uint32_t kStartWaitMs = 400;
 
 // NEXT_STEPS.md ground rule 2, and its own closing line names this group: "re-run the audit
 // when `audio` and `board` land, because both are full of things the hardware can say no to."
@@ -86,11 +96,29 @@ Status cmd_status(Args const&, Sink& out) {
     }
     if (s.v.underruns) out.printf("  ⚠ %lu underruns", static_cast<unsigned long>(s.v.underruns));
 
-    const auto sh = hal::tas5760m::shadow();
-    if (sh.configured) {
-        out.printf("regs  0x02=0x%02X 0x06=0x%02X vol=0x%02X   %s, %.1f dBV, boost +0 dB",
-                   sh.digital_ctrl, sh.analog_ctrl, sh.vol_reg, sh.pbtl ? "PBTL mono" : "BTL",
+    if (s.v.last_error != Status::Ok) {
+        out.printf("⚠ last start FAILED at step `%s`: %s", s.v.last_step ? s.v.last_step : "?",
+                   cmd::name(s.v.last_error));
+    } else if (!s.v.clocks) {
+        out.line("      (parked is normal -- the amp comes up on demand and drops 500 ms after)");
+    }
+
+    // Live off the chip, not out of the shadow.  A part that has been back through POR keeps
+    // ACKing and reads 0x51 at 0x06 -- which is BTL, both halves fighting across the speaker.
+    if (s.v.regs_live) {
+        const bool ok02 = s.v.reg_digital == 0x04;
+        const bool ok06 = s.v.reg_analog == 0xD1;
+        out.printf("regs  0x02=0x%02X%s 0x06=0x%02X%s 0x04=0x%02X 0x08=0x%02X   %s, %.1f dBV",
+                   s.v.reg_digital, ok02 ? "" : "!", s.v.reg_analog, ok06 ? "" : "!", s.v.reg_vol,
+                   s.v.reg_fault, (s.v.reg_analog & 0x80) ? "PBTL mono" : "BTL",
                    static_cast<double>(hal::tas5760m::kAnalogGainDbv));
+        if (!ok02 || !ok06) {
+            out.line("  ⚠ `!` = not what the driver wrote.  Expect 0x02=0x04 (boost +0 dB, I2S)");
+            out.line("  and 0x06=0xD1 (PBTL, 19.2 dBV).  A POR value there means the chip reset");
+            out.line("  under us -- 0x06 reads 0x51 at POR, which is BTL into a PBTL speaker.");
+        }
+    } else {
+        out.line("regs  unreadable -- the amp is not answering on I2C (`board i2c scan`)");
     }
 
     // SPK_FAULT is a pin and reg 0x08 is the reason.  Both, because the pin can be asserted by
@@ -121,15 +149,41 @@ Status cmd_status(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// tone() only queues; the amp comes up on the writer task and can fail there.  Waiting for
+// the start-attempt counter to move is what turns an asynchronous HAL into an honest command
+// (ground rule 2) -- without it this row printed "tone 1000 Hz at 10 %" for an amp that never
+// left shutdown, which is F0.1 with a different peripheral.
+Status await_start(Sink& out, uint32_t seq_before) {
+    for (uint32_t waited = 0; waited < kStartWaitMs; waited += 10) {
+        if (hal::audio::start_seq() != seq_before) break;
+        hal::clock_::sleep_ms(10);
+    }
+    const auto s = hal::audio::state();
+    if (!s.ok()) return refused(out, "tone", s.st);
+    if (hal::audio::start_seq() == seq_before) {
+        out.line("tone refused: the writer task never answered");
+        out.line("  the I2C bus is most likely wedged -- `board i2c scan`, then `sys top`");
+        return Status::Failed;
+    }
+    if (s.v.last_error != Status::Ok) {
+        out.printf("tone refused at step `%s`: %s", s.v.last_step ? s.v.last_step : "?",
+                   cmd::name(s.v.last_error));
+        out.line("  `audio status` has the whole chain; the step names map to the datasheet's");
+        out.line("  start-up order -- i2s-install / i2s-enable / cfg / spk_sd / unmute");
+        return s.v.last_error;
+    }
+    return Status::Ok;
+}
+
 Status cmd_tone(Args const& a, Sink& out) {
     uint32_t hz = kDefaultToneHz;
     uint32_t ms = kDefaultToneMs;
     if (a.arg(0) && !parse_u32(a.arg(0), hz)) {
-        out.line("usage: audio tone [<hz>] [<ms>]   (0 ms = until `audio stop`)");
+        out.line("usage: audio tone [<hz>] [<ms>]   (ms omitted or 0 = until `audio stop`)");
         return Status::BadArg;
     }
     if (a.arg(1) && !parse_u32(a.arg(1), ms)) {
-        out.line("usage: audio tone [<hz>] [<ms>]   (0 ms = until `audio stop`)");
+        out.line("usage: audio tone [<hz>] [<ms>]   (ms omitted or 0 = until `audio stop`)");
         return Status::BadArg;
     }
     if (hz < hal::tone::kMinHz || hz > hal::tone::kMaxHz) {
@@ -142,11 +196,12 @@ Status cmd_tone(Args const& a, Sink& out) {
                    static_cast<unsigned long>(kMaxToneMs));
         return Status::BadArg;
     }
+    const uint32_t seq = hal::audio::start_seq();
     if (const Status st = hal::audio::tone(hz, ms); st != Status::Ok)
         return refused(out, "tone", st);
-    out.printf("tone %lu Hz for %s at %u%%", static_cast<unsigned long>(hz),
-               ms ? "the requested time" : "ever", hal::audio::volume_pct());
-    if (ms == 0) out.line("  `audio stop` ends it");
+    if (const Status st = await_start(out, seq); st != Status::Ok) return st;
+    out.printf("tone %lu Hz at %u%%, %s", static_cast<unsigned long>(hz), hal::audio::volume_pct(),
+               ms ? "for the requested time" : "until `audio stop`");
     return Status::Ok;
 }
 
@@ -208,7 +263,7 @@ Status cmd_reg(Args const& a, Sink& out) {
 
 constexpr CmdSpec kRows[] = {
     {"audio", nullptr, "status", "", "clocks, pin, registers, faults", ReleaseOk, cmd_status},
-    {"audio", nullptr, "tone", "[<hz>] [<ms>]", "a generated sine -- 0 ms = until stop", None,
+    {"audio", nullptr, "tone", "[<hz>] [<ms>]", "a generated sine; no <ms> = until stop", None,
      cmd_tone},
     {"audio", nullptr, "stop", "", "fade the tone out and park the amp", ReleaseOk, cmd_stop},
     {"audio", nullptr, "vol", "[<0-100>]", "amplitude percent; refuses over the ceiling", None,

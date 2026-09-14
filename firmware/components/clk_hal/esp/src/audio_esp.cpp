@@ -60,9 +60,18 @@ constexpr uint32_t kIdleParkMs = 500;
 // §3.2's table, verbatim: motion(20) audio(18) storage(14) ... -- the second most urgent
 // thing on the box, because a starved DMA is an audible click and a late hand is not.
 constexpr int kTaskPrio = 18;
-constexpr std::size_t kTaskStack = 4096;
+// 6 KB, not 4: configure() logs at Info with two %.1f, and on xtensa the float formatter is
+// several hundred bytes on its own.  stream.cpp's producer task learned this the expensive
+// way (a smashed neighbour presenting as a ringbuffer assert), and this task has the same
+// shape -- rare, deep, and nobody watching when it overflows.
+constexpr std::size_t kTaskStack = 6144;
 
 port::Mutex g_mx;
+// bring_up()/bring_down() walk a five-step hardware sequence and are reachable from two
+// threads -- the writer task and whoever calls enable().  Interleaving them would drop
+// SPK_SD in the middle of a configure.  One owner at a time, and it is NOT g_mx: this is held
+// across ~25 ms of I2C and vTaskDelay, and g_mx is what volume_pct() takes.
+port::Mutex g_seq_mx;
 port::Signal g_sig;
 
 i2s_chan_handle_t g_tx = nullptr;
@@ -82,6 +91,25 @@ std::atomic<bool> g_clocks{false};
 std::atomic<bool> g_amp_up{false};
 std::atomic<bool> g_playing{false};
 std::atomic<uint32_t> g_underruns{0};
+
+// Why the last start attempt did not make a sound.  tone() is asynchronous, so this is the
+// ONLY channel a failure on the writer task has back to the operator -- without it, `audio
+// tone` prints a success for an amp that never came out of shutdown, which is exactly the
+// F0.1 defect this project already paid for once.  `g_start_step` is a pointer to a string
+// literal, so it is safe to publish as a bare atomic.
+std::atomic<Status> g_start_st{Status::Ok};
+std::atomic<const char*> g_start_step{nullptr};
+std::atomic<uint32_t> g_start_seq{0};  // bumped on every completed attempt, so a waiter can
+                                       //   tell "not tried yet" from "tried and failed"
+
+Status fail_start(const char* step, Status st) noexcept {
+    g_start_step.store(step, std::memory_order_relaxed);
+    g_start_st.store(st, std::memory_order_relaxed);
+    // Warn, not Debug.  A bring-up board with no sound is the case this line exists for, and
+    // it must not need `sys debug drv.amp debug` to appear.
+    CLK_LOGW(drv_amp, "amp start failed at %s: %s", step, clk::name(st));
+    return st;
+}
 
 int16_t g_block[kBlockFrames * 2];
 
@@ -157,17 +185,20 @@ void prime_silence() noexcept {
 
 // ---- the sequence -------------------------------------------------------------------------
 
+// Every exit names the step, because on a silent bench the five of them are indistinguishable
+// from the outside and four of them are silent by nature.
 Status bring_up() noexcept {
+    port::Lock seq{g_seq_mx};
     if (g_amp_up.load(std::memory_order_relaxed)) return Status::Ok;
     if (!board::present(board::Dev::Amp)) return Status::NotPresent;
-    if (!install_port()) return Status::Failed;
+    if (!install_port()) return fail_start("i2s-install", Status::Failed);
 
     // 2. SPK_SD stays low.  It is low at POR (expander hi-Z, OLAT 0) and nothing else writes
     //    it, so this is belt-and-braces against a previous teardown that failed halfway.
     (void)expander::set(expander::Sig::SpkSd, false);
 
     // 4. Clocks BEFORE the control port.
-    if (!clocks_on(true)) return Status::Failed;
+    if (!clocks_on(true)) return fail_start("i2s-enable", Status::Failed);
     prime_silence();
 
     // 5. Configure, muted, at the volume that is actually set.
@@ -178,13 +209,13 @@ Status bring_up() noexcept {
     }
     if (const Status st = tas5760m::configure(true, tas5760m::db_for_pct(vol)); st != Status::Ok) {
         clocks_on(false);
-        return st;
+        return fail_start("cfg", st);
     }
 
     // 6. SPK_SD high, then let the output stage come up before it is asked to make a sound.
     if (const Status st = expander::set(expander::Sig::SpkSd, true); st != Status::Ok) {
         clocks_on(false);
-        return st;
+        return fail_start("spk_sd", st);
     }
     ::vTaskDelay(pdMS_TO_TICKS(10));
 
@@ -192,14 +223,17 @@ Status bring_up() noexcept {
     if (const Status st = tas5760m::set_mute(false); st != Status::Ok) {
         (void)expander::set(expander::Sig::SpkSd, false);
         clocks_on(false);
-        return st;
+        return fail_start("unmute", st);
     }
     g_amp_up.store(true, std::memory_order_relaxed);
+    g_start_st.store(Status::Ok, std::memory_order_relaxed);
+    g_start_step.store(nullptr, std::memory_order_relaxed);
     CLK_LOGD(drv_amp, "amp up: clocks, PBTL, vol %u%%", static_cast<unsigned>(vol));
     return Status::Ok;
 }
 
 void bring_down() noexcept {
+    port::Lock seq{g_seq_mx};
     if (!g_amp_up.load(std::memory_order_relaxed) && !g_clocks.load(std::memory_order_relaxed))
         return;
     // §9.2.1.2.2, in order.  The 5 ms is the chip's own volume fade finishing before the
@@ -238,6 +272,9 @@ void writer(void*) noexcept {
             } else {
                 g_playing.store(false, std::memory_order_relaxed);
             }
+            // Published LAST, so a waiter that sees the new sequence number also sees the
+            // outcome that produced it.
+            g_start_seq.fetch_add(1, std::memory_order_release);
         }
         if (stop_req) {
             port::Lock lk{g_mx};
@@ -339,6 +376,8 @@ Status tone(uint32_t hz, uint32_t ms) noexcept {
     return Status::Ok;
 }
 
+uint32_t start_seq() noexcept { return g_start_seq.load(std::memory_order_acquire); }
+
 Status stop() noexcept {
     {
         port::Lock lk{g_mx};
@@ -365,11 +404,28 @@ Result<State> state() noexcept {
     const auto sh = tas5760m::shadow();
     s.configured = sh.configured;
     s.muted = sh.muted;
+    s.last_error = g_start_st.load(std::memory_order_relaxed);
+    s.last_step = g_start_step.load(std::memory_order_relaxed);
+
+    // Live, off the chip.  The shadow says what the driver wrote; these say what the part is
+    // holding now, and the interesting case on a silent bench is the one where they differ --
+    // a chip that went back through POR keeps ACKing and reads 0x51 at 0x06, which is BTL.
+    const auto d = tas5760m::read_reg(0x02);
+    const auto a = tas5760m::read_reg(0x06);
+    const auto v = tas5760m::read_reg(0x04);
+    const auto f = tas5760m::read_reg(0x08);
+    s.regs_live = d.ok() && a.ok() && v.ok() && f.ok();
+    if (s.regs_live) {
+        s.reg_digital = d.v;
+        s.reg_analog = a.v;
+        s.reg_vol = v.v;
+        s.reg_fault = f.v;
+    }
     // The two expander pins, read off the chip rather than off a shadow: SPK_SD is what this
     // file drove and SPK_FAULT is what the amp is saying back, and on a bench the interesting
     // case is exactly the one where the two disagree with the software's idea of them.
     if (const auto sd = expander::get(expander::Sig::SpkSd); sd.ok()) s.sd_pin = sd.v;
-    if (const auto f = expander::get(expander::Sig::SpkFault); f.ok()) s.fault_pin = !f.v;
+    if (const auto fp = expander::get(expander::Sig::SpkFault); fp.ok()) s.fault_pin = !fp.v;
     if (g_tx && s.clocks) {
         i2s_chan_info_t info{};
         if (::i2s_channel_get_info(g_tx, &info) == ESP_OK) {

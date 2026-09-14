@@ -914,7 +914,22 @@ namespace {
 // The datasheet's order, the same one audio_esp.cpp walks: clocks (which here is nothing),
 // configure muted, SPK_SD high, unmute.  Running it through tas5760m.cpp rather than setting a
 // bool is what makes a reordered ESP-side sequence a host failure.
-Status bring_up() noexcept {
+// The host's start is synchronous, so its failure latch is trivially in step -- but it exists
+// and is reported through the same State fields, so a test can assert on the CLI's wait-for-
+// the-answer path rather than on a duration.
+Status g_start_st = Status::Ok;
+const char* g_start_step = nullptr;
+uint32_t g_start_seq = 0;
+
+Status finish_start(const char* step, Status st) noexcept {
+    std::lock_guard lk{g_mx};
+    g_start_step = st == Status::Ok ? nullptr : step;
+    g_start_st = st;
+    ++g_start_seq;
+    return st;
+}
+
+Status bring_up_inner() noexcept {
     {
         std::lock_guard lk{g_mx};
         if (g_st.spk_active) return Status::Ok;
@@ -935,6 +950,11 @@ Status bring_up() noexcept {
     std::lock_guard lk{g_mx};
     g_st.spk_active = true;
     return Status::Ok;
+}
+
+Status bring_up() noexcept {
+    const Status st = bring_up_inner();
+    return finish_start("cfg", st);
 }
 
 void bring_down() noexcept {
@@ -1033,6 +1053,11 @@ bool playing() noexcept {
     return g_st.tone_on;
 }
 
+uint32_t start_seq() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_start_seq;
+}
+
 Result<State> state() noexcept {
     if (!board::present(board::Dev::Amp)) return Result<State>::bad(Status::NotPresent);
     age_tone();
@@ -1050,6 +1075,13 @@ Result<State> state() noexcept {
     s.mclk_hz = g_st.spk_active ? kRateHz * 256u : 0u;
     s.bclk_hz = g_st.spk_active ? kRateHz * 32u : 0u;
     s.underruns = 0;  // nothing to starve
+    s.last_error = g_start_st;
+    s.last_step = g_start_step;
+    s.regs_live = true;
+    s.reg_digital = host::model::tas5760m_reg(0x02);
+    s.reg_analog = host::model::tas5760m_reg(0x06);
+    s.reg_vol = host::model::tas5760m_reg(0x04);
+    s.reg_fault = host::model::tas5760m_reg(0x08);
     return Result<State>::good(s);
 }
 
