@@ -1,5 +1,6 @@
 #include "clk/board.hpp"
 
+#include <atomic>
 #include <cstring>
 
 namespace clk::board {
@@ -35,7 +36,14 @@ constexpr uint16_t kDefault = kAll;  // all faked, all answering
 constexpr bool kMotorInhibited = false;
 #endif
 
-uint16_t g_present = kDefault;
+// Atomic, and not out of caution.  Presence is written from one thread (`board i2c scan` on
+// target, `sim present` or a test on the host) and read from every active object's tick -- the
+// ui polls `hal::power::read()`, which reads three expander pins, which each ask this.  As a
+// plain `uint16_t` that is a data race by the letter of the standard and TSan says so; relaxed
+// ordering is all it needs, because the value is one word and nobody sequences anything against
+// it.  Found 2026-09-13 running `host-tsan` after `hal::power` started reading it three times
+// per ui tick -- the race was always there, it just took a louder reader to surface it.
+std::atomic<uint16_t> g_present{kDefault};
 
 }  // namespace
 
@@ -55,16 +63,16 @@ bool parse_dev(const char* s, Dev& out) noexcept {
     return false;
 }
 
-bool present(Dev d) noexcept { return (g_present & bit(d)) != 0; }
+bool present(Dev d) noexcept { return (g_present.load(std::memory_order_relaxed) & bit(d)) != 0; }
 
 void set_present(Dev d, bool on) noexcept {
     if (on)
-        g_present |= bit(d);
+        g_present.fetch_or(bit(d), std::memory_order_relaxed);
     else
-        g_present = static_cast<uint16_t>(g_present & ~bit(d));
+        g_present.fetch_and(static_cast<uint16_t>(~bit(d)), std::memory_order_relaxed);
 }
 
-void reset_presence() noexcept { g_present = kDefault; }
+void reset_presence() noexcept { g_present.store(kDefault, std::memory_order_relaxed); }
 
 const char* board_name() noexcept { return kBoard; }
 
