@@ -78,17 +78,44 @@ public:
 
     Motion() noexcept;
 
-    // Absolute microsteps.  There is no "step N times" in this system (§6.1).
+    // ---- asking the movement for something ------------------------------------------------
+    //
+    // Every one of these POSTS -- they are called from other threads and the AO owns the state
+    // -- and every one of them RETURNS what the movement is going to do with it.  The return is
+    // the whole point and it was missing: `motion step` called nudge(), got void back, and
+    // printed a success line while the layer below dropped the target on the floor.  Two layers
+    // below could refuse and neither could say so (NEXT_STEPS.md F0.1).
+    //
+    // The Status is a synchronous verdict on the gates that are knowable here -- presence, the
+    // NVS bench inhibit, and whichever state the FSM is in -- and it is advisory in the way any
+    // check-then-act is: the FSM could move on between the answer and the event arriving.  On a
+    // bench, where these are typed one at a time, that is the difference between a command that
+    // lies and one that does not.  The post happens either way, deliberately: `want_` has to
+    // record what was asked for even when it is held, because finish_home() re-issues it.
     //
     // `dir` is how to get there when the hand is not already on it.  0 takes the shortest way
     // round, which is what the CLOCK wants -- it follows a value that moves a minute at a
     // time, and 11:59 -> 12:00 is one minute forward however you write it down.  +1/-1 say
     // which way the KNOB is turning, and are also accumulated rather than taken flat: see
-    // Motion::resolve.
-    void goto_usteps(int32_t hour, int32_t minute, bool preview = false, int dir = 0) noexcept;
-    void nudge(hal::motor::Hand, int32_t usteps) noexcept;  // bench only: `motion step`
-    void home() noexcept;
-    void halt() noexcept;
+    // Motion::resolve.  Absolute microsteps; there is no "step N times" in this system (§6.1).
+    Status goto_usteps(int32_t hour, int32_t minute, bool preview = false, int dir = 0) noexcept;
+    // Bench only: `motion step`.  RAW and relative, and the one request that still works in
+    // `Fault` -- see accepts().
+    Status nudge(hal::motor::Hand, int32_t usteps) noexcept;
+    Status home() noexcept;
+    Status halt() noexcept;
+
+    // What the movement would do with a request, right now.  `raw` distinguishes a bench nudge
+    // from a dial-frame target, because they are refused by different gates:
+    //
+    //   NotPresent  no movement fitted (board.hpp's mask)
+    //   Denied      the NVS bench inhibit -- `motion power on`, NOT `unsafe on` (F0.2)
+    //   Busy        a homing run is using both shafts
+    //   NotReady    the FSM is in `Fault`, and only a dial-frame target is refused for it:
+    //               `motion step` is how the index mark gets placed, and a board that has
+    //               never had one faults its boot home EVERY time.  Refusing the one command
+    //               that can break that circle is what made the board unusable on the bench.
+    [[nodiscard]] Status accepts(bool raw) const noexcept;
 
     // The per-unit trim, in microsteps, positive = clockwise (`motion zero`).  Posts, because
     // it is not a setting but a change of frame: the hand moves to it, every pending target

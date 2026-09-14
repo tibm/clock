@@ -261,6 +261,116 @@ void test_motion_faults_and_recovers() {
     CHECK(mo().snapshot().state != svc::Motion::State::Fault);
 }
 
+// F0.1, found on the bench 2026-09-13 and the reason `motion step` was dead on build #1.
+//
+// Three defects compounding into a circle.  The board homes on boot; homing fails because no
+// index mark has been placed yet; `fail()` leaves the FSM in `Fault`.  From there on_event
+// dropped EVERY target including a raw one, `cmd_step` printed a success line regardless, and
+// nothing but a HomeRequest could leave `Fault` -- so you needed `motion step` to place the mark,
+// and the failed homing that needs the mark was what blocked `motion step`.
+//
+// This is the whole circle, end to end, because each fix on its own leaves it closed.
+void test_motion_a_bench_step_still_works_in_a_fault() {
+    fresh_motion();
+    sim::set_opto(0.0f);  // no mark on either hand: exactly build #1 before F2.4
+    mo().home();
+    CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Fault; }, 8000));
+
+    // A dial-frame target is still refused -- there is no zero to measure it from, so obeying
+    // one would point the hands somewhere and call it a time -- and now it SAYS so, by name.
+    {
+        RecordingSink r;
+        CHECK(run("motion goto 07:38", r) == Status::NotReady);
+        CHECK(r.contains("refused"));
+        CHECK(r.contains("motion stop"));  // F0.2: the refusal names the gate and the cure
+        CHECK(!r.contains("goto 07:38"));  // and emphatically does not also claim success
+    }
+
+    // The raw one goes through, the hand really moves, and the fault SURVIVES it: nothing about
+    // a bench nudge makes the homing failure untrue, and `motion status` must not start
+    // claiming otherwise.
+    const int32_t before = mo().snapshot().minute;
+    {
+        RecordingSink r;
+        CHECK(run("motion step m +400", r) == Status::Ok);
+    }
+    CHECK(wait_until([before] { return mo().snapshot().minute == before + 400; }));
+    CHECK(mo().snapshot().state == svc::Motion::State::Fault);
+    CHECK(!mo().snapshot().homed);
+
+    // And there is a way out that does not require the homing that cannot succeed.  `motion
+    // stop` is the operator saying "I know"; Uninit and not Idle, because no zero was found.
+    {
+        RecordingSink r;
+        CHECK(run("motion stop", r) == Status::Ok);
+        CHECK(r.contains("fault is cleared"));
+    }
+    CHECK(wait_until([] { return mo().snapshot().state == svc::Motion::State::Uninit; }));
+    CHECK(!mo().snapshot().homed);
+
+    // Cleared means cleared: the target that was refused thirty lines ago is taken now.
+    {
+        RecordingSink r;
+        CHECK(run("motion goto 07:38", r) == Status::Ok);
+        CHECK(r.contains("goto 07:38"));
+    }
+
+    // Leave the movement homed, the way every other case here expects to find it.
+    sim::set_opto_auto(true);
+    mo().home();
+    CHECK(wait_until([] { return mo().snapshot().homed; }, 12000));
+}
+
+// The OTHER gate, and F0.2 is that a refusal has to name which one it was: the NVS bench inhibit
+// and a stuck `Fault` are indistinguishable from the outside, and `unsafe on` lifts neither.
+// This one is worse than silent -- `motion power off` is what a bring-up board boots with
+// (board.hpp:74), so on build #1 every `motion step` printed a success line and no coil moved.
+void test_motion_an_inhibited_movement_refuses_by_name() {
+    fresh_motion();
+    {
+        RecordingSink r;
+        run("motion stop", r);  // whatever the previous case left in flight
+        CHECK(run("motion power off", r) == Status::Ok);
+    }
+    for (const char* cmd : {"motion step m +400", "motion goto 07:38", "motion home"}) {
+        RecordingSink r;
+        CHECK(run(cmd, r) == Status::Denied);
+        CHECK(r.contains("INHIBITED"));
+        CHECK(r.contains("motion power on"));
+        CHECK(r.contains("unsafe on` does NOT"));
+    }
+
+    // Refused all the way DOWN, not just in the printing -- and the assertion is about the
+    // state and the coils rather than about a position, deliberately.  `chrono` and `ui` are
+    // live AOs in this rig and they push targets of their own, so "the hand did not move" is a
+    // question about them as much as about the inhibit; "the FSM never entered `Moving` and the
+    // coils never came up" is the defect itself.  That is exactly what used to happen: with the
+    // inhibit set `retarget()` ignored `power()`'s Denied, went to `Moving`, and called `run()`
+    // into a dead driver a hundred times a second while `motion status` claimed a move.
+    for (int i = 0; i < 16; ++i) {
+        CHECK(mo().snapshot().state != svc::Motion::State::Moving);
+        // The DRIVER, not the snapshot's `powered`.  That field is `motion`'s cached belief and
+        // it only refreshes when the AO next calls power() -- which, with nothing moving, is two
+        // seconds of sim time away.  `enabled()` is what STEP_STBY is actually at.
+        CHECK(!hal::motor::enabled());
+        hal::clock_::sleep_ms(5);
+    }
+
+    // Released, and the same command that was refused four lines ago moves the hand.  Sampled
+    // fresh: whatever those live AOs have been asking for in the meantime is not this test's.
+    {
+        RecordingSink r;
+        CHECK(run("motion power on", r) == Status::Ok);
+        run("motion stop", r);
+    }
+    const int32_t before = mo().snapshot().minute;
+    {
+        RecordingSink r;
+        CHECK(run("motion step m +400", r) == Status::Ok);
+    }
+    CHECK(wait_until([before] { return mo().snapshot().minute == before + 400; }));
+}
+
 // Homing a movement that is NOT FITTED is not the same failure as homing one that is fitted
 // and finds no index -- and the difference is the whole of D16.  Found on the rev0.3 board on
 // 2026-09-07, whose M1 is deliberately unpopulated: the run started anyway, swept for an
@@ -1411,6 +1521,8 @@ void run_motion_service_tests() {
     test_motion_levels_the_dial_to_gravity();
     test_motion_de_energises_when_idle();
     test_motion_faults_and_recovers();
+    test_motion_a_bench_step_still_works_in_a_fault();
+    test_motion_an_inhibited_movement_refuses_by_name();
     test_motion_absent_movement_does_not_fault();
     test_motion_zero_offsets_the_hand();
     test_motion_autohome_trims_a_drifted_hand();

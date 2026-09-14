@@ -50,6 +50,39 @@ bool parse_hhmm(const char* s, int& h, int& m) {
     return h >= 0 && h < 24 && m >= 0 && m < 60;
 }
 
+// A refusal must never print as a success -- NEXT_STEPS.md ground rule 2, and F0.1 is the
+// instance that cost a bench session: `motion step` posted a target, the FSM dropped it in
+// `Fault`, and the command printed `m +100 usteps (2.08 deg)` as though a hand had moved.
+//
+// The second line is the part that matters.  On a bring-up board there are TWO gates that stop
+// a move and they are indistinguishable from the outside: the NVS bench inhibit, which
+// `unsafe on` does NOT lift, and a `Fault` the homing FSM never left (F0.2).  So every row that
+// asks the movement for something routes its non-Ok answer through here, and the answer names
+// the gate and the cure.
+Status refused(Sink& out, const char* what, Status st) {
+    out.printf("%s refused: %s", what, cmd::name(st));
+    switch (st) {
+        case Status::Denied:
+            out.line("  the movement is INHIBITED -- `motion power on` releases it (saved to NVS)");
+            out.line("  `unsafe on` does NOT lift this; it is a different gate (board.hpp)");
+            break;
+        case Status::NotReady:
+            out.line("  homing failed and nothing has cleared it -- `motion stop` clears a fault");
+            out.line("  `motion step` still works in a fault: it is how the index mark is placed");
+            break;
+        case Status::Busy:
+            out.line("  a homing run has both shafts -- `motion stop` abandons it");
+            break;
+        case Status::NotPresent:
+            out.line("  no movement fitted -- board.hpp's presence mask says so");
+            break;
+        default:
+            out.line("  the motion mailbox was full and the event was dropped (`sys stat`)");
+            break;
+    }
+    return st;
+}
+
 Status cmd_status(Args const&, Sink& out) {
     const auto s = svc::motion().snapshot();
     out.printf("state  %s%s%s%s", s.state_name, s.phase[0] ? " / " : "", s.phase,
@@ -77,7 +110,7 @@ Status cmd_status(Args const&, Sink& out) {
 }
 
 Status cmd_home(Args const&, Sink& out) {
-    svc::motion().home();
+    if (const Status st = svc::motion().home(); st != Status::Ok) return refused(out, "home", st);
     out.line("homing: clear -> minute coarse+fine -> park -> hour coarse+fine");
     out.line("  watch it with `motion status` or the ux app");
     return Status::Ok;
@@ -90,7 +123,9 @@ Status cmd_goto(Args const& a, Sink& out) {
         return Status::BadArg;
     }
     const auto p = domain::for_time(h, m);
-    svc::motion().goto_usteps(p.hour, p.minute);
+    if (const Status st = svc::motion().goto_usteps(p.hour, p.minute); st != Status::Ok) {
+        return refused(out, "goto", st);
+    }
     out.printf("goto %02d:%02d  (h=%" PRId32 " m=%" PRId32 " usteps)", h, m, p.hour, p.minute);
     return Status::Ok;
 }
@@ -102,15 +137,26 @@ Status cmd_step(Args const& a, Sink& out) {
         return Status::BadArg;
     }
     const auto n = static_cast<int32_t>(std::strtol(a.arg(1), nullptr, 10));
-    svc::motion().nudge(hand, n);
+    if (const Status st = svc::motion().nudge(hand, n); st != Status::Ok) {
+        return refused(out, "step", st);
+    }
     out.printf("%s %+" PRId32 " usteps (%.2f deg)", a.arg(0), n,
                static_cast<double>(n) * 360.0 / domain::kRev);
     return Status::Ok;
 }
 
+// Also the way out of a `Fault` -- see Motion::on_event's Halt handler.  Saying so here rather
+// than only in the help line: on a board whose index mark is not placed, this is the command
+// that makes the movement usable again, and it is not the one anybody would guess.
 Status cmd_stop(Args const&, Sink& out) {
-    svc::motion().halt();
-    out.line("stopped");
+    const bool was_faulted = svc::motion().snapshot().state == Motion::State::Fault;
+    if (const Status st = svc::motion().halt(); st != Status::Ok) return refused(out, "stop", st);
+    if (was_faulted) {
+        out.line("stopped -- and the fault is cleared (still not homed)");
+        out.line("  `motion step` to place the index mark, `motion home` when it is there");
+    } else {
+        out.line("stopped");
+    }
     return Status::Ok;
 }
 
@@ -228,7 +274,7 @@ constexpr CmdSpec kRows[] = {
     {"motion", nullptr, "goto", "<hh:mm>", "drive the hands to a time", Unsafe, cmd_goto},
     {"motion", nullptr, "step", "<h|m> <+/-n>", "relative microsteps, for bring-up", Unsafe,
      cmd_step},
-    {"motion", nullptr, "stop", "", "stop where you are", None, cmd_stop},
+    {"motion", nullptr, "stop", "", "stop where you are; clears a fault", None, cmd_stop},
     {"motion", nullptr, "tune", "[<knob> <value>]", "profile + homing parameters", None, cmd_tune},
     {"motion", nullptr, "zero", "[<h|m> <+/-usteps>]", "per-unit index trim (NVS)", None, cmd_zero},
     {"motion", nullptr, "spr", "", "microsteps per revolution", ReleaseOk, cmd_spr},

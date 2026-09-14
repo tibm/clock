@@ -68,23 +68,61 @@ Motion& motion() noexcept {
 
 // ---- public API (called from other threads) ----------------------------------------------
 
-void Motion::goto_usteps(int32_t h, int32_t m, bool preview, int dir) noexcept {
-    post(HandTarget{h, m, preview, static_cast<int8_t>(dir > 0 ? 1 : (dir < 0 ? -1 : 0))});
+// The gates, all of them, in one place -- because F0.2 is that a refused move must name WHICH
+// one stopped it, and a bench has two that look identical from the outside: the NVS inhibit
+// (`motion power on`) and a `Fault` the FSM never left (`motion stop`).
+Status Motion::accepts(bool raw) const noexcept {
+    if (!board::present(board::Dev::Motor)) return Status::NotPresent;
+    if (hal::motor::inhibited()) return Status::Denied;
+    // snapshot(), not state_: state_ belongs to the AO thread and these are called from the CLI's.
+    switch (snapshot().state) {
+        case State::Homing:
+            return Status::Busy;
+        case State::Fault:
+            // A raw target is the ONE thing that goes through here.  `motion step` is how the
+            // index mark gets placed, homing cannot succeed until it is, and homing's failure
+            // is what put us in Fault -- so refusing the step closed the circle and left the
+            // board with no way out at all (F0.1 defect 1 + 3).
+            return raw ? Status::Ok : Status::NotReady;
+        default:
+            return Status::Ok;
+    }
 }
 
-void Motion::nudge(Hand hand, int32_t usteps) noexcept {
+Status Motion::goto_usteps(int32_t h, int32_t m, bool preview, int dir) noexcept {
+    const Status st = accepts(false);
+    if (!post(HandTarget{h, m, preview, static_cast<int8_t>(dir > 0 ? 1 : (dir < 0 ? -1 : 0))})) {
+        return Status::Failed;  // mailbox full; `sys stat` counts it
+    }
+    return st;
+}
+
+Status Motion::nudge(Hand hand, int32_t usteps) noexcept {
     // `motion step` is a bench command and deliberately relative -- it is how you find
     // steps_per_rev before anything absolute means anything (§12.1 milestone 3).  RAW: these
     // are the movement's own microsteps, measured from where the hand actually is, and "move
     // it a hundred usteps" must move it a hundred whatever the cube is lying on (§6.1d).
+    const Status st = accepts(true);
     const int32_t h = hand == Hand::Hour ? pos(Hand::Hour) + usteps : pos(Hand::Hour);
     const int32_t m = hand == Hand::Minute ? pos(Hand::Minute) + usteps : pos(Hand::Minute);
-    post(HandTarget{h, m, true, 0, true});
+    if (!post(HandTarget{h, m, true, 0, true})) return Status::Failed;
+    return st;
 }
 
-void Motion::home() noexcept { post(HomeRequest{}); }
+// Posts whatever the verdict is, and that asymmetry with the two above is deliberate: a
+// HomeRequest's refusal path IS a transition -- the handler puts the movement back to `Uninit`
+// and posts `HomeDone{false}` so chrono is not left waiting on a run that never started.  And
+// `Fault` is not a gate here at all: `motion home` is one of the two ways out of it.
+Status Motion::home() noexcept {
+    if (!post(HomeRequest{})) return Status::Failed;
+    if (!board::present(board::Dev::Motor)) return Status::NotPresent;
+    if (hal::motor::inhibited()) return Status::Denied;
+    return Status::Ok;
+}
+
 // Halt, not Stop: `Stop` is the AO framework's shutdown event and never reaches on_event().
-void Motion::halt() noexcept { post(Halt{}); }
+// Never refused -- stopping is the one thing that must always be available.
+Status Motion::halt() noexcept { return post(Halt{}) ? Status::Ok : Status::Failed; }
 
 void Motion::set_zero(Hand h, int32_t usteps) noexcept {
     post(ZeroSet{static_cast<uint8_t>(h), usteps});
@@ -167,7 +205,14 @@ void Motion::on_event(Event const& e) {
         want_h_ = resolve(want_h_, pos(Hand::Hour), t->hour_usteps + off, t->dir);
         want_m_ = resolve(want_m_, pos(Hand::Minute), t->minute_usteps + off, t->dir);
         want_valid_ = true;
-        if (state_ == State::Homing || state_ == State::Fault) {
+        // Held in Homing always -- a target arriving mid-sweep would fight the FSM for the same
+        // two shafts.  Held in Fault unless it is RAW, which is `motion step`: the bench command
+        // whose whole purpose is moving a hand by hand is the one thing that has to keep working
+        // when the FSM has given up, because placing the index mark is how the fault gets fixed
+        // (F0.1 defect 1).  A dial-frame target stays held -- there is no zero to measure it
+        // from, so obeying it would point the hands somewhere and call it a time.
+        const bool bench_raw = t->raw && state_ == State::Fault;
+        if (!bench_raw && (state_ == State::Homing || state_ == State::Fault)) {
             CLK_LOGD(motion, "target held: %s", name_of(state_));
             return;
         }
@@ -274,6 +319,16 @@ void Motion::on_event(Event const& e) {
             phase_ = Phase::None;
         }
         if (state_ == State::Moving) state_ = State::Idle;
+        // And a Fault is cleared HERE, which is F0.1 defect 3.  Before this, the only transition
+        // out of Fault was a HomeRequest -- and on a board whose index mark has not been placed
+        // yet, homing is precisely what cannot succeed, so a board that faulted its boot home
+        // stayed faulted until it was reflashed.  `motion stop` is the operator saying "I know,
+        // carry on"; `Uninit` and not `Idle`, because no zero was ever found.
+        if (state_ == State::Fault) {
+            CLK_LOGI(motion, "fault cleared -- still not homed");
+            state_ = State::Uninit;
+            phase_ = Phase::None;
+        }
         // Whatever chrono last asked for is no longer being driven towards, so a later
         // `follow` has to push it again rather than assume it is still on its way.
         want_valid_ = false;
@@ -309,12 +364,17 @@ void Motion::on_tick() {
         watch_index(opto_);
     }
 
-    if (state_ == State::Moving) {
+    // Fault runs the profile too, but only for a move already under way -- which in that state
+    // can only ever be a bench nudge, because on_event holds everything else (F0.1).  The state
+    // does NOT become Idle when it lands: the homing failure is still true, and clearing it is
+    // an operator's act (`motion stop`), not a side effect of moving a hand.
+    const bool bench_move = state_ == State::Fault && (hour_.active || min_.active);
+    if (state_ == State::Moving || bench_move) {
         const bool a = step_axis(hour_, dt);
         const bool b = step_axis(min_, dt);
         if (!a && !b) {
-            state_ = State::Idle;
             idle_since_us_ = port::now_us();
+            if (state_ == State::Moving) state_ = State::Idle;
             if (sub_) sub_->post(HandState{pos(Hand::Hour), pos(Hand::Minute), false, homed_});
             CLK_LOGD(motion, "settled h=%" PRId32 " m=%" PRId32, pos(Hand::Hour),
                      pos(Hand::Minute));
@@ -323,8 +383,13 @@ void Motion::on_tick() {
 
     // Coils de-energised 2 s after the last move.  The hands are stationary >99 % of the
     // time (§6.1) and holding current the whole while would be most of the power budget.
-    if (powered_ && state_ != State::Moving && state_ != State::Homing &&
-        port::now_us() - idle_since_us_ > kPowerHoldMs * 1000ull) {
+    //
+    // The test is "is anything being driven", not "which state are we in".  Those used to be the
+    // same question and a bench nudge in `Fault` made them different (F0.1): the state name does
+    // not admit to that move, so keying off the name dropped the coils on the tick after the
+    // target arrived and the nudge died before the hand turned a single microstep.
+    const bool driving = state_ == State::Moving || state_ == State::Homing || bench_move;
+    if (powered_ && !driving && port::now_us() - idle_since_us_ > kPowerHoldMs * 1000ull) {
         power(false);
     }
     publish();
@@ -358,10 +423,19 @@ int32_t Motion::resolve(int32_t prev, int32_t from, int32_t to, int dir) const n
 void Motion::retarget() noexcept {
     plan(hour_, want_h_);
     plan(min_, want_m_);
-    if (hour_.active || min_.active) {
-        power(true);
-        state_ = State::Moving;
+    if (!hour_.active && !min_.active) return;
+    // The coils answer FIRST, and the answer decides whether there is a move.  Entering
+    // `Moving` on a refusal is how the bench inhibit became a hand that "moved" for two
+    // seconds and arrived nowhere -- `run()` called every tick into a driver that had said
+    // Denied, `motion status` reading `moving`, and nothing turning (F0.1).
+    if (const Status st = power(true); st != Status::Ok) {
+        hour_.active = min_.active = false;
+        CLK_LOGD(motion, "target dropped: coils %s", clk::name(st));
+        return;
     }
+    // A bench nudge on a faulted board drives the hands without pretending the homing failure
+    // went away: `motion status` must still say `fault` until somebody clears it on purpose.
+    if (state_ != State::Fault) state_ = State::Moving;
 }
 
 Motion::Axis& Motion::axis_of(Hand h) noexcept { return h == Hand::Hour ? hour_ : min_; }
