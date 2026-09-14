@@ -66,14 +66,31 @@ enum class Ch : uint8_t {
 // The QRE1113 reads INVERTED, and the names say so because the old ones did not.  R99 pulls
 // HOME_OPTO up to +3V3 and the phototransistor pulls it down, so more reflected light is a
 // LOWER voltage: nothing in front of the sensor is the top of the range, the index mark is
-// down near the bottom.  Measured on rev0.3, 2026-09-08:
+// down near the bottom.  Measured on rev0.3, 2026-09-08, with a reflector held at each hand's
+// height -- no hands existed yet:
 //
 //     nothing 3159 mV* | minute-hand distance 3010 | hour-hand distance 2600 | covered 2200
 //     (* clipped -- 12 dB attenuation tops out around 3100, so the true clear level is higher)
 //
-// PROVISIONAL until milestone 3 measures the real hand tabs, and deliberately ONE definition
-// shared by the fake and the target: an inverted fake would have sent the homing FSM hunting
-// the wrong edge on hardware, which is a mechanical-looking bug with a firmware cause.
+// Those two labels are the geometry the hands were SWAPPED INTO on 2026-09-13, not the one the
+// firmware had: the hour hand is on the outer tube, ~4 mm nearer the sensor, and reflects to
+// 2600; the minute hand rides the inner pin out at 6.9-10.9 mm and only reaches 3010
+// (`cad/README.md`, motor_esp.cpp's build()).  Until that swap the firmware drove them the
+// other way round, so these labels and the wiring disagreed -- and so did V2's rationale in
+// kicad/REVIEW.md, whose "weakest signal that matters is the 149 mV minute-hand step" is this
+// same far hand.  They agree now.
+//
+// ⚠ WHICH MEANS THE SPAN BELOW ONLY SEES THE NEAR HAND.  `kOptoMarkMv` is the hour hand's own
+// 2600, so the minute hand's 3010 normalises to (3150-3010)/550 = 0.25 -- UNDER `motion`'s
+// 0.45 threshold, i.e. the far hand's index crossing is currently invisible.  That is not a
+// threshold to lower on paper: these are bare surfaces at distance, a printed index mark
+// reflects far better than one, and V2 (`R99` 10k -> 22k) roughly doubles the whole scale.
+// F2.4 starts by re-measuring with the real hands on -- `sensor homing stream` -- and this
+// span is PROVISIONAL until it does.
+//
+// Deliberately ONE definition shared by the fake and the target: an inverted fake would have
+// sent the homing FSM hunting the wrong edge on hardware, which is a mechanical-looking bug
+// with a firmware cause.
 inline constexpr uint16_t kOptoClearMv = 3150;  // nothing above the sensor
 inline constexpr uint16_t kOptoMarkMv = 2600;   // index tab crossing the window
 

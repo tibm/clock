@@ -273,9 +273,21 @@ bool build() noexcept {
     if (g_built || g_build_failed) return g_built;
     g_build_failed = true;
 
-    // Group 0 is the minute shaft, group 1 the hour, matching esp32.md's driver #1 / #2.
-    if (!build_group(0, board::kPins.step_minute, g_ax[idx_of(Hand::Minute)])) return false;
-    if (!build_group(1, board::kPins.step_hour, g_ax[idx_of(Hand::Hour)])) return false;
+    // WHICH HAND IS ON WHICH SHAFT, and it is the only place that decides (2026-09-13).
+    //
+    // The minute hand is on the X40's inner pin, in front, the way a normal clock reads; the
+    // hour hand is on the outer tube behind it (`cad/README.md`: 1.00 mm seat at 6.9-10.9 mm,
+    // 2.90 mm seat at 2.9-6.9 mm).  Group 0 is still soldered to the tube -- the wiring did not
+    // move when the hands swapped -- so the crossing is here, in two lines, rather than spread
+    // through the pin names.  esp32.md's `STEP_M_*` / `STEP_H_*` are misnomers from that date
+    // on; kicad/REVIEW.md carries the rename for the respin.
+    //
+    // This is not only labels.  The hour hand now sits ~4 mm NEARER the QRE1113, so where the
+    // two overlap it is the hour hand the sensor sees -- it occludes the minute hand -- and the
+    // minute hand's index mark is the far, weak one.  Both facts are the homing FSM's problem
+    // (FIRMWARE.md §6.1's Clear phase, and the opto span in hal.hpp).
+    if (!build_group(0, board::kPins.step_tube, g_ax[idx_of(Hand::Hour)])) return false;
+    if (!build_group(1, board::kPins.step_pin, g_ax[idx_of(Hand::Minute)])) return false;
 
     gptimer_config_t gcfg{};
     gcfg.clk_src = GPTIMER_CLK_SRC_DEFAULT;
@@ -300,7 +312,13 @@ bool build() noexcept {
 
     g_build_failed = false;
     g_built = true;
-    CLK_LOGI(drv_step, "2x TB6612 on MCPWM0/1 @ %lu Hz carrier, commutation @ %lu Hz",
+    // Says the hand-to-shaft assignment out loud, once, because it is the one thing here that
+    // cannot be checked from the host: the fake has no pins, so nothing in clocksim or the test
+    // suite can catch this line being wrong.  A boot log the bench can read is the whole of the
+    // verification, and it is what you want in front of you the first time hands go on.
+    CLK_LOGI(drv_step,
+             "2x TB6612 on MCPWM0/1 @ %lu Hz carrier, commutation @ %lu Hz; "
+             "hour=tube(MCPWM0) minute=pin(MCPWM1)",
              static_cast<unsigned long>(kCarrierHz), static_cast<unsigned long>(kTickHz));
     return true;
 }

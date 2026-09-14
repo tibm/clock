@@ -26,12 +26,25 @@ struct Pins {
     int enc_a = 47;         // PCNT
     int enc_b = 48;         // PCNT
 
-    // Stepper coils, one TB6612 per shaft.  Order is [A+, A-, B+, B-] because that is the
-    // order the commutation writes them in, and it is NOT ascending GPIO: the minute driver's
-    // B- landed on IO3 (esp32.md), which is a strap pin and therefore the one that had to be
-    // an output nobody drives at boot.  STEP_STBY keeps both drivers off until firmware asks.
-    int step_minute[4] = {4, 5, 6, 3};    // MCPWM group 0 -- AIN1, AIN2, BIN1, BIN2
-    int step_hour[4] = {38, 39, 40, 41};  // MCPWM group 1 -- also the JTAG pins, see esp32.md
+    // Stepper coils, one TB6612 per shaft -- and named for the SHAFT, not for the hand.
+    //
+    // Which hand goes on which shaft is a decision, and it changed on 2026-09-13: the minute
+    // hand moved to the inner pin so it reads in front, the way a normal clock does
+    // (`cad/README.md`, FIRMWARE.md §6.1).  The WIRING did not move with it -- driver #1 still
+    // drives the outer tube -- so naming these `step_minute`/`step_hour` made a relabelling
+    // look like a rewiring job and put the hand assignment in two files at once.  It is one
+    // line in motor_esp.cpp's build() now, and these say only what they are soldered to.
+    //
+    // The schematic's own nets are still `STEP_M_*` / `STEP_H_*` (esp32.md, kicad/gen) and are
+    // misnomers as of that date; kicad/REVIEW.md carries the rename for the respin.
+    //
+    // Order is [A+, A-, B+, B-] because that is the order the commutation writes them in, and
+    // it is NOT ascending GPIO: driver #1's B- landed on IO3 (esp32.md), which is a strap pin
+    // and therefore the one that had to be an output nobody drives at boot.  STEP_STBY keeps
+    // both drivers off until firmware asks.
+    int step_tube[4] = {4, 5, 6, 3};     // MCPWM0, TB6612 #1, `STEP_M_*` -- the OUTER tube
+    int step_pin[4] = {38, 39, 40, 41};  // MCPWM1, TB6612 #2, `STEP_H_*` -- the INNER pin.
+                                         //   Also the JTAG pins, see esp32.md
 };
 inline constexpr Pins kPins{};
 

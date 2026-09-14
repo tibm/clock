@@ -786,6 +786,15 @@ void Motion::run_homing(float opto) noexcept {
         // edge to see.  With BOTH hands there it is also not knowable which one is doing
         // it, so this does not guess -- sweeping the hour hand a whole revolution without
         // going dark is itself the proof that the minute hand is the one on the mark.
+        //
+        // The HOUR hand goes first, and since the 2026-09-13 shaft swap that order is not
+        // arbitrary any more: the hour hand rides the outer tube, ~4 mm nearer the QRE1113,
+        // so where the two overlap it is physically in front of the minute hand and the
+        // sensor sees only it.  Moving the occluder first is the only order that can reveal
+        // what is behind it.  ⚠ The converse is the open problem: the minute hand out at the
+        // inner pin normalises to ~0.25 against today's span, under `opto_thresh`, so "still
+        // lit with the hour hand moved clear" cannot currently be observed at all (hal.hpp,
+        // NEXT_STEPS.md F2.4).  Re-measure with the real hands before trusting this branch.
         case Phase::Clear: {
             if (!high) {
                 hal::motor::hold(Hand::Hour);
