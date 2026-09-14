@@ -722,15 +722,42 @@ command with a real authorization check three weeks before a pixel exists to lig
 
 ### 6.1 `motion`
 
-**Owns:** MCPWM0 (minute, IO4/5/6/3), MCPWM1 (hour, IO38/39/40/41), GPTimer0, ADC1_CH1 (`HOME_OPTO`, IO2).
+**Owns:** MCPWM0 (the outer tube — **hour** — IO4/5/6/3), MCPWM1 (the inner pin — **minute** —
+IO38/39/40/41), GPTimer0, ADC1_CH1 (`HOME_OPTO`, IO2).
 **Does not own:** `STEP_STBY` — that lives on the MCP23017, so `motion` requests it from `board` (below).
 
-> ⚠ **TODO — swap hands to shafts (decided 2026-09-13).** Minute hand moves to the X40 **inner pin**
-> (front, like a normal clock), hour hand to the **outer tube** (`cad/README.md`). The wiring is
-> unchanged — driver #1 / `STEP_M_*` / MCPWM0 still drives the tube — so the firmware must map
-> MCPWM0 → **hour** and MCPWM1 → **minute** (the `STEP_M`/`STEP_H` net names in `esp32.md` and
-> `kicad/gen/b_motor.py` become misnomers). Re-check the homing order: the hour hand now sits
-> nearest the QRE1113 and hides the minute hand where they overlap.
+#### 6.1e Hands to shafts — swapped 2026-09-13, and it is not only labels
+
+The **minute** hand is on the X40's **inner pin**, in front, the way a normal clock reads; the
+**hour** hand is on the **outer tube** behind it. Seats and heights are in `cad/README.md` (1.00 mm
+at 6.9–10.9 mm above the body; 2.90 mm at 2.9–6.9 mm).
+
+The wiring did **not** move with it: driver #1 / MCPWM0 / `STEP_M_*` still drives the tube. So the
+crossing lives in firmware, in exactly one place — `motor_esp.cpp`'s `build()`, which hands group 0
+to `Hand::Hour` and group 1 to `Hand::Minute`. `board.hpp`'s pin arrays were renamed
+`step_tube`/`step_pin` to stop a relabelling from looking like a rewiring job, and the schematic's
+`STEP_M_*` / `STEP_H_*` nets are misnomers from this date (`kicad/REVIEW.md` **V12** renames them at
+the respin; `kicad/gen/` stays as built until then).
+
+⚠ **Nothing on the host can catch that line being wrong** — the fake has no pins — so `build()` logs
+the assignment at boot (`hour=tube(MCPWM0) minute=pin(MCPWM1)`). That log is the verification.
+
+Two mechanical consequences land on the homing FSM, both of them real:
+
+1. **The hour hand occludes the minute hand.** It is ~4 mm nearer the QRE1113, so where the two
+   overlap the sensor sees only the hour hand. The `Clear` phase already moves the hour hand first,
+   which was arbitrary before and is now the *only* order that can reveal what is behind it.
+2. **The minute hand is now the far, weak one.** At its height a reflector read 3010 mV against a
+   3159 mV clear level — a 149 mV step, which is precisely the "weakest signal that matters" in
+   `kicad/REVIEW.md` **V2**. Against today's span (`kOptoMarkMv` = the hour hand's 2600) that
+   normalises to **0.25**, under `motion`'s 0.45 `opto_thresh`: *the far hand's index crossing is
+   currently invisible*. Do not lower the threshold on paper — those were bare surfaces at
+   distance, a printed index mark reflects far better, and V2 roughly doubles the scale. §12.1
+   milestone 3 / `NEXT_STEPS.md` **F2.4** starts by re-measuring with the real hands on.
+
+The labels in `hal.hpp`'s opto block were always written for *this* geometry, so the swap makes the
+calibration and the wiring agree for the first time; before it, the hand the docs called weak was
+the strong one on the board.
 
 - **Geometry:** X40.879 on the X27 base spec ≈ **1/3° per full step → 1080 steps/rev**; ×16
   microstepping → 17 280 µsteps/rev. ⚠ *Verify on the bench during bring-up (`motion spr`) — this is
@@ -3463,7 +3490,7 @@ brick, swap to the Mac, read it back — the cell keeps the board alive across t
 | 0 | **Console + `help` + `sys stat` + `sys top` + `sys ev` + `sys debug`** | The CLI is milestone zero, not an afterthought — everything after this is debuggable |
 | 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · sensors read on the bench 2026-09-09. **`hal::power::read()` is written, 2026-09-13** — and it is one implementation for both backends (`clk_hal/shared/power.cpp`) rather than a stub facing a host reference, because it is arithmetic over `hal::adc` and `hal::expander` and has nothing platform-specific in it. It carries R-BOARD-3 in its return type (`power::VbatSrc`), and `board cell` / `board fullchg` came with it. **Bench-verify to close: `NEXT_STEPS.md` F1.6** |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
-| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11); `steps_per_rev`, direction, silence and homing still open (**`NEXT_STEPS.md` Phase 2**). ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on`. F0.1 is **fixed, 2026-09-13**: a raw target goes through in `Fault`, `motion stop` clears a `Fault`, and every `motion` row prints the refusal and names the gate instead of a success line |
+| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11). F0.1 is **fixed 2026-09-13** — a raw target goes through in `Fault`, `motion stop` clears one, and every `motion` row prints the refusal and names the gate — and the hands **swapped shafts** the same day (§6.1e, minute to the inner pin). ⚠ Now gated on the **printed hands**, not on firmware: `steps_per_rev`, direction and homing all need something visible on a shaft, and §6.1e's arithmetic says today's opto span cannot see the far hand at all. Silence is the only item that works on bare shafts. ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on` (**`NEXT_STEPS.md` Phase 2**) |
 | 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · **knob confirmed 2026-09-11** (§12.0.11), after the `J10` harness was found reversed end-for-end (§12.0.10); the J12 pixel row still wants its harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |

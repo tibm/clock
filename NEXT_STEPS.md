@@ -171,17 +171,57 @@ swap to the Mac, read it back. `sys ev dump` is the natural home and is register
 
 ## Phase 2 — milestone 3: finish the movement
 
-**Unblocked: `motion step` works on a faulted board as of F0.1.** None of it needs new hardware.
+`motion step` works on a faulted board as of F0.1, so nothing here is blocked by firmware any
+more. ⚠ **It is blocked by the hands**, which are on the printer as of 2026-09-13: F2.1, F2.2 and
+F2.4 all need something visible on a shaft. F2.0 below is done because it must not be forgotten,
+and F2.3 is the one item you can do with bare shafts.
 
-- **F2.1 `steps_per_rev`** — §13 open question 1, the number the whole dial depends on. Count
-  microsteps for one revolution, confirm **17 280**, `motion spr` writes it to NVS.
-- **F2.2 Direction** — clockwise must come out positive. If not, `kSwapB` in `motor_esp.cpp`
-  is the single line.
-- **F2.3 Silence** — tune microstep depth against the gear train's resonance; the 25 kHz
-  carrier is already above hearing.
-- **F2.4 Homing** — place the index mark with `sensor homing stream`, then the homing FSM.
-  ⚠ `R99` is still 10 k; v0.4 **V2** wants 22 k, so the minute-hand step is only 149 mV until
-  a rework. Decide whether to bodge `R99` on build #1 before tuning thresholds against it.
+### F2.0 · Hands swapped shafts ✅ done 2026-09-13, untestable until the hands exist
+The **minute** hand is on the X40 **inner pin** (front, like a normal clock), the **hour** hand on
+the **outer tube**. The wiring did not move, so firmware crosses them:
+`motor_esp.cpp`'s `build()` gives MCPWM0 (the tube, `STEP_M_*`) to `Hand::Hour` and MCPWM1 (the pin,
+`STEP_H_*`) to `Hand::Minute`. `board.hpp`'s arrays are `step_tube`/`step_pin` now, so the pins name
+what they are soldered to and the hand assignment lives in one place. `kicad/REVIEW.md` **V12**
+renames the schematic nets at the respin; `kicad/gen/` is untouched.
+
+⚠ **Nothing on the host can catch that crossing being wrong** — the fake has no pins. So `build()`
+logs `hour=tube(MCPWM0) minute=pin(MCPWM1)` at boot, and **that log plus one `motion step h` with a
+hand on is the whole verification.** Do it first, before anything below leans on it.
+
+Two consequences that are F2.4's problem, written up in `FIRMWARE.md` §6.1e:
+
+1. The hour hand is ~4 mm nearer the QRE1113, so it **occludes** the minute hand. The `Clear`
+   phase's hour-first order was arbitrary before and is now the only order that can work.
+2. The minute hand is now the **far, weak** one — V2's 149 mV step is about this hand.
+
+### F2.1 · `steps_per_rev` — needs a hand
+§13 open question 1, the number the whole dial depends on. Count microsteps for one revolution,
+confirm **17 280**. ⚠ `motion spr` only *prints* the constant today, and "writes it to NVS" is not a
+small change: `domain::kRev` is `constexpr` and every function in `hand.hpp` is `constexpr` over it,
+exhaustively tested. Worth doing **only if the count comes out wrong** — measure first.
+
+### F2.2 · Direction — needs a hand
+Clockwise must come out positive. If not, `kSwapB` in `motor_esp.cpp` is the single line and a
+reflash. ⚠ It is one flag for **both** axes; the X40's two gear trains could in principle have
+opposite parity, and if exactly one hand comes out backwards that flag cannot say so. Make it
+per-hand (and NVS-backed, so the bench needs no rebuild) *if* that happens — not before.
+
+### F2.3 · Silence — **the one item that does not need hands**
+Tune microstep depth against the gear train's resonance; the 25 kHz carrier is already above
+hearing. Bare shafts are audible, so this can be done now.
+
+### F2.4 · Homing — needs hands, and a re-measurement first
+Place the index mark with `sensor homing stream`, then the homing FSM.
+
+⚠ **Start by re-measuring the opto, because today's span cannot see one hand.** `kOptoMarkMv` is
+2600 — the *near* (hour) hand's level — so the minute hand's 3010 normalises to
+`(3150-3010)/550 = 0.25`, under `motion`'s 0.45 `opto_thresh`. The far hand's index crossing is
+currently **invisible**, and `Clear`'s "still lit with the hour hand moved away" branch therefore
+cannot be observed at all. Do not lower the threshold on paper: those numbers were bare surfaces at
+distance, a printed index mark reflects far better than one, and V2 roughly doubles the scale.
+
+⚠ `R99` is still 10 k; v0.4 **V2** wants 22 k. Decide whether to bodge it on build #1 *after* the
+re-measurement, since the real hand tabs may make it unnecessary.
 
 ---
 
@@ -220,7 +260,8 @@ no longer binds. Until the swap, it does, and hard.
 |---|---|
 | **AO4838 fitted** | charging of any kind; `sensor vbat stream` showing a real charge curve; F1.6's 4.05 V confirmation |
 | an inline USB-C **pass-through** (V6's temporary form, §12.0.11 — no rework) | **every plugged-in reading.** `board cell` cannot return a verdict without it: the command needs `PD_PG` asserted (brick on `J1`) and you need the console (also `J1`). Confirmed 2026-09-13 — it refuses correctly and there is no way past it. Must pass `CC1`/`CC2`; a fan-out breakout will not do |
-| `R99` 10 k → 22 k (v0.4 **V2**) | homing threshold tuning against final signal levels (F2.4) |
+| **the printed hands** (on the printer 2026-09-13) | F2.0's one real check, F2.1, F2.2 and all of F2.4. F2.3 is the only Phase 2 item that works on bare shafts |
+| `R99` 10 k → 22 k (v0.4 **V2**) | possibly nothing — decide after F2.4 re-measures with real hand tabs, which reflect far better than the bare surfaces V2's 149 mV came from |
 | v0.4 **V8** supervisor | no-cell operation; recovering a cell below ~2.9 V. Not worth reworking on build #1 |
 | v0.4 **V6** (`D±` on `J2`) | brick and host connected at the same time. Today it is one or the other |
 
