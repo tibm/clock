@@ -14,7 +14,8 @@ set(CLK_HAL_SHARED
     shared/mcp23017.cpp
     shared/tsl2591.cpp
     shared/bme688.cpp
-    shared/bno085.cpp)
+    shared/bno085.cpp
+    shared/power.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS esp/src/hal_esp.cpp esp/src/motor_esp.cpp ${CLK_HAL_SHARED}

@@ -218,9 +218,46 @@ Status cmd_vbat(Args const& a, Sink& out) {
         return Status::BadArg;
     }
     sim::set_vbat_mv(static_cast<uint16_t>(mv));
+    // Read it back through the driver rather than echoing what went in: plugged, the tap is on
+    // the BAT node and the answer is deliberately NOT the cell you just set (R-BOARD-3).  That
+    // is the fake doing its job, and seeing it here is how you remember the rule.
     const auto p = hal::power::read();
-    if (p.ok())
-        out.printf("vbat %u mV  soc %u%%  chrg=%d", p.v.vbat_mv, p.v.soc_pct, p.v.charging ? 1 : 0);
+    if (!p.ok()) {
+        // The value went in either way -- this is the fake's own store -- so the command
+        // succeeded.  But say why nothing can be read back rather than printing nothing, which
+        // is what it used to do.
+        out.printf("cell %ld mV set; vbat reads %s (`sim present vbat on`?)", mv, cmd::name(p.st));
+        return Status::Ok;
+    }
+    if (p.v.soc_pct == hal::power::kSocUnknown) {
+        out.printf("cell %ld mV -- vbat reads %u mV (%s), soc unknown, chrg=%d", mv, p.v.vbat_mv,
+                   hal::power::name(p.v.src), p.v.charging ? 1 : 0);
+        out.line("  unplug to measure the cell: this tap is on the charger's output while");
+        out.line("  PD_PG is asserted, and it cannot see the protector's charge FET");
+    } else {
+        out.printf("vbat %u mV  soc %u%%  (%s)  chrg=%d", p.v.vbat_mv, p.v.soc_pct,
+                   hal::power::name(p.v.src), p.v.charging ? 1 : 0);
+    }
+    return Status::Ok;
+}
+
+// The holder, not the cell's charge.  A plugged board reads "full" with nothing in the holder
+// at all -- `Q2` back-feeds it from the BAT node -- which is what `board cell` exists to see
+// through, and what this switch exists to put in front of it.
+Status cmd_cell(Args const& a, Sink& out) {
+    const char* v = a.arg(0);
+    if (!v) {
+        out.printf("holder %s", sim::cell_in() ? "has a cell" : "is EMPTY");
+        out.line("  usage: sim cell <in|out>");
+        return Status::Ok;
+    }
+    const bool in = std::strcmp(v, "in") == 0;
+    if (!in && std::strcmp(v, "out") != 0) {
+        out.line("usage: sim cell <in|out>");
+        return Status::BadArg;
+    }
+    sim::set_cell_in(in);
+    out.printf("holder %s", in ? "has a cell" : "is EMPTY -- `board cell` should say so");
     return Status::Ok;
 }
 
@@ -317,7 +354,10 @@ Status cmd_knob(Args const& a, Sink& out) {
 Status cmd_plug(Args const& a, Sink& out) {
     const bool on = std::strcmp(a.argv[a.first - 1], "plug") == 0;
     sim::set_plugged(on);
-    out.printf("PD_PG %s", on ? "high (plugged)" : "low (on battery)");
+    // PD_PG is open-drain ACTIVE-LOW: the CH224K pulls it down once the 15 V contract is up
+    // (power_values.md).  This line said "high (plugged)" until 2026-09-13, and the fake had the
+    // pin inverted to match -- the two wrongs agreeing is exactly why neither got noticed.
+    out.printf("PD_PG %s", on ? "0 -- asserted (plugged)" : "1 -- deasserted (on battery)");
     if (!on) out.line("  note: the wake light is now gated off (12 V boost is plugged-only)");
     return Status::Ok;
 }
@@ -426,14 +466,15 @@ constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "radio", "<on|off>", "rear J11 toggle; on = radios off", kHost, cmd_radio},
     {"sim", nullptr, "speaker", "<on|off>", "amp out of shutdown", kHost, cmd_speaker},
     {"sim", nullptr, "vbat", "<mV>", "cell voltage", kHost, cmd_vbat},
+    {"sim", nullptr, "cell", "[in|out]", "a cell in the holder, or none", kHost, cmd_cell},
     {"sim", nullptr, "noise", "<mV>", "ADC noise, deterministic", kHost, cmd_noise},
     {"sim", nullptr, "seed", "<n>", "reseed the noise PRNG", kHost, cmd_seed},
     {"sim", nullptr, "turn", "<+/-detents>", "rotate the knob", kHost, cmd_turn},
     {"sim", nullptr, "knob", "<+/-counts> [over <ms>]", "rotate the knob, raw PCNT counts", kHost,
      cmd_knob},
     {"sim", nullptr, "press", "[<ms>|down|up]", "press ENC_SW", kHost, cmd_press},
-    {"sim", nullptr, "plug", "", "PD_PG high", kHost, cmd_plug},
-    {"sim", nullptr, "unplug", "", "PD_PG low -- wake light gates off", kHost, cmd_plug},
+    {"sim", nullptr, "plug", "", "PD_PG asserted (low)", kHost, cmd_plug},
+    {"sim", nullptr, "unplug", "", "PD_PG deasserted -- wake light gates off", kHost, cmd_plug},
     {"sim", nullptr, "warp", "[<factor>]", "scale sim time against wall time", kHost, cmd_warp},
     {"sim", nullptr, "jump", "<seconds>", "advance sim time instantly", kHost, cmd_jump},
     {"sim", nullptr, "present", "[<dev> [on|off]]", "fit or unfit a device", kHost, cmd_present},

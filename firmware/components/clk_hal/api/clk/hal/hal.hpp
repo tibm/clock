@@ -365,15 +365,103 @@ Status set_i32(const char* key, int32_t value) noexcept;
 }  // namespace store
 
 // ---- power -----------------------------------------------------------------------------
+// One implementation for both backends (shared/power.cpp): it is arithmetic over hal::adc and
+// hal::expander, and nothing in it is platform-specific.  The host and the target therefore
+// cannot disagree about the SoC endpoints, about the three inversions below, or about what
+// `VBAT_SENSE` is a measurement OF -- which is the part that is easy to get wrong.
 namespace power {
+
+// The SoC endpoints.  4.05 V and not 4.2 because the health cap is fixed in HARDWARE by the
+// LT3652's float divider (README S10); `set_full_charge()` switches R16 in for a 4.2 V top-up
+// and is the only way past it.  A straight line between the two -- a real OCV curve wants the
+// `board` AO and a cell that has been characterised, and a straight line is honest about being
+// a straight line in a way that a fitted curve over guessed data would not be.
+inline constexpr uint16_t kVbatEmptyMv = 3300;
+inline constexpr uint16_t kVbatFullMv = 4050;
+
+// What the number is a measurement OF, and it is not always the cell.        [R-BOARD-3]
+//
+// `VBAT_SENSE` taps cell+ against BOARD GND rather than across the cell, so it is only looking
+// at the cell while cell - is actually AT PACK-.  Whenever the protector's charge FET is open
+// -- an OV/OC trip, a cell below the OD threshold, an empty holder -- cell - floats a full
+// cell-voltage away and the divider reports the BAT node instead: the charger's own output.
+// Measured on build #1 2026-09-13: 4.0 V reported for a cell sitting at 3.4 V.
+//
+// There is no hardware fix short of a differential sense, so the driver's job is to say which
+// one you are looking at rather than to pretend.  The line it draws is the one FIRMWARE.md
+// R-BOARD-3 draws: the tap is the cell only when the board is running FROM the cell, which is
+// `PD_PG` deasserted.  Plugged, it is the BAT node -- usually equal to the cell, because the
+// charge FET is usually closed, and nothing on this board can tell the difference.
+//
+// `CHRG` deliberately does NOT buy its way into `Cell`.  Current flowing does prove the charge
+// FET is closed, but it also means the node sits I x (R_fet + R_wire) above the cell, and the
+// LT3652 keeps CHRG asserted all the way down its C/10 taper -- so "charging" is a cell
+// voltage plus an unknown offset, which is not cell health either.
+enum class VbatSrc : uint8_t {
+    Unknown,  // never returned by a successful read(); it is what a default-constructed State
+              //   says, so a caller that skipped ok() cannot read a zero as cell health
+    Cell,     // unplugged: the board is running from the cell and the tap is across it
+    BatNode,  // plugged: the LT3652's output.  Equal to the cell while its charge FET is
+              //   closed, which this tap cannot see (R-BOARD-3)
+};
+inline constexpr const char* name(VbatSrc s) noexcept {
+    switch (s) {
+        case VbatSrc::Cell:
+            return "cell";
+        case VbatSrc::BatNode:
+            return "bat-node";
+        default:
+            return "?";
+    }
+}
+
+// `soc_pct` when the millivolts are not the cell's.  A number would be a faked reading, and
+// D16's rule is the same here as it is for an absent device: say so, never invent it.
+inline constexpr uint8_t kSocUnknown = 0xFF;
+
 struct State {
-    uint16_t vbat_mv;
-    uint8_t soc_pct;
-    bool plugged;   // PD_PG
-    bool charging;  // CHRG
-    bool fault;     // FAULT
+    uint16_t vbat_mv;  // at the cell, the /2 divider already undone -- but see `src`
+    uint8_t soc_pct;   // kSocUnknown unless src == Cell
+    VbatSrc src;       // R-BOARD-3: what vbat_mv is actually a measurement of
+    bool plugged;      // PD_PG,  open-drain active-low -- inverted here
+    bool charging;     // CHRG,   open-drain active-low -- inverted here
+    bool fault;        // FAULT,  open-drain active-low -- inverted here
 };
 Result<State> read() noexcept;
+
+// Full cell or empty holder -- the one thing on this board that can tell them apart.
+//
+// With `Q2` conducting, its channel back-feeds the holder from the BAT node, so a plugged board
+// reads "full cell" with nothing in the holder at all.  `CELL_TEST` turns `Q2` off; the tap then
+// sees the holder alone, which is the cell if there is one and one body-diode below the BAT node
+// if there is not.  The measurement is the STEP at switch-off (power.md, kicad/gen/b_charger.py).
+//
+// PLUGGED-ONLY, and this is R-BOARD-2 rather than a preference: on battery `Q2` off cuts all
+// system power, the board browns out, the expander goes hi-Z, `R26` pulls `Q8` off and it boots
+// again -- a self-recovering loop, but an unbounded one while the bit is set.  There is no
+// hardware interlock, so read()'s answer is not good enough: cell_test() takes its own fresh
+// `PD_PG` and answers `Denied` on battery.
+struct CellTest {
+    uint16_t rest_mv;  // CELL_TEST low, before -- the BAT node with Q2 conducting
+    uint16_t held_mv;  // CELL_TEST high -- Q2 off, the holder side alone
+    uint16_t open_mv;  // CELL_TEST low again; open_mv - held_mv is the measurement
+    int16_t step_mv;
+    bool present;   // the step stayed under one body-diode drop: something is in the holder
+    bool charging;  // CHRG during the test.  FALSE MAKES THE VERDICT UNSAFE: with the charge
+                    //   FET open the tap is not on the cell at all and neither reading means
+                    //   what it says (R-BOARD-3).  Reported rather than refused -- the bench
+                    //   wants the three numbers either way.
+};
+Result<CellTest> cell_test() noexcept;
+
+// The 4.20 V "top to 100 %" mode: `FULLCHG_EN` (GPB4) drives `Q1`, which switches `R16` into
+// the LT3652's float divider.  Default OFF and it needs no firmware help to be -- the expander
+// is hi-Z at POR and `R24` holds `Q1` off, so the 4.05 V health cap is what a board that has
+// never been told anything enforces.  Policy, deliberately outside read(): nothing derives it,
+// somebody asks for it.
+Status set_full_charge(bool on) noexcept;
+Result<bool> full_charge() noexcept;
+
 }  // namespace power
 
 // Brings the fake or the real peripherals up.  Idempotent.

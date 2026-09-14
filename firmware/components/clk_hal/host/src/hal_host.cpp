@@ -28,13 +28,16 @@ namespace clk::hal {
 namespace {
 
 // ---- calibration placeholders ----------------------------------------------------------
-// Real numbers arrive at milestone 3 with a probe on the QRE1113.  The opto span moved to
-// hal.hpp so the fake and the target cannot disagree about it -- including about its SENSE,
-// which they did until rev0.3 was measured.
-constexpr uint16_t kOptoClearMv = adc::kOptoClearMv;
-constexpr uint16_t kOptoMarkMv = adc::kOptoMarkMv;
-constexpr uint16_t kVbatEmptyMv = 3300;
-constexpr uint16_t kVbatFullMv = 4050;  // the LT3652 float cap, not 4.2 (README §10)
+// Real numbers arrive at milestone 3 with a probe on the QRE1113.  The opto span lives in
+// hal.hpp (`adc::kOptoClearMv`) and the SoC endpoints in its `power` namespace, so the fake and
+// the target cannot disagree about either -- including about the opto's SENSE, which they did
+// until rev0.3 was measured.  There were file-local aliases for the opto pair here; they were
+// shadowed by the very names they aliased inside `namespace adc` and warned as unused.
+constexpr uint16_t kVbatEmptyMv = power::kVbatEmptyMv;
+constexpr uint16_t kVbatFullMv = power::kVbatFullMv;
+// `Q2`'s body-diode drop -- what the tap falls by when CELL_TEST turns Q2 off and there is no
+// cell holding the holder+ net up (kicad/gen/b_charger.py).  The real part is 300-400 mV.
+constexpr uint16_t kQ2DiodeMv = 350;
 
 // ---- the mechanism ---------------------------------------------------------------------
 // Where the hands physically sit at power-on.  Deliberately NOT zero: if the commanded
@@ -120,6 +123,14 @@ struct State {
     };
     // power
     bool plugged = true;
+    // Is there a cell in the holder?  The whole point of the CELL_TEST discriminator is that a
+    // plugged board cannot tell from the voltage alone -- `Q2` back-feeds the holder from the
+    // BAT node -- so the fake has to model the holder rather than just a number.
+    bool cell_in = true;
+    // How many times the Vbat divider leg has been switched in.  A fake's observation, like
+    // `refreshed`: it is how a test sees that a read went through `VBAT_DIV_EN` at all rather
+    // than helping itself to the node.
+    uint32_t vbat_div_reads = 0;
     // outputs
     pixels::Rgbw px[pixels::kCount]{};
     bool refreshed = false;
@@ -248,8 +259,30 @@ float opto_from_hands_locked() noexcept {
 
 float opto_norm_locked() noexcept { return g_st.opto_auto ? opto_from_hands_locked() : g_st.opto; }
 
-// Charger state, shared by power::read() and the expander's open-drain CHRG pin.
-bool charging_locked() noexcept { return g_st.plugged && g_st.vbat_mv < kVbatFullMv; }
+// Charger state, behind BOTH views of the CHRG pin.  An empty holder never charges -- the
+// LT3652 has nothing to push current into and deasserts -- and that is not a detail: it is
+// half of what makes the CELL_TEST discriminator necessary.
+bool charging_locked() noexcept {
+    return g_st.plugged && g_st.cell_in && g_st.vbat_mv < kVbatFullMv;
+}
+
+// What the VBAT_SENSE node is actually at, as b_charger.py describes it.  Two FETs decide, and
+// modelling them is what gives cell_test() something to find -- a fake that handed out
+// `vbat_mv` regardless would pass a discriminator that cannot work on hardware.
+//
+//   Q2 conducting (CELL_TEST low):  holder+ is tied to the BAT node.  Plugged, that is the
+//     charger -- which follows the cell while it is charging and sits at the 4.05 V float once
+//     it is not, EMPTY HOLDER INCLUDED.  That last part is the problem the discriminator exists
+//     for: with no cell at all the tap still reads "full".
+//   Q2 off (CELL_TEST high):        the holder alone -- the cell if one is in it, else one body
+//     diode below the BAT node.
+uint16_t vbat_node_mv_locked() noexcept {
+    const uint16_t bat =
+        g_st.plugged ? (charging_locked() ? g_st.vbat_mv : kVbatFullMv) : g_st.vbat_mv;
+    if (!g_st.exp[static_cast<std::size_t>(expander::Sig::CellTest)]) return bat;
+    if (g_st.cell_in) return g_st.vbat_mv;
+    return static_cast<uint16_t>(bat > kQ2DiodeMv ? bat - kQ2DiodeMv : 0);
+}
 
 // One truth about every expander pin, read by BOTH views of it: the named-signal surface
 // (hal::expander, what the firmware uses today) and the register surface (hal::i2c, what a
@@ -259,8 +292,12 @@ bool sig_level_locked(expander::Sig s) noexcept {
     switch (s) {
         // Derived rather than stored, so there is exactly one truth about being plugged in
         // and one about charging -- power::read() and this pin cannot disagree.
+        // ACTIVE-LOW, like every other open-drain input on this chip: the CH224K pulls PG
+        // down when the 15 V contract is up (power_values.md, and §12.0.11 step 6 expects
+        // `PD_PG 0` with the brick in).  The fake had it the other way round until 2026-09-13,
+        // which would have had the target and clocksim print opposite bits for the same board.
         case expander::Sig::PdPg:
-            return g_st.plugged;
+            return !g_st.plugged;
         case expander::Sig::Chrg:
             return !charging_locked();  // OD: low while charging
         case expander::Sig::StepStby:
@@ -373,8 +410,19 @@ Result<uint16_t> read_mv(Ch ch) noexcept {
         }
         case Ch::Vbat: {
             if (!board::present(board::Dev::Vbat)) return Result<uint16_t>::bad(Status::NotPresent);
-            return Result<uint16_t>::good(
-                static_cast<uint16_t>(std::clamp<int32_t>(g_st.vbat_mv + noise_locked(), 0, 5000)));
+            // The divider's bottom leg is `Q3`, and it is OPEN by default -- 100k/100k across a
+            // backup cell is a permanent 20 uA drain otherwise (power.md).  So switch it in,
+            // read, and put it back the way it was found, exactly as hal_esp.cpp does; the
+            // caller above never learns that either of us has a FET.  (No settling wait here:
+            // C110's 25 ms is real hardware, and burning it under `sim warp` would slow every
+            // test that samples the cell.)
+            const auto leg = static_cast<std::size_t>(expander::Sig::VbatDivEn);
+            const bool was = g_st.exp[leg];
+            g_st.exp[leg] = true;
+            ++g_st.vbat_div_reads;
+            const int32_t mv = vbat_node_mv_locked() + noise_locked();
+            g_st.exp[leg] = was;
+            return Result<uint16_t>::good(static_cast<uint16_t>(std::clamp<int32_t>(mv, 0, 5000)));
         }
     }
     return Result<uint16_t>::bad(Status::BadArg);
@@ -868,24 +916,10 @@ uint8_t volume_pct() noexcept {
 
 }  // namespace audio
 
-// ============================ hal::power =================================================
-namespace power {
-
-Result<State> read() noexcept {
-    std::lock_guard lk{g_mx};
-    if (!board::present(board::Dev::Vbat)) return Result<State>::bad(Status::NotPresent);
-    State s{};
-    s.vbat_mv = g_st.vbat_mv;
-    const int32_t pct =
-        (static_cast<int32_t>(s.vbat_mv) - kVbatEmptyMv) * 100 / (kVbatFullMv - kVbatEmptyMv);
-    s.soc_pct = static_cast<uint8_t>(std::clamp(pct, 0, 100));
-    s.plugged = g_st.plugged;
-    s.charging = charging_locked();
-    s.fault = false;
-    return Result<State>::good(s);
-}
-
-}  // namespace power
+// hal::power is NOT here.  It used to be a complete implementation on this side sitting next to
+// a NotPresent stub on the other, which is two copies of the SoC endpoints and three copies of
+// an open-drain inversion.  It is shared/power.cpp now -- one copy, reached through the fake ADC
+// and the fake expander above, so these tests exercise the code the board runs (§11.2).
 
 // ============================ hal::store =================================================
 namespace store {
@@ -1107,6 +1141,19 @@ bool plugged() noexcept {
     return g_st.plugged;
 }
 
+void set_cell_in(bool in) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.cell_in = in;
+}
+bool cell_in() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.cell_in;
+}
+uint32_t vbat_div_reads() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_st.vbat_div_reads;
+}
+
 void render_pixels(char* out, std::size_t cap) noexcept {
     std::lock_guard lk{g_mx};
     std::size_t n = 0;
@@ -1162,11 +1209,15 @@ Snapshot snapshot() noexcept {
     s.cool_pct = g_st.cool_pct;
     s.spk_active = g_st.spk_active;
     s.vol_pct = g_st.vol_pct;
+    // The CELL, not the tap.  This is the simulator's God view -- the same licence `hand_deg`
+    // takes to report where a hand physically is -- so it stays truthful where power::read()
+    // has to answer R-BOARD-3 honestly and say "bat node, SoC unknown".
     s.vbat_mv = g_st.vbat_mv;
     const int32_t pct =
         (static_cast<int32_t>(g_st.vbat_mv) - kVbatEmptyMv) * 100 / (kVbatFullMv - kVbatEmptyMv);
     s.soc_pct = static_cast<uint8_t>(std::clamp(pct, 0, 100));
     s.plugged = g_st.plugged;
+    s.cell_in = g_st.cell_in;
     s.charging = charging_locked();
     // Raw, NOT knob::read() -- that call consumes `delta`, and a viewer that eats the ui
     // AO's deltas would be changing the thing it is watching.

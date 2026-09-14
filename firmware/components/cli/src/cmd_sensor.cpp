@@ -41,8 +41,19 @@ Status s_homing(char* out, std::size_t cap) {
 Status s_vbat(char* out, std::size_t cap) {
     const auto p = hal::power::read();
     if (!p.ok()) return p.st;
-    std::snprintf(out, cap, "mv=%u soc=%u plugged=%d chrg=%d", p.v.vbat_mv, p.v.soc_pct,
-                  p.v.plugged ? 1 : 0, p.v.charging ? 1 : 0);
+    // `src` is R-BOARD-3 on the line, and it is the column that stops this row from lying: the
+    // divider taps cell+ against board GND, so plugged it is reporting the BAT node and a cell
+    // 600 mV lower would read the same.  `soc` is a question mark rather than a number in that
+    // case -- an SoC off the charger's output is a faked reading, and D16 says say so.
+    char soc[6];
+    if (p.v.soc_pct == hal::power::kSocUnknown) {
+        std::snprintf(soc, sizeof soc, "?");
+    } else {
+        std::snprintf(soc, sizeof soc, "%u", p.v.soc_pct);
+    }
+    std::snprintf(out, cap, "mv=%u soc=%s src=%s plugged=%d chrg=%d flt=%d", p.v.vbat_mv, soc,
+                  hal::power::name(p.v.src), p.v.plugged ? 1 : 0, p.v.charging ? 1 : 0,
+                  p.v.fault ? 1 : 0);
     return Status::Ok;
 }
 
@@ -169,7 +180,7 @@ constexpr SensorSpec kSensors[] = {
     {"knob", board::Dev::Knob, 50, true, "PCNT count + this view's own delta, ENC_SW + raw pin",
      s_knob},
     {"hands", board::Dev::Motor, 100, true, "microstep position + velocity", s_hands},
-    {"vbat", board::Dev::Vbat, 10, true, "cell mV, SoC, charger state", s_vbat},
+    {"vbat", board::Dev::Vbat, 10, true, "cell mV, SoC, what the tap sees, charger", s_vbat},
     {"clk", board::Dev::Xtal32k, 1, true, "slow-clock source, sim time", s_clk},
     {"imu", board::Dev::Imu, 20, true, "BNO085 gravity + taps", s_imu},
     {"exp", board::Dev::Expander, 20, true, "MCP23017 ports", s_exp},

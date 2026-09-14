@@ -110,12 +110,72 @@ Status cmd_i2c_write(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// ---- the charger, the two bits of it that are a decision rather than a reading -----------
+
+// Full cell or empty holder.  ⚠ Unsafe and PLUGGED-ONLY, and the refusal on battery is
+// R-BOARD-2 rather than caution: `CELL_TEST` turns `Q2` off, which on battery cuts every rail
+// and reboots the board -- a self-recovering loop, but unbounded while the bit is set.  There
+// is no hardware interlock, so hal::power::cell_test() takes its own fresh `PD_PG` and answers
+// `Denied`; this row only has to say so in words.
+Status cmd_cell(Args const&, Sink& out) {
+    const auto t = hal::power::cell_test();
+    if (t.st == Status::Denied) {
+        out.line("refused: on battery.  CELL_TEST turns Q2 off, which cuts the rails and");
+        out.line("  reboots the board for as long as the bit is set (R-BOARD-2).  Plug in.");
+        return t.st;
+    }
+    if (!t.ok()) return t.st;
+    out.printf("holder %s", t.v.present ? "has a cell" : "is EMPTY");
+    // The three numbers, because the verdict is a threshold over them and a bench that can see
+    // the step can tell "no cell" from "the discriminator is not working".
+    out.printf("  rest %u mV -> held %u mV -> open %u mV   step %+d mV", t.v.rest_mv, t.v.held_mv,
+               t.v.open_mv, t.v.step_mv);
+    out.line("  a step of one Q2 body diode (~350 mV) is an empty holder; ~0 is a cell");
+    if (!t.v.charging) {
+        // R-BOARD-3.  Without charge current there is nothing proving the protector's charge
+        // FET is closed, and with it open the tap is not on the cell at all -- so both readings
+        // above are of the BAT node and the verdict is a guess wearing a number.
+        out.line("  WARNING: CHRG was low.  With the charge FET open this tap is not on the");
+        out.line("  cell at all, so neither reading above means what it says (R-BOARD-3):");
+        out.line("  treat the verdict as unproven until the charger is actually charging.");
+    }
+    return Status::Ok;
+}
+
+// The 4.05 V health cap is fixed in HARDWARE by the LT3652 float divider; this switches `R16`
+// in for a 4.20 V top-up.  ⚠ Unsafe because it takes a cell past the number the whole cell
+// choice was made around (README §10) -- and off is not just the default, it is what a board
+// that has never been told anything does: the expander is hi-Z at POR and `R24` holds `Q1` off.
+Status cmd_fullchg(Args const& a, Sink& out) {
+    const char* v = a.arg(0);
+    if (!v) {
+        const auto on = hal::power::full_charge();
+        if (!on.ok()) return on.st;
+        out.printf("full-charge %s -- cap %s", on.v ? "ON" : "off", on.v ? "4.20 V" : "4.05 V");
+        out.line("  the 4.05 V cap is the float divider's; `board fullchg on` switches R16 in");
+        out.line("  off at POR without firmware help: expander hi-Z, R24 holds Q1 off");
+        return Status::Ok;
+    }
+    const bool on = std::strcmp(v, "on") == 0;
+    if (!on && std::strcmp(v, "off") != 0) {
+        out.line("usage: board fullchg [on|off]");
+        return Status::BadArg;
+    }
+    if (const Status st = hal::power::set_full_charge(on); st != Status::Ok) return st;
+    out.printf("full-charge %s -- the charger now tops to %s", on ? "ON" : "off",
+               on ? "4.20 V" : "4.05 V (the health cap)");
+    return Status::Ok;
+}
+
 constexpr CmdSpec kRows[] = {
     {"board", "i2c", "scan", "", "who answers on the shared bus", ReleaseOk, cmd_i2c_scan},
     {"board", "i2c", "read", "<addr> <reg> [<n>]", "n registers in ONE transaction", None,
      cmd_i2c_read},
     {"board", "i2c", "write", "<addr> <reg> <val>", "one register -- drives real pins", Unsafe,
      cmd_i2c_write},
+    {"board", nullptr, "cell", "", "full cell vs empty holder (plugged only)", Unsafe, cmd_cell},
+    {"board", nullptr, "fullchg", "[on|off]", "4.20 V top-up instead of the 4.05 V cap", Unsafe,
+     cmd_fullchg},
 };
 
 }  // namespace

@@ -74,6 +74,14 @@ void set_speaker(bool on) noexcept;  // stands in for the `audio` AO until it ex
 // ---- power -----------------------------------------------------------------------------
 void set_plugged(bool) noexcept;
 bool plugged() noexcept;
+// Take the cell out of the holder.  Not the same as a flat cell, and telling the two apart is
+// the entire job of `hal::power::cell_test()` -- on a plugged board `Q2` back-feeds the holder
+// from the BAT node, so an empty holder reads "full" until CELL_TEST turns Q2 off.
+void set_cell_in(bool) noexcept;
+bool cell_in() noexcept;
+// How many times the Vbat divider leg has been switched in, so a test can see that a reading
+// went through `VBAT_DIV_EN` rather than round it.  Same kind of observation as refreshed().
+uint32_t vbat_div_reads() noexcept;
 
 // ---- persistent settings ---------------------------------------------------------------
 // Where hal::store keeps its `key = value` file.  The app sets it; a test binary that leaves
@@ -107,9 +115,9 @@ struct Snapshot {
     bool spk_active;
     uint8_t vol_pct;
     // power
-    uint16_t vbat_mv;
+    uint16_t vbat_mv;  // the CELL, always -- the God view, not what VBAT_SENSE can see
     uint8_t soc_pct;
-    bool plugged, charging;
+    bool plugged, charging, cell_in;
     // input
     int32_t knob_count;
     bool knob_sw;

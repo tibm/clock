@@ -1,21 +1,18 @@
 // ESP32-S3 HAL.                                            [FIRMWARE.md §2, §12.0]
 //
-// STATUS: `clock_` is real; every peripheral below is an honest stub returning NotPresent.
-// That is not a placeholder apology -- on BOARD=devkit it is the *correct* answer until you
-// wire something up (board_cfg starts the devkit with an empty presence mask), and D16 says
-// absence is a first-class result, never a faked success and never an error log.
+// STATUS, 2026-09-13: `clock_`, `adc`, `knob`, `i2c`, `pixels`, `motor`, `expander` and the
+// three sensor-board drivers are real.  `hal::power` moved to shared/power.cpp -- it is
+// arithmetic over the ADC and the expander and had nothing platform-specific left in it.
 //
-// Filling these in is the day-one devkit task, in the order §12.0 gives:
-//   pixels  -> espressif/led_strip 3.0.3, SPI3 backend on kPins.neopix   (D4)
-//   adc     -> adc_oneshot + adc_cali curve fitting, ADC1_CH0/CH1
-//   wake    -> ledc, ~1 kHz, gamma applied above this layer
-//   knob    -> pcnt unit0 + glitch filter, ENC_SW as a GPIO IRQ
-//   i2c     -> i2c_master at 400 kHz, generous timeouts (the BNO085 clock-stretches)
-//   motor   -> 2x MCPWM + GPTimer0: Q16.16 phase accumulator, quarter-sine LUT, 8
-//              comparators, comparator target latches the stop                        (D5)
-//   expander-> MCP23017 over i2c; today it is named signals, it becomes the driver     (§11.2)
-//   imu     -> BNO085 SHTP/SH-2 over i2c, SENSOR_INT on IO42
-// Each one is independently testable the moment its part is on the breadboard, which is
+// Two namespaces here are still honest NotPresent stubs, and both are gated on the 12 V boost
+// rather than on anything in this file (NEXT_STEPS.md Phase 4):
+//   wake  -> ledc, ~1 kHz, gamma applied above this layer
+//   audio -> I2S + MCLK + TAS5760M over i2c, then the firmware biquad HPF + limiter
+//
+// A stub is not a placeholder apology.  On BOARD=devkit it is the *correct* answer until you
+// wire something up (board_cfg starts the devkit with an empty presence mask), and D16 says
+// absence is a first-class result, never a faked success and never an error log.  Each
+// peripheral is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
@@ -672,9 +669,9 @@ Status set_volume_pct(uint8_t) noexcept { return Status::NotPresent; }
 uint8_t volume_pct() noexcept { return 0; }
 }  // namespace audio
 
-namespace power {
-Result<State> read() noexcept { return Result<State>::bad(Status::NotPresent); }
-}  // namespace power
+// hal::power is not here: it is shared/power.cpp, compiled into both backends.  Everything it
+// needs is above -- the ADC (which owns the `VBAT_DIV_EN` leg) and the expander -- so there was
+// nothing platform-specific left to put on this side.
 
 // NVS, and it is real on this side already: the per-unit hand calibration (§6.1) has to
 // survive a power cut before anything else does, and `nvs_flash_init()` has been in
