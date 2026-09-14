@@ -725,6 +725,13 @@ command with a real authorization check three weeks before a pixel exists to lig
 **Owns:** MCPWM0 (minute, IO4/5/6/3), MCPWM1 (hour, IO38/39/40/41), GPTimer0, ADC1_CH1 (`HOME_OPTO`, IO2).
 **Does not own:** `STEP_STBY` — that lives on the MCP23017, so `motion` requests it from `board` (below).
 
+> ⚠ **TODO — swap hands to shafts (decided 2026-09-13).** Minute hand moves to the X40 **inner pin**
+> (front, like a normal clock), hour hand to the **outer tube** (`cad/README.md`). The wiring is
+> unchanged — driver #1 / `STEP_M_*` / MCPWM0 still drives the tube — so the firmware must map
+> MCPWM0 → **hour** and MCPWM1 → **minute** (the `STEP_M`/`STEP_H` net names in `esp32.md` and
+> `kicad/gen/b_motor.py` become misnomers). Re-check the homing order: the hour hand now sits
+> nearest the QRE1113 and hides the minute hand where they overlap.
+
 - **Geometry:** X40.879 on the X27 base spec ≈ **1/3° per full step → 1080 steps/rev**; ×16
   microstepping → 17 280 µsteps/rev. ⚠ *Verify on the bench during bring-up (`motion spr`) — this is
   the one number the whole dial depends on.*
@@ -1492,7 +1499,10 @@ coredump reporting on boot, fault latch → LED code.
 **Firmware safety interlocks** (the hardware is already double-redundant per README §10 — the
 firmware's job is not to undermine it):
 
-1. `BOOST12_EN` is never asserted unless `PD_PG` reads high. Single choke point, one function.
+1. `BOOST12_EN` is never asserted unless `PD_PG` reads **asserted** — the pin is open-drain
+   active-low, so that is a **0** on GPB0 (`power_values.md`; §12.0.11 step 6 expects `PD_PG 0`
+   with the brick in). Single choke point, one function, and `hal::power::read()` is where the
+   inversion happens so nothing above it has to remember which way round the pin is.
 2. Any panic / WDT / brownout path asserts `STEP_STBY` and `SPK_SD` **before** anything else.
 3. `CELL_TEST` is a brief, plugged-only pulse behind a guard that refuses on battery.
 4. Wake-light PWM is gated off in any battery mode (12 V boost is plugged-only).
@@ -1567,11 +1577,11 @@ dying cell. Nothing else in the system knows or cares, because motion is absolut
 ```mermaid
 stateDiagram-v2
     [*] --> Plugged
-    Plugged --> Battery : PD_PG low
-    Battery --> Plugged : PD_PG high
+    Plugged --> Battery : PD_PG deasserted
+    Battery --> Plugged : PD_PG asserted
     Battery --> BatteryLow : SoC below 30 pct
     BatteryLow --> Battery : SoC above 40 pct, hysteresis
-    BatteryLow --> Plugged : PD_PG high
+    BatteryLow --> Plugged : PD_PG asserted
     BatteryLow --> Shutdown : VBAT below 3.2 V
     Battery --> Shutdown : VBAT below 3.2 V
     Shutdown --> Plugged : USB wake
@@ -1832,11 +1842,11 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
-| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` · `motion stop` · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
+| `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
 | `audio` | `audio status` · ⚠`audio play <file>` · ⚠`audio tone <hz> <s>` · `audio vol [<0-100>]` · `audio stop` · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* · ⚠`audio reg <r> [<v>]` |
-| `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) · ⚠`board sleep <s>` |
+| `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
 | `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · `net ble status` · `net ble pair` · `net ble unbond` · ⚠`net ota <url>` |
@@ -2468,9 +2478,10 @@ on this chain reads back, so a dead pixel, a dead `U15` or an unstuffed part all
 close to impossible (data passes through the chain), so **0 lit / 1 dark** is `D41` or the link
 between them, and **both dark** is `U15`, IO7, or 5 V at the pixels.
 
-⚠ Pixels 2-6 stay dark until the `J12` harness exists, and **`J12` is the 5 V injection point
-during bring-up** (§12.0.3) — its pin 2 is the chain's data-out to those five. Power and data
-there need sorting before the status row can work.
+⚠ Pixels 2-6 stay dark until the `J12` harness exists. (`J12` was also the 5 V injection point
+during bring-up; that is **retired** as of §12.0.13 — the board runs off the cell.) Its pin 2 is
+the chain's data-out to those five, so power and data there need sorting before the status row
+can work.
 
 ### 12.0.6 The expander answers, and the board is idle-safe — 2026-09-08
 
@@ -2511,8 +2522,13 @@ exp  gpa=0001 gpb=11110010 radio=on stby=0
 
 That is milestone 1's "confirms `STEP_STBY`/`SPK_SD` idle-safe", measured rather than assumed.
 The write path is proven too: `OLATB ← 0x20` put `GPIOB` at `0x6F` and flipped `VBAT_DIV_EN` in
-the named view, then restored. **Milestone 1 is complete except `sensor vbat`, which needs the
-ADC.**
+the named view, then restored.
+
+**`sensor vbat` reads this table.** `hal::power::read()` (written 2026-09-13, §12.0.14) takes
+`PD_PG`/`CHRG`/`FAULT` from GPB0-2 and **inverts all three** — they are open-drain with the
+pull-ups above, so the `1`s in the right-hand column are *deasserted*, which is why an idle bench
+board correctly reports not-plugged and not-charging. The fake had `PD_PG` the other way round
+until the same day; it does not now.
 
 `get()` reads `GPIO`, never the `OLAT` shadow, even for outputs — an output that cannot reach
 its latch (shorted, or fighting something) is exactly what you want a bench read to show.
@@ -3150,7 +3166,7 @@ Nothing here needs a cell, and steps 1-6 must all pass before one goes in.
 | 4 | Meter the 5 V and 3.3 V rails | 5 V, 3.3 V | TPS61023 / the buck. The MCU cannot boot without both |
 | 5 | Console up (breakout rig), then `board i2c scan` | `0x20` + `0x6C`, and the J7 three if fitted | the board is running on its own power tree for the first time |
 | 6 | `sensor exp read` | `PD_PG 0` — asserted, wall live | this is the bit `§6.8` gates the 12 V boost on, and the last of milestone 1's expander story |
-| 7 | `sensor vbat read` | a BAT-node reading, ~4.05 V, `plugged=1` | **closes milestone 1.** `VBAT_DIV_EN` switches the divider in and back out around the read (§12.0.7) |
+| 7 | `sensor vbat read` | `src=bat-node soc=? plugged=1`, mV ~4.05 V | **closes milestone 1.** `VBAT_DIV_EN` switches the divider in and back out around the read (§12.0.7); `src`/`soc=?` are R-BOARD-3 refusing to call the BAT node cell health (§12.0.14) |
 | 8 | Unplug. Meter `VBUS` and the rails | `VBUS` 0 V, rails dead, board off | correct with no cell: the BAT node is the system rail and there is nothing feeding it |
 | 9 | **Now** a cell. Check `F1` continuity first (~0 Ω) | board runs unplugged, `sensor vbat` tracks the cell | if `F1` is open it was cooked during soldering — replace before trusting the safety chain |
 | 10 | Plug in with the cell present. Watch `sensor vbat stream 1 600` | `chrg=1`, mV climbing, settling at **4.05 V** not 4.2 | the 80 % cap is fixed in hardware by the float divider; 4.2 V means `FULLCHG_EN` is asserted or the divider is wrong |
@@ -3370,14 +3386,84 @@ is the charger's output. Build #1 reported ~4.0 V for a cell sitting at 3.4 V. F
 treat `sensor vbat` as a cell-health measurement unless `PD_PG` is deasserted *and* the board is
 running from the cell. There is no hardware fix short of a differential sense across the cell.
 
+### 12.0.14 `hal::power` — and R-BOARD-3 written into the return type — 2026-09-13
+
+Milestone 1's last item, and the shape it took is the interesting part.
+
+**One implementation, both backends** (`clk_hal/shared/power.cpp`). The ESP side was a
+`NotPresent` stub facing a complete host implementation, and the obvious move was to mirror the
+host one across. What the mirror would have duplicated is telling: the two SoC endpoints, three
+open-drain inversions, and the R-BOARD-3 decision — none of it silicon. So it went to `shared/`
+instead, on top of `hal::adc` and `hal::expander`, the same call `mcp23017.cpp` already makes.
+The host tests now exercise the code the board runs (§11.2), and the fake `PD_PG` inversion below
+is the kind of thing that *only* shows up when both sides read one implementation.
+
+**What `read()` answers, and what it refuses to answer.** R-BOARD-3 says the number is not always
+the cell, so `power::State` carries a `VbatSrc` and `soc_pct` is `kSocUnknown` unless it is
+`Cell`:
+
+| `PD_PG` | `src` | `soc_pct` | why |
+|---|---|---|---|
+| deasserted | `Cell` | computed | running from the cell, cell − is at PACK−, the tap is across the cell |
+| asserted | `BatNode` | `kSocUnknown` | the charger's output. Equal to the cell while its charge FET is closed — which nothing on this board can see |
+
+`CHRG` deliberately does not promote `BatNode` to `Cell`. Current flowing proves the charge FET
+is closed, but it also puts the node I × (R_fet + R_wire) above the cell, and the LT3652 holds
+`CHRG` through its whole C/10 taper. A cell voltage plus an unknown offset is not cell health,
+and an SoC derived from it is the faked reading D16 exists to forbid.
+
+**Two polarity bugs, found by writing it down.** The fake modelled `PD_PG` as level == plugged
+— active-HIGH — while the pin is open-drain active-low (`power_values.md`, and §12.0.11 step 6
+expects `PD_PG 0` with the brick in). `sim plug` printed "PD_PG high (plugged)", and §7.4's power
+mode diagram said the same. Target and clocksim would have printed opposite bits for the same
+board. All four now agree, and `test_power_status_lines_are_active_low` pins it.
+
+**`board cell` and `board fullchg`** came with it. The discriminator's R-BOARD-2 guard is in the
+driver, not the command: a **fresh** `PD_PG` read, `Denied` on battery, and `CELL_TEST` deasserted
+on every path out including a failed ADC read. It also reports `CHRG`, because with the charge FET
+open neither of its readings is on the cell and the verdict is unproven — R-BOARD-3 reaching the
+diagnostic that was supposed to sit above it.
+
+**The fake models the two FETs** on the Vbat node rather than handing out a cell voltage, because
+the discriminator is entirely about them: `Q2` conducting ties holder+ to the BAT node, which
+plugged reads the 4.05 V float **with no cell in the holder at all** — the failure the
+discriminator exists for. `sim cell <in|out>` puts an empty holder in front of it.
+
+**Bench-verified the same day, as far as build #1 can be.** Cell in, Mac on `J1`:
+
+```
+sensor vbat read   ->  vbat  mv=3466 soc=22 src=cell plugged=0 chrg=0 flt=0
+sensor exp read    ->  exp  gpa=0001 gpb=11110010 radio=on stby=0
+board fullchg      ->  full-charge off -- cap 4.05 V
+board cell         ->  refused: on battery ... (R-BOARD-2)   [denied]
+```
+
+`gpb=11110010` is byte-for-byte §12.0.6's reference idle, which is the part worth noticing: bit 5
+is `VBAT_DIV_EN` and it reads **0** *after* a cell measurement, so the divider really is switched
+in for the read and put back. `PD_PG` deasserted on a Mac port means `src=cell` — the board is
+running off the cell, so the tap is across it and `soc=22` at 3466 mV is a real number. R-BOARD-3's
+ambiguity never arises in this bench setup; it needs the wall.
+
+⚠ **And the wall is exactly what this setup cannot have.** `board cell` needs `PD_PG` asserted
+(brick on `J1`) and the console needs `J1` as well, so with a Mac on `J1` the command can only ever
+refuse — which it does, correctly, off a fresh `PD_PG`. `PD_PG 0`, `chrg=1` and the 4.05 V settle
+are unreachable for the same reason.
+
+That does **not** make it a v0.4 wait: §12.0.11's inline USB-C pass-through rig is V6 in temporary
+form and needs no rework — brick to `J1`, `D±`+GND tapped out to the Mac, host `VBUS` unconnected,
+`D±` cut on the brick side, and the breakout must pass `CC1`/`CC2`. What it does mean is that the
+rig stopped being a power-bring-up convenience and became the thing that closes milestone 1
+(`NEXT_STEPS.md` F1.6, which also carries the firmware alternative: sample into a ring on the
+brick, swap to the Mac, read it back — the cell keeps the board alive across the swap).
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
 |---|---|---|
 | 0 | **Console + `help` + `sys stat` + `sys top` + `sys ev` + `sys debug`** | The CLI is milestone zero, not an afterthought — everything after this is debuggable |
-| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · sensors read on the bench 2026-09-09; **`sensor vbat` is still the one item left — but it is no longer blocked.** The BAT node exists as of 2026-09-13 (§12.0.13) and `hal::power::read()` is a `NotPresent` stub on ESP (`hal_esp.cpp:675`) against a complete host reference (`hal_host.cpp:872`). Queued as **`NEXT_STEPS.md` Phase 1** |
+| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · sensors read on the bench 2026-09-09. **`hal::power::read()` is written, 2026-09-13** — and it is one implementation for both backends (`clk_hal/shared/power.cpp`) rather than a stub facing a host reference, because it is arithmetic over `hal::adc` and `hal::expander` and has nothing platform-specific in it. It carries R-BOARD-3 in its return type (`power::VbatSrc`), and `board cell` / `board fullchg` came with it. **Bench-verify to close: `NEXT_STEPS.md` F1.6** |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
-| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11); `steps_per_rev`, direction, silence and homing still open (**`NEXT_STEPS.md` Phase 2**). ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on`, and `cmd_step` currently prints a success line anyway (`NEXT_STEPS.md` F0.1) |
+| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11); `steps_per_rev`, direction, silence and homing still open (**`NEXT_STEPS.md` Phase 2**). ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on`. F0.1 is **fixed, 2026-09-13**: a raw target goes through in `Fault`, `motion stop` clears a `Fault`, and every `motion` row prints the refusal and names the gate instead of a success line |
 | 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · **knob confirmed 2026-09-11** (§12.0.11), after the `J10` harness was found reversed end-for-end (§12.0.10); the J12 pixel row still wants its harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors |

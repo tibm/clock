@@ -83,9 +83,11 @@ tools/build.sh dev rev0_3 -p /dev/cu.usbmodem101 flash monitor
 shell profile — the number changes with the USB port and with re-enumeration. Find the
 current one with `ls /dev/cu.usbmodem*`.
 
-**The board needs its own 5 V while you do this.** USB VBUS reaches the LT3652 and nothing
+**The board needs its own power while you do this.** USB VBUS reaches the LT3652 and nothing
 else, and the charger idles below 11.2 V, so a Mac's 5 V port powers no rail: `J1` is data
-only. Inject 5 V at `J12` pins 1/3 — see `../FIRMWARE.md` §12.0.3.
+only. Put a cell in the holder and leave it in — the `J12` 5 V injection this used to recommend
+is retired (`../NEXT_STEPS.md`, and §12.0.13 for what to do if re-inserting the cell trips the
+protector).
 
 ## Host build — tests and `clocksim`
 
