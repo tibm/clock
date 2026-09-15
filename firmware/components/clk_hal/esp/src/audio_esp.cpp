@@ -468,6 +468,32 @@ Status pin_release() noexcept {
     return Status::Ok;
 }
 
+Result<Probe> probe_pins() noexcept {
+    if (!g_clocks.load(std::memory_order_relaxed))
+        return Result<Probe>::bad(Status::NotReady);  // nothing to look at
+
+    constexpr gpio_num_t kPads[4] = {kMclk, kBclk, kWs, kDout};
+    // Enabling the input buffer does NOT disturb the output matrix -- the peripheral keeps
+    // driving the pad and we read what it is driving.  That is the whole trick.
+    for (const gpio_num_t p : kPads) (void)::gpio_input_enable(p);
+
+    Probe pr{};
+    // 2000 samples per pad.  The loop runs at roughly 1 MHz, so the slowest signal here
+    // (LRCK, 48 kHz) still turns over ~50 times inside the window and the fastest aliases
+    // into an even mix -- either way, both levels appear unless the pad has stopped.
+    constexpr uint32_t kSamples = 2000;
+    pr.samples = kSamples;
+    for (int i = 0; i < 4; ++i) {
+        uint32_t hi = 0;
+        // Interrupts left alone: a preemption lengthens the window, which can only help a
+        // toggling pad show both levels.  This is a presence test, not a frequency counter.
+        for (uint32_t n = 0; n < kSamples; ++n) hi += ::gpio_get_level(kPads[i]) ? 1u : 0u;
+        pr.high[i] = hi;
+        pr.toggling[i] = hi != 0 && hi != kSamples;
+    }
+    return Result<Probe>::good(pr);
+}
+
 Status set_clocking(uint16_t mclk_multiple, uint8_t slot_bits) noexcept {
     if (slot_bits != 16 && slot_bits != 32) return Status::BadArg;
     switch (mclk_multiple) {

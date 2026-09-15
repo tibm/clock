@@ -442,6 +442,20 @@ inline constexpr const char* name(Pin p) noexcept {
 Status pin_drive(Pin, bool level) noexcept;
 Status pin_release() noexcept;  // hand them back to I2S
 
+// Is the PERIPHERAL toggling the pad?  pin_drive() proves the GPIO path -- the module pad,
+// the trace, the joint -- and proves nothing about I2S, which is the half that matters when
+// the amp says CLKE.  So: enable the input buffer on the four pads while I2S is driving them
+// (the output matrix is untouched; this is how loopback works) and sample each one in a tight
+// loop.  A pad carrying 12.288 MHz sampled at ~1 MHz comes back a mix of both levels; a pad
+// that has STOPPED comes back all-one-value, which is CLKE cause 3 in one command and no
+// instruments at all.
+struct Probe {
+    uint32_t samples;  // per pad
+    uint32_t high[4];  // Pin order: mclk, bclk, lrck, dout
+    bool toggling[4];  // both levels seen
+};
+Result<Probe> probe_pins() noexcept;
+
 // The clock geometry, so the datasheet's Table 6 can be SWEPT from the bench instead of
 // guessed at and reflashed.  `mclk_multiple` is 128/192/256/384/512 x f_S (the amp requires
 // 128-512 and has no PLL); `slot_bits` is 16 or 32 and sets BCLK to 32 or 64 x f_S.  Takes

@@ -315,6 +315,41 @@ Status cmd_pins(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// The other half of the pin test, and the half that needed a scope until now: pin_drive()
+// proves the WIRE, this proves the PERIPHERAL.  CLKE cause 3 is "MCLK, SCLK, or LRCK has
+// stopped", and a pad the I2S unit is not toggling reads all-one-value here.
+Status cmd_probe(Args const&, Sink& out) {
+    const auto p = hal::audio::probe_pins();
+    if (p.st == Status::NotReady) {
+        out.line("probe refused: the clocks are down -- start `audio tone 1000` first");
+        return p.st;
+    }
+    if (!p.ok()) {
+        out.line("probe refused: this backend has no pads (target only)");
+        return p.st;
+    }
+    static const char* const kNames[4] = {"mclk", "bclk", "lrck", "dout"};
+    static const char* const kPins[4] = {"U9 pin 14", "U9 pin 15", "U9 pin 17", "U9 pin 16"};
+    bool all_ok = true;
+    for (int i = 0; i < 4; ++i) {
+        const unsigned pct = static_cast<unsigned>(p.v.high[i] * 100u / p.v.samples);
+        out.printf("%-4s %-10s  %s   %u%% high of %lu samples", kNames[i], kPins[i],
+                   p.v.toggling[i] ? "TOGGLING" : "STOPPED ", pct,
+                   static_cast<unsigned long>(p.v.samples));
+        all_ok = all_ok && p.v.toggling[i];
+    }
+    if (all_ok) {
+        out.line("all four pads are moving -- so the amp is being clocked and is rejecting it.");
+        out.line(
+            "  that is CLKE cause 1 or 2, not 3: try `audio clk 512 32` / `384 32` / `128 16`");
+        out.line("  and if none clear it, scope MCLK for duty cycle (the amp wants 45-55 %)");
+    } else {
+        out.line("a STOPPED pad is CLKE cause 3.  It is not the wire -- `audio pins` already");
+        out.line("  proved that -- so the I2S peripheral is not driving it.  Say which one.");
+    }
+    return Status::Ok;
+}
+
 Status cmd_clk(Args const& a, Sink& out) {
     uint16_t mult = 0;
     uint8_t bits = 0;

@@ -1064,6 +1064,7 @@ uint32_t start_seq() noexcept {
 // reported on both sides and the CLI row stays testable.
 Status pin_drive(Pin, bool) noexcept { return Status::NotPresent; }
 Status pin_release() noexcept { return Status::NotPresent; }
+Result<Probe> probe_pins() noexcept { return Result<Probe>::bad(Status::NotPresent); }
 
 uint16_t g_mclk_mult = 256;
 uint8_t g_slot_bits = 16;
