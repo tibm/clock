@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "driver/gpio.h"
 #include "driver/i2s_std.h"
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -49,6 +50,13 @@ constexpr gpio_num_t kDout = GPIO_NUM_12;
 // slack -- enough that a `board i2c scan` or an SD hiccup does not underrun, and short enough
 // that stop() takes effect while you are still listening for it.
 constexpr std::size_t kBlockFrames = 256;
+
+// The clock geometry, mutable from the bench (`audio clk`).  Defaults are the design's:
+// MCLK 256 x f_S = 12.288 MHz, 16-bit slots = BCLK 32 x f_S.  Both are inside the amp's
+// Table 6 at 48 kHz, and both are re-read on every port install.
+uint16_t g_mclk_mult = 256;
+uint8_t g_slot_bits = 16;
+bool g_pins_held = false;  // a pin test owns the four pads; the port does not exist
 constexpr int kDmaDescs = 6;
 constexpr int kDmaFrames = 240;
 
@@ -115,7 +123,43 @@ int16_t g_block[kBlockFrames * 2];
 
 // ---- the port ---------------------------------------------------------------------------
 
+bool clocks_on(bool on) noexcept;  // defined below, next to the port it drives
+
+gpio_num_t pin_of(Pin p) noexcept {
+    switch (p) {
+        case Pin::Mclk:
+            return kMclk;
+        case Pin::Bclk:
+            return kBclk;
+        case Pin::Lrck:
+            return kWs;
+        default:
+            return kDout;
+    }
+}
+
+// Give the four pads back to the GPIO matrix so install_port() can re-route them.
+void release_pins() noexcept {
+    if (!g_pins_held) return;
+    for (const gpio_num_t p : {kMclk, kBclk, kWs, kDout}) {
+        (void)::gpio_set_direction(p, GPIO_MODE_INPUT);
+        (void)::gpio_set_pull_mode(p, GPIO_FLOATING);
+    }
+    g_pins_held = false;
+}
+
+// Drop the port entirely.  `audio clk` and the pin test both need the pads back, and IDF will
+// only delete a channel that is disabled -- which is what clocks_on(false) leaves it.
+void teardown_port() noexcept {
+    clocks_on(false);
+    if (g_tx) {
+        (void)::i2s_del_channel(g_tx);  // also revokes the GPIO reservations
+        g_tx = nullptr;
+    }
+}
+
 bool install_port() noexcept {
+    release_pins();
     if (g_tx) return true;
     i2s_chan_config_t chan = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan.dma_desc_num = kDmaDescs;
@@ -149,7 +193,12 @@ bool install_port() noexcept {
     // because the amp REQUIRES an MCLK in 128-512 f_S and a silently different multiple is a
     // chip that clocks and never makes a sound (Table 6).
     static_assert(I2S_MCLK_MULTIPLE_256 == 256, "the amp wants 128-512 f_S; 256 is the target");
-    cfg.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;
+    cfg.clk_cfg.mclk_multiple = static_cast<i2s_mclk_multiple_t>(g_mclk_mult);
+    // Slot width wider than the sample is legal and is how BCLK moves from 32 to 64 x f_S
+    // without touching the 16-bit data -- the amp accepts both (Table 6) and 64 is what most
+    // of the world runs, so it is the first thing to try when CLKE will not clear.
+    cfg.slot_cfg.slot_bit_width =
+        g_slot_bits == 32 ? I2S_SLOT_BIT_WIDTH_32BIT : I2S_SLOT_BIT_WIDTH_16BIT;
 
     if (const esp_err_t e = ::i2s_channel_init_std_mode(g_tx, &cfg); e != ESP_OK) {
         CLK_LOGE(drv_amp, "i2s init std: %s", ::esp_err_to_name(e));
@@ -232,8 +281,9 @@ Status bring_up() noexcept {
     return Status::Ok;
 }
 
-void bring_down() noexcept {
-    port::Lock seq{g_seq_mx};
+// Caller holds g_seq_mx.  port::Mutex is not recursive, and the two bench tools below have to
+// tear the amp down from inside the lock they already hold.
+void bring_down_locked() noexcept {
     if (!g_amp_up.load(std::memory_order_relaxed) && !g_clocks.load(std::memory_order_relaxed))
         return;
     // §9.2.1.2.2, in order.  The 5 ms is the chip's own volume fade finishing before the
@@ -244,6 +294,11 @@ void bring_down() noexcept {
     g_amp_up.store(false, std::memory_order_relaxed);
     clocks_on(false);
     CLK_LOGD(drv_amp, "amp parked");
+}
+
+void bring_down() noexcept {
+    port::Lock seq{g_seq_mx};
+    bring_down_locked();
 }
 
 // ---- the writer -----------------------------------------------------------------------------
@@ -389,6 +444,59 @@ Status stop() noexcept {
 }
 
 bool playing() noexcept { return g_playing.load(std::memory_order_relaxed); }
+
+Status pin_drive(Pin which, bool level) noexcept {
+    port::Lock seq{g_seq_mx};
+    bring_down_locked();
+    teardown_port();
+    g_pins_held = true;
+    const bool all = which == Pin::All;
+    for (const Pin p : {Pin::Mclk, Pin::Bclk, Pin::Lrck, Pin::Dout}) {
+        if (!all && p != which) continue;
+        const gpio_num_t g = pin_of(p);
+        (void)::gpio_set_direction(g, GPIO_MODE_OUTPUT);
+        (void)::gpio_set_level(g, level ? 1 : 0);
+    }
+    CLK_LOGW(drv_amp, "pin test: %s driven %s -- I2S is DOWN until the next `audio tone`",
+             name(which), level ? "HIGH" : "LOW");
+    return Status::Ok;
+}
+
+Status pin_release() noexcept {
+    port::Lock seq{g_seq_mx};
+    release_pins();
+    return Status::Ok;
+}
+
+Status set_clocking(uint16_t mclk_multiple, uint8_t slot_bits) noexcept {
+    if (slot_bits != 16 && slot_bits != 32) return Status::BadArg;
+    switch (mclk_multiple) {
+        case 128:
+        case 192:
+        case 256:
+        case 384:
+        case 512:
+            break;
+        default:
+            return Status::BadArg;
+    }
+    // MCLK must divide down to BCLK exactly, or IDF warns and the ratio the amp counts stops
+    // being an integer.  BCLK is 2 slots x slot_bits per frame.
+    const uint32_t bclk_mult = 2u * slot_bits;
+    if (mclk_multiple % bclk_mult != 0) return Status::BadArg;
+
+    port::Lock seq{g_seq_mx};
+    bring_down_locked();
+    teardown_port();  // the next tone() re-installs at the new geometry
+    g_mclk_mult = mclk_multiple;
+    g_slot_bits = slot_bits;
+    return Status::Ok;
+}
+
+void clocking(uint16_t& mclk_multiple, uint8_t& slot_bits) noexcept {
+    mclk_multiple = g_mclk_mult;
+    slot_bits = g_slot_bits;
+}
 
 Result<State> state() noexcept {
     if (!board::present(board::Dev::Amp)) return Result<State>::bad(Status::NotPresent);

@@ -261,6 +261,89 @@ Status cmd_reg(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// ---- the two clock tools ------------------------------------------------------------------
+// `CLKE` in reg 0x08 is ONE bit for two completely different faults: a clock that never
+// reaches the pin, and a clock whose ratios the amp rejects.  These split them, and the pin
+// test deliberately needs nothing faster than a multimeter -- the real signals are 12.288 MHz
+// and 1.536 MHz, which most benches cannot see.
+Status cmd_pins(Args const& a, Sink& out) {
+    const char* which = a.arg(0);
+    if (!which) {
+        out.line("usage: audio pins <mclk|bclk|lrck|dout|all> <0|1>   ·   audio pins off");
+        out.line("  drives one I2S pad as a STATIC GPIO so a DMM on the amp's own pin proves");
+        out.line("  the module pad, the trace and the joint in one reading:");
+        out.line("    mclk -> U9 pin 14 (module 37, IO43)   bclk -> U9 pin 15 (module 18, IO10)");
+        out.line("    lrck -> U9 pin 17 (module 19, IO11)   dout -> U9 pin 16 (module 20, IO12)");
+        out.line("  I2S is DOWN while a pin is held; the next `audio tone` takes them back");
+        return Status::BadArg;
+    }
+    if (std::strcmp(which, "off") == 0) {
+        if (const Status st = hal::audio::pin_release(); st != Status::Ok) {
+            out.line("pins refused: this backend has no pads (target only)");
+            return st;
+        }
+        out.line("pins released -- `audio tone` will re-install the port");
+        return Status::Ok;
+    }
+    hal::audio::Pin p{};
+    if (std::strcmp(which, "mclk") == 0) {
+        p = hal::audio::Pin::Mclk;
+    } else if (std::strcmp(which, "bclk") == 0) {
+        p = hal::audio::Pin::Bclk;
+    } else if (std::strcmp(which, "lrck") == 0) {
+        p = hal::audio::Pin::Lrck;
+    } else if (std::strcmp(which, "dout") == 0) {
+        p = hal::audio::Pin::Dout;
+    } else if (std::strcmp(which, "all") == 0) {
+        p = hal::audio::Pin::All;
+    } else {
+        out.line("usage: audio pins <mclk|bclk|lrck|dout|all> <0|1>   ·   audio pins off");
+        return Status::BadArg;
+    }
+    uint32_t level = 0;
+    if (!parse_u32(a.arg(1), level) || level > 1) {
+        out.line("usage: audio pins <mclk|bclk|lrck|dout|all> <0|1>");
+        return Status::BadArg;
+    }
+    if (const Status st = hal::audio::pin_drive(p, level != 0); st != Status::Ok) {
+        out.line("pins refused: this backend has no pads (target only)");
+        return st;
+    }
+    out.printf("%s driven %s -- I2S is DOWN; measure at the amp, not at the module",
+               hal::audio::name(p), level ? "HIGH (3.3 V)" : "LOW (0 V)");
+    out.line("  a pad that reads 0 V when driven HIGH is a broken trace or a cold joint");
+    return Status::Ok;
+}
+
+Status cmd_clk(Args const& a, Sink& out) {
+    uint16_t mult = 0;
+    uint8_t bits = 0;
+    if (!a.arg(0)) {
+        hal::audio::clocking(mult, bits);
+        out.printf("clk   mclk %u x fs = %lu Hz   bclk %u x fs = %lu Hz   %u-bit slots", mult,
+                   static_cast<unsigned long>(hal::audio::kRateHz) * mult, 2u * bits,
+                   static_cast<unsigned long>(hal::audio::kRateHz) * 2u * bits, bits);
+        out.line("  the amp REQUIRES mclk in 128-512 x fs and accepts bclk 32/48/64 (Table 6)");
+        out.line("  `audio clk 256 32` = the usual 64 x fs bclk, which is what most codecs see");
+        return Status::Ok;
+    }
+    uint32_t m = 0, b = 32;
+    if (!parse_u32(a.arg(0), m) || (a.arg(1) && !parse_u32(a.arg(1), b))) {
+        out.line("usage: audio clk [<mclk_mult>] [<slot_bits>]   e.g. `audio clk 256 32`");
+        return Status::BadArg;
+    }
+    const Status st = hal::audio::set_clocking(static_cast<uint16_t>(m), static_cast<uint8_t>(b));
+    if (st != Status::Ok) {
+        out.line("clk refused: mclk_mult must be 128|192|256|384|512, slot_bits 16|32,");
+        out.line("  and mclk_mult must divide by 2 x slot_bits exactly");
+        return st;
+    }
+    hal::audio::clocking(mult, bits);
+    out.printf("clk   mclk %u x fs   bclk %u x fs   %u-bit slots -- takes effect on the next tone",
+               mult, 2u * bits, bits);
+    return Status::Ok;
+}
+
 constexpr CmdSpec kRows[] = {
     {"audio", nullptr, "status", "", "clocks, pin, registers, faults", ReleaseOk, cmd_status},
     {"audio", nullptr, "tone", "[<hz>] [<ms>]", "a generated sine; no <ms> = until stop", None,
@@ -270,6 +353,10 @@ constexpr CmdSpec kRows[] = {
      cmd_vol},
     {"audio", nullptr, "reg", "<r> [<v>]", "one TAS5760M register -- drives real pins", Unsafe,
      cmd_reg},
+    {"audio", nullptr, "pins", "<name> <0|1> | off", "hold one I2S pad -- a DMM trace test", Unsafe,
+     cmd_pins},
+    {"audio", nullptr, "clk", "[<mclk_mult>] [<slot_bits>]", "sweep the I2S clock geometry", None,
+     cmd_clk},
 };
 
 }  // namespace

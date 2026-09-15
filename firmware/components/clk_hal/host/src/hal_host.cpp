@@ -1058,6 +1058,41 @@ uint32_t start_seq() noexcept {
     return g_start_seq;
 }
 
+// The pin test is TARGET-ONLY and says so.  There are no pads here, and a fake that answered
+// Ok would be a fake the bench could not tell from a board -- which is the one thing D14
+// forbids.  `audio clk` is different: the geometry is a decision, so it is remembered and
+// reported on both sides and the CLI row stays testable.
+Status pin_drive(Pin, bool) noexcept { return Status::NotPresent; }
+Status pin_release() noexcept { return Status::NotPresent; }
+
+uint16_t g_mclk_mult = 256;
+uint8_t g_slot_bits = 16;
+
+Status set_clocking(uint16_t mclk_multiple, uint8_t slot_bits) noexcept {
+    if (slot_bits != 16 && slot_bits != 32) return Status::BadArg;
+    switch (mclk_multiple) {
+        case 128:
+        case 192:
+        case 256:
+        case 384:
+        case 512:
+            break;
+        default:
+            return Status::BadArg;
+    }
+    if (mclk_multiple % (2u * slot_bits) != 0) return Status::BadArg;
+    std::lock_guard lk{g_mx};
+    g_mclk_mult = mclk_multiple;
+    g_slot_bits = slot_bits;
+    return Status::Ok;
+}
+
+void clocking(uint16_t& mclk_multiple, uint8_t& slot_bits) noexcept {
+    std::lock_guard lk{g_mx};
+    mclk_multiple = g_mclk_mult;
+    slot_bits = g_slot_bits;
+}
+
 Result<State> state() noexcept {
     if (!board::present(board::Dev::Amp)) return Result<State>::bad(Status::NotPresent);
     age_tone();
@@ -1072,8 +1107,8 @@ Result<State> state() noexcept {
     s.fault_pin = !g_st.exp[static_cast<std::size_t>(expander::Sig::SpkFault)];
     s.vol_pct = g_st.vol_pct;
     s.vol_db = tas5760m::db_for_pct(g_st.vol_pct);
-    s.mclk_hz = g_st.spk_active ? kRateHz * 256u : 0u;
-    s.bclk_hz = g_st.spk_active ? kRateHz * 32u : 0u;
+    s.mclk_hz = g_st.spk_active ? kRateHz * g_mclk_mult : 0u;
+    s.bclk_hz = g_st.spk_active ? kRateHz * 2u * g_slot_bits : 0u;
     s.underruns = 0;  // nothing to starve
     s.last_error = g_start_st;
     s.last_step = g_start_step;

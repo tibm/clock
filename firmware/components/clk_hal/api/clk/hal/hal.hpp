@@ -415,6 +415,40 @@ bool playing() noexcept;
 // that guesses.
 uint32_t start_seq() noexcept;
 
+// ---- two bench tools, both for the same question: is the clock ARRIVING? ------------------
+// The TAS5760M answers "clock error" (reg 0x08 CLKE) for two completely different faults --
+// a signal that never reaches the pin, and a signal whose ratios it does not accept -- and
+// from the outside they are the same bit.  These split them, and the first one needs only a
+// multimeter, which matters because the whole chain is 12 MHz and 1.5 MHz.
+
+// Drive ONE I2S pin as a static GPIO, so a DMM on the amp's own pin (U9 14/15/17/16) proves
+// the module pad, the trace and the joint in one reading.  Tears the port down; the next
+// tone() re-installs it.  Bench-only -- there are no pins on the host.
+enum class Pin : uint8_t { Mclk, Bclk, Lrck, Dout, All };
+inline constexpr const char* name(Pin p) noexcept {
+    switch (p) {
+        case Pin::Mclk:
+            return "mclk";
+        case Pin::Bclk:
+            return "bclk";
+        case Pin::Lrck:
+            return "lrck";
+        case Pin::Dout:
+            return "dout";
+        default:
+            return "all";
+    }
+}
+Status pin_drive(Pin, bool level) noexcept;
+Status pin_release() noexcept;  // hand them back to I2S
+
+// The clock geometry, so the datasheet's Table 6 can be SWEPT from the bench instead of
+// guessed at and reflashed.  `mclk_multiple` is 128/192/256/384/512 x f_S (the amp requires
+// 128-512 and has no PLL); `slot_bits` is 16 or 32 and sets BCLK to 32 or 64 x f_S.  Takes
+// effect on the next port install, which is the next tone().
+Status set_clocking(uint16_t mclk_multiple, uint8_t slot_bits) noexcept;
+void clocking(uint16_t& mclk_multiple, uint8_t& slot_bits) noexcept;
+
 // What the port and the chip are actually doing -- for `audio status`, and for telling
 // "the amp is muted" apart from "there are no clocks" apart from "the driver never ran".
 struct State {
