@@ -1110,7 +1110,8 @@ Result<State> state() noexcept {
     s.vol_db = tas5760m::db_for_pct(g_st.vol_pct);
     s.mclk_hz = g_st.spk_active ? kRateHz * g_mclk_mult : 0u;
     s.bclk_hz = g_st.spk_active ? kRateHz * 2u * g_slot_bits : 0u;
-    s.underruns = 0;  // nothing to starve
+    s.sclk_hz = g_st.spk_active ? 160000000u : 0u;  // PLL_F160M, the target's default source
+    s.underruns = 0;                                // nothing to starve
     s.last_error = g_start_st;
     s.last_step = g_start_step;
     s.regs_live = true;

@@ -91,6 +91,17 @@ Status cmd_status(Args const&, Sink& out) {
                    static_cast<unsigned long>(s.v.mclk_hz),
                    static_cast<unsigned long>(s.v.mclk_hz / hal::audio::kRateHz),
                    static_cast<unsigned long>(s.v.bclk_hz));
+        // The divisor, because it is what decides the DUTY and the frequency is not.  An odd
+        // N cannot give 50 %: the divider splits it ceil(N/2)/N.  `audio clk` has the table.
+        if (s.v.sclk_hz && s.v.mclk_hz) {
+            const uint32_t n = s.v.sclk_hz / s.v.mclk_hz;
+            out.printf("      src %lu Hz / mclk = %lu.%03lu -> N=%lu (%s), duty ~%u%%",
+                       static_cast<unsigned long>(s.v.sclk_hz), static_cast<unsigned long>(n),
+                       static_cast<unsigned long>(
+                           (static_cast<uint64_t>(s.v.sclk_hz) * 1000 / s.v.mclk_hz) % 1000),
+                       static_cast<unsigned long>(n), (n % 2) ? "ODD" : "even",
+                       (n % 2 == 0) ? 50u : static_cast<unsigned>(((n + 1) / 2) * 100 / n));
+        }
     } else {
         out.line("i2s   down -- MCLK/BCLK/LRCK are not running");
     }
@@ -350,11 +361,35 @@ Status cmd_probe(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// The S3 has no APLL for I2S, so MCLK is sclk/(N + b/a) off PLL_F160M -- and the DIVIDER's
+// output duty is 50 % only when N is even.  For an odd N it is ceil(N/2)/N, which at the 256 fs
+// we shipped is 7/13 = 53.8 % against the amp's 45-55 % window (§6.5, DMCLK): inside it on
+// paper, and one slow edge at the receiver's 70 %/30 % thresholds away from outside it.
+//
+// So the multiple is not a free choice, and the bench should not have to do this arithmetic.
+constexpr uint32_t kSrcHz = 160000000;  // PLL_F160M, I2S_CLK_SRC_DEFAULT on this chip
+constexpr uint16_t kMults[] = {128, 192, 256, 384, 512};
+
+void clk_table(Sink& out) {
+    out.line("  mult   mclk Hz      sclk/mclk   N    duty     (the amp wants 45-55 %)");
+    for (const uint16_t m : kMults) {
+        const uint32_t mclk = hal::audio::kRateHz * m;
+        const uint32_t n = kSrcHz / mclk;  // the integer part; the rest is the fraction
+        const unsigned duty = (n % 2 == 0) ? 50u : static_cast<unsigned>(((n + 1) / 2) * 100 / n);
+        out.printf("  %4u   %-11lu  %lu.%03lu     %-4lu %u%%%s", m,
+                   static_cast<unsigned long>(mclk), static_cast<unsigned long>(n),
+                   static_cast<unsigned long>((static_cast<uint64_t>(kSrcHz) * 1000 / mclk) % 1000),
+                   static_cast<unsigned long>(n), duty, (n % 2 == 0) ? "   <- even N" : "");
+    }
+    out.line("  an ODD N cannot produce a 50 % clock: the divider splits it ceil(N/2)/N.");
+}
+
 Status cmd_clk(Args const& a, Sink& out) {
     uint16_t mult = 0;
     uint8_t bits = 0;
     if (!a.arg(0)) {
         hal::audio::clocking(mult, bits);
+        clk_table(out);
         out.printf("clk   mclk %u x fs = %lu Hz   bclk %u x fs = %lu Hz   %u-bit slots", mult,
                    static_cast<unsigned long>(hal::audio::kRateHz) * mult, 2u * bits,
                    static_cast<unsigned long>(hal::audio::kRateHz) * 2u * bits, bits);

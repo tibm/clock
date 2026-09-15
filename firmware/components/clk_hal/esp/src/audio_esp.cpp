@@ -565,6 +565,7 @@ Result<State> state() noexcept {
         if (::i2s_channel_get_info(g_tx, &info) == ESP_OK) {
             s.mclk_hz = info.mclk_hz;
             s.bclk_hz = info.bclk_hz;
+            s.sclk_hz = info.sclk_hz;
         }
     }
     return Result<State>::good(s);

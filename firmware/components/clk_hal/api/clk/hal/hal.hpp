@@ -449,10 +449,15 @@ Status pin_release() noexcept;  // hand them back to I2S
 // loop.  A pad carrying 12.288 MHz sampled at ~1 MHz comes back a mix of both levels; a pad
 // that has STOPPED comes back all-one-value, which is CLKE cause 3 in one command and no
 // instruments at all.
+// ⚠ `high` is NOT a duty-cycle measurement and must not be read as one.  The sampling loop
+// runs at a few MHz and the CPU clock shares a PLL with MCLK, so for the fast pads the samples
+// alias at a fixed phase instead of sweeping through one.  Only LRCK (48 kHz) is oversampled
+// enough for its percentage to mean anything.  What the numbers ARE good for is the binary
+// question -- did both levels appear at all -- which is CLKE cause 3.
 struct Probe {
     uint32_t samples;  // per pad
     uint32_t high[4];  // Pin order: mclk, bclk, lrck, dout
-    bool toggling[4];  // both levels seen
+    bool toggling[4];  // both levels seen -- this is the answer; the percentage is not
 };
 Result<Probe> probe_pins() noexcept;
 
@@ -476,6 +481,11 @@ struct State {
     float vol_db;
     uint32_t mclk_hz;  // read back from the port, 0 when the clocks are down
     uint32_t bclk_hz;
+    // The SOURCE those two are divided from (PLL_F160M), because the DIVISOR is the
+    // interesting number and the frequency is not.  The S3 has no APLL for I2S, so MCLK is
+    // always sclk/(N + b/a) -- and for an ODD N the divider's output duty is ceil(N/2)/N,
+    // which at N=13 is 53.8 % against the amp's 45-55 % window (§6.5, DMCLK).
+    uint32_t sclk_hz;
     uint32_t underruns;  // DMA writes that timed out -- a source that cannot keep up
 
     // Why the amp is not up, from the last attempt to bring it up.  `Ok` with a null step
