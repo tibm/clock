@@ -184,6 +184,7 @@ Datasheet `amp_tas5760m.pdf` (32-pin DAP). **Software (I²C) control**, **PBTL m
 | **SPK_FAULT (6)** | open-drain → **10 k PU to 3V3**; optional to a spare expander IN (GPB6) for a HW fault line, else poll fault regs over I²C | §8.3.3.1 |
 | **SFT_CLIP (2)** | **tie to GVDD_REG** (soft-clipper off → clip at rail; firmware HPF + limiter + digital clipper protect the driver). Divider+cap only if a fixed soft-clip point is wanted | §8.4.1.3 |
 | **Reg pins** | ANA_REG(3)/GVDD_REG(32)/VCOM(4)/ANA_REF(5): **bypass caps only — do not load** | §8.3.1 |
+| **AVDD (1)** | ⚠ **→ PVDD, NOT +3V3.** Added 2026-09-14 after build #1 made no sound. §6.3 Recommended Operating Conditions gives **AVDD 4.5–26.4 V** — the same range as PVDD; only **DVDD** is 2.8–3.63 V. §10's prose ("two power supplies") reads as if there were no third supply pin, and that is the trap: three supply PINS, two RAILS. Figure 64 routes pin 1 to the PVDD node. **The board ties it to +3V3 — 1.2 V under minimum** — which leaves the digital domain alive (I²C fine) and the analog domain dead (reg 0x08 stuck at CLKE). `kicad/REVIEW.md` **V13** carries the fix and the bench bodge | §6.3 / Fig. 64 |
 | **MCLK (14)** | TAS5760M **requires MCLK (128–512 × f_S)** — not MCLK-less. **`IO43` = `I2S_MCLK`** (HW I²S0 via the S3 GPIO matrix; reassigned from the aux UART log → logging = USB-CDC only). Target **256 f_S ≈ 12.288 MHz @ 48 kHz** | §8.3.2.1 / Table 6 |
 
 ---

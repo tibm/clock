@@ -141,7 +141,15 @@ Status cmd_status(Args const&, Sink& out) {
         out.printf("⚠ reg 0x08:%s%s%s%s", f.v.clk ? " CLK" : "", f.v.oc ? " OC" : "",
                    f.v.dc ? " DC" : "", f.v.ot ? " OT" : "");
         out.line("  OC/DC/OT latch -- they clear only when SPK_SD is toggled (`audio stop`)");
-        if (f.v.clk) out.line("  CLK does not latch: it means MCLK/BCLK/LRCK are wrong RIGHT NOW");
+        if (f.v.clk) {
+            out.line("  CLK does not latch: it means MCLK/BCLK/LRCK are wrong RIGHT NOW");
+            // Found 2026-09-14 after the clocks were proven correct on a scope at the amp's
+            // own pins.  Until the bodge lands this is the expected reading on build #1, and
+            // saying so is what stops the next session re-deriving it from first principles.
+            out.line("  ⚠ ON BUILD #1 THIS IS EXPECTED: `U9` pin 1 AVDD is wired to +3V3 and");
+            out.line("  its datasheet minimum is 4.5 V -- the analog domain is starved while");
+            out.line("  the digital one (this I2C conversation) is fine.  kicad/REVIEW.md V13");
+        }
     }
 
     // The rail the watts are computed against, and it is the reason the ceiling is where it

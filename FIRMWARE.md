@@ -3602,6 +3602,64 @@ is USB-CDC and the boot-ROM banner on IO43 is the only thing that ever touches i
 has been through a speaker. `NEXT_STEPS.md` Phase 5 has the bench sequence and what each step
 proves.
 
+### 12.0.16 The amp is 1.2 V under a supply minimum — 2026-09-14
+
+The bring-up of §12.0.15 made no sound. Four rounds of bench work eliminated everything in
+firmware, and the answer was a schematic net.
+
+**What the board measured, and why none of it helped.** `DVDD` 3.3 V, `PVDD` 5.0 V, `SPK_SD`
+3.3 V, `SPK_GAIN0/1` 3.3 V, `SPK_SLEEP/ADR` 0 V — every strap right. I²C perfect: `0x02=0x04
+0x06=0xD1 0x04=0xA7` read back exactly what the driver wrote, live off the chip. And reg 0x08
+stuck at `0x08` = **CLKE**, with `SPK_FAULT` low, which the fault table says is the only
+non-latching error that pulls that pin.
+
+**The elimination, in the order it happened.** §8.3.3.1 gives CLKE three causes: (1) an
+unsupported MCLK-to-LRCK or SCLK-to-LRCK ratio, (2) an unsupported MCLK or LRCK rate, (3) one
+of them has stopped.
+
+| step | what it proved | tool it needed |
+|---|---|---|
+| `audio pins <p> <0\|1>` | the pads, traces and joints are good — driven HIGH reads 3.3 V at the amp's own pins | a multimeter |
+| `audio probe` | all four pads are **toggling** → cause 3 is out | nothing — it reads the pads back through the S3's own input buffers while I²S drives them |
+| `audio clk 384 32` | even divisor, 50 % duty, CLKE unmoved → the duty theory is dead | nothing |
+| scope at `U9`'s pins | MCLK 12.288 MHz, BCLK 1.536 MHz, LRCK 48 kHz — ratios 256 and 32, both in Table 6 → causes 1 and 2 are out | a scope, and only at the very end |
+
+Three different, correct frequencies on three adjacent pins also disproved a solder bridge
+between them, which was the leading hardware theory at that point.
+
+**So every CLKE cause was eliminated and CLKE was still set.** That is only possible if the
+detector itself is not working — and the detector is analog.
+
+**`AVDD` minimum is 4.5 V.** §6.3 Recommended Operating Conditions: **AVDD 4.5–26.4 V**, the
+same range as `PVDD`. Only `DVDD` is 2.8–3.63 V. The board ties `U9` pin 1 to **+3V3**
+(`kicad/gen/b_audio.py`: *"DVDD/AVDD are +3V3"*, and the netlist agrees: `+3V3 U9.1 AVDD_1`) —
+**1.2 V under the minimum.** Figure 64, the mono-PBTL software-control topology this board
+copies, routes pin 1 up and over the package to the `PVDD` node.
+
+What made it easy to get wrong is §10's own prose: *"The TAS5760M device requires two power
+supplies"* — PVDD and DVDD, with `AVDD` never named. Three supply **pins**, two **rails**, and
+the sentence only mentions the rails. §10.1 then compounds it by saying `ANA_REG` is "internally
+connected to the DVDD supply" where the pin table says it is derived from `AVDD`.
+
+Starving `AVDD` produces exactly the symptom set above: the digital domain (the I²C
+conversation, the register file) runs off `DVDD` and is fine; `ANA_REG`, `VCOM`, `ANA_REF`, the
+modulator and the clock-validation circuitry all sit in the analog domain and are not.
+
+⚠ **The spec violation is certain; that it is the sole cause of CLKE is a strong inference and
+is not proven until the bodge makes a sound.** `kicad/REVIEW.md` **V13** is the fix (one net,
+two caps re-parented, zero BOM) and carries the bench bodge: lift pin 1, wire it to `PVDD`.
+
+**Two things worth keeping from how this went.**
+
+1. **The tools were worth more than the scope.** `audio probe` — reading the I²S pads back
+   through the S3's own input buffers while the peripheral drives them — eliminated a whole
+   CLKE cause with no instruments at all, and `audio pins` eliminated the wiring with a
+   multimeter. The scope confirmed what firmware had already narrowed to one line.
+2. **A command that only queues must not report success.** `audio tone` printed a played tone
+   for an amp that had never come out of shutdown, because `tone()` returns the moment the
+   request is queued and the five-step start-up runs ~25 ms later on the writer task. Fixed the
+   same day (§9.3, ground rule 2) — and the fix is what made every round after it trustworthy.
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
@@ -3612,7 +3670,7 @@ proves.
 | 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11). F0.1 is **fixed 2026-09-13** — a raw target goes through in `Fault`, `motion stop` clears one, and every `motion` row prints the refusal and names the gate — and the hands **swapped shafts** the same day (§6.1e, minute to the inner pin). ⚠ Now gated on the **printed hands**, not on firmware: `steps_per_rev`, direction and homing all need something visible on a shaft, and §6.1e's arithmetic says today's opto span cannot see the far hand at all. Silence is the only item that works on bare shafts. ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on` (**`NEXT_STEPS.md` Phase 2**) |
 | 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · **knob confirmed 2026-09-11** (§12.0.11), after the `J10` harness was found reversed end-for-end (§12.0.10); the J12 pixel row still wants its harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
-| 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors · **the first four are written, 2026-09-13** (§12.0.15): the port, the register set, the datasheet's start-up order and a generated sine, with a **25 % bring-up volume ceiling** that comes out when the AO4838 and the 15 V brick do. ⏳ Nothing has been through a speaker yet — `NEXT_STEPS.md` Phase 5. The WAV path waits on `storage`, and `audio dsp` on the biquad + limiter |
+| 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors · **firmware is written and proven correct on the bench, 2026-09-13/14** (§12.0.15, §12.0.16): port, register set, start-up order, generated sine, and a **25 % bring-up volume ceiling**. ⛔ **Blocked on hardware, not firmware:** `U9` pin 1 `AVDD` is wired to +3V3 against a 4.5 V minimum, so the amp's analog domain is starved and reg 0x08 sits at `CLKE` — `kicad/REVIEW.md` **V13**, one net, with a bench bodge. The WAV path waits on `storage`, `audio dsp` on the biquad + limiter |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
 | 8 | `supervisor` power modes + `backup_tick_s` deep-sleep loop, measure actual mA | The 48 h backup claim |
 | 9 | BLE provisioning + Clock Control service + OTA | The app |

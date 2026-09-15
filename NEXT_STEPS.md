@@ -251,19 +251,45 @@ no longer binds. Until the swap, it does, and hard — which is exactly what
 
 ---
 
-## Phase 5 — milestone 6, the half that is written: **bench it** ⏳ written 2026-09-13, unheard
+## Phase 5 — milestone 6 ⛔ **firmware done and proven; blocked on one net** (2026-09-14)
 
-`hal::audio` is real (`FIRMWARE.md` §12.0.15): I²S0 with MCLK on `IO43`, the TAS5760M's register
-set in the datasheet's start-up order, a generated sine, and the `audio` CLI group. Every bit of
-it is host-tested and none of it has been through a speaker. It needs **no** hardware gate — no
-hands, no pass-through rig, no AO4838 — just the bench setup at the top of this file and the
-speaker on `J3` (JST PH, `kicad/README.md`).
+`hal::audio` is real and is now bench-proven *correct* (`FIRMWARE.md` §12.0.15, §12.0.16): I²S0
+with MCLK on `IO43`, the TAS5760M's register set in the datasheet's start-up order, a generated
+sine, and the `audio` CLI group. It still makes no sound, and the cause is **hardware**:
+
+> ⛔ **`U9` pin 1 `AVDD` is wired to `+3V3`; its datasheet minimum is 4.5 V**
+> (`amp_tas5760m.pdf` §6.3 — AVDD is 4.5–26.4 V, the same range as PVDD; only DVDD is 3.3 V).
+> The digital domain runs fine — I²C is perfect, every register reads back what was written —
+> and the analog domain, which holds the clock-validation circuitry, is starved. Reg 0x08 sits
+> at `CLKE` with all three clocks present and correct at the amp's own pins on a scope.
+> **`kicad/REVIEW.md` V13** has the fix (one net) and the bench bodge: lift pin 1, wire to
+> `PVDD` (pin 28, or `C172`'s + terminal).
+
+**Do the bodge first — nothing below can pass without it.** Everything after F5.1 was written
+before the cause was known and is still the right sequence once the amp is fed.
+
+⚠ The spec violation is certain. That it is the *sole* cause of CLKE is a strong inference and
+is proven only when the bodge makes a sound — so F5.1 is now "did the bodge work", and if CLKE
+survives it, the next suspect is amplitude/VIH at `U9` pin 14 (0.7 × DVDD = 2.31 V), which is
+the one electrical parameter never measured.
 
 ⚠ **Before you plug the speaker in, read the ceiling.** `hal::audio::kMaxVolPct` is **25 %** and
 the default is **10 %**, and that is R-AUDIO-1, not caution: with no 15 V brick the amp runs off
 the 5 V rail and full scale is 3.1 W ≈ **1.9 A peak from the cell**, which is the `-GB`
 protector's 1.89 A trip. A trip self-clears, so it looks like **a spontaneous reboot** — if the
 board resets during a tone, that is the first thing to suspect, not the firmware.
+
+### F5.0 · The bodge — lift `U9` pin 1, wire it to `PVDD`
+Pin 1 is a corner pin on 0.65 mm pitch, which makes it one of the easier ones to lift. Nearest
+`PVDD` is pin 28, or `C172`'s + terminal if that is kinder to reach. `C162`/`C163` stay behind
+on `+3V3` as harmless extra bypass — `PVDD`'s own decoupling covers pin 1.
+
+⚠ After the bodge `AVDD` follows `PVDD` **including up to 12 V** when the boost is enabled.
+That is intended: 26.4 V recommended max, 30 V absolute, and it is what the datasheet's own
+Figure 64 does.
+
+Then: `audio tone 1000` → `audio status`. **Reg 0x08 should read `0x00`.** If it does, the
+speaker should be making a 1 kHz tone at 10 % and milestone 6 is unblocked.
 
 ### F5.1 · Does it clock at all
 ```
@@ -323,6 +349,7 @@ cannot even be exercised until `PD_PG` is assertable, i.e. the pass-through rig.
 
 | gate | blocks |
 |---|---|
+| **`U9` pin 1 `AVDD` → `PVDD`** (v0.4 **V13**, bodgeable today) | **all of audio.** The firmware is done and proven; the amp's analog domain is 1.2 V under its supply minimum and reg 0x08 sits at `CLKE`. One net at the respin; lift-pin-1-and-wire on build #1 |
 | **AO4838 fitted** | charging of any kind; `sensor vbat stream` showing a real charge curve; F1.6's 4.05 V confirmation |
 | an inline USB-C **pass-through** (V6's temporary form, §12.0.11 — no rework) | **every plugged-in reading.** `board cell` cannot return a verdict without it: the command needs `PD_PG` asserted (brick on `J1`) and you need the console (also `J1`). Confirmed 2026-09-13 — it refuses correctly and there is no way past it. Must pass `CC1`/`CC2`; a fan-out breakout will not do |
 | **the printed hands** (on the printer 2026-09-13) | F2.0's one real check, F2.1, F2.2 and all of F2.4. F2.3 is the only Phase 2 item that works on bare shafts |
