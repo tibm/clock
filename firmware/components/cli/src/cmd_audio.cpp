@@ -392,7 +392,14 @@ constexpr CmdSpec kRows[] = {
      cmd_pins},
     {"audio", nullptr, "clk", "[<mclk_mult>] [<slot_bits>]", "sweep the I2S clock geometry", None,
      cmd_clk},
+    {"audio", nullptr, "probe", "", "are the four I2S pads actually moving?", ReleaseOk, cmd_probe},
 };
+
+// A handler with no row compiles clean and vanishes from `help`, which is how `audio probe`
+// shipped as a function nobody could call.  -Wunused-function would have said so, but it is
+// only a warning in this build and a warning in 1100 lines of ninja output is not a signal.
+// One assert per group is: it costs nothing and it fails at BUILD time.
+static_assert(sizeof(kRows) / sizeof(kRows[0]) == 8, "added a handler? add its row too");
 
 }  // namespace
 
