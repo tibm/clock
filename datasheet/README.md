@@ -17,7 +17,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 3 | `speaker_dma58-4.pdf` | DMA58-4 | Dayton Audio | wired (passive) | ✅ | ~$19 | Analog |
 | 4 | `stepper_motor_x40-879.pdf` | **X40.879** (dual-shaft) | Juken / Switec | wired | ✅ | ~$14 | 2-phase bipolar × 2 |
 | 4b | `stepper_motor_x27_base-spec.pdf` | X27 base spec *(companion to #4)* | Juken / Switec | wired | ✅ | — | — |
-| 5 | `amp_tas5760m.pdf` | **TAS5760M** (`TAS5760MDAPR`) | Texas Instruments | **HTSSOP-32 (DAP, PowerPAD)** | ✅ | ~$4–6 | I²S in + I²C control |
+| 5 | `amp_tas5760m.pdf` | **TAS5760M** (`TAS5760MDAPR`) — ⚠ **`AVDD` (pin 1) is a 4.5–26.4 V pin and must tie to PVDD**; rev0.3 wires it to +3V3 (v0.4 **V13**) | Texas Instruments | **HTSSOP-32 (DAP, PowerPAD)** | ✅ | ~$4–6 | I²S in + I²C control |
 | 6 | `motor_driver_tb6612fng.pdf` | **TB6612FNG** (× 2) | Toshiba | **SSOP-24 (no exposed pad)** | ✅ | ~$2.4 | GPIO/PWM (IN/IN) |
 | 7 | `pd_sink_ch224k.pdf` | **CH224K** | WCH (Qinheng) | **ESSOP-10** | ✅ | ~$0.4 | USB-PD (resistor-set) |
 | 8 | `charger_lt3652.pdf` | **LT3652** (`LT3652EMSE#PBF`) | Analog Devices | **MSOP-12E (PowerPAD)** | ✅ | ~$9.9 | autonomous (resistor-set) |
@@ -84,7 +84,7 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 | ~~**LS032B7DD02** display~~ *(not in current build — dropped v0.19)* | Panel VDD/VDDA **5 V** (4.8–5.5; abs 5.8) | **3 V** inputs | *(was: SPI ×3 + DISP on expander; SPI2 is now microSD-only, IO17 freed → `ENC_SW`)* |
 | **SK6812 RGBW ×7** status + dial NeoPixels (row 31) | **5 V** (3.7–5.5) | data V_IH 0.7·VDD = 3.5 V → **SN74AHCT1G125** buffer (row 32) | **1** data GPIO (IO7 → RMT), whole chain |
 | **EM14A0D-C24-L064S** knob encoder (row 33) | **5 V** ~30 mA | 5 V outputs → **100k/200k dividers** | A/B → **2** (IO47/48 PCNT) + SW → **1** (IO17 IRQ) |
-| **TAS5760M** amp | PVDD **12 V plugged / 5 V on battery** (via LTC4412 mux; range 4.5–26.4) + DVDD **3.3 V** | 3.3 V (DVDD-ref) | I²S BCLK · LRCLK · SDIN + SPK_SD (mute/PDN) + I²C(shared) → **~4 + shared I²C** |
+| **TAS5760M** amp | **THREE supply pins, two rails.** PVDD (21, 28) **12 V plugged / 5 V on battery** via the LTC4412 mux · **AVDD (1) ties to PVDD — range 4.5–26.4 V, NOT a 3.3 V pin** · DVDD (10) **3.3 V** (2.8–3.63) | 3.3 V (DVDD-ref) | I²S MCLK · BCLK · LRCLK · SDIN + SPK_SD (mute/PDN) + SPK_FAULT + I²C(shared) → **5 host GPIO + 2 expander + shared I²C** |
 | **DMA58-4** speaker | — (passive, from amp OUT) | — | none (analog off TAS5760M PBTL output) |
 | **TB6612FNG × 2** driver | VM **5 V** (0–13.5, abs 15) + VCC **3.3 V** (2.7–5.5) | 3.3 V | AIN1·AIN2·BIN1·BIN2 (PWM'd) + STBY → **4 / chip = 8** + shared STBY |
 | **X40.879** stepper | coils fed from TB6612FNG VM **5 V** | — | none direct (via TB6612FNG); 2 shafts × 2 coils |
