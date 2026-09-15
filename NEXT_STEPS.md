@@ -279,10 +279,25 @@ the 5 V rail and full scale is 3.1 W ≈ **1.9 A peak from the cell**, which is 
 protector's 1.89 A trip. A trip self-clears, so it looks like **a spontaneous reboot** — if the
 board resets during a tone, that is the first thing to suspect, not the firmware.
 
-### F5.0 · The bodge — lift `U9` pin 1, wire it to `PVDD`
-Pin 1 is a corner pin on 0.65 mm pitch, which makes it one of the easier ones to lift. Nearest
-`PVDD` is pin 28, or `C172`'s + terminal if that is kinder to reach. `C162`/`C163` stay behind
-on `+3V3` as harmless extra bypass — `PVDD`'s own decoupling covers pin 1.
+### F5.0 · The bodge — **cut one trace**, then wire `U9` pad 1 to `PVDD`
+Checked against `clock.kicad_pcb` 2026-09-14, and it is easier than it first looked: all four
+zones are **GND**, so there is no `+3V3` pour, and pad 1's only path to `+3V3` is one
+**0.25 mm B.Cu trace, 0.85 mm long** running in −X from **(92.850, 83.432)** to a junction at
+**(92.000, 83.432)**.
+
+1. **Cut at ≈ (92.4, 83.43) on B.Cu.** The pad stays attached to the pin, so nothing is
+   lifted. ⚠ Nearest other copper is pin 2's `GVDD_REG` trace **0.65 mm** away (y = 82.782).
+2. **Wire pad 1 → `C170` pad 1** — PVDD, 0603, 0.9 × 0.9 mm pad, 10.66 mm, same side, straight
+   run. ⚠ **Pad 2 of `C170`/`C171`/`C172` is GND** — pin 1 only.
+3. **Ohm it out before power:** pin 1↔`+3V3` open · pin 1↔GND open · pin 1↔pin 2 open · then
+   after the wire, pin 1↔`U9` pin 28 ≈ 0 Ω.
+
+PVDD pads, all verified from the PCB: `C170.1` (103.50, 83.934) · `C171.1` (106.00, 83.934) ·
+`C172.1` (104.70, 64.014) · `U9.21` (100.15, 76.282) · `U9.28` (100.15, 80.832).
+
+`C162`/`C163` stay behind on `+3V3` as harmless extra bypass; `C170` is the tie point so the
+0.1 µF is right there. **The cut is reversible** — a wire from pad 1 back to the via at
+(91.688, 83.101) puts it back on `+3V3`.
 
 ⚠ After the bodge `AVDD` follows `PVDD` **including up to 12 V** when the boost is enabled.
 That is intended: 26.4 V recommended max, 30 V absolute, and it is what the datasheet's own
