@@ -323,6 +323,17 @@ Status cmd_pins(Args const& a, Sink& out) {
     out.printf("%s driven %s -- I2S is DOWN; measure at the amp, not at the module",
                hal::audio::name(p), level ? "HIGH (3.3 V)" : "LOW (0 V)");
     out.line("  a pad that reads 0 V when driven HIGH is a broken trace or a cold joint");
+    if (p != hal::audio::Pin::All && level) {
+        // The half of this test that is easy to skip, and the one that matters on a
+        // hand-soldered HTSSOP-32: U9 pins 14/15/16/17 are FOUR ADJACENT PINS on 0.65 mm
+        // pitch.  A bridge between two of them passes the one-pin-at-a-time check and then
+        // makes the amp see two signals fighting -- which is CLKE with everything else
+        // looking correct.  The other three pads are inputs right now and the amp holds
+        // LRCK/SDIN down with weak pull-downs, so anything but ~0 V on them is the bridge.
+        out.line("  ⚠ NOW MEASURE THE OTHER THREE (14/15/16/17 are adjacent, 0.65 mm pitch):");
+        out.line("    all three must read ~0 V.  Any that follows this one is a SOLDER BRIDGE,");
+        out.line("    and a bridge passes the one-pin-at-a-time check that got us here.");
+    }
     return Status::Ok;
 }
 
