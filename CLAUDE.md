@@ -12,6 +12,7 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 - `power_values.md` — schematic-ready FB/comp/passive values per converter + support networks.
 - `firmware/` — the code + build (`firmware/README.md` = how to build; host `clocksim` + tests need no hardware).
 - `FIRMWARE.md` — FW architecture (source of truth for software): ESP-IDF + C++23 active objects, 9-task model, HSMs, Command surface (CLI ⇄ BLE), CLI, test/bring-up plan. **§6.6 is also the source of truth for the on-device UX** (modes, LED patterns, what the hands show) — README §12 is the short version.
+- `REWORK.md` — **the bench rework guide for main board rev0.3 build #1** (2 required: `U4`→AO4838, `U9` pin 1 `AVDD`→PVDD). Coordinates verified against `kicad/clock.kicad_pcb`; delete it once both are done.
 - `NEXT_STEPS.md` — **the ordered FW queue** (post power bring-up, 2026-09-13). Read this first when picking up firmware work; delete it when it empties.
 - `ux/` — the clock on screen: SVG plate + hands + pixels, and controls for the knob/toggle/IMU. Attaches to `clocksim` over a loopback socket (`ux/README.md`, protocol in `firmware/apps/clocksim/README.md`). **Display only — every algorithm stays in C++.**
 

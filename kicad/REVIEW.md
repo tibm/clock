@@ -59,6 +59,9 @@ bench notes in [`../PCB_v0.3_learnings.md`](../PCB_v0.3_learnings.md) plus what 
 bring-up measured (`FIRMWARE.md` §12.0.3–§12.0.6). None of it is urgent — rev0.3 works — but
 none of it should be rediscovered.
 
+> 🔧 **Doing V9 or V13 on build #1?** [`../REWORK.md`](../REWORK.md) is the bench guide —
+> tools, step order, pad coordinates, continuity checks. This table is the *why*.
+
 | # | Change | Cost | Why |
 |---|---|---|---|
 | V1 | **`M1` lower snap peg: (0, 9.62) → (0, 11.62)** — 2 mm further from the shaft | one footprint edit | **Required hand rework on build #1.** The two top pegs at (±8.49, −8.49) and the Ø4.6 shaft hole at (0, −6) are all correct; only the lone bottom peg is off. Edit `clock.pretty/Juken_X40-879_DualShaft.kicad_mod`, then re-verify against the factory STEP — the peg was derived from it, so a 2 mm error suggests the reference, not the transcription |

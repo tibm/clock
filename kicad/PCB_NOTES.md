@@ -84,6 +84,9 @@ the board **as built** until the respin, so this is written down and deliberatel
 *not* applied yet.
 
 ### The build-#1 bodge — cut, do NOT lift
+
+> Bench instructions, kit list and continuity checks: [`../REWORK.md`](../REWORK.md).
+> What follows is the same rework in summary, kept here so this file stands alone.
 Verified against `clock.kicad_pcb` 2026-09-14. **All four copper zones on this board
 are `GND`**, so there is no `+3V3` pour, and `U9` pad 1's only path to `+3V3` is a
 single **0.25 mm B.Cu trace, 0.85 mm long**:

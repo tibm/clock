@@ -8,6 +8,10 @@ sensors answering, knob counting, coils commutating. The power tree is understoo
 documented (`power.md`, `FIRMWARE.md` §12.0.12–13). One part is on order: **`U4`
 AOSD32334C → AO4838** ([DK 3152401](https://www.digikey.com/en/products/detail/alpha-omega-semiconductor-inc/AO4838/3152401)).
 
+> 🔧 **Two hardware reworks are outstanding on build #1** and both are blocking: `U4` →
+> AO4838 (charging) and `U9` pin 1 `AVDD` → PVDD (all of audio). Step-by-step bench
+> instructions with verified coordinates are in **[`REWORK.md`](REWORK.md)**.
+
 **Bench setup for everything below** — no bridge needed once the cell is in and released:
 
 | | |
