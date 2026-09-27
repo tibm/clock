@@ -383,7 +383,7 @@ inline constexpr uint32_t kRateHz = 48000;
 // 25 % is -12 dB, i.e. 2.29 V rms demanded against a 3.54 V rail: 1.3 W, ~1.2 A peak from the
 // cell, ~1.5x margin.  The default of 10 % is -20 dB = 0.21 W, which a 2" driver is plenty
 // loud at on a desk.  ⚠ Raise this only with the AO4838 fitted AND the 15 V brick in -- both
-// gates are in NEXT_STEPS.md, and R-AUDIO-1 has the numbers for each combination.
+// gates are in FIRMWARE.md §12.2, and R-AUDIO-1 has the numbers for each combination.
 inline constexpr uint8_t kMaxVolPct = 25;
 inline constexpr uint8_t kDefaultVolPct = 10;
 

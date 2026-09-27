@@ -405,7 +405,7 @@ void Ui::rotate(int32_t counts) noexcept {
         // (R-AUDIO-1: PVDD is the 5 V rail until a 15 V brick is in, and a full-scale tone
         // sits on the `-GB` protector's trip), so what is ASKED FOR is clamped and what is
         // SHOWN is not.  ⚠ Until then the preview chime stops getting louder above
-        // kMaxVolPct while the hands keep climbing; drop this line when NEXT_STEPS.md's two
+        // kMaxVolPct while the hands keep climbing; drop this line when FIRMWARE.md §12.2's two
         // hardware gates close and hal::audio stops refusing.
         const uint8_t ask = volume_ < hal::audio::kMaxVolPct ? volume_ : hal::audio::kMaxVolPct;
         (void)hal::audio::set_volume_pct(ask);

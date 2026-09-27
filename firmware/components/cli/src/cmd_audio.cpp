@@ -37,7 +37,7 @@ constexpr uint32_t kMaxToneMs = 30000;
 // saying THAT is better than either hanging or lying.
 constexpr uint32_t kStartWaitMs = 400;
 
-// NEXT_STEPS.md ground rule 2, and its own closing line names this group: "re-run the audit
+// FIRMWARE.md §12.2 ground rule 2, and its own closing line names this group: "re-run the audit
 // when `audio` and `board` land, because both are full of things the hardware can say no to."
 // Four of them here, and three are indistinguishable from the outside.
 Status refused(Sink& out, const char* what, Status st) {

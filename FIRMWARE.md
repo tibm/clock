@@ -753,7 +753,7 @@ Two mechanical consequences land on the homing FSM, both of them real:
    normalises to **0.25**, under `motion`'s 0.45 `opto_thresh`: *the far hand's index crossing is
    currently invisible*. Do not lower the threshold on paper — those were bare surfaces at
    distance, a printed index mark reflects far better, and V2 roughly doubles the scale. §12.1
-   milestone 3 / `NEXT_STEPS.md` **F2.4** starts by re-measuring with the real hands on.
+   milestone 3 / §12.2 **F2.4** starts by re-measuring with the real hands on.
 
 The labels in `hal.hpp`'s opto block were always written for *this* geometry, so the swap makes the
 calibration and the wiring agree for the first time; before it, the hand the docs called weak was
@@ -1007,13 +1007,24 @@ V_rms(8 W, 4 Ω) = √(8·4) = 5.66 V        ceiling_dBFS = 20·log10(5.66 / 10^
 > **R-AUDIO-1 — the cell protector, not the amp, is what limits a loud alarm.**
 > The rails are fed from the BAT node, and `R18` caps the LT3652's contribution to **~1 A**
 > (`kicad/REVIEW.md` #7). Everything above that comes out of the cell **even while plugged in**,
-> through the `HY2111` + dual-FET pair. Trip is `V_DIP` / R_FET = 175–225 mV / 50–66 mΩ →
-> **2.65 A worst case** *(**retired by v0.4 V9 + V10**: the AO4838's 26–33 mΩ pair moves the trip to
-> **5.3–8.5 A**, so the 2.3 A sunrise-alarm peak goes from ~15 % margin to 2.3× and this constraint
-> stops binding. **V9 alone already relieves it** — with a `-GB` the trip is 3.8–6.6 A, i.e. 1.65×
-> worst case, where today's 1.89 A is *exceeded* by the same alarm — §12.0.13. Until both parts are fitted, the numbers below stand, and on build #1
-> the `-GB` makes them worse still)*, and `T_DIP` is only 5–15 ms, so a held bass note trips it just as well as
-> a DC load — a high-crest-factor asset lowers *average* draw but not the trip risk.
+> through the `HY2111` + dual-FET pair. Trip is `V_DIP` / **R_sense-loop**, and `T_DIP` is only
+> 5–15 ms, so a held bass note trips it just as well as a DC load — a high-crest-factor asset
+> lowers *average* draw but not the trip risk.
+>
+> > ⚠ **The divisor is not R_FET — corrected 2026-09-22 (`kicad/REVIEW.md` V14/V15).** `U3`
+> > senses `VSS`(cell −) against `CS`(board GND), and rev0.3 puts **111 mΩ of 0.25 mm trace
+> > plus the TCO** inside that loop alongside the FET pair. Every trip current in this rule
+> > and in V9/V10 was computed against the FETs alone and is optimistic by 3.5–5×.
+> >
+> > | board state | sense loop | `-GB` trips at |
+> > |---|---|---|
+> > | rev0.3 as built | 139–178 mΩ | **0.70–1.26 A** |
+> > | **build #1 today** (R1/V9 fitted, 2026-09-22) | 113–145 mΩ | **0.86–1.55 A** |
+> > | **build #1 now** (R3 + R4 fitted, §12.0.17) — and v0.4 with V14 + V15 | 26–33 mΩ | **3.8–6.7 A** |
+> >
+> > The bottom row is what the tables below were written against. **Until R3 + R4 are done on
+> > build #1, treat the trip as ~1.2 A** — which is under every "comfortable" row here, and
+> > roughly *at* the 25 % bring-up ceiling.
 >
 > | case | audio | + wake LEDs | BAT-node draw | from the cell | vs 2.65 A trip |
 > |---|---|---|---|---|---|
@@ -1067,16 +1078,23 @@ reboot**, so a full-scale bring-up tone would look like a firmware crash.
 | volume | dBFS | demanded | into 4 Ω | ≈ peak from the cell |
 |---|---|---|---|---|
 | 10 % (default) | −20.0 | 0.91 V rms | **0.21 W** | ~0.35 A |
-| **25 % (the ceiling)** | −12.0 | 2.29 V rms | **1.31 W** | ~1.2 A — ~1.5× margin |
+| **25 % (the ceiling)** | −12.0 | 2.29 V rms | **1.31 W** | ~1.2 A — ~1.5× margin *(see below)* |
 | 39 % | −8.2 | 3.54 V rms | 3.1 W | ~1.9 A — **at the `-GB` trip** |
+
+⚠ **That "~1.5× margin" assumed a 1.89 A trip. On build #1 today the trip is 0.86–1.55 A**
+(R-AUDIO-1's correction note — 111 mΩ of return copper is in the sense loop), so **25 % is
+*at* the trip, not 1.5× under it**, and a trip presents as a spontaneous reboot. Keep bring-up
+tones at the 10 % default (~0.35 A) until the sense loop is **measured** at 26–33 mΩ — R3 + R4
+are fitted (§12.0.17) but that number is still not on record. The ceiling itself is unchanged — it is already low enough to be
+worth keeping — but do not treat it as proven headroom before then.
 
 `set_volume_pct()` answers **`Denied`** above it rather than clamping (ground rule 2: a refusal
 must never print as a success), and `audio vol` names the gate. The `ui` volume **gauge** still
 spans 0–100 % — §6.6d's 300° of dial is the product's scale, not a hardware fact — but what it
 *asks the amp for* is clamped, so above 25 % the hands keep climbing and the preview chime stops
-getting louder. ⚠ **Both are removed together** when NEXT_STEPS.md's two hardware gates close:
-the **AO4838** fitted (trip → 3.8–6.6 A) and a **15 V brick** in (PVDD → 12 V, and the binding
-limit becomes the 8 W inductor cap above instead).
+getting louder. ⚠ **Both are removed together** when §12.2's hardware gates close: the sense
+loop down to the FET pair (**R1 + R3 + R4** — trip → 3.8–6.7 A) and a **15 V brick** in
+(PVDD → 12 V, and the binding limit becomes the 8 W inductor cap above instead).
 
 **Pop-free sequencing** — the datasheet's, not a preference (`amp_tas5760m.pdf` §9.2.1.2.1/2 and
 the NOTE under them: *"control port register changes should only occur when the device is placed
@@ -3538,7 +3556,7 @@ That does **not** make it a v0.4 wait: §12.0.11's inline USB-C pass-through rig
 form and needs no rework — brick to `J1`, `D±`+GND tapped out to the Mac, host `VBUS` unconnected,
 `D±` cut on the brick side, and the breakout must pass `CC1`/`CC2`. What it does mean is that the
 rig stopped being a power-bring-up convenience and became the thing that closes milestone 1
-(`NEXT_STEPS.md` F1.6, which also carries the firmware alternative: sample into a ring on the
+(§12.2 F1.6, which also carries the firmware alternative: sample into a ring on the
 brick, swap to the Mac, read it back — the cell keeps the board alive across the swap).
 
 ### 12.0.15 The amp makes a sound — I²S, the register set, and a ceiling that is not about taste — 2026-09-13
@@ -3599,7 +3617,7 @@ it, so `hal::audio` answers `NotPresent` and the console is never taken. On `rev
 is USB-CDC and the boot-ROM banner on IO43 is the only thing that ever touches it.
 
 ⏳ **Not bench-verified.** Everything above is the host suite plus a clean target build; nothing
-has been through a speaker. `NEXT_STEPS.md` Phase 5 has the bench sequence and what each step
+has been through a speaker. §12.2 Phase 5 has the bench sequence and what each step
 proves.
 
 ### 12.0.16 The amp is 1.2 V under a supply minimum — 2026-09-14
@@ -3660,20 +3678,214 @@ two caps re-parented, zero BOM) and carries the bench bodge: lift pin 1, wire it
    request is queued and the five-step start-up runs ~25 ms later on the writer task. Fixed the
    same day (§9.3, ground rule 2) — and the fix is what made every round after it trustworthy.
 
+### 12.0.17 The power chain closes — four reworks, and a release the datasheet had already written down — 2026-09-27
+
+**Build #1 charges, plays and runs off the cell.** This entry replaces `REWORK.md`, which is
+deleted: R1–R4 are all fitted, so the bench guide has no remaining readers. What it carried that
+still matters is here.
+
+#### What was done
+
+| | rework | outcome |
+|---|---|---|
+| **R1** | `U4` AOSD32334C → **AO4838** | Necessary, and on its own changed nothing observable — the FETs were never the dominant term |
+| **R2** | `U9` pin 1 `AVDD` → `PVDD` (cut + wire) | **The amp plays.** §12.0.16's CLKE inference is now proven, not inferred |
+| **R3** | 24 AWG bonds: `U4` pin 1 → `F1` pad 1, `BT1` pad 2 → `U4` pin 3 | ~110 mΩ of 0.25 mm return copper out of the sense loop. No behavioural change on its own |
+| **R4** | `R21` removed; **bare wire `U3` pin 2 (`CS`) → `U4` pin 1** | Sense loop is now the FET pair alone. **Charging works for the first time** |
+
+R4 was fitted as a wire rather than the intended 2 kΩ — the replacement 0603 broke during the
+swap. That turns out to be the *more accurate* configuration, see the pull-up measurement below,
+but it costs the clean signal-level release (also below).
+
+#### The finding: §11.1 was there all along
+
+> `battery_protector_hy2111.pdf` §11.1, Notice: *"Discharging may not be enacted when the battery
+> is first time connected. To regain normal status, **CS pin and VSS pin must be shorted or the
+> charger must be connected**."*
+
+**A correctly built board still needs a release event on first cell connection.** That is not a
+defect in this design — it is how the part family behaves — and §12.0.13's bench SOP was working
+around it without knowing that, using the wrong bridge.
+
+Measured on build #1, cell in, nothing else connected (black probe on cell −):
+
+| | reading | means |
+|---|---|---|
+| `U3` pin 5 `VDD` | **V_cell** | protector powered |
+| `U3` pin 3 `OC` | **V_cell** | charge FET on |
+| `U3` pin 1 `OD` | **0 V** | discharge FET off — the §11.1 state |
+
+**And the charger route does not work on this board.** With the discharge FET off, charge current
+must cross FET1's body diode, and the LT3652 floats at 4.05 V:
+
+```
+   cell+ ≈ 4.05 V (charger CV, through Q2)
+   cell- =  4.05 - V_cell
+   needs >  0.7 V (AO4838 V_SD typ; 1.0 V max) to forward-bias the body diode
+   ⇒ conducts only below V_cell ≈ 3.35 V  (≈3.05 V worst case)
+```
+
+Confirmed: plugging the 15 V brick with a cell above that does nothing at all. **The 4.05 V
+health cap — a deliberate safety choice — removes one of the datasheet's two release paths for
+most of the cell's useful range.** So the board has exactly one release, and it is manual. That
+is `kicad/REVIEW.md` **V17**.
+
+#### The bench SOP — every time a cell goes in
+
+1. Cell in.
+2. **Momentary short `U4` pin 1 ↔ pin 3** — (13.500, 78.100) ↔ (16.040, 78.100), 2.5 mm apart on
+   the same row. `OD` snaps to V_cell and the board boots.
+3. Release. At ~90 mA idle the loop sees ~3 mV, far under `V_DIP`, so it stays in normal status.
+4. **Only now** plug the 15 V brick, if you want to charge. With the channel conducting instead
+   of the body diode there is no 0.7 V barrier.
+
+⚠ **Never short with the brick already in** — that is charging Li-ion with the protector bypassed.
+⚠ **Never bridge cell − to board GND** (§12.0.13's original SOP): that shorts out `F1`, the 77 °C
+TCO, which is the one part protecting against an internally shorted cell. Shorting `U4` pin 1 ↔
+pin 3 leaves the TCO in circuit. With `R21` refitted (1–2 kΩ) the release becomes a `CS`↔`VSS`
+touch instead — two signal pins, microamps, nothing in the power path — which is what §11.1
+actually prescribes and the right form for v0.4.
+
+#### One number the datasheet does not publish
+
+`CS` → `VDD`, measured with an ohmmeter: **250 kΩ**. That is the internal pull-up §11.3 describes
+(*"CS pin voltage is pulled up by the resistor to VDD in the IC"*). It sets the standing offset
+`R21` puts on the sense node before any current flows, and it is why the datasheet caps `R21` at
+2 kΩ:
+
+| `R21` | offset on `CS` (3.4 V cell) | of a 150 mV `V_DIP` |
+|---|---|---|
+| **0 Ω (build #1's wire)** | **0 mV** | — |
+| 1 kΩ | 14 mV | 9 % |
+| 2 kΩ (as designed) | 27 mV | 18 % |
+| 10 kΩ | 131 mV | **at the trip, permanently** |
+
+v0.4 should carry **1 kΩ**, not 2 kΩ: the datasheet's minimum, half the offset, same protection.
+
+#### Still unmeasured
+
+The sense-loop resistance itself. `U4` pin 3 → pin 1 at idle should read ~3 mV (≈30 mΩ at 90 mA),
+and across `R18` (0.1 Ω, pads (91.557, 53.107)/(86.932, 53.107)) 100 mV = 1.00 A of charge
+current. Charging works, so the loop is under `V_CIP`'s 60–140 mV at 1 A — but the number itself
+is not on record, and it is what decides whether the 25 % audio ceiling can be lifted. Take it
+next time the board is open.
+
+#### Coordinate card — the power corner
+
+```
+U3  HY2111 protector  (6.5, 81.5)  B.Cu SOT-23-6, 0.95 mm pitch -- READ THE MARKING (-GB/-HB)
+      pin 1 OD  (7.638, 80.550)     pin 4 NC   (5.362, 82.450)
+      pin 2 CS  (7.638, 81.500)     pin 5 VDD  (5.362, 81.500)
+      pin 3 OC  (7.638, 82.450)     pin 6 VSS  (5.362, 80.550) = cell -
+U4  AO4838 dual FET  (15.4, 80.6)  B.Cu SOIC-8, pins 1-4 at y=78.100, 5-8 at y=83.050
+      1 (13.500, 78.100) S2 -> F1 -> GND      3 (16.040, 78.100) S1 -> cell -
+      2 (14.770, 78.100) G2 <- OC             4 (17.310, 78.100) G1 <- OD
+R21 (removed)  pad 1 CS (11.350, 78.000)   pad 2 was-GND (9.700, 78.000)
+F1  TCO 77C    pad 1 (44.000, 82.500)      pad 2 GND (23.680, 82.500)
+BT1 18650      cell + (86.800, 96.000)     cell - (15.200, 96.000)
+C109           pad 1 VDD (7.640, 78.000)   pad 2 cell - (6.090, 78.000)
+R18 0.1R 1W    (91.557, 53.107) -> (86.932, 53.107)     100 mV = 1.00 A charge
+CHRG R12.2 (101.675, 50.446)   FAULT R13.2 (106.551, 49.325)   VBUS C100.1 (104.000, 33.023)
+U9  TAS5760M   pin 1 AVDD (92.850, 83.432) -- bodged to C170 pad 1 PVDD (103.500, 83.934)
+      cut at (92.4, 83.43); via (91.688, 83.101) restores +3V3 if ever needed
+```
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |
 |---|---|---|
 | 0 | **Console + `help` + `sys stat` + `sys top` + `sys ev` + `sys debug`** | The CLI is milestone zero, not an afterthought — everything after this is debuggable |
-| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · sensors read on the bench 2026-09-09. **`hal::power::read()` is written, 2026-09-13** — and it is one implementation for both backends (`clk_hal/shared/power.cpp`) rather than a stub facing a host reference, because it is arithmetic over `hal::adc` and `hal::expander` and has nothing platform-specific in it. It carries R-BOARD-3 in its return type (`power::VbatSrc`), and `board cell` / `board fullchg` came with it. **Bench-verify to close: `NEXT_STEPS.md` F1.6** |
+| 1 | `board i2c scan` → MCP23017 → `board exp` confirms `STEP_STBY`/`SPK_SD` idle-safe → `sensor vbat` → sensors | The board is alive and safe · sensors read on the bench 2026-09-09. **`hal::power::read()` is written, 2026-09-13** — and it is one implementation for both backends (`clk_hal/shared/power.cpp`) rather than a stub facing a host reference, because it is arithmetic over `hal::adc` and `hal::expander` and has nothing platform-specific in it. It carries R-BOARD-3 in its return type (`power::VbatSrc`), and `board cell` / `board fullchg` came with it. **Bench-verify to close: §12.2 F1.6** |
 | 2 | `chrono clk` (crystal actually started, §7.1), RTC retention across `board sleep` | D6 works; time survives |
-| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11). F0.1 is **fixed 2026-09-13** — a raw target goes through in `Fault`, `motion stop` clears one, and every `motion` row prints the refusal and names the gate — and the hands **swapped shafts** the same day (§6.1e, minute to the inner pin). ⚠ Now gated on the **printed hands**, not on firmware: `steps_per_rev`, direction and homing all need something visible on a shaft, and §6.1e's arithmetic says today's opto span cannot see the far hand at all. Silence is the only item that works on bare shafts. ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on` (**`NEXT_STEPS.md` Phase 2**) |
+| 3 | `motion` open-loop (`motion step`), tune microstep depth + 25 kHz carrier for silence, `sensor homing stream` to place the index mark, then the homing FSM | The mechanism · **it turns, 2026-09-11** (§12.0.11). F0.1 is **fixed 2026-09-13** — a raw target goes through in `Fault`, `motion stop` clears one, and every `motion` row prints the refusal and names the gate — and the hands **swapped shafts** the same day (§6.1e, minute to the inner pin). ⚠ Now gated on the **printed hands**, not on firmware: `steps_per_rev`, direction and homing all need something visible on a shaft, and §6.1e's arithmetic says today's opto span cannot see the far hand at all. Silence is the only item that works on bare shafts. ⚠ The bench inhibit (`board.hpp:74`) is **not** lifted by `unsafe on` — it needs `motion power on` (**§12.2 Phase 2**) |
 | 4 | `ui`: `sensor knob stream` + press + `ui led test` | Knob and the off-board J12 pixel harness · **knob confirmed 2026-09-11** (§12.0.11), after the `J10` harness was found reversed end-for-end (§12.0.10); the J12 pixel row still wants its harness |
 | 5 | `chrono` + SNTP: **hands follow real time** | A working clock. Stop and enjoy it |
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors · **firmware is written and proven correct on the bench, 2026-09-13/14** (§12.0.15, §12.0.16): port, register set, start-up order, generated sine, and a **25 % bring-up volume ceiling**. ⛔ **Blocked on hardware, not firmware:** `U9` pin 1 `AVDD` is wired to +3V3 against a 4.5 V minimum, so the amp's analog domain is starved and reg 0x08 sits at `CLKE` — `kicad/REVIEW.md` **V13**, one net, with a bench bodge. The WAV path waits on `storage`, `audio dsp` on the biquad + limiter |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
 | 8 | `supervisor` power modes + `backup_tick_s` deep-sleep loop, measure actual mA | The 48 h backup claim |
 | 9 | BLE provisioning + Clock Control service + OTA | The app |
+
+### 12.2 The queue — what to pick up next
+
+*Consolidated here from `NEXT_STEPS.md` on 2026-09-22, which is deleted. The `F<n>.<n>`
+numbers are preserved because source comments cite them. §12.1 is the milestone map; this is
+the ordered work. Delete a row when it closes; delete the section when it empties.*
+
+#### Phase 0 — what was in the way ✅ done 2026-09-13
+
+| | | |
+|---|---|---|
+| **F0.1** | ✅ | `motion step` was dead on a board whose homing failed — three defects, all three needed together: a RAW target now goes through in `Fault`, every `motion` row prints its refusal, and `motion stop` clears a `Fault` → `Uninit`. Covered by `test_motion_a_bench_step_still_works_in_a_fault` and `test_motion_an_inhibited_movement_refuses_by_name` |
+| **F0.2** | ✅ | Both gates made discoverable: `denied` = the NVS bench inhibit (`motion power on` — **`unsafe on` does not lift it**) · `notready` = a `Fault` the FSM never left (`motion stop`) · `busy` = a homing run has both shafts · `notpresent` = no movement fitted |
+
+#### Phase 1 — milestone 1's last item: `hal::power::read()` ✅ written 2026-09-13
+
+| | | |
+|---|---|---|
+| **F1.1–F1.5** | ✅ | `power::read()` in `clk_hal/shared/power.cpp` (one implementation, both backends), R-BOARD-3 carried in the return type (`VbatSrc`), `board cell` (F1.3) and `board fullchg` (F1.4), host model + six cases in `test_motor.cpp` (F1.5). Full write-up: §12.0.14. ⚠ The host suite is **flaky on this machine and was before this work** — the `motion` AO cases cascade; compare against a clean worktree before blaming a change |
+| **F1.6** | ⏳ | Bench-verify. The **unplugged half passes** (2026-09-13: `src=cell soc=22 plugged=0`, `gpb=11110010` byte-for-byte §12.0.6's idle, `board cell` correctly `[denied]`). The plugged half needs the wall and the console **at the same time**, which `J1` cannot do — see the gates table below |
+
+#### Phase 2 — milestone 3: finish the movement · ⚠ blocked on the printed hands
+
+| | | |
+|---|---|---|
+| **F2.0** | ✅ | Hands swapped shafts (minute → inner pin, hour → outer tube); firmware crosses them in `motor_esp.cpp`'s `build()`, which logs `hour=tube(MCPWM0) minute=pin(MCPWM1)` at boot. ⚠ **Nothing on the host can catch that crossing being wrong** — that log plus one `motion step h` with a hand on is the whole verification. Do it before anything below leans on it |
+| **F2.3** | ⬜ | **Silence — the one item that needs no hands.** Tune microstep depth against the gear train's resonance; the 25 kHz carrier is already above hearing. Bare shafts are audible, so this can be done now |
+| **F2.1** | ⬜ | `steps_per_rev` — count microsteps for one revolution, confirm **17 280** (§13 Q1). ⚠ `motion spr` only *prints* the constant; `domain::kRev` is `constexpr` and everything in `hand.hpp` is `constexpr` over it. Worth changing **only if the count comes out wrong** — measure first |
+| **F2.2** | ⬜ | Direction — clockwise must come out positive. If not, `kSwapB` in `motor_esp.cpp` is one line. ⚠ It is one flag for **both** axes; make it per-hand + NVS-backed only *if* exactly one hand comes out backwards |
+| **F2.4** | ⬜ | Homing — place the index mark with `sensor homing stream`, then the FSM. ⚠ **Re-measure the opto first.** `kOptoMarkMv` = 2600 is the *near* hand's level, so the far (minute) hand normalises to 0.25, under `motion`'s 0.45 `opto_thresh` — its index crossing is currently **invisible**. Do not lower the threshold on paper: those numbers were bare surfaces, and a printed index mark reflects far better. Decide v0.4 **V2** (`R99` 10k → 22k) *after* this measurement, not before |
+
+#### Phase 3 — milestones 4–5
+
+| | | |
+|---|---|---|
+| **F3.1** | ⬜ | The `J12` off-board pixel harness (5 status pixels, chain positions 3–7). The two on-PCB dial pixels already light |
+| **F3.2** | ⬜ | `chrono` + SNTP — **hands follow real time.** The first build that is a clock. Stop and enjoy it |
+
+#### Phase 4 — the one HAL stub left
+
+| stub | where | needs |
+|---|---|---|
+| `hal::wake` — `set`, `warm`, `cool` | `hal_esp.cpp`, `namespace wake` | the 12 V rail and the two AO3400A PWM channels — gated on the 12 V boost, which is gated on `PD_PG` |
+
+#### Phase 5 — milestone 6: audio ✅ **the amp plays, 2026-09-22**
+
+`hal::audio` was written and bench-proven correct on 2026-09-13/14 (§12.0.15) and then sat
+blocked on one net for eight days (§12.0.16). Rework **R2** closed it: reg 0x08 reads
+`0x00` and the speaker makes a tone.
+
+| | | |
+|---|---|---|
+| **F5.0–F5.2** | ✅ | The bodge, the clock triplet, and the sound. The CLKE inference is now **proven**, not inferred — starving `AVDD` was the sole cause |
+| **F5.3** | ⬜ | Confirm the volume map with a meter: `audio vol 10` → `audio vol 20` must move the output **+6.0 dB** (percent is amplitude). At 10 % expect ~0.9 V rms into 4 Ω. If the numbers come out 6 dB high the digital boost did not get cleared — `audio reg 2` must read `0x04` |
+| **F5.4** | ⚠ | *"The one that costs money if it is wrong."* **Do not run this until the sense loop is measured** (§12.0.17). It was written as `audio vol 25` while watching cell current, predicting <1.2 A against a 1.89 A trip; the real trip on build #1 today is **0.86–1.55 A**, so the test is the failure. Stay at the 10 % default (~0.35 A) |
+| **F5.5** | ⬜ | ⚠ Unrelated, pre-existing: **`BOARD=devkit-uart` does not compile.** `console_esp.cpp` calls `esp_console_new_repl_usb_serial_jtag()` unconditionally while that profile sets `CONFIG_ESP_CONSOLE_UART_DEFAULT=y`. The other three profiles are clean. It is the profile you reach for when chasing a boot panic — worth an `#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG` before you need it |
+| **F5.6** | ⬜ | Still missing, not blockers: `audio play <file>` (needs `storage` + the PSRAM ring), the biquad HPF + limiter (`audio dsp`), and the pop-free 12 V PVDD ramp — which cannot be exercised until `PD_PG` is assertable, i.e. the pass-through rig |
+
+#### Hardware gates — what is waiting on what
+
+| gate | blocks |
+|---|---|
+| ~~`U9` pin 1 `AVDD` → `PVDD`~~ | ✅ **closed 2026-09-22** (rework R2 / v0.4 **V13**, §12.0.17) |
+| ~~AO4838 fitted~~ | ✅ **fitted 2026-09-22** (rework R1 / v0.4 **V9**) — and it was not enough on its own |
+| ~~the protector's sense loop~~ | ✅ **closed 2026-09-27** (reworks R3 + R4 / v0.4 **V14** + **V15**, §12.0.17). **The board charges.** ⚠ The loop resistance itself is still unmeasured, and it gates the audio ceiling |
+| **a cell-insertion release** (v0.4 **V17**) | Every cell swap needs tweezers across `U4` pin 1 ↔ pin 3 (§12.0.17). `hy2111` §11.1 requires a release event and this board satisfies neither of its two conditions — the charger route is blocked by our own 4.05 V float cap |
+| an inline USB-C **pass-through** (v0.4 **V6**'s temporary form, §12.0.11 — no rework) | **Every plugged-in reading.** `board cell` needs `PD_PG` asserted (brick on `J1`) and you need the console (also `J1`). Confirmed 2026-09-13 — it refuses correctly and there is no way past it. Must pass `CC1`/`CC2`; a fan-out breakout will not do. Firmware alternative if the rig is not worth buying: **the cell keeps the board alive across a `J1` swap** — sample `power::read()` into a ring on a timer, swap to the Mac, read it back. `sys ev dump` is the natural home and is registered but still `cmd_notyet` |
+| **the printed hands** | F2.1, F2.2, F2.4, and F2.0's one real check. F2.3 is the only Phase 2 item that works on bare shafts |
+| v0.4 **V8** supervisor | No-cell operation; recovering a cell below ~2.9 V. Not worth reworking on build #1 — keep a charged cell in the holder. ⚠ **Promoted for v0.4 by V16**: gating the boost is one of only two ways to get the 3.7 A startup surge under the protector's trip floor (the other is a `-HB`/`-KB`), and copper alone cannot do it |
+
+#### Ground rules carried out of this bring-up
+
+1. **Check thresholds against real currents, both directions — and against the resistance the
+   part actually measures, not the one you meant it to measure.** Three of the four power
+   lockups of §12.0.13 were one missing inequality; V14/V15 were the same mistake one level
+   down, dividing by the FET when the board senses FET + trace + TCO.
+2. **A refusal must never print as a success.** F0.1 was the instance; the `motion` group routes
+   every non-Ok answer through one `refused()` helper. `audio` and `board` were audited the same
+   way when they landed — re-run the audit for any new group that can be told no by hardware.
+3. **D16 holds:** absence answers `NotPresent`, never a faked reading.
+4. **v0.4 items live in `kicad/REVIEW.md`, not in `kicad/gen/`.** The generated schematic and
+   PCB keep matching the board **as built** until the respin.
 
 ---
 

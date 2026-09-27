@@ -88,8 +88,9 @@ current one with `ls /dev/cu.usbmodem*`.
 **The board needs its own power while you do this.** USB VBUS reaches the LT3652 and nothing
 else, and the charger idles below 11.2 V, so a Mac's 5 V port powers no rail: `J1` is data
 only. Put a cell in the holder and leave it in — the `J12` 5 V injection this used to recommend
-is retired (`../NEXT_STEPS.md`, and §12.0.13 for what to do if re-inserting the cell trips the
-protector).
+is retired (`../FIRMWARE.md` §12.2, and §12.0.13 for what to do if re-inserting the cell trips
+the protector: momentarily short `U4` pin 1 to pin 3, which is now the documented procedure —
+`../FIRMWARE.md` §12.0.17).
 
 ## Host build — tests and `clocksim`
 

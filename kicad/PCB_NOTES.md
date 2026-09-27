@@ -24,109 +24,45 @@ judgment-heavy part; routing a 6-block motor+RF+audio board blind would
 produce something plausible-looking and wrong. The ratsnest is complete
 and net-correct, ready for interactive routing.
 
-## ⛔ BEFORE v0.4 IS FABBED — `U9` pin 1 `AVDD` is on the wrong rail (2026-09-14)
+## ⛔ BEFORE v0.4 IS FABBED
 
-**The one net on this board that is electrically wrong, found by building it and
-trying to make a sound.** It is not a layout issue and no amount of re-routing
-fixes it — it is a *connection* error that the netlist, ERC and DRC all pass
-happily, because +3V3 is a perfectly legal net to put on a pin.
+Three defects were found by **building rev0.3 and running it**, and all three passed ERC, DRC
+*and* this project's own review checklist. They are listed, with full rationale, in
+[`REVIEW.md`](REVIEW.md) — which is the authoritative v0.4 list. Not repeated here: this file
+used to carry V13 in full and then V14/V15 too, and the duplication is how the two files came
+to disagree about V9's arithmetic for five days.
 
-```
-netlist says:   +3V3   U9.1   AVDD_1        <-- WRONG
-must be:        PVDD   U9.1   AVDD_1
-```
-
-`amp_tas5760m.pdf` §6.3 Recommended Operating Conditions:
-
-| pin | range |
-|---|---|
-| **AVDD (1)** | **4.5 – 26.4 V** |
-| PVDD (21, 28) | 4.5 – 26.4 V |
-| DVDD (10) | 2.8 – 3.63 V |
-
-`AVDD` is a **high-voltage** pin in the same range as `PVDD`; only `DVDD` is the
-3.3 V one. Figure 64 — the mono-PBTL software-control topology this board copies —
-routes pin 1 up and over the package to the `PVDD` node. We have it 1.2 V under its
-minimum.
-
-**Why it was missed, and the reason it is written here rather than only in
-`REVIEW.md`:** the datasheet's own §10 says *"The TAS5760M device requires two power
-supplies"*, names PVDD and DVDD, and never mentions `AVDD` at all. Three supply
-**pins**, two **rails** — and `datasheet/README.md`'s IO & power-domain table copied
-that omission verbatim, so the one doc you would consult to answer "what rail does
-this pin want" was silent. (Fixed there 2026-09-14.)
-
-**Symptom it produces**, for anyone who meets it again: the digital domain runs off
-`DVDD` and is *perfect* — I²C answers, every control-port register reads back exactly
-what was written, all three I²S clocks measure correct on a scope at the amp's own
-pins — while `ANA_REG` / `VCOM` / `ANA_REF` / the modulator / the clock-validation
-circuitry sit in the starved analog domain. Reg 0x08 sticks at **`CLKE`** and
-`SPK_FAULT` is pulled low, which sends you hunting a clock fault that does not exist.
-Four rounds of bench work: `FIRMWARE.md` §12.0.16.
-
-### The v0.4 fix
-One net, in `gen/b_audio.py` (lines 74–77 as of this writing):
-
-```python
-    # DVDD/AVDD are +3V3
-    s.w((638.81, 280.67), (643.89, 280.67))   # pin 10's comb  ->  pin 1's comb  <-- DELETE
-    s.w((638.81, 280.67), (633.73, 280.67))   # pin 10's comb  ->  the +3V3 label   (keep)
-    s.power_at(633.73, 280.67, "+3V3")
-```
-
-`x = 643.89` is pin 1's comb (and `C162`'s); `x = 638.81` is pin 10's (and `C161`'s).
-Delete the **first** wire so pin 1 leaves the `+3V3` node, run its comb to the `PVDD`
-column instead, and move `C162` (10 µF) + `C163` (100 nF) with it so `AVDD` keeps its
-local bypass. Fix the comment on line 74 while you are there — it is the sentence that
-encoded the error. **Zero footprint change, zero BOM change, zero placement change** — it
-is a net and two cap parents. ⚠ Per the project's ground rule, `gen/` keeps matching
-the board **as built** until the respin, so this is written down and deliberately
-*not* applied yet.
-
-### The build-#1 bodge — cut, do NOT lift
-
-> Bench instructions, kit list and continuity checks: [`../REWORK.md`](../REWORK.md).
-> What follows is the same rework in summary, kept here so this file stands alone.
-Verified against `clock.kicad_pcb` 2026-09-14. **All four copper zones on this board
-are `GND`**, so there is no `+3V3` pour, and `U9` pad 1's only path to `+3V3` is a
-single **0.25 mm B.Cu trace, 0.85 mm long**:
-
-```
-(92.850, 83.432)  pad 1  ──0.25 mm B.Cu──▶  (92.000, 83.432)  junction
-```
-
-1. **Cut at ≈ (92.4, 83.43) on B.Cu.** The pad stays attached to the pin, so the wire
-   solders to the pad and **nothing is lifted** next to `SFT_CLIP` on 0.65 mm pitch.
-   ⚠ Nearest other copper is pin 2's `GVDD_REG` trace, **0.65 mm** away (y = 82.782).
-2. **Wire pad 1 → `C170` pad 1.** PVDD, 0603, 0.9 × 0.9 mm pad, **10.66 mm**, same
-   side, near-straight run. ⚠ **Pad 2 of `C170`/`C171`/`C172` is `GND`** — using it
-   would short `AVDD` to ground.
-3. **Ohm out before power:** pin 1↔`+3V3` open · pin 1↔`GND` open · pin 1↔pin 2 open;
-   then after the wire, pin 1↔`U9` pin 28 ≈ 0 Ω.
-
-Verified `PVDD` access points (all B.Cu, same side as `U9`):
-
-| pad | position | distance from pad 1 |
+| | what a layout pass can silently carry forward | in REVIEW.md |
 |---|---|---|
-| **`C170.1`** ⭐ | (103.50, 83.934) | 10.66 mm |
-| `C171.1` | (106.00, 83.934) | 13.16 mm |
-| `C172.1` | (104.70, 64.014) | 22.75 mm |
-| `U9.21` | (100.15, 76.282) | fine pitch — avoid |
-| `U9.28` | (100.15, 80.832) | fine pitch — avoid |
+| **V13** | `U9` pin 1 `AVDD` tied to `+3V3` against a 4.5 V minimum — **a legal net on the wrong pin** | V13 |
+| **V14** | the two nets carrying the full cell current left at the 0.25 mm default, because the `POWER` netclass matches net *names* and both are auto-named — **a correct net at the wrong width** | V14 |
+| **V15** | the protector's `CS` tapped at `GND` with the TCO between it and P− — **a sense tap on the wrong node** | V15 |
+| **V16** | and the arithmetic over all of them: 3.7 A of boost startup against a 125 mV trip floor | V16 |
+| **V17** | no deliberate cell-insertion release, on a board with a user-replaceable cell | V17 |
 
-`C162`/`C163` stay behind on `+3V3` as harmless extra bypass; `C170` is at the tie
-point so the 0.1 µF is right there. **The cut is reversible** — a wire from pad 1 back
-to the via at (91.688, 83.101) restores the original net. ⚠ After the bodge `AVDD`
-follows `PVDD` **including up to 12 V** when the boost is enabled: intended, and what
-the datasheet does (26.4 V recommended max, 30 V absolute).
+**The mechanism that keeps them out of v0.4 is `gen/review_check.py`, not this file.** Run it
+before ordering: `cd gen && python3 review_check.py`. It computes net resistance from the routed
+copper, asserts the sense-loop topology, and does the margin arithmetic in both current
+directions. `REVIEW.md`'s "How v0.4 is prevented from repeating this" section maps each check to
+the bug class it catches.
 
-> **The other v0.4 MUSTs** are `V8` (gate `U5`'s `EN` on a supervisor), `V9` (`U4` →
-> AO4838) and `V11` (make `U3` a multi-sourced socket) — full write-ups in
-> [`REVIEW.md`](REVIEW.md), which stays the authoritative v0.4 list. V13 is repeated
-> here in full because it is the only one that is a **wrong connection** rather than a
-> part or a value, so it is the one a layout pass can silently carry forward.
+**Layout-specific notes for the respin**, which are this file's business rather than REVIEW.md's:
 
----
+- **V13's two caps.** `C162` (10 µF) + `C163` (100 nF) are `AVDD`'s local bypass and must move
+  with pin 1 to the `PVDD` node. `C170` already sits at the tie point, which is why the build-#1
+  bodge landed there. All four copper zones on this board are `GND`, so there is no `+3V3` pour
+  to fight — pin 1's only path to `+3V3` was a single 0.25 mm trace 0.85 mm long.
+- **V14's re-route.** `Net-(U4-S2)`'s 34.5 mm run is on **In2.Cu at 0.25 mm** — 32.7 mm of it in
+  one segment. F.Cu is the nearly-empty layer on this board (finding #4's trunks went there), and
+  the two ends are 30.8 mm apart, so a 1.0 mm F.Cu run is ~15 mΩ and 1.5 mm is ~10 mΩ. Same
+  treatment for `Net-(BT1-Pin_2)`, 21.3 mm from the holder tab to `U4` pin 3.
+- **V17's switch**, if that is the option chosen, wants to be reachable with the enclosure
+  closed and the cell door open — i.e. inside the cell compartment, next to `BT1`, not on the
+  rear face with the connectors. It carries microamps, so it can be the cheapest part on the
+  board.
+- **`F1` stays where it is.** The TCO against the holder edge is deliberate thermal contact
+  (`CONTACT_EXEMPT` in the placement QA, and the one intentional courtyard overlap in DRC). V15
+  moves the *sense tap*, not the part.
 
 ## v3: why v2 was thrown away
 

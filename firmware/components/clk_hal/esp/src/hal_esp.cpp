@@ -8,7 +8,7 @@
 // owns a task, and the amp's own register set is shared/tas5760m.cpp.
 //
 // ONE namespace here is still an honest NotPresent stub, gated on the 12 V boost rather than
-// on anything in this file (NEXT_STEPS.md Phase 4):
+// on anything in this file (FIRMWARE.md §12.2 Phase 4):
 //   wake  -> ledc, ~1 kHz, gamma applied above this layer
 //
 // A stub is not a placeholder apology.  On BOARD=devkit it is the *correct* answer until you

@@ -84,7 +84,7 @@ public:
     // -- and every one of them RETURNS what the movement is going to do with it.  The return is
     // the whole point and it was missing: `motion step` called nudge(), got void back, and
     // printed a success line while the layer below dropped the target on the floor.  Two layers
-    // below could refuse and neither could say so (NEXT_STEPS.md F0.1).
+    // below could refuse and neither could say so (FIRMWARE.md §12.2 F0.1).
     //
     // The Status is a synchronous verdict on the gates that are knowable here -- presence, the
     // NVS bench inhibit, and whichever state the FSM is in -- and it is advisory in the way any

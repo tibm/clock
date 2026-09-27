@@ -12,8 +12,9 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 - `power_values.md` — schematic-ready FB/comp/passive values per converter + support networks.
 - `firmware/` — the code + build (`firmware/README.md` = how to build; host `clocksim` + tests need no hardware).
 - `FIRMWARE.md` — FW architecture (source of truth for software): ESP-IDF + C++23 active objects, 9-task model, HSMs, Command surface (CLI ⇄ BLE), CLI, test/bring-up plan. **§6.6 is also the source of truth for the on-device UX** (modes, LED patterns, what the hands show) — README §12 is the short version.
-- `REWORK.md` — **the bench rework guide for main board rev0.3 build #1** (2 required: `U4`→AO4838, `U9` pin 1 `AVDD`→PVDD). Coordinates verified against `kicad/clock.kicad_pcb`; delete it once both are done.
-- `NEXT_STEPS.md` — **the ordered FW queue** (post power bring-up, 2026-09-13). Read this first when picking up firmware work; delete it when it empties.
+- `kicad/REVIEW.md` — **the authoritative v0.4 change list** (V1–V17). `kicad/gen/review_check.py` is the **gate**: `cd kicad/gen && python3 review_check.py` before any respin is fabbed — it asserts each finding against the real design files, because ERC and DRC passed all three bring-up defects.
+- **Build #1 (rev0.3) is fully reworked** as of 2026-09-27 — charges, plays, runs off the cell. The outcome, the coordinate card and the **cell-insertion SOP** (momentarily short `U4` pin 1 ↔ pin 3 every time a cell goes in — `hy2111` §11.1) are in `FIRMWARE.md` §12.0.17. `REWORK.md` is retired.
+- **The ordered FW queue lives in `FIRMWARE.md` §12.2** (was `NEXT_STEPS.md`, consolidated 2026-09-22). Read it first when picking up firmware work.
 - `ux/` — the clock on screen: SVG plate + hands + pixels, and controls for the knob/toggle/IMU. Attaches to `clocksim` over a loopback socket (`ux/README.md`, protocol in `firmware/apps/clocksim/README.md`). **Display only — every algorithm stays in C++.**
 
 ## Locked BOM (core)

@@ -50,7 +50,7 @@ bool parse_hhmm(const char* s, int& h, int& m) {
     return h >= 0 && h < 24 && m >= 0 && m < 60;
 }
 
-// A refusal must never print as a success -- NEXT_STEPS.md ground rule 2, and F0.1 is the
+// A refusal must never print as a success -- FIRMWARE.md §12.2 ground rule 2, and F0.1 is the
 // instance that cost a bench session: `motion step` posted a target, the FSM dropped it in
 // `Fault`, and the command printed `m +100 usteps (2.08 deg)` as though a hand had moved.
 //

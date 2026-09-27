@@ -794,7 +794,7 @@ void Motion::run_homing(float opto) noexcept {
         // what is behind it.  ⚠ The converse is the open problem: the minute hand out at the
         // inner pin normalises to ~0.25 against today's span, under `opto_thresh`, so "still
         // lit with the hour hand moved clear" cannot currently be observed at all (hal.hpp,
-        // NEXT_STEPS.md F2.4).  Re-measure with the real hands before trusting this branch.
+        // FIRMWARE.md §12.2 F2.4).  Re-measure with the real hands before trusting this branch.
         case Phase::Clear: {
             if (!high) {
                 hal::motor::hold(Hand::Hour);
