@@ -4,7 +4,7 @@
 // firmware thinks it is -- which is the one thing on this page that must NOT round-trip.
 'use strict';
 
-const { test, expect, angleDiff, degOf } = require('./harness');
+const { test, expect, angleDiff, degOf, kRev } = require('./harness');
 
 test('dragging a hand moves it without telling the firmware', async ({ ux }) => {
     await ux.home();
@@ -20,7 +20,7 @@ test('dragging a hand moves it without telling the firmware', async ({ ux }) => 
 
     // ... and the error is exactly what homing then finds.
     await ux.home();
-    expect(angleDiff((await ux.hands()).m, degOf(4320))).toBeLessThan(3);
+    expect(angleDiff((await ux.hands()).m, degOf(kRev / 4))).toBeLessThan(3);
 });
 
 test('the scramble buttons move a hand somewhere new every time', async ({ ux }) => {

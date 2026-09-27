@@ -759,9 +759,13 @@ The labels in `hal.hpp`'s opto block were always written for *this* geometry, so
 calibration and the wiring agree for the first time; before it, the hand the docs called weak was
 the strong one on the board.
 
-- **Geometry:** X40.879 on the X27 base spec ≈ **1/3° per full step → 1080 steps/rev**; ×16
-  microstepping → 17 280 µsteps/rev. ⚠ *Verify on the bench during bring-up (`motion spr`) — this is
-  the one number the whole dial depends on.*
+- **Geometry:** X27 base spec: gear **1:180**, one electrical period (6 partial steps of 1/3°) =
+  **2° of shaft** → 180 periods/rev × 64 µsteps = **11 520 µsteps/rev** (was 17 280 until 2026-09-27,
+  which read the spec's 1080 *partial* steps as full steps). ⚠ *Verify with `motion walk m 1080` (one
+  turn) on a stopless movement.*
+- **The movement must be the X40.879.NS (no internal stop).** The plain X40.879 is the X27 with
+  the **315° stop**; build #1 was fitted with it and buzzed without turning at the stop until reversed
+  (2026-09-27, `kicad/REVIEW.md` V18). Homing and every wrap-around assume endless rotation.
 - **Cadence:** minute hand = 1 full step every 3.33 s; hour hand = 1 full step every 40 s. The
   movement is idle >99 % of the time → coils de-energized between moves, GPTimer stopped.
 - **Commutation:** ISR advances a Q16.16 phase accumulator and writes 8 comparator registers from a
@@ -843,7 +847,7 @@ zero is measured from, so a calibrated movement asked for 12:00 puts the hand on
 
 | | |
 |---|---|
-| set it | `motion zero <h\|m> <±usteps>` — 48 usteps = 1°, and the `ux` page has a slider per hand |
+| set it | `motion zero <h\|m> <±usteps>` — 32 usteps = 1°, and the `ux` page has a slider per hand |
 | stored | `hal::store` → NVS namespace `clock` on target, a `key = value` file on the host (`clocksim --nvs`, default `~/.clocksim.nvs`) |
 | applied | at the next home — and **immediately**, if the movement is already homed: the frame shifts and the hand turns to it while you watch, because a calibration you cannot see land is one nobody can perform |
 | range | ±¼ turn; further than that is a typo, and applying it would move the hand rather than say so |
@@ -890,7 +894,7 @@ of the twelve printed dots is at the top:
 ```
 up_deg = atan2(-gx, -gy)          dial axes: +X right, +Y at the printed 12, +Z out of the glass
 tick   = round(up_deg / 30) mod 12          twelve dots, thirty degrees apart
-offset = tick * 17280/12 usteps             added to EVERY dial-frame target
+offset = tick * kRev/12 usteps              added to EVERY dial-frame target
 ```
 
 Turn the cube 90° clockwise and the dot now at the top is the printed 9 — three ticks round —
@@ -1431,8 +1435,8 @@ bring-up command overwritten 20 ms later is not a bring-up command.
   comparable at a glance. A blink reads as an alarm *going off* rather than one that is set,
   and this is the light on the thing you look at last before you sleep. Nothing in a mode
   blinks now; `Blink` stays in the vocabulary for fault codes.
-- **The volume gauge is 300° of dial**, both hands together, `144 usteps per percent` exactly
-  (`17280 × 300/360 / 100`). A percentage needs somewhere to be *read*, and the dial is the
+- **The volume gauge is 300° of dial**, both hands together, `96 usteps per percent` exactly
+  (`11520 × 300/360 / 100`). A percentage needs somewhere to be *read*, and the dial is the
   only readout this product has; the pixel is left as a plain steady white. The other 60° —
   between the 10 and the 12 — is **off the scale, and the hands never enter it**: every move
   inside the mode carries the direction the level is changing, so the gauge is *swept* rather
@@ -2872,7 +2876,7 @@ two windings. Have a current meter on the 5 V rail before the first one.
 1. `sensor hands` with the coils off — `pos` should be 0/0 and `mov=00`.
 2. `motion step` one microstep at a time and **watch which way it goes**. Backwards is one
    constant: `kSwapB` in `motor_esp.cpp`.
-3. Count microsteps for one full revolution and confirm **17 280** (§13 open question 1 — this
+3. Count microsteps for one full revolution and confirm **11 520** (§13 open question 1 — this
    is the one number the whole dial depends on, and `motion spr` writes it to NVS).
 4. Sweep the carrier and the microstep depth for **silence** (milestone 3). A 25 kHz carrier is
    above hearing; the *mechanical* resonance of the gear train is not, and that is what the
@@ -3157,7 +3161,7 @@ built to make possible.
 Still open on the movement, and none of it is blocked — it is the rest of milestone 3:
 
 - **`steps_per_rev`** — §13 open question 1, the one number the whole dial depends on. Count
-  microsteps for one full revolution and confirm **17 280**; `motion spr` writes it to NVS.
+  microsteps for one full revolution and confirm **11 520**; `motion spr` writes it to NVS.
 - **Direction.** Clockwise must come out positive. If it does not, `kSwapB` in
   `motor_esp.cpp` is the single line.
 - **Silence.** The 25 kHz carrier is above hearing; the gear train's own resonance is not, and
@@ -3831,7 +3835,7 @@ the ordered work. Delete a row when it closes; delete the section when it emptie
 |---|---|---|
 | **F2.0** | ✅ | Hands swapped shafts (minute → inner pin, hour → outer tube); firmware crosses them in `motor_esp.cpp`'s `build()`, which logs `hour=tube(MCPWM0) minute=pin(MCPWM1)` at boot. ⚠ **Nothing on the host can catch that crossing being wrong** — that log plus one `motion step h` with a hand on is the whole verification. Do it before anything below leans on it |
 | **F2.3** | ⬜ | **Silence — the one item that needs no hands.** Tune microstep depth against the gear train's resonance; the 25 kHz carrier is already above hearing. Bare shafts are audible, so this can be done now |
-| **F2.1** | ⬜ | `steps_per_rev` — count microsteps for one revolution, confirm **17 280** (§13 Q1). ⚠ `motion spr` only *prints* the constant; `domain::kRev` is `constexpr` and everything in `hand.hpp` is `constexpr` over it. Worth changing **only if the count comes out wrong** — measure first |
+| **F2.1** | ⬜ | `steps_per_rev` — count microsteps for one revolution, confirm **11 520** (§13 Q1; changed from 17 280 on 2026-09-27 per the X27 gear ratio — needs the stopless `.NS` movement to count a full turn). ⚠ `motion spr` only *prints* the constant; `domain::kRev` is `constexpr` and everything in `hand.hpp` is `constexpr` over it. Worth changing **only if the count comes out wrong** — measure first |
 | **F2.2** | ⬜ | Direction — clockwise must come out positive. If not, `kSwapB` in `motor_esp.cpp` is one line. ⚠ It is one flag for **both** axes; make it per-hand + NVS-backed only *if* exactly one hand comes out backwards |
 | **F2.4** | ⬜ | Homing — place the index mark with `sensor homing stream`, then the FSM. ⚠ **Re-measure the opto first.** `kOptoMarkMv` = 2600 is the *near* hand's level, so the far (minute) hand normalises to 0.25, under `motion`'s 0.45 `opto_thresh` — its index crossing is currently **invisible**. Do not lower the threshold on paper: those numbers were bare surfaces, and a printed index mark reflects far better. Decide v0.4 **V2** (`R99` 10k → 22k) *after* this measurement, not before |
 

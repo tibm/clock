@@ -139,7 +139,10 @@ Result<State> read() noexcept;
 // what makes the landing exact whatever the tick rate.
 namespace motor {
 enum class Hand : uint8_t { Hour, Minute };
-inline constexpr int32_t kUstepsPerRev = 17280;  // 1080 full steps x16 -- verify `motion spr`
+// X27 spec SP-X27-e-C table row 11: gear 1:180, one electrical period = 2 deg of shaft, so
+// 180 periods x 64 usteps (x16 per full step, 4 full steps per period).  Was 17280 until
+// 2026-09-27, which misread the spec's 1080 PARTIAL steps (6 per period) as full steps.
+inline constexpr int32_t kUstepsPerRev = 11520;  // 180 x 64 -- bench: `motion walk m 1080` = 1 turn
 
 Status enable(bool on) noexcept;  // STEP_STBY (expander GPA1); coils dead when false
 bool enabled() noexcept;
@@ -171,6 +174,22 @@ struct Axis {
     bool moving;
 };
 Axis state(Hand) noexcept;
+
+// ---- bench only (2026-09-27: the bare shaft buzzes and does not turn) ----
+// How the PWM off-time is spent.  Fast = IN pair L/L, which the TB6612 treats as OFF (high-Z):
+// the coil current returns through the body diodes against VM, so the average coil voltage
+// falls well below duty x VM once L/R approaches the 40 us carrier period.  Slow = H/H, short
+// brake: the current recirculates through the low-side FETs and the average is duty x VM for
+// any inductance.  Slow is the default; Fast is the scheme up to this date.
+enum class Decay : uint8_t { Fast, Slow };
+void set_decay(Decay) noexcept;  // takes effect on the next coil write
+Decay decay() noexcept;
+
+// Raw coil drive, bypassing the commutator: signed duty in permille of VM (-1000..1000) on
+// coil A (chA, X40 contacts 1/2) and coil B (chB, 4/3).  Parks the axis and holds these
+// values until the next run()/coils().  Needs enable(true).  ±1000 is DC at 5 V in either
+// decay mode, so a DMM across the coil reads the bridge directly.
+Status coils(Hand, int16_t a_pm, int16_t b_pm) noexcept;
 }  // namespace motor
 
 // ---- SK6812 chain (SPI3 + DMA on target) -----------------------------------------------

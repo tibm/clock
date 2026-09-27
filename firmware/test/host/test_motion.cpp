@@ -482,10 +482,10 @@ void test_motion_zero_offsets_the_hand() {
     CHECK(home_and_wait());
     CHECK(park_at(0, 0));
 
-    // 96 usteps is two degrees.  The hand turns clockwise by exactly that, and what the
+    // 2 degrees of trim.  The hand turns clockwise by exactly that, and what the
     // firmware has for it does not change: the FRAME moved, not the target.  It is still
     // twelve o'clock -- twelve o'clock is now two degrees further round.
-    constexpr int32_t kTrim = 96;
+    constexpr int32_t kTrim = domain::kRev / 180;
     const float before = sim::hand_angle(Hand::Hour);
     const float minute_before = sim::hand_angle(Hand::Minute);
     CHECK(zero_hand(Hand::Hour, kTrim));
@@ -680,7 +680,7 @@ void test_motion_takes_the_short_way_round() {
 
 // A knob step must land in the hand's OWN turn of the dial.  Callers speak in dial positions,
 // which are ambiguous by a whole revolution; the hands are counted unwrapped and can be
-// several turns from zero.  So "go to 0, clockwise" given to a hand sitting at 17280 means the
+// several turns from zero.  So "go to 0, clockwise" given to a hand sitting at 11520 means the
 // zero it is standing on, not the one the number was written as -- get that wrong and the
 // first knob step after any mode entry that crossed the 12 throws the hand a whole turn back.
 //
@@ -1086,7 +1086,7 @@ void test_ui_hands_show_the_mode() {
     CHECK(hands_heading_for(alarm.hour, alarm.minute, 8000));
 
     // Volume is a gauge: both hands together, 0 % straight up, 100 % at 10 o'clock the long
-    // way round -- 300 degrees, 144 usteps per percent, exactly.
+    // way round -- 300 degrees, 96 usteps per percent, exactly.
     run("ui mode volume", r);
     CHECK(in_mode("volume"));
     const int32_t want = svc::ui().snapshot().volume * (kRev * 300 / 360 / 100);

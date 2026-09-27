@@ -214,7 +214,7 @@ Status cmd_zero(Args const& a, Sink& out) {
         out.printf("zero h=%" PRId32 " m=%" PRId32 " usteps  (%+.2f / %+.2f deg)", s.zero_h,
                    s.zero_m, static_cast<double>(s.zero_h) * 360.0 / domain::kRev,
                    static_cast<double>(s.zero_m) * 360.0 / domain::kRev);
-        out.line("  usage: motion zero <h|m> <+/-usteps>   (48 usteps = 1 deg, + = clockwise)");
+        out.line("  usage: motion zero <h|m> <+/-usteps>   (32 usteps = 1 deg, + = clockwise)");
         return Status::Ok;
     }
     hal::motor::Hand hand{};
@@ -237,9 +237,9 @@ Status cmd_zero(Args const& a, Sink& out) {
 }
 
 Status cmd_spr(Args const&, Sink& out) {
-    // §13 open question 1: 1080 full steps x16 is the X27 base spec, deferred to by the X40
-    // addendum and still unverified.  Everything downstream reads the constant.
-    out.printf("steps_per_rev %" PRId32 " usteps (1080 full x16) -- UNVERIFIED, bench it",
+    // §13 open question 1: X27 spec gear 1:180 = 180 electrical periods x 64 usteps.  Still
+    // unverified on a stopless movement.  Everything downstream reads the constant.
+    out.printf("steps_per_rev %" PRId32 " usteps (180 periods x64) -- UNVERIFIED, bench it",
                domain::kRev);
     return Status::Ok;
 }
@@ -266,7 +266,97 @@ Status cmd_power(Args const& a, Sink& out) {
     return st;
 }
 
+// ---- raw coil bench (2026-09-27) ----------------------------------------------------------
+// The one exception to "nothing here touches hal::motor": these exist to test the bridges and
+// the movement with the commutator OUT of the loop, so going through `motion` would defeat
+// them.  They refuse while the AO is driving, and the AO re-syncs its power flag from
+// hal::motor::enabled() on its next move, so nothing is left inconsistent.
+Status bench_coils_up(Sink& out, const char* what) {
+    const auto s = svc::motion().snapshot();
+    if (s.state == Motion::State::Homing || s.state == Motion::State::Moving) {
+        return refused(out, what, Status::Busy);
+    }
+    if (const Status st = hal::motor::enable(true); st != Status::Ok) return refused(out, what, st);
+    return Status::Ok;
+}
+
+Status cmd_coil(Args const& a, Sink& out) {
+    hal::motor::Hand hand{};
+    if (!parse_hand(a.arg(0), hand) || a.count() < 3) {
+        out.line(
+            "usage: motion coil <h|m> <A permille> <B permille>   (-1000..1000, 1000 = 5 V DC)");
+        out.line("  h = tube (TB6612 #1, IO3-6)   m = inner pin (TB6612 #2, IO38-41)");
+        out.line("  `motion coil h 0 0` + `motion power off` or `motion stop` when done");
+        return Status::BadArg;
+    }
+    const auto pa = static_cast<int16_t>(std::strtol(a.arg(1), nullptr, 10));
+    const auto pb = static_cast<int16_t>(std::strtol(a.arg(2), nullptr, 10));
+    if (const Status st = bench_coils_up(out, "coil"); st != Status::Ok) return st;
+    if (const Status st = hal::motor::coils(hand, pa, pb); st != Status::Ok) {
+        out.printf("coil refused: %s  (range -1000..1000)", cmd::name(st));
+        return st;
+    }
+    out.printf("%s  A=%+d  B=%+d permille  (~%+.2f V / %+.2f V across the coils, %s decay)",
+               a.arg(0), pa, pb, pa * 5.0 / 1000, pb * 5.0 / 1000,
+               hal::motor::decay() == hal::motor::Decay::Slow ? "slow" : "fast");
+    return Status::Ok;
+}
+
+Status cmd_decay(Args const& a, Sink& out) {
+    const char* v = a.arg(0);
+    if (v && std::strcmp(v, "slow") == 0) {
+        hal::motor::set_decay(hal::motor::Decay::Slow);
+    } else if (v && std::strcmp(v, "fast") == 0) {
+        hal::motor::set_decay(hal::motor::Decay::Fast);
+    } else if (v) {
+        out.line("usage: motion decay [slow|fast]");
+        return Status::BadArg;
+    }
+    out.printf("decay %s  (slow = drive/short-brake, linear; fast = drive/off, pre-2026-09-27)",
+               hal::motor::decay() == hal::motor::Decay::Slow ? "slow" : "fast");
+    return Status::Ok;
+}
+
+// The X27 spec's own partial-step sequence (SP-X27-e-C fig. 8), full 5 V, no PWM involved:
+// coil 1 = + + 0 - - 0, coil 2 = + 0 - - 0 +.  Six states = one rotor turn = 2 deg of shaft,
+// so 1080 states is one revolution.  If this does not turn a bare shaft, the firmware's
+// waveform is not the problem.
+Status cmd_walk(Args const& a, Sink& out) {
+    hal::motor::Hand hand{};
+    if (!parse_hand(a.arg(0), hand) || a.count() < 2) {
+        out.line("usage: motion walk <h|m> <+/-states> [ms per state, default 3]");
+        out.line("  6 states = 2 deg; 1080 = one turn; + = the datasheet's clockwise");
+        return Status::BadArg;
+    }
+    const auto n = static_cast<int32_t>(std::strtol(a.arg(1), nullptr, 10));
+    const auto ms = a.count() > 2 ? static_cast<int32_t>(std::strtol(a.arg(2), nullptr, 10)) : 3;
+    const int32_t steps = n < 0 ? -n : n;
+    if (ms < 1 || ms > 1000 || static_cast<int64_t>(steps) * ms > 20'000) {
+        out.line("walk: 1..1000 ms per state, and at most 20 s in total");
+        return Status::BadArg;
+    }
+    if (const Status st = bench_coils_up(out, "walk"); st != Status::Ok) return st;
+    static constexpr int8_t kC1[6] = {1, 1, 0, -1, -1, 0};
+    static constexpr int8_t kC2[6] = {1, 0, -1, -1, 0, 1};
+    int k = 0;
+    for (int32_t i = 0; i <= steps; ++i) {  // state 0 first, then `steps` transitions
+        const Status st = hal::motor::coils(hand, static_cast<int16_t>(kC1[k] * 1000),
+                                            static_cast<int16_t>(kC2[k] * 1000));
+        if (st != Status::Ok) return refused(out, "walk", st);
+        hal::clock_::sleep_ms(static_cast<uint32_t>(ms));
+        k = n >= 0 ? (k + 1) % 6 : (k + 5) % 6;
+    }
+    out.printf("walked %s %+" PRId32 " states (%.1f deg if nothing slipped), coils holding",
+               a.arg(0), n, static_cast<double>(n) / 3.0);
+    return Status::Ok;
+}
+
 constexpr CmdSpec kRows[] = {
+    {"motion", nullptr, "coil", "<h|m> <A> <B>", "raw coil duty, permille (bench)", Unsafe,
+     cmd_coil},
+    {"motion", nullptr, "decay", "[slow|fast]", "PWM off-time mode (bench)", None, cmd_decay},
+    {"motion", nullptr, "walk", "<h|m> <+/-n> [ms]", "datasheet full-V partial steps (bench)",
+     Unsafe, cmd_walk},
     {"motion", nullptr, "power", "[on|off]", "release or inhibit the movement (NVS)", Unsafe,
      cmd_power},
     {"motion", nullptr, "status", "", "state, hands, coils, tuning", ReleaseOk, cmd_status},

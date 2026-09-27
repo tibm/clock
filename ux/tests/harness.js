@@ -177,7 +177,7 @@ const norm360 = (d) => ((d % 360) + 360) % 360;
 
 // The one number this file is allowed to know about the mechanism, and it is not a guess:
 // the `hello` frame carries usteps_per_rev, and the MECHANISM card prints it.
-const kRev = 17280;
+const kRev = 11520;
 const degOf = (usteps) => norm360(usteps * 360 / kRev);
 
 // After homing, a hand sits a little SHORT of where the firmware thinks it is: the rising
@@ -425,7 +425,7 @@ class Ux {
     //
     // The gap between them is not politeness, it is the movement: a setting may not run
     // faster than the hands can draw it, and what arrives faster is DROPPED rather than
-    // banked (§6.6d).  One minute of dial is 288 microsteps, which at the shipping 6000
+    // banked (§6.6d).  One minute of dial is 192 microsteps, which at the shipping 4000
     // usteps/s is 48 ms -- so a "one detent, one minute" case has to turn slower than that
     // or it is asking the dial for something no dial can show, and the answer is correctly
     // fewer minutes.  140 ms is a brisk turn with a lot of room: the margin is there because

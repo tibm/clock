@@ -23,14 +23,15 @@ public:
     // Everything a bench session wants to change without a rebuild.  `motion tune` writes
     // these; they become NVS-backed config with `storage` (§7.5).
     struct Tuning {
-        int32_t v_max = 6000;   // usteps/s  -- ~2 min of dial per second
-        int32_t accel = 20000;  // usteps/s^2
+        // Scaled by 2/3 on 2026-09-27 with kUstepsPerRev 17280 -> 11520: same deg/s as before.
+        int32_t v_max = 4000;   // usteps/s  -- ~20 min of dial per second (125 deg/s)
+        int32_t accel = 13333;  // usteps/s^2
         // Homing is two-speed.  The coarse sweep only has to notice that it crossed the
         // index, so it can run fast; the slow re-approach is what fixes the position.  Keep
         // v_coarse below about (window / 3) per control tick or the sweep steps over the
         // 3-degree window entirely -- which is a real bench failure, not a fake artefact.
-        int32_t v_coarse = 4000;
-        int32_t v_fine = 400;
+        int32_t v_coarse = 2667;
+        int32_t v_fine = 267;
         int32_t backlash = 0;  // usteps of slop to take up; every move finishes clockwise
         float opto_thresh = 0.45f;
         // ---- the per-unit calibration, one number per hand (`motion zero`, NVS-backed) ----

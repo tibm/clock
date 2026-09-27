@@ -6,11 +6,11 @@
 // the MECHANISM card report afterwards.
 'use strict';
 
-const { test, expect, angleDiff, degOf, kHomeOffsetDeg } = require('./harness');
+const { test, expect, angleDiff, degOf, kHomeOffsetDeg, kRev } = require('./harness');
 
 // Where a bare home leaves the mechanism: the minute hand is homed and then parked 90 deg
 // away so it is off the sensor for the hour sweep; the hour hand finishes on its own index.
-const kParked = 4320;   // kRev / 4
+const kParked = kRev / 4;
 
 test('home from a scrambled dial ends with both hands on a known zero', async ({ ux }) => {
     await ux.placeHand('h', 137);

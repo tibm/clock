@@ -111,7 +111,7 @@ let plateYaw = 0;        // where the cube is pointing, so a hand drag can be un
 
 // 48 microsteps to the degree.  The firmware speaks microsteps; a person calibrating a hand by
 // eye is thinking in degrees, so the label says both.
-const kUstepsPerDeg = 17280 / 360;
+const kUstepsPerDeg = 11520 / 360;
 const zeroLabel = (v) => `${v > 0 ? '+' : ''}${v} · ${(v / kUstepsPerDeg).toFixed(2)}°`;
 
 // A toggle is a REQUEST, not a mirror of the last frame.  Deciding what to send by reading

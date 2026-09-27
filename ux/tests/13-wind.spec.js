@@ -21,8 +21,8 @@ const { test, expect, kRev } = require('./harness');
 
 const kStep = 40;                          // minutes per step
 const kSteps = 36;                         // ... and 36 x 40 min = 24 h = two turns of the hour
-const kPerMinuteHand = kStep * kRev / 60;  // 11 520 usteps = 240 degrees
-const kPerHourHand = kStep * kRev / 720;   // 960 usteps = 20 degrees
+const kPerMinuteHand = kStep * kRev / 60;  // 7 680 usteps = 240 degrees
+const kPerHourHand = kStep * kRev / 720;   // 640 usteps = 20 degrees
 
 // One count is one minute, at any speed.  The acceleration curve is case 12's subject and is
 // noise here: this case is about DIRECTION, and it needs each `sim knob` to be a known number
@@ -135,7 +135,7 @@ test('clock: thirty-one minutes forward moves the minute hand forward', async ({
 //
 // The cases above wait for each step to land, so the hands are never behind.  A finger does
 // not wait: app.js coalesces a drag into one `sim knob n` every 33 ms, and at any speed worth
-// calling a spin those arrive far faster than a 6000 ustep/s movement can answer.  That is
+// calling a spin those arrive far faster than a 4000 ustep/s movement can answer.  That is
 // where both of the 2026-08-16 reports lived, and neither is visible in a stepped test.
 async function dragFor(ux, counts, times, gapMs) {
     await ux.startHandWatch();
@@ -222,7 +222,7 @@ test('the hands stop when the knob stops', async ({ ux }) => {
 
     await ux.page.waitForTimeout(2500);
     const after = (await ux.usteps()).rawM;
-    // One minute of dial is 288 microsteps.  Two of them is a tenth of a second of hand.
+    // One minute of dial is 192 microsteps.  Two of them is a tenth of a second of hand.
     expect(Math.abs(after - atStop),
            'the minute hand wound on after the knob stopped').toBeLessThan(2 * kRev / 60);
     // And the SETTING is finished too: what the dial says is what you set.

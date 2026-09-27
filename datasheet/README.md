@@ -15,7 +15,7 @@ Quick-reference for the datasheets in this folder. Prices are single-unit USD an
 | 1 | `display_ls032b7dd02.pdf` | LS032B7DD02 (full device spec) — ⚠ **not in current build** (display dropped v0.19; kept for a future variant) | Sharp | module + FPC | ✅ | ~$38 | 3-wire SPI |
 | 2 | `mcu_esp32-s3-wroom-1-n8r8.pdf` | ESP32-S3-WROOM-1-N8R8 | Espressif | **module (castellated)** | ✅ | ~$6.3 | Wi-Fi/BLE + UART/SPI/I²C/I²S |
 | 3 | `speaker_dma58-4.pdf` | DMA58-4 | Dayton Audio | wired (passive) | ✅ | ~$19 | Analog |
-| 4 | `stepper_motor_x40-879.pdf` | **X40.879** (dual-shaft) | Juken / Switec | wired | ✅ | ~$14 | 2-phase bipolar × 2 |
+| 4 | `stepper_motor_x40-879.pdf` | **X40.879** (dual-shaft) — buy the **.NS** (no stop) | Juken / Switec | wired | ✅ | ~$14 | 2-phase bipolar × 2 |
 | 4b | `stepper_motor_x27_base-spec.pdf` | X27 base spec *(companion to #4)* | Juken / Switec | wired | ✅ | — | — |
 | 5 | `amp_tas5760m.pdf` | **TAS5760M** (`TAS5760MDAPR`) — ⚠ **`AVDD` (pin 1) is a 4.5–26.4 V pin and must tie to PVDD**; rev0.3 wires it to +3V3 (v0.4 **V13**) | Texas Instruments | **HTSSOP-32 (DAP, PowerPAD)** | ✅ | ~$4–6 | I²S in + I²C control |
 | 6 | `motor_driver_tb6612fng.pdf` | **TB6612FNG** (× 2) | Toshiba | **SSOP-24 (no exposed pad)** | ✅ | ~$2.4 | GPIO/PWM (IN/IN) |
@@ -150,14 +150,14 @@ The pin/rail picture is getting busy, so track it here. The **ESP32-S3 (3.3 V lo
 > Two datasheets: `stepper_motor_x40-879.pdf` (**X40 pinout note**, `SP-X40-e-A-Pinout`) covers *only* pinout + drive sequence; torque, current, coil resistance, dimensions, temperature all come from `stepper_motor_x27_base-spec.pdf` (**X27 series spec**, `SP-X27-e-C`) — the X40's two shafts use **X27-compatible mechanics**.
 
 - **Product:** X40.879 — a **dual coaxial-shaft** stepper (independent hour + minute shafts) built from two X27-class movements; drives directly from an MCU (here, via 2× TB6612FNG).
-- **Refs:** Part # `X40.879` · Mfr **Juken Swiss Technology / Switec** · DigiKey # 28528329. Base spec = `X27` series (e.g. X27.168, DigiKey # 26832207).
-- **Price / link:** ~**$14.00** (qty 30) — [DigiKey 28528329](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) (active, confirmed dual-axis).
+- **Refs:** **Buy `X40.879.NS`** (a.k.a. `X40.879B`, **no internal stop**) — ⚠ `X40.879` itself (DigiKey # 28528329) has the X27's **315° stop**; build #1 was fitted with it and stalls at the stop (2026-09-27, `kicad/REVIEW.md` V18). Mfr **Juken Swiss Technology / Switec**. Base spec = `X27` series (e.g. X27.168, DigiKey # 26832207).
+- **Price / link:** `.NS` ~€25 — [MiniTools](https://store.minitools.com/en/sei-x40-879-ns-juken-x40-879-ns-stepper-motor.html), [inovauto](https://inovauto.com/mot-320.html); **not on DigiKey**, no `.NS` datasheet on file (same X40 package per sellers — verify pinout/pitch against the footprint). Plain X40.879 ~$14 — [DigiKey 28528329](https://www.digikey.com/en/products/detail/juken-swiss-technology/X40-879/28528329) (has the stop — **do not buy for this clock**).
 - **Dimensions:** per-movement **Ø 30 × 9 mm** (X27 base). X40 overall isn't in the pinout note — it stacks two coaxial shafts → taller vertical profile.
 - **Power / IO** (from X27 base spec):
   - **Voltage:** operating **5–9 V DC**; absolute-max driving voltage 10 V. Driven at **5 V** via TB6612FNG VM for full torque.
   - **Current:** coil R 230/260/290 Ω → **≈19 mA/coil at 5 V**; **two coils per shaft**, bipolar. **8 coil terminals** total (external-shaft 1–4, internal-shaft 5–8) → four H-bridges = two TB6612FNG.
   - Holding torque 3.5–4.0 mN·m; dynamic 1.0–1.45 mN·m @ 200°/s; noise ~40 dB(A); temp −40…+105 °C.
-- **Description:** 1/3° per step (60°/step rotor), up to 600°/s, 1/180 gear. Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external **optical** homing (QRE1113, §16).
+- **Description:** 1/3° per partial step (60°/step rotor), up to 600°/s, 1/180 gear → 2° per electrical period → **11 520 µsteps/rev** at ×64/period (firmware `kUstepsPerRev`). Base X27 has a 315° internal stop — for a clock, buy/reuse the **360°/no-stop** variant + external **optical** homing (QRE1113, §16).
 - **Interface:** Not a data bus — **two 2-phase bipolar coil sets** driven from the ESP32 via **2× TB6612FNG** (below), PWM microstep. Connects via **wire + JST**.
 - **Released:** X40 pinout rev A (`FO-220-01-B`); X27 base is a long-standing automotive gauge motor.
 
@@ -364,7 +364,7 @@ All parts match the root [`README.md`](../README.md):
 | **Status/dial LEDs (v0.19)** | ✅ **7× SK6812 RGBW** (row 31, Adafruit 2758) + **SN74AHCT1G125** buffer (row 32) on 5 V, one RMT data GPIO (IO7). Replaces the panel string (Cree CLM3C, dropped). |
 | **Knob (v0.19)** | ✅ **Bourns EM14A0D-C24-L064S** (row 33): optical, no detent, 64 CPR, push, 5 V; A/B → 100k/200k dividers → PCNT IO47/48, SW → IO17 IRQ. Kilo OEJNI-90-1-5 aluminum knob (mechanical, no datasheet). J10 = ZH 1×06 (row 34). |
 | **Speaker** | ✅ DMA58-4 chosen; PC68-4 kept as documented "bigger-box alt". |
-| **Stepper** | ✅ X40.879 (+ X27 companion datasheet); root §5 explains the dependency. Dial now Ø~90 mm → keep the aluminum hands light (≲1 g). |
+| **Stepper** | ✅ X40.879**.NS** (no stop; + X40/X27 datasheets); root §5 explains the dependency. Dial now Ø~90 mm → keep the aluminum hands light (≲1 g). |
 | **Audio amp** | ✅ **TAS5760M** (HTSSOP) locked, replacing the QFN TAS5825M; firmware does the HPF/limiter DSP. PCM5102A+TPA3116 = analog alt. |
 | **Motor driver** | ✅ **2× TB6612FNG** (SSOP-24) locked, replacing the WSON DRV8835. |
 | **Power / safety** | ✅ **CH224K** (PD) + **LT3652** (1S buck charger, BAT-node power-path) + **HY2111 + AOSD32334C** protector + reverse P-FET + NTC + TVS. Fuel gauge → **ESP32 ADC**. See [`../power.md`](../power.md). Unchanged by v0.19. |

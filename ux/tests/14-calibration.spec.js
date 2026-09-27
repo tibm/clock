@@ -13,7 +13,7 @@
 
 const { test, expect, kRev, angleDiff } = require('./harness');
 
-// 48 microsteps to the degree.  The one number this file knows, and the page prints it.
+// 32 microsteps to the degree.  The one number this file knows, and the page prints it.
 const kUstepsPerDeg = kRev / 360;
 
 test.describe('boot homing', () => {
@@ -121,5 +121,5 @@ test('a hand that has drifted trims itself the next time it crosses the sensor',
     expect(trim.last).toBeGreaterThan(0);
     expect(trim.last).toBeLessThan(kUstepsPerDeg);   // under a degree -- it was half of one
 
-    await ux.cli('motion tune v_max 6000');
+    await ux.cli('motion tune v_max 4000');
 });

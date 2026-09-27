@@ -63,12 +63,12 @@ test('the hint under the slider matches what was sent', async ({ ux }) => {
 });
 
 test('the mechanism sliders reach motion tune', async ({ ux }) => {
-    await ux.slide('r-vmax', 12000);
+    await ux.slide('r-vmax', 8000);
     await ux.slide('r-vcoarse', 2500);
     await ux.slide('r-backlash', 120);
     await ux.cli('motion tune');
     // Poll: the reply is a `res` frame that has to come back, and a plain snapshot of the
     // log races it.
     await expect.poll(() => ux.logText(), { timeout: 10000 })
-        .toMatch(/v_max=12000 accel=\d+ v_coarse=2500 v_fine=\d+ backlash=120/);
+        .toMatch(/v_max=8000 accel=\d+ v_coarse=2500 v_fine=\d+ backlash=120/);
 });

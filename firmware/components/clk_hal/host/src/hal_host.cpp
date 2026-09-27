@@ -560,6 +560,22 @@ bool inhibited() noexcept {
     return g_st.motor_inhibit;
 }
 
+// Bench-only on the target; the fake has no coils, so it only keeps the contract.
+namespace {
+Decay g_decay = Decay::Slow;
+}
+void set_decay(Decay d) noexcept { g_decay = d; }
+Decay decay() noexcept { return g_decay; }
+
+Status coils(Hand h, int16_t a_pm, int16_t b_pm) noexcept {
+    std::lock_guard lk{g_mx};
+    if (!board::present(board::Dev::Motor)) return Status::NotPresent;
+    if (!g_st.motor_on) return Status::NotReady;
+    if (a_pm < -1000 || a_pm > 1000 || b_pm < -1000 || b_pm > 1000) return Status::BadArg;
+    axis_park_locked(hand_idx(h));
+    return Status::Ok;
+}
+
 Axis state(Hand h) noexcept {
     std::lock_guard lk{g_mx};
     const int i = hand_idx(h);

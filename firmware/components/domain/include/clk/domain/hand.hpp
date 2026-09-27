@@ -17,7 +17,7 @@ namespace clk::domain {
 
 inline constexpr int32_t kRev = hal::motor::kUstepsPerRev;
 
-// Positive modulo -- C++'s % is not, and a hand at -1 microstep is at 17 279, not at -1.
+// Positive modulo -- C++'s % is not, and a hand at -1 microstep is at 11 519, not at -1.
 [[nodiscard]] constexpr int32_t normalise(int32_t usteps) noexcept {
     const int32_t m = usteps % kRev;
     return m < 0 ? m + kRev : m;

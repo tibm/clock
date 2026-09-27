@@ -176,18 +176,34 @@ bool step_axis(Axis_& a) noexcept {
     return true;
 }
 
+volatile Decay g_decay = Decay::Slow;  // hal.hpp: why Slow
+
+// One coil: signed Q15 current demand -> its two comparators.  Each generator is HIGH from
+// zero to its compare, so compare == kPeriodTicks is a pin held HIGH for the whole period.
+//   Fast:  drive leg = PWM(d), other leg LOW   -> drive / OFF (high-Z, diode decay)
+//   Slow:  drive leg HIGH, other leg = PWM(1-d) -> short brake / drive
+void write_coil(mcpwm_cmpr_handle_t in1, mcpwm_cmpr_handle_t in2, int32_t s) noexcept {
+    constexpr auto kP = static_cast<int32_t>(kPeriodTicks);
+    const int32_t d = ((s < 0 ? -s : s) * kP + (1 << 14)) >> 15;  // 0..kP, rounded
+    mcpwm_cmpr_handle_t drv = s >= 0 ? in1 : in2;
+    mcpwm_cmpr_handle_t ret = s >= 0 ? in2 : in1;
+    if (g_decay == Decay::Slow) {
+        (void)::mcpwm_comparator_set_compare_value(drv, kPeriodTicks);
+        (void)::mcpwm_comparator_set_compare_value(ret, static_cast<uint32_t>(kP - d));
+    } else {
+        // The idle leg gets zero, which on this generator config is at worst a single 100 ns
+        // tick of carrier.
+        (void)::mcpwm_comparator_set_compare_value(drv, static_cast<uint32_t>(d));
+        (void)::mcpwm_comparator_set_compare_value(ret, 0);
+    }
+}
+
 void write_coils(Axis_& a) noexcept {
     const auto i = static_cast<uint8_t>((static_cast<uint32_t>(a.elec) & kElecMask) >> kElecShift);
     const int32_t sa = sin256(i);
     const int32_t sb = kSwapB ? -cos256(i) : cos256(i);
-    const int32_t da = (((sa < 0 ? -sa : sa) * static_cast<int32_t>(kPeriodTicks)) >> 15);
-    const int32_t db = (((sb < 0 ? -sb : sb) * static_cast<int32_t>(kPeriodTicks)) >> 15);
-    // The idle leg gets zero, which on this generator config is at worst a single 100 ns tick
-    // of carrier -- 17 microamps into a 30 mH coil against the 19 mA the driven leg carries.
-    (void)::mcpwm_comparator_set_compare_value(a.cmp[0], sa >= 0 ? da : 0);
-    (void)::mcpwm_comparator_set_compare_value(a.cmp[1], sa >= 0 ? 0 : da);
-    (void)::mcpwm_comparator_set_compare_value(a.cmp[2], sb >= 0 ? db : 0);
-    (void)::mcpwm_comparator_set_compare_value(a.cmp[3], sb >= 0 ? 0 : db);
+    write_coil(a.cmp[0], a.cmp[1], sa);
+    write_coil(a.cmp[2], a.cmp[3], sb);
 }
 
 bool on_tick(gptimer_handle_t, const gptimer_alarm_event_data_t*, void*) noexcept {
@@ -484,6 +500,26 @@ Axis state(Hand h) noexcept {
     out.moving = a.moving;
     portEXIT_CRITICAL(&g_mux);
     return out;
+}
+
+void set_decay(Decay d) noexcept { g_decay = d; }
+Decay decay() noexcept { return g_decay; }
+
+Status coils(Hand h, int16_t a_pm, int16_t b_pm) noexcept {
+    if (!board::present(board::Dev::Motor)) return Status::NotPresent;
+    if (!g_enabled) return Status::NotReady;
+    if (a_pm < -1000 || a_pm > 1000 || b_pm < -1000 || b_pm > 1000) return Status::BadArg;
+    Axis_& a = g_ax[idx_of(h)];
+    // Park first so the ISR stops writing this axis; the comparators then keep what we set.
+    portENTER_CRITICAL(&g_mux);
+    a.vel = 0;
+    a.inc = 0;
+    a.moving = false;
+    a.stop = a.pos;
+    portEXIT_CRITICAL(&g_mux);
+    write_coil(a.cmp[0], a.cmp[1], a_pm * 32767 / 1000);
+    write_coil(a.cmp[2], a.cmp[3], (kSwapB ? -b_pm : b_pm) * 32767 / 1000);
+    return Status::Ok;
 }
 
 }  // namespace clk::hal::motor
