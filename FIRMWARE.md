@@ -754,6 +754,10 @@ Two mechanical consequences land on the homing FSM, both of them real:
    currently invisible*. Do not lower the threshold on paper — those were bare surfaces at
    distance, a printed index mark reflects far better, and V2 roughly doubles the scale. §12.1
    milestone 3 / §12.2 **F2.4** starts by re-measuring with the real hands on.
+   **Re-measured 2026-09-27** (build #1, `R99` = 22k, real hands): clear ~3159 / minute ~3142 /
+   hour ~2978 mV. The span is now set on the minute hand (`kOptoClearMv` 3160, `kOptoMarkMv`
+   3142), putting the 0.45 threshold at ~3152 mV; the hour hand clamps to 1. Both crossings are
+   visible — with ~9 mV of margin either side (`hal.hpp`).
 
 The labels in `hal.hpp`'s opto block were always written for *this* geometry, so the swap makes the
 calibration and the wiring agree for the first time; before it, the hand the docs called weak was
@@ -786,12 +790,14 @@ stateDiagram-v2
     state Homing {
         [*] --> Clear
         Clear --> Clear : still lit after 45 deg, so try the other hand
-        Clear --> CoarseMinute : sensor dark, both hands off the mark
-        CoarseMinute --> FineMinute : edge at v_coarse
-        FineMinute --> ParkMinute : back off, re-approach at v_fine, edge repeats
-        ParkMinute --> CoarseHour : minute 90 deg off the now-known index
+        Clear --> CoarseHour : sensor dark, both hands off the mark
         CoarseHour --> FineHour : edge at v_coarse
-        FineHour --> [*] : edge repeats
+        FineHour --> ParkHour : back off, re-approach at v_fine, edge repeats
+        FineHour --> CoarseHour : no edge / edge moved, retry at half speed (3 tries)
+        ParkHour --> CoarseMinute : hour 90 deg off the now-known index
+        CoarseMinute --> FineMinute : edge at v_coarse
+        FineMinute --> CoarseMinute : no edge / edge moved, retry at half speed (3 tries)
+        FineMinute --> [*] : edge repeats
     }
     Homing --> Idle : HomeDone
     Homing --> Fault : timeout, no edge found, or the sensor never goes dark
@@ -813,8 +819,14 @@ Two things this sequence has that the original did not, both of them from watchi
   moves the minute hand instead. Still lit after that is a real sensor fault, and says so.
 - **Two speeds, and one sweep fewer.** Each hand is found fast (`v_coarse`) then confirmed
   slow (`v_fine`); the coarse pass only has to establish which revolution the index is in.
-  And once the minute hand's zero is known, parking it is an exact 90° move rather than a
-  second search. Together: **~35 s → ~9 s**, and the fine back-off scales with the measured
+  And once the hour hand's zero is known, parking it is an exact 90° move rather than a
+  second search.
+- **Hour first, then minute; each retried slower** (2026-09-27). The hour hand is the near,
+  bright one and occludes the minute hand, so it is found first and parked out of the way. A
+  hand whose search fails (no edge in a turn, the edge moved, the slow pass lost it) is searched
+  again from its coarse pass at **½, then ¼** of `v_coarse`/`v_fine` before the run faults —
+  build #1's minute hand dips only ~9 mV and a 0.83°-per-sample sweep can step over it. Home
+  budget 120 → 240 s to fit six sweeps. Together: **~35 s → ~9 s**, and the fine back-off scales with the measured
   control period, so it widens automatically under `sim warp`.
 
 **Re-home policy** (owned by `chrono`, executed here): cold boot · after an SNTP step > 2 s ·
@@ -2192,10 +2204,10 @@ clock-sim 0.1.0  (hal=fake, board=host, profile=dev)  type `help`
 > unsafe on
 > sim hand h 137 ; sim hand m 41    # the hands are somewhere. the firmware does not know
 > motion home
-motion: home: sweeping the minute hand for the index
-motion: home: minute zero confirmed, coarse was off by -12 usteps
-motion: home: minute parked, sweeping the hour hand
+motion: home: sweeping the hour hand for the index at 2667 usteps/s
 motion: home: hour zero confirmed, coarse was off by -8 usteps
+motion: home: hour parked, sweeping the minute hand at 2667 usteps/s
+motion: home: minute zero confirmed, coarse was off by -12 usteps
 motion: homed in 8694 ms of sim time
 > chrono time set 07:38             # and the hands follow the clock from here
 chrono: time set to 07:38:00
@@ -3837,7 +3849,7 @@ the ordered work. Delete a row when it closes; delete the section when it emptie
 | **F2.3** | ⬜ | **Silence — the one item that needs no hands.** Tune microstep depth against the gear train's resonance; the 25 kHz carrier is already above hearing. Bare shafts are audible, so this can be done now |
 | **F2.1** | ⬜ | `steps_per_rev` — count microsteps for one revolution, confirm **11 520** (§13 Q1; changed from 17 280 on 2026-09-27 per the X27 gear ratio — needs the stopless `.NS` movement to count a full turn). ⚠ `motion spr` only *prints* the constant; `domain::kRev` is `constexpr` and everything in `hand.hpp` is `constexpr` over it. Worth changing **only if the count comes out wrong** — measure first |
 | **F2.2** | ⬜ | Direction — clockwise must come out positive. If not, `kSwapB` in `motor_esp.cpp` is one line. ⚠ It is one flag for **both** axes; make it per-hand + NVS-backed only *if* exactly one hand comes out backwards |
-| **F2.4** | ⬜ | Homing — place the index mark with `sensor homing stream`, then the FSM. ⚠ **Re-measure the opto first.** `kOptoMarkMv` = 2600 is the *near* hand's level, so the far (minute) hand normalises to 0.25, under `motion`'s 0.45 `opto_thresh` — its index crossing is currently **invisible**. Do not lower the threshold on paper: those numbers were bare surfaces, and a printed index mark reflects far better. Decide v0.4 **V2** (`R99` 10k → 22k) *after* this measurement, not before |
+| **F2.4** | ⬜ | Homing — place the index mark with `sensor homing stream`, then the FSM. ✅ *Opto re-measured 2026-09-27 with `R99` = 22k + real hands (3159/3142/2978 mV); span moved onto the minute hand — ~9 mV margin, watch for chatter.* Original note: `kOptoMarkMv` = 2600 is the *near* hand's level, so the far (minute) hand normalises to 0.25, under `motion`'s 0.45 `opto_thresh` — its index crossing is currently **invisible**. Do not lower the threshold on paper: those numbers were bare surfaces, and a printed index mark reflects far better. Decide v0.4 **V2** (`R99` 10k → 22k) *after* this measurement, not before |
 
 #### Phase 3 — milestones 4–5
 

@@ -163,16 +163,21 @@ private:
     //
     // And each hand is found twice, fast then slow, rather than once slowly.  The coarse
     // pass only has to establish which revolution we are in; the fine pass is what sets the
-    // zero.  That plus reusing the minute hand's now-known index (rather than sweeping a
+    // zero.  That plus reusing the hour hand's now-known index (rather than sweeping a
     // second time for it) takes a homing run from ~35 s to ~9 s.
+    //
+    // HOUR first (2026-09-27): it is the near, bright hand and it occludes the minute hand,
+    // so it is found first and then parked out of the way.  A hand whose search fails is
+    // searched again from its coarse pass at half the speed, up to kHomeTries times in all --
+    // on build #1 the minute hand's dip is ~9 mV deep and a fast sweep can step over it.
     enum class Phase : uint8_t {
         None,
-        Clear,         // get BOTH hands off the sensor before trusting any edge
-        CoarseMinute,  // fast: which revolution is the index in?
-        FineMinute,    // slow re-approach: where exactly?
-        ParkMinute,    // a known, exact move well clear of the index
-        CoarseHour,
-        FineHour,
+        Clear,       // get BOTH hands off the sensor before trusting any edge
+        CoarseHour,  // fast: which revolution is the index in?
+        FineHour,    // slow re-approach: where exactly?
+        ParkHour,    // a known, exact move well clear of the index
+        CoarseMinute,
+        FineMinute,
         Done,
     };
 
@@ -196,6 +201,9 @@ private:
     void run_homing(float opto) noexcept;
     void finish_home() noexcept;
     void fail(const char* why) noexcept;
+    // Search the current hand again, slower -- or fail(why) once kHomeTries are spent.
+    void retry_or_fail(hal::motor::Hand, const char* why) noexcept;
+    [[nodiscard]] int32_t slowed(int32_t v) const noexcept { return v >> tries_; }
     // ---- the index, outside a homing run -------------------------------------------------
     // Where the index sits in a hand's own frame: `-zero`, because homing adopts it there.
     [[nodiscard]] int32_t index_pos(hal::motor::Hand) const noexcept;
@@ -240,6 +248,7 @@ private:
     bool clear_started_ = false;
     uint8_t fine_pass_ = 0;
     int32_t backoff_ = 0;
+    uint8_t tries_ = 0;  // failed searches of the CURRENT hand; each halves both sweep speeds
     uint32_t faults_ = 0;
     bool home_on_start_ = true;
     // Auto-home bookkeeping.  `lost_` counts index crossings that landed nowhere near where

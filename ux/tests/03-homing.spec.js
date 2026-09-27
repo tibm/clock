@@ -8,8 +8,8 @@
 
 const { test, expect, angleDiff, degOf, kHomeOffsetDeg, kRev } = require('./harness');
 
-// Where a bare home leaves the mechanism: the minute hand is homed and then parked 90 deg
-// away so it is off the sensor for the hour sweep; the hour hand finishes on its own index.
+// Where a bare home leaves the mechanism: the hour hand is homed and then parked 90 deg
+// away so it is off the sensor for the minute sweep; the minute hand finishes on its own index.
 const kParked = kRev / 4;
 
 test('home from a scrambled dial ends with both hands on a known zero', async ({ ux }) => {
@@ -30,13 +30,13 @@ test('home from a scrambled dial ends with both hands on a known zero', async ({
     await expect(ux.page.locator('#m-home')).not.toHaveText('—');
 
     const pos = await ux.usteps();
-    expect(pos.h).toBe(0);
-    expect(pos.m).toBe(kParked);
+    expect(pos.h).toBe(kParked);
+    expect(pos.m).toBe(0);
 
     // And the hands are physically there, give or take the systematic edge offset.
     const hands = await ux.hands();
-    expect(angleDiff(hands.h, 0)).toBeLessThan(kHomeOffsetDeg);
-    expect(angleDiff(hands.m, degOf(kParked))).toBeLessThan(kHomeOffsetDeg);
+    expect(angleDiff(hands.h, degOf(kParked))).toBeLessThan(kHomeOffsetDeg);
+    expect(angleDiff(hands.m, 0)).toBeLessThan(kHomeOffsetDeg);
 });
 
 test('a hand parked ON the index still homes -- the sensor is cleared first', async ({ ux }) => {
@@ -48,8 +48,8 @@ test('a hand parked ON the index still homes -- the sensor is cleared first', as
     await ux.home();
     expect(await ux.text('m-faults')).toBe('0');
     const pos = await ux.usteps();
-    expect(pos.h).toBe(0);
-    expect(pos.m).toBe(kParked);
+    expect(pos.h).toBe(kParked);
+    expect(pos.m).toBe(0);
 });
 
 test('both hands on the index at once is still not a guess', async ({ ux }) => {

@@ -469,6 +469,28 @@ bool park_at(int32_t h, int32_t m, int ms = 8000) {
 
 }  // namespace
 
+// A sweep too fast for the sampling steps clean over the index -- build #1's minute hand,
+// 2026-09-27, whose dip is ~9 mV deep.  The answer is not a fault but the same search again,
+// slower: 1x, 1/2, 1/4.  16000 usteps/s misses at full speed in the fake; a quarter of it is
+// 1.5x the default and catches reliably, so this homes only because of the retries.
+void test_motion_retries_a_missed_index_slower() {
+    fresh_motion();
+    RecordingSink r;
+    run("motion tune v_coarse 16000", r);
+    sim::set_hand_angle(Hand::Hour, 137.0f);
+    sim::set_hand_angle(Hand::Minute, 41.0f);
+
+    const uint32_t faults = mo().snapshot().faults;  // cumulative across cases
+
+    CHECK(home_and_wait(20000));
+    CHECK(mo().snapshot().faults == faults);
+    for (auto h : {Hand::Hour, Hand::Minute}) {
+        const float off = sim::hand_offset(h);
+        CHECK(off < 5.0f || off > 350.0f);
+    }
+    run("motion tune v_coarse 2667", r);
+}
+
 // §6.1: the opto answers "the mark is over the window", which is not the same question as "the
 // hand is due north".  The gap is a fact about how ONE clock was assembled -- how the mark was
 // printed, how the hand was pressed on, how square the sensor sits -- so it is a number per
@@ -1521,6 +1543,7 @@ void run_motion_service_tests() {
     test_motion_levels_the_dial_to_gravity();
     test_motion_de_energises_when_idle();
     test_motion_faults_and_recovers();
+    test_motion_retries_a_missed_index_slower();
     test_motion_a_bench_step_still_works_in_a_fault();
     test_motion_an_inhibited_movement_refuses_by_name();
     test_motion_absent_movement_does_not_fault();

@@ -291,12 +291,12 @@ void test_sim_commands() {
 
 void test_sensor_grammar() {
     fresh();
-    sim::set_opto(0.25f);
+    sim::set_opto(0.5f);  // a whole number of mV on the 18 mV span, so it round-trips exactly
 
     // The wildcard object: `sensor <name> <verb>`, which is the form §9.5 specifies.
     RecordingSink r;
     CHECK(run("sensor homing read", r) == Status::Ok);
-    CHECK(r.contains("norm=0.25"));
+    CHECK(r.contains("norm=0.50"));
 
     RecordingSink l;
     CHECK(run("sensor list", l) == Status::Ok);

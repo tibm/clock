@@ -18,13 +18,14 @@ using hal::motor::Hand;
 
 constexpr uint32_t kTickMs = 10;             // 100 Hz control loop
 constexpr uint32_t kPowerHoldMs = 2000;      // §6.1 hysteresis after the last move
-constexpr uint32_t kHomeBudgetMs = 120'000;  // sim ms; a sweep that cannot find the index
+constexpr uint32_t kHomeBudgetMs = 240'000;  // sim ms; a sweep that cannot find the index
 constexpr uint32_t kPhaseBudgetMs = 45'000;
 constexpr int32_t kMinBackoff = kRev / 72;   // 5 deg -- the floor on the fine re-approach
 constexpr int32_t kMaxBackoff = kRev / 6;    // 60 deg -- and its ceiling, under a big warp
 constexpr int32_t kParkAway = kRev / 4;      // 90 deg: thirty times the width of the window
 constexpr int32_t kClearSweep = kRev / 8;    // 45 deg is enough to prove a hand left the mark
 constexpr int32_t kSweepMargin = kRev / 20;  // sweep a rev plus a bit, to cross a start-on-edge
+constexpr uint8_t kHomeTries = 3;            // per hand: 1x, 1/2, 1/4 of v_coarse and v_fine
 
 // ---- auto-home (§6.1): a crossing of the index is a free calibration --------------------
 //
@@ -304,6 +305,7 @@ void Motion::on_event(Event const& e) {
         state_ = State::Homing;
         homed_ = false;
         if (st != Status::Ok) return fail("the coils would not energise");
+        tries_ = 0;
         enter(Phase::Clear);
         publish();
         return;
@@ -571,7 +573,7 @@ Status Motion::power(bool on) noexcept {
 // Snapshot for `motion status` and the UI bridge, both of which read from other threads.
 void Motion::publish() noexcept {
     static constexpr const char* kPhaseNames[] = {
-        "", "clear", "coarse-minute", "fine-minute", "park-minute", "coarse-hour", "fine-hour", "",
+        "", "clear", "coarse-hour", "fine-hour", "park-hour", "coarse-minute", "fine-minute", "",
     };
     Snapshot s;
     s.state = state_;
@@ -722,13 +724,16 @@ void Motion::enter(Phase p) noexcept {
             clear_started_ = false;
             break;
 
-        case Phase::CoarseMinute:
-            CLK_LOGI(motion, "home: sweeping the minute hand for the index");
-            hal::motor::run(Hand::Minute, t.v_coarse, pos(Hand::Minute) + kRev + kSweepMargin);
-            break;
         case Phase::CoarseHour:
-            CLK_LOGI(motion, "home: minute parked, sweeping the hour hand");
-            hal::motor::run(Hand::Hour, t.v_coarse, pos(Hand::Hour) + kRev + kSweepMargin);
+            CLK_LOGI(motion, "home: sweeping the hour hand for the index at %" PRId32 " usteps/s",
+                     slowed(t.v_coarse));
+            hal::motor::run(Hand::Hour, slowed(t.v_coarse), pos(Hand::Hour) + kRev + kSweepMargin);
+            break;
+        case Phase::CoarseMinute:
+            CLK_LOGI(motion, "home: hour parked, sweeping the minute hand at %" PRId32 " usteps/s",
+                     slowed(t.v_coarse));
+            hal::motor::run(Hand::Minute, slowed(t.v_coarse),
+                            pos(Hand::Minute) + kRev + kSweepMargin);
             break;
 
         case Phase::FineMinute:
@@ -742,10 +747,11 @@ void Motion::enter(Phase p) noexcept {
             break;
         }
 
-        case Phase::ParkMinute:
-            // Exact and short: the minute hand's zero is already known, so this is a move
-            // rather than a search.
-            hal::motor::run(Hand::Minute, t.v_max, pos(Hand::Minute) + kParkAway);
+        case Phase::ParkHour:
+            // Exact and short: the hour hand's zero is already known, so this is a move
+            // rather than a search.  And it has to happen -- parked on the index, the near
+            // hand would hold the sensor lit and hide the minute hand behind it.
+            hal::motor::run(Hand::Hour, t.v_max, pos(Hand::Hour) + kParkAway);
             break;
 
         default:
@@ -755,7 +761,7 @@ void Motion::enter(Phase p) noexcept {
 
 int32_t Motion::fine_backoff() const noexcept {
     const auto t = tuning();
-    const int64_t travel = static_cast<int64_t>(t.v_coarse) * dt_ms_ * 3 / 1000;
+    const int64_t travel = static_cast<int64_t>(slowed(t.v_coarse)) * dt_ms_ * 3 / 1000;
     return static_cast<int32_t>(std::clamp<int64_t>(travel, kMinBackoff, kMaxBackoff));
 }
 
@@ -768,6 +774,15 @@ void Motion::fail(const char* why) noexcept {
     phase_ = Phase::None;
     power(false);
     if (sub_) sub_->post(HomeDone{false, 0});
+}
+
+void Motion::retry_or_fail(Hand h, const char* why) noexcept {
+    hal::motor::hold(h);
+    if (tries_ + 1 >= kHomeTries) return fail(why);
+    ++tries_;
+    CLK_LOGW(motion, "home: %s -- try %u/%u, at 1/%u speed", why, tries_ + 1, kHomeTries,
+             1u << tries_);
+    enter(h == Hand::Hour ? Phase::CoarseHour : Phase::CoarseMinute);
 }
 
 void Motion::run_homing(float opto) noexcept {
@@ -791,15 +806,14 @@ void Motion::run_homing(float opto) noexcept {
         // arbitrary any more: the hour hand rides the outer tube, ~4 mm nearer the QRE1113,
         // so where the two overlap it is physically in front of the minute hand and the
         // sensor sees only it.  Moving the occluder first is the only order that can reveal
-        // what is behind it.  ⚠ The converse is the open problem: the minute hand out at the
-        // inner pin normalises to ~0.25 against today's span, under `opto_thresh`, so "still
-        // lit with the hour hand moved clear" cannot currently be observed at all (hal.hpp,
-        // FIRMWARE.md §12.2 F2.4).  Re-measure with the real hands before trusting this branch.
+        // what is behind it.  The span is set on the minute hand since 2026-09-27 (hal.hpp),
+        // so "still lit with the hour hand moved clear" is observable -- with ~9 mV of margin.
         case Phase::Clear: {
             if (!high) {
                 hal::motor::hold(Hand::Hour);
                 hal::motor::hold(Hand::Minute);
-                enter(Phase::CoarseMinute);
+                tries_ = 0;
+                enter(Phase::CoarseHour);
                 return;
             }
             const Hand h = clear_stage_ == 0 ? Hand::Hour : Hand::Minute;
@@ -839,8 +853,8 @@ void Motion::run_homing(float opto) noexcept {
                 return;
             }
             if (!hal::motor::state(h).moving) {
-                fail(is_minute ? "the minute hand found no index in a full turn"
-                               : "the hour hand found no index in a full turn");
+                retry_or_fail(h, is_minute ? "the minute hand found no index in a full turn"
+                                           : "the hour hand found no index in a full turn");
             }
             return;
         }
@@ -853,7 +867,7 @@ void Motion::run_homing(float opto) noexcept {
                 hal::motor::hold(h);
                 const int32_t err = domain::shortest(index_pos(h), pos(h));
                 if (std::abs(err) > backoff_) {
-                    fail("the edge moved between passes");
+                    retry_or_fail(h, "the edge moved between passes");
                     return;
                 }
                 // The rising edge sits half an index-mark short of centre.  That systematic
@@ -864,9 +878,10 @@ void Motion::run_homing(float opto) noexcept {
                 CLK_LOGI(motion, "home: %s zero confirmed, coarse was off by %" PRId32 " usteps",
                          is_minute ? "minute" : "hour", err);
                 if (is_minute) {
-                    enter(Phase::ParkMinute);
-                } else {
                     finish_home();
+                } else {
+                    tries_ = 0;  // the minute hand gets its own tries, from full speed
+                    enter(Phase::ParkHour);
                 }
                 return;
             }
@@ -874,18 +889,18 @@ void Motion::run_homing(float opto) noexcept {
             if (fine_pass_ == 0) {
                 fine_pass_ = 1;
                 opto_high_ = false;  // we backed off into the dark
-                hal::motor::run(h, t.v_fine, pos(h) + 2 * backoff_);
+                hal::motor::run(h, slowed(t.v_fine), pos(h) + 2 * backoff_);
                 phase_start_us_ = now;
                 return;
             }
-            fail("the slow re-approach never saw the edge again");
+            retry_or_fail(h, "the slow re-approach never saw the edge again");
             return;
         }
 
-        // The minute hand's zero is known now, so the hour sweep gets a clear sensor
+        // The hour hand's zero is known now, so the minute sweep gets a clear sensor
         // without anybody having to search for anything.
-        case Phase::ParkMinute:
-            if (!hal::motor::state(Hand::Minute).moving) enter(Phase::CoarseHour);
+        case Phase::ParkHour:
+            if (!hal::motor::state(Hand::Hour).moving) enter(Phase::CoarseMinute);
             return;
 
         default:

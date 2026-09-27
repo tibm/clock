@@ -66,33 +66,31 @@ enum class Ch : uint8_t {
 // The QRE1113 reads INVERTED, and the names say so because the old ones did not.  R99 pulls
 // HOME_OPTO up to +3V3 and the phototransistor pulls it down, so more reflected light is a
 // LOWER voltage: nothing in front of the sensor is the top of the range, the index mark is
-// down near the bottom.  Measured on rev0.3, 2026-09-08, with a reflector held at each hand's
-// height -- no hands existed yet:
+// down near the bottom.
 //
-//     nothing 3159 mV* | minute-hand distance 3010 | hour-hand distance 2600 | covered 2200
-//     (* clipped -- 12 dB attenuation tops out around 3100, so the true clear level is higher)
+// Measured on build #1, 2026-09-27, R99 = 22k (v0.4 V2 fitted), REAL printed hands on:
 //
-// Those two labels are the geometry the hands were SWAPPED INTO on 2026-09-13, not the one the
-// firmware had: the hour hand is on the outer tube, ~4 mm nearer the sensor, and reflects to
-// 2600; the minute hand rides the inner pin out at 6.9-10.9 mm and only reaches 3010
-// (`cad/README.md`, motor_esp.cpp's build()).  Until that swap the firmware drove them the
-// other way round, so these labels and the wiring disagreed -- and so did V2's rationale in
-// kicad/REVIEW.md, whose "weakest signal that matters is the 149 mV minute-hand step" is this
-// same far hand.  They agree now.
+//     nothing ~3159 mV* | minute hand ~3142 | hour hand ~2978
+//     (* at or near the 12 dB ceiling -- the true clear level may be higher)
 //
-// ⚠ WHICH MEANS THE SPAN BELOW ONLY SEES THE NEAR HAND.  `kOptoMarkMv` is the hour hand's own
-// 2600, so the minute hand's 3010 normalises to (3150-3010)/550 = 0.25 -- UNDER `motion`'s
-// 0.45 threshold, i.e. the far hand's index crossing is currently invisible.  That is not a
-// threshold to lower on paper: these are bare surfaces at distance, a printed index mark
-// reflects far better than one, and V2 (`R99` 10k -> 22k) roughly doubles the whole scale.
-// F2.4 starts by re-measuring with the real hands on -- `sensor homing stream` -- and this
-// span is PROVISIONAL until it does.
+// Bands, as read on the bench: > 3151 nothing, 3080-3150 minute, < 3050 hour.  The hands
+// reflect far less than the 2026-09-08 reflector did (hour 2600 at R99 = 10k, i.e. ~70 uA;
+// the real hour hand is ~15 uA and the minute ~7 uA), so the whole signal lives in the top
+// 200 mV.  The sensor is steady enough to work there.
+//
+// So the span is set on the WEAK hand, not the strong one: `kOptoMarkMv` is the minute
+// hand's level, which puts `motion`'s 0.45 `opto_thresh` at 3160 - 0.45*18 = ~3152 mV --
+// the bench's own "above 3151 is nothing" line.  The hour hand is far past the mark and
+// clamps to 1.  Homing moves ONE hand at a time with the other parked away, so one line that
+// sees the weaker hand sees both; which hand lit it never has to be read off the level.
+// ⚠ The margin is ~9 mV either side of the line (clear 3159, minute 3142).  If crossings
+// chatter or a hand is missed, `sensor homing stream` again and move these two numbers.
 //
 // Deliberately ONE definition shared by the fake and the target: an inverted fake would have
 // sent the homing FSM hunting the wrong edge on hardware, which is a mechanical-looking bug
 // with a firmware cause.
-inline constexpr uint16_t kOptoClearMv = 3150;  // nothing above the sensor
-inline constexpr uint16_t kOptoMarkMv = 2600;   // index tab crossing the window
+inline constexpr uint16_t kOptoClearMv = 3160;  // nothing above the sensor
+inline constexpr uint16_t kOptoMarkMv = 3142;   // the minute (weaker) hand over the window
 
 // 0 = nothing in front, 1 = fully on the mark.  Everything above the HAL is written in this
 // sense (the homing FSM looks for it rising), so the inversion is undone exactly here.
