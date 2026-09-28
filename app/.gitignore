@@ -1,43 +1,4 @@
-# ==========================================
-# Xcode & Swift Project Gitignore Template
-# ==========================================
-
-## Build generated files
-build/
-DerivedData/
-
-## User settings (Forces Xcode to stop tracking personal window layouts)
 xcuserdata/
-
-## Architecture & Crash logs
-*.framework
-*.xctest
-*.app
-*.dSYM
-*.dSYM.zip
-*.crash
-*.ips
-
-## Xcode 8 and earlier compatibility 
-*.xcscmblueprint
-*.xccheckout
-
-## Swift Package Manager (SPM)
-# It is generally recommended to keep Package.resolved tracked so your team 
-# uses identical dependency versions. Uncomment the next line if you prefer otherwise.
-#.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
-#Package.resolved
-
-## CocoaPods (Optional)
-# Keeping the Pods directory tracked ensures a plug-and-play repo clone.
-# Uncomment the line below if you prefer downloading them via 'pod install' every time.
-# Pods/
-
-## Carthage
-Carthage/Build/
-
-## macOS System Files
-.DS_Store
-._*
-.Spotlight-V100
-.Trashes
+*.xcuserstate
+DerivedData/
+build/
