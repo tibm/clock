@@ -52,6 +52,9 @@ struct ShellView: View {
                 .padding(8)
             }
             .defaultScrollAnchor(.bottom)
+            // The keyboard covers the tab bar: dragging or tapping the transcript puts it away.
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture { focused = false }
             .onChange(of: link.transcript.last?.id) { _, id in
                 if let id { withAnimation(.linear(duration: 0.1)) { proxy.scrollTo(id, anchor: .bottom) } }
             }
@@ -136,6 +139,12 @@ struct ShellView: View {
             Button("Send", systemImage: "paperplane.fill", action: submit)
                 .labelStyle(.iconOnly)
                 .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty)
+            #if os(iOS)
+            if focused {
+                Button("Hide keyboard", systemImage: "keyboard.chevron.compact.down") { focused = false }
+                    .labelStyle(.iconOnly)
+            }
+            #endif
         }
         .padding(8)
     }
