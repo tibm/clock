@@ -9,6 +9,9 @@ The reference client for the app link, and the bench tool until the app exists:
     tools/clockctl.py run "motion goto 07:15"   # one command, exit status = its Status
     tools/clockctl.py status                    # one decoded snapshot
     tools/clockctl.py status --watch --csv log.csv   # every notification, appended as a row
+    tools/clockctl.py tones                     # the sound files on the card
+    tools/clockctl.py put birds.wav             # upload one (48 kHz mono 16-bit WAV)
+    tools/clockctl.py rm birds.wav              # and delete it
 
 Pairing: hold the knob 10 s (five pixels breathe blue), or `net ble pair` on the console,
 then connect.  macOS pairs on first access to an encrypted characteristic (accept the system
@@ -26,6 +29,9 @@ import datetime
 import os
 import struct
 import sys
+import time
+import wave
+import zlib
 
 try:
     from bleak import BleakClient, BleakScanner
@@ -33,7 +39,9 @@ except ImportError:  # pragma: no cover
     sys.exit("clockctl needs bleak:  pip install bleak")
 
 BASE = "7a3e{:04x}-5c1d-4b8e-9f3a-2c6d1e0b9a41"
-SVC, CMD, RSP, STATUS, INFO = (BASE.format(i) for i in range(1, 6))
+SVC, CMD, RSP, STATUS, INFO, BLOB = (BASE.format(i) for i in range(1, 7))
+# `blob` ATT errors (app/PROTOCOL.md "Sound files")
+ERR_BUSY, ERR_OFFSET, ERR_NO_UPLOAD, ERR_FAILED = 0x80, 0x81, 0x82, 0x83
 COMPANY = 0xFFFF
 
 # ---- snapshot, schema 1 ------------------------------------------------------------------
@@ -54,7 +62,7 @@ FLAGS = (
     "audio_playing imu_ok imu_link als_ok als_saturated env_ok env_gas_valid env_heat_stable date_valid"
 ).split()
 MOTION = ["uninit", "homing", "idle", "moving", "fault"]
-MODE = ["idle", "bell", "alarm", "clock", "volume", "pairing"]
+MODE = ["idle", "bell", "alarm", "clock", "volume", "pairing", "ringing", "snoozed"]
 BLE = ["off", "idle", "pairing", "connected", "secure"]
 PIXELS = ["dial0", "dial1", "bell", "alarm", "clock", "vol", "batt"]
 
@@ -137,6 +145,7 @@ class Link:
         self.c = client
         self.q: asyncio.Queue[bytes] = asyncio.Queue()
         self.next_id = 1
+        self.kv: list[tuple[str, str]] = []  # the last run()'s `=` pairs, in order
 
     async def open(self):
         await self.c.start_notify(RSP, lambda _, data: self.q.put_nowait(bytes(data)))
@@ -146,6 +155,7 @@ class Link:
         self.next_id = self.next_id % 65535 + 1
         await self.c.write_gatt_char(CMD, f"{rid} {line}".encode(), response=True)
         head, partial = str(rid).encode(), b""
+        self.kv = []
         while True:
             f = await asyncio.wait_for(self.q.get(), timeout=130)
             if not f.startswith(head) or len(f) <= len(head):
@@ -157,6 +167,9 @@ class Link:
             text, partial = (partial + text).decode(errors="replace"), b""
             if kind == "$":
                 return text
+            if kind == "=":
+                k, _, v = text.partition("=")
+                self.kv.append((k, v))
             echo(text)
 
 
@@ -242,6 +255,120 @@ async def cmd_status(a):
         await c.disconnect()
 
 
+def att_code(e: Exception) -> int | None:
+    """The ATT error code inside a bleak write failure, across backends (best effort)."""
+    for attr in ("code", "error_code", "att_error"):
+        v = getattr(e, attr, None)
+        if isinstance(v, int):
+            return v
+    msg = str(e).lower()
+    for code in (ERR_BUSY, ERR_OFFSET, ERR_NO_UPLOAD, ERR_FAILED):
+        if f"0x{code:02x}" in msg or f"code={code}" in msg or f"({code})" in msg:
+            return code
+    return None
+
+
+async def cmd_tones(a):
+    c = await connect(a.addr)
+    try:
+        link = Link(c)
+        await link.open()
+        st = await link.run("storage tones", echo=lambda _: None)
+        if st != "ok":
+            print(f"[{st}]")
+            return 1
+        for k, v in link.kv:
+            if k == "card":
+                total, free = (int(x) for x in v.split("/"))
+                print(f"card   {total >> 20} MB, {free >> 20} MB free")
+            elif k == "alarm":
+                print(f"alarm  {v or '(the beep)'}")
+            elif k == "tone":
+                size, ms, state, name = v.split("/", 3)
+                print(f"  {name:32} {int(size):9} B  {int(ms) / 1000:6.1f} s  {state}")
+        return 0
+    finally:
+        await c.disconnect()
+
+
+async def cmd_rm(a):
+    c = await connect(a.addr)
+    try:
+        link = Link(c)
+        await link.open()
+        st = await link.run(f"storage rm {a.name}")
+        if st != "ok":
+            print(f"[{st}]")
+        return 0 if st == "ok" else 1
+    finally:
+        await c.disconnect()
+
+
+async def cmd_put(a):
+    data = open(a.file, "rb").read()
+    name = a.name or os.path.basename(a.file)
+    try:  # the clock checks too; this just saves an upload that would be refused at the end
+        with wave.open(a.file) as w:
+            fmt = (w.getframerate(), w.getnchannels(), w.getsampwidth())
+        if fmt != (48000, 1, 2):
+            sys.exit(f"{a.file}: {fmt[0]} Hz, {fmt[1]} ch, {8 * fmt[2]}-bit -- the clock plays "
+                     "48000 Hz mono 16-bit only:\n  ffmpeg -i in -ac 1 -ar 48000 -c:a pcm_s16le "
+                     "-bitexact out.wav")
+    except wave.Error as e:
+        sys.exit(f"{a.file}: not a WAV ({e})")
+    crc = zlib.crc32(data) & 0xFFFFFFFF
+    c = await connect(a.addr)
+    try:
+        link = Link(c)
+        await link.open()
+
+        async def begin() -> int | None:
+            st = await link.run(f"storage put {name} {len(data)} {crc:08x}", echo=lambda _: None)
+            if st != "ok":
+                print(f"put refused: [{st}]")
+                return None
+            return int(dict(link.kv).get("next", "0"))
+
+        off = await begin()
+        if off is None:
+            return 1
+        # One ATT write: MTU - 3, less our 4-byte offset.  Never a long write -- they are
+        # slower, and a refused one is harder to recover from.
+        chunk = max(20, min(508, (c.mtu_size or 23) - 3 - 4))
+        t0, last = time.monotonic(), 0.0
+        while off < len(data):
+            part = data[off:off + chunk]
+            try:
+                await c.write_gatt_char(BLOB, struct.pack("<I", off) + part, response=True)
+                off += len(part)
+            except Exception as e:  # noqa: BLE001 -- bleak's error types differ per backend
+                code = att_code(e)
+                if code == ERR_BUSY:
+                    await asyncio.sleep(0.05)
+                    continue
+                if code == ERR_OFFSET or code is None:
+                    # A lost response, or a backend that hides the code: ask where we are.
+                    off = await begin()
+                    if off is None:
+                        return 1
+                    continue
+                print(f"blob write refused: ATT 0x{code:02x}")
+                return 1
+            now = time.monotonic()
+            if now - last > 0.5 or off == len(data):
+                last = now
+                rate = off / max(now - t0, 1e-3) / 1024
+                print(f"\r{name}: {off}/{len(data)} B  {100 * off // len(data)}%  "
+                      f"{rate:.1f} KB/s", end="", flush=True)
+        print()
+        st = await link.run("storage put end")
+        if st != "ok":
+            print(f"[{st}]")
+        return 0 if st == "ok" else 1
+    finally:
+        await c.disconnect()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--addr", help="device address/UUID (default: scan for the first clock)")
@@ -258,6 +385,14 @@ def main():
     s.add_argument("--csv", help="append each snapshot as a CSV row (implies nothing else)")
     s.add_argument("--period", type=int, help="set the notify cadence first, ms")
     s.set_defaults(fn=cmd_status)
+    sub.add_parser("tones", help="list /sd/tones").set_defaults(fn=cmd_tones)
+    s = sub.add_parser("put", help="upload a 48 kHz mono 16-bit WAV to /sd/tones")
+    s.add_argument("file")
+    s.add_argument("--name", help="name on the card (default: the file's)")
+    s.set_defaults(fn=cmd_put)
+    s = sub.add_parser("rm", help="delete a file from /sd/tones")
+    s.add_argument("name")
+    s.set_defaults(fn=cmd_rm)
     a = p.parse_args()
     try:
         sys.exit(asyncio.run(a.fn(a)) or 0)

@@ -46,6 +46,7 @@ const ble_uuid128_t kCmdUuid = CLK_UUID(0x02);
 const ble_uuid128_t kRspUuid = CLK_UUID(0x03);
 const ble_uuid128_t kStatusUuid = CLK_UUID(0x04);
 const ble_uuid128_t kInfoUuid = CLK_UUID(0x05);
+const ble_uuid128_t kBlobUuid = CLK_UUID(0x06);
 
 // Advertising interval, 0.625 ms units.  Fast while somebody is trying to find the clock;
 // slow the rest of the time, when the only listener is a phone that already knows it.
@@ -73,6 +74,7 @@ uint32_t g_paired = 0, g_refused = 0;
 uint8_t g_own_addr_type = 0;
 char g_name[32] = "clock";
 RxFn g_rx = nullptr;
+BlobFn g_blob = nullptr;
 
 uint8_t g_status[kStatusCap];
 std::size_t g_status_len = 0;
@@ -115,6 +117,22 @@ int access(uint16_t conn, uint16_t attr, ble_gatt_access_ctxt* ctxt, void*) {
         }
         if (rx) rx(buf, n);  // copies and returns: we are on the host task
         return 0;
+    }
+    if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR && ::ble_uuid_cmp(u, &kBlobUuid.u) == 0) {
+        // 512 B on the host task's stack: it is NimBLE's own task with a 4 KB+ stack, and the
+        // handler copies out of it before returning.
+        uint8_t buf[kMaxBlob];
+        uint16_t n = 0;
+        const uint16_t len = OS_MBUF_PKTLEN(ctxt->om);
+        if (len <= 4 || len > kMaxBlob) return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+        if (::ble_hs_mbuf_to_flat(ctxt->om, buf, sizeof buf, &n) != 0) return BLE_ATT_ERR_UNLIKELY;
+        BlobFn fn;
+        {
+            std::lock_guard lk{g_mx};
+            fn = g_blob;
+        }
+        if (!fn) return kBlobErrNoUpload;
+        return blob_att_err(fn(buf, n));
     }
     if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
         std::lock_guard lk{g_mx};
@@ -163,6 +181,16 @@ const ble_gatt_chr_def kChrs[] = {
      .arg = nullptr,
      .descriptors = nullptr,
      .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC,
+     .min_key_size = 16,
+     .val_handle = nullptr,
+     .cpfd = nullptr},
+    // Upload data.  Write with response ONLY: the response is the flow control and the error
+    // channel, and a write-without-response that the card could not take would be lost.
+    {.uuid = &kBlobUuid.u,
+     .access_cb = access,
+     .arg = nullptr,
+     .descriptors = nullptr,
+     .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_ENC,
      .min_key_size = 16,
      .val_handle = nullptr,
      .cpfd = nullptr},
@@ -392,6 +420,11 @@ Status start(const char* name, RxFn on_cmd) noexcept {
     ::nimble_port_freertos_init(host_task);
     CLK_LOGI(net, "ble: stack up as \"%s\"", g_name);
     return Status::Ok;
+}
+
+void set_blob_handler(BlobFn fn) noexcept {
+    std::lock_guard lk{g_mx};
+    g_blob = fn;
 }
 
 Status stop() noexcept {

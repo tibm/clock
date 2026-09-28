@@ -61,7 +61,7 @@ extern "C" void app_main(void) {
     motion.subscribe(&chrono);
     chrono.bind(&motion);
     ui.bind(&motion, &chrono, &net, &storage);
-    net.bind(&motion, &chrono, &ui);
+    net.bind(&motion, &chrono, &ui, &storage);
     clk::cli::bind_net();
     motion.start();
     chrono.start();

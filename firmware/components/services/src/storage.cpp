@@ -76,7 +76,8 @@ hal::wav::Info Storage::probe(const char* path, Status& st) noexcept {
 
 // ---- requests ------------------------------------------------------------------------------
 
-uint32_t Storage::enqueue(Kind k, const char* name, bool loop) noexcept {
+uint32_t Storage::enqueue(Kind k, const char* name, bool loop, uint32_t size,
+                          uint32_t crc) noexcept {
     uint32_t seq = 0;
     {
         port::Lock lk{mx_};
@@ -87,6 +88,8 @@ uint32_t Storage::enqueue(Kind k, const char* name, bool loop) noexcept {
         r.kind = k;
         r.loop = loop;
         r.seq = seq;
+        r.size = size;
+        r.crc = crc;
         copy_name(r.name, name);
     }
     post(StoRx{});
@@ -102,6 +105,122 @@ uint32_t Storage::mount() noexcept { return enqueue(Kind::Mount, nullptr, false)
 uint32_t Storage::unmount() noexcept { return enqueue(Kind::Unmount, nullptr, false); }
 uint32_t Storage::select_tone(const char* name) noexcept {
     return enqueue(Kind::Select, name, false);
+}
+uint32_t Storage::remove(const char* name) noexcept { return enqueue(Kind::Remove, name, false); }
+uint32_t Storage::put_begin(const char* name, uint32_t size, uint32_t crc) noexcept {
+    return enqueue(Kind::PutBegin, name, false, size, crc);
+}
+uint32_t Storage::put_end() noexcept { return enqueue(Kind::PutEnd, nullptr, false); }
+uint32_t Storage::put_abort() noexcept { return enqueue(Kind::PutAbort, nullptr, false); }
+
+// ---- uploads ---------------------------------------------------------------------------------
+
+// CRC-32/ISO-HDLC -- zlib's crc32(), which is what the phone (and Python's zlib) computes.
+// Nibble table: 64 bytes of flash, two lookups a byte, quick enough for 10 KB/s of BLE.
+uint32_t Storage::crc32(uint32_t crc, const uint8_t* p, std::size_t n) noexcept {
+    static constexpr uint32_t kT[16] = {
+        0x00000000, 0x1DB71064, 0x3B6E20C8, 0x26D930AC, 0x76DC4190, 0x6B6B51F4,
+        0x4DB26158, 0x5005713C, 0xEDB88320, 0xF00F9344, 0xD6D6A3E8, 0xCB61B38C,
+        0x9B64C2B0, 0x86D3D2D4, 0xA00AE278, 0xBDBDF21C,
+    };
+    uint32_t c = ~crc;
+    for (std::size_t i = 0; i < n; ++i) {
+        c ^= p[i];
+        c = (c >> 4) ^ kT[c & 15u];
+        c = (c >> 4) ^ kT[c & 15u];
+    }
+    return ~c;
+}
+
+bool Storage::valid_upload_name(const char* name) noexcept {
+    if (!name) return false;
+    const std::size_t n = std::strlen(name);
+    if (n < 5 || n >= kNameMax || name[0] == '.') return false;
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto c = static_cast<unsigned char>(name[i]);
+        // FAT's forbidden set, plus control characters.  UTF-8 above 0x7F is fine (LFN).
+        if (c < 0x20 || std::strchr("/\\:*?\"<>|", c)) return false;
+    }
+    const char* ext = name + n - 4;
+    return (ext[0] == '.') && (ext[1] == 'w' || ext[1] == 'W') &&
+           (ext[2] == 'a' || ext[2] == 'A') && (ext[3] == 'v' || ext[3] == 'V');
+}
+
+// BLE host task.  Copy and return -- the Status is the ATT response the phone gets.
+Status Storage::put_data(const uint8_t* blob, std::size_t len) noexcept {
+    if (!blob || len <= 4 || len - 4 > hal::ble::kMaxBlob) return Status::BadArg;
+    const uint32_t off = static_cast<uint32_t>(blob[0]) | static_cast<uint32_t>(blob[1]) << 8 |
+                         static_cast<uint32_t>(blob[2]) << 16 |
+                         static_cast<uint32_t>(blob[3]) << 24;
+    const std::size_t n = len - 4;
+    {
+        port::Lock lk{mx_};
+        if (!put_open_) return Status::NotReady;
+        if (put_failed_) return Status::Failed;
+        // Strictly sequential.  A repeat of the last write (its response was lost) is also
+        // refused here, and the phone recovers by asking `storage put` for `next`.
+        if (off != put_next_ || n > put_size_ - put_next_) return Status::BadArg;
+        if (chunk_n_ == kChunks) return Status::Busy;
+        Chunk& c = chunks_[(chunk_head_ + chunk_n_) % kChunks];
+        std::memcpy(c.data, blob + 4, n);
+        c.len = static_cast<uint16_t>(n);
+        ++chunk_n_;
+        put_next_ += static_cast<uint32_t>(n);
+    }
+    post(StoRx{});
+    return Status::Ok;
+}
+
+// This AO.  The slot at the head stays counted while it is written, so put_data() cannot
+// reuse it; it is released only after the card has it.
+void Storage::drain_chunks() noexcept {
+    for (;;) {
+        Chunk* c = nullptr;
+        {
+            port::Lock lk{mx_};
+            if (chunk_n_ == 0) return;
+            c = &chunks_[chunk_head_];
+        }
+        bool ok = put_fd_ >= 0;
+        if (ok) {
+            const auto r = hal::sd::write(put_fd_, c->data, c->len);
+            ok = r.ok() && r.v == c->len;
+            if (ok) {
+                put_crc_ = crc32(put_crc_, c->data, c->len);
+                put_written_ += c->len;
+            } else {
+                CLK_LOGW(storage, "put %s: card write failed at %lu", put_name_,
+                         static_cast<unsigned long>(put_written_));
+            }
+        }
+        port::Lock lk{mx_};
+        if (!ok) put_failed_ = true;
+        chunk_head_ = (chunk_head_ + 1) % kChunks;
+        --chunk_n_;
+    }
+}
+
+void Storage::put_path(char* out, std::size_t cap) const noexcept {
+    std::snprintf(out, cap, "%s/.%s.part", hal::sd::kTonesDir, put_name_);
+}
+
+void Storage::put_close(bool discard) noexcept {
+    if (put_fd_ >= 0) hal::sd::close(put_fd_);
+    put_fd_ = -1;
+    if (discard && put_name_[0]) {
+        char part[128];
+        put_path(part, sizeof part);
+        (void)hal::sd::remove(part);
+    }
+    put_name_[0] = '\0';
+    put_written_ = 0;
+    put_crc_ = 0;
+    port::Lock lk{mx_};
+    put_open_ = false;
+    put_failed_ = false;
+    put_next_ = 0;
+    put_size_ = 0;
+    chunk_n_ = 0;
 }
 
 Storage::Snapshot Storage::snapshot() const noexcept {
@@ -135,6 +254,9 @@ void Storage::on_start() {
 
 void Storage::on_event(Event const& e) {
     if (!as<StoRx>(e)) return;
+    // Upload data first, and before every request: a `put end` must see every byte that was
+    // accepted ahead of it.
+    drain_chunks();
     for (;;) {
         Req r{};
         {
@@ -144,11 +266,13 @@ void Storage::on_event(Event const& e) {
             for (std::size_t i = 1; i < q_n_; ++i) q_[i - 1] = q_[i];
             --q_n_;
         }
+        drain_chunks();
         handle(r);
     }
 }
 
 void Storage::on_tick() {
+    drain_chunks();  // a StoRx lost to a full mailbox must not strand accepted data
     if (playing_ == Playing::File) pump();
     if (playing_ == Playing::Beep) beep_tick();
     publish();
@@ -177,6 +301,7 @@ void Storage::handle(Req const& r) noexcept {
             return answer(r.seq, st, st == Status::Ok ? nullptr : "no card answered");
         }
         case Kind::Unmount: {
+            if (put_fd_ >= 0) put_close(true);  // a file half-written to a card being pulled
             const bool ringing = alarm_;
             if (playing_ == Playing::File) halt(false);
             const Status st = hal::sd::unmount();
@@ -214,6 +339,134 @@ void Storage::handle(Req const& r) noexcept {
                      static_cast<unsigned long>(in.ms()));
             return answer(r.seq, sst == Status::NotPresent ? Status::Ok : sst,
                           sst == Status::Failed ? "chosen, but NVS would not save it" : nullptr);
+        }
+        case Kind::Remove: {
+            if (!r.name[0] || r.name[0] == '.' || std::strchr(r.name, '/'))
+                return answer(r.seq, Status::BadArg, "a bare name under /sd/tones, no path");
+            if (const Status st = ensure_mounted(); st != Status::Ok)
+                return answer(r.seq, st, "no card");
+            char path[96];
+            if (!resolve(r.name, path, sizeof path))
+                return answer(r.seq, Status::BadArg, "name too long");
+            if (playing_ == Playing::File && std::strcmp(file_, r.name) == 0) {
+                const bool ringing = alarm_;
+                halt(false);
+                if (ringing) start_beep();  // the file goes, the alarm does not
+            }
+            if (hal::sd::remove(path) != Status::Ok)
+                return answer(r.seq, Status::Failed, "no such file in /sd/tones");
+            const bool was_alarm = std::strcmp(tone_, r.name) == 0;
+            if (was_alarm) {
+                tone_[0] = '\0';
+                (void)hal::store::set_str(kKeyTone, "");
+            }
+            if (const auto in = hal::sd::info(); in.ok()) card_ = in.v;
+            CLK_LOGI(storage, "removed %s%s", path, was_alarm ? " -- it was the alarm tone" : "");
+            return answer(r.seq, Status::Ok,
+                          was_alarm ? "it was the alarm tone: the beep now" : nullptr);
+        }
+        case Kind::PutBegin: {
+            if (!valid_upload_name(r.name))
+                return answer(r.seq, Status::BadArg,
+                              "name: a bare name ending .wav, no / \\ : * ? \" < > |");
+            if (r.size < 45 || r.size > kMaxUpload)
+                return answer(r.seq, Status::BadArg, "size: 45 B .. 16 MB");
+            if (const Status st = ensure_mounted(); st != Status::Ok)
+                return answer(r.seq, st, "no card");
+            bool same = false;
+            {
+                port::Lock lk{mx_};
+                same = put_open_ && !put_failed_ && put_size_ == r.size;
+            }
+            if (same && std::strcmp(put_name_, r.name) == 0 && put_crc_want_ == r.crc) {
+                CLK_LOGI(storage, "put %s: resuming at %lu", put_name_,
+                         static_cast<unsigned long>(put_written_));
+                return answer(r.seq, Status::Ok, "resumed");
+            }
+            put_close(true);
+            if (hal::sd::mkdir(hal::sd::kTonesDir) != Status::Ok)
+                return answer(r.seq, Status::Failed, "could not create /sd/tones");
+            if (const auto in = hal::sd::info(); in.ok()) {
+                card_ = in.v;
+                // Headroom for the FAT and the directory -- a card written to the last cluster
+                // is one whose next write fails in the middle of somebody's upload.
+                if (in.v.free_bytes < uint64_t{r.size} + 64u * 1024u)
+                    return answer(r.seq, Status::Failed, "card full");
+            }
+            copy_name(put_name_, r.name);
+            char part[128];
+            put_path(part, sizeof part);
+            const auto fd = hal::sd::create(part, false);
+            if (!fd.ok()) {
+                put_name_[0] = '\0';
+                return answer(r.seq, Status::Failed, "could not create the file");
+            }
+            put_fd_ = fd.v;
+            put_crc_want_ = r.crc;
+            put_crc_ = 0;
+            put_written_ = 0;
+            {
+                port::Lock lk{mx_};
+                put_open_ = true;
+                put_failed_ = false;
+                put_next_ = 0;
+                put_size_ = r.size;
+                chunk_n_ = 0;
+            }
+            CLK_LOGI(storage, "put %s: %lu bytes", put_name_, static_cast<unsigned long>(r.size));
+            return answer(r.seq, Status::Ok, nullptr);
+        }
+        case Kind::PutAbort:
+            put_close(true);
+            return answer(r.seq, Status::Ok, nullptr);
+        case Kind::PutEnd: {
+            bool open = false, failed = false;
+            uint32_t size = 0;
+            {
+                port::Lock lk{mx_};
+                open = put_open_;
+                failed = put_failed_;
+                size = put_size_;
+            }
+            if (!open) return answer(r.seq, Status::NotReady, "no upload open");
+            if (failed) {
+                put_close(true);
+                return answer(r.seq, Status::Failed, "the card refused a write -- start again");
+            }
+            // Short: keep it, it can be resumed from `next`.
+            if (put_written_ != size)
+                return answer(r.seq, Status::NotReady, "not all bytes sent yet");
+            hal::sd::close(put_fd_);
+            put_fd_ = -1;
+            char part[128];
+            put_path(part, sizeof part);
+            if (put_crc_ != put_crc_want_) {
+                put_close(true);
+                return answer(r.seq, Status::BadArg, "CRC mismatch -- the bytes arrived damaged");
+            }
+            Status pst = Status::Ok;
+            const auto in = probe(part, pst);
+            if (!in.ok()) {
+                put_close(true);
+                return answer(r.seq, Status::BadArg, "not a usable WAV", in.err);
+            }
+            char final_path[96];
+            (void)resolve(put_name_, final_path, sizeof final_path);
+            if (playing_ == Playing::File && std::strcmp(file_, put_name_) == 0) {
+                const bool ringing = alarm_;
+                halt(false);
+                if (ringing) start_beep();
+            }
+            (void)hal::sd::remove(final_path);  // replacing a file of the same name
+            if (hal::sd::rename(part, final_path) != Status::Ok) {
+                put_close(true);
+                return answer(r.seq, Status::Failed, "could not rename into place");
+            }
+            CLK_LOGI(storage, "put %s: done, %lu ms of audio", put_name_,
+                     static_cast<unsigned long>(in.ms()));
+            put_close(false);
+            if (const auto ci = hal::sd::info(); ci.ok()) card_ = ci.v;
+            return answer(r.seq, Status::Ok, nullptr);
         }
         case Kind::Play: {
             const char* why = nullptr;
@@ -419,8 +672,13 @@ void Storage::publish() noexcept {
     s.data_bytes = playing_ == Playing::File ? wav_.data_bytes : 0u;
     s.pos_bytes = playing_ == Playing::File ? wav_.data_bytes - left_ : 0u;
     s.loops = loops_;
+    copy_name(s.put_name, put_name_);
     if (playing_ == Playing::File) s.underruns = hal::audio::stream().underruns;
     port::Lock lk{mx_};
+    s.put_open = put_open_;
+    s.put_failed = put_failed_;
+    s.put_size = put_size_;
+    s.put_next = put_next_;
     // Keep the request answer fields -- they are answer()'s, not ours.
     s.done_seq = snap_.done_seq;
     s.last_st = snap_.last_st;

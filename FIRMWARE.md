@@ -1151,7 +1151,7 @@ rather than leaving the default. `power_values.md` §10 says "digital boost defa
 - Prefetches WAV data into a **2 s PSRAM ring** (≈192 KB @ 48 kHz stereo) so `audio` never blocks
   on a 100 ms SD hiccup. Underrun → fade to silence, never a click.
 - Config load/save with a versioned schema + per-version migration function.
-- BLE asset upload lands here (offset + CRC32, resumable).
+- BLE asset upload lands here (offset + CRC32, resumable). **Built 2026-09-27** — see below.
 - OTA image writes; rollback confirmation only after 60 s of healthy uptime.
 - **Card-absent is a normal state.** System sounds live in LittleFS on internal flash.
 
@@ -1176,6 +1176,15 @@ rather than leaving the default. `power_values.md` §10 says "digital boost defa
 >   (queue of 4, answered via `done_seq` like `hal::audio::start_seq`): open, check the header,
 >   `hal::audio::stream_open()`, then top the ring up from the card every 10 ms, seamlessly
 >   looping when asked. A `tone()` or `audio stop` closes the stream and `storage` lets go.
+> - **Uploads, list, delete** (the app's, `app/PROTOCOL.md` "Sound files"). `storage put <name>
+>   <size> <crc32>` opens `/sd/tones/.<name>.part`; the phone writes `u32 offset + bytes` to the
+>   `blob` characteristic (§8.2), which `Storage::put_data()` accepts only in order into a 4-slot
+>   queue drained by the AO onto the card, answering busy/offset/no-upload/failed as ATT errors;
+>   `storage put end` checks length, zlib CRC-32 and the WAV header, then renames into place
+>   (replacing, and stopping, a file of the same name). A repeated begin with the same
+>   name/size/CRC resumes (RAM state: within one boot). `storage tones` lists as `=` pairs,
+>   `storage rm` deletes (and drops the alarm selection to the beep if it was that file).
+>   `tools/clockctl.py tones|put|rm` is the reference client.
 > - **The alarm tone** is a bare name under `/sd/tones`, checked on the card before it is
 >   accepted and persisted as NVS `sto.tone` (`hal::store::set_str` — the store's first
 >   string). **Fallback**: no card, no tone chosen, a bad file, or a read failing mid-ring →
@@ -1859,7 +1868,7 @@ forget.
 | `03` | `rsp` | **notify** | `"<id>\|<text>"` one output line · `"<id>+<text>"` a fragment, the line continues in the next frame · `"<id>=<k>=<v>"` a `Sink::kv` pair · `"<id>$<status>"` terminal, exactly one, last. `<status>` = `ok bad-arg denied busy not-ready failed not-present` |
 | `04` | `status` | read, **notify** | the 132-byte snapshot, §8.3. Re-taken every `net ble period` (1 s default); notified to a subscriber |
 | `05` | `info` | read | `fw=… sha=… built=… board=… profile=… sdk=… proto=1 schema=1` |
-| — | `Bulk` | *not built* | chunked WAV upload → `storage`, when `storage` exists |
+| `06` | `blob` | write (w/ response), ≤ 512 B | upload data: `u32 LE offset` + bytes → `Storage::put_data()` on the host task (copy + return). The ATT answer is the flow control and the error: `0x80` busy · `0x81` bad offset · `0x82` no upload open · `0x83` card write failed. Control is on `cmd` (`storage put …`). **Built 2026-09-27** |
 
 - **Fragments.** A notification carries MTU − 3 bytes (244 at the 247 we ask for, 20 before the
   exchange). A longer line goes out as `+` frames ending in `|`/`=`; a reader appends until it sees
@@ -2089,7 +2098,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · `audio play <name> [loop]` (a `/sd/tones` WAV through `storage`; `audio stop` ends it) **· built 2026-09-27** · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
-| `storage` | ▲`storage status` · ▲`storage ls [<path>]` (default `/sd/tones`; each WAV checked — length, or why not) · ▲`storage stat <file>` · ▲`storage sd` · ▲`storage sd mount` · ▲`storage sd unmount` **· built 2026-09-27** · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
+| `storage` | ▲`storage status` · ▲`storage ls [<path>]` (default `/sd/tones`; each WAV checked — length, or why not) · ▲`storage stat <file>` · ▲`storage sd` · ▲`storage sd mount` · ▲`storage sd unmount` **· built 2026-09-27** · ▲`storage tones` (the app's list, `=` pairs) · ▲`storage rm <name>` · ▲`storage put [<name> <size> <crc32>]` · ▲`storage put end` · ▲`storage put abort` · `storage put data <off> <hex>` (a `blob` write from the console) **· built 2026-09-27** · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · ▲`net ble status` · ▲`net ble pair [on\|off]` (opens through `ui`, so the row lights — refuses with the radio off) · ▲`net ble unbond` · `net ble window [<s>]` (pairing window, 120 s) · `net ble period [<ms>]` (snapshot cadence, 1000) **· built 2026-09-27** · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
 | `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` *(routes through `hal::audio::enable()` now, so the fake cannot reach a state the firmware could not)* · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |

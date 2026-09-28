@@ -467,6 +467,212 @@ void test_alarm_fires_at_its_minute_once() {
     CHECK(quiet());
 }
 
+// ---- uploads, list, remove (app/PROTOCOL.md "Sound files") ----------------------------------
+
+std::vector<uint8_t> blob_at(uint32_t off, const uint8_t* p, std::size_t n) {
+    std::vector<uint8_t> b(4 + n);
+    for (int i = 0; i < 4; ++i) b[i] = static_cast<uint8_t>(off >> (8 * i));
+    std::memcpy(b.data() + 4, p, n);
+    return b;
+}
+
+bool file_exists(const std::string& rel) {
+    struct stat st{};
+    return ::stat((g_dir + "/" + rel).c_str(), &st) == 0;
+}
+
+// Send `f` as the phone does: begin, 180-byte blob writes (an iOS MTU of 185 less the ATT
+// header and our offset), end.  Straight into put_data() -- the BLE hop is its own test.
+Status upload(const char* name, std::vector<uint8_t> const& f, uint32_t crc, RecordingSink& r) {
+    char line[128];
+    std::snprintf(line, sizeof line, "storage put %s %zu %08x", name, f.size(), crc);
+    if (const Status st = run(line, r); st != Status::Ok) return st;
+    for (std::size_t off = 0; off < f.size(); off += 180) {
+        const std::size_t n = f.size() - off < 180 ? f.size() - off : 180;
+        const auto b = blob_at(static_cast<uint32_t>(off), f.data() + off, n);
+        Status st = Status::Busy;
+        for (int tries = 0; st == Status::Busy && tries < 400; ++tries) {
+            st = sto().put_data(b.data(), b.size());
+            if (st == Status::Busy) hal::clock_::sleep_ms(2);
+        }
+        if (st != Status::Ok) return st;
+    }
+    return run("storage put end", r);
+}
+
+void test_upload_lands_a_playable_file() {
+    const auto f = make_wav(48000, 1, 16, 9000, 1, true);
+    const uint32_t crc = svc::Storage::crc32(0, f.data(), f.size());
+    RecordingSink r;
+    CHECK(upload("new.wav", f, crc, r) == Status::Ok);
+    CHECK(r.contains("next=0"));
+    CHECK(file_exists("tones/new.wav"));
+    CHECK(!file_exists("tones/.new.wav.part"));
+    RecordingSink r2;
+    CHECK(run("audio play new.wav", r2) == Status::Ok);
+    CHECK(quiet());
+    CHECK(hal::audio::stream().played == 9000);
+}
+
+void test_crc32_is_zlibs() {
+    const uint8_t s[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    CHECK(svc::Storage::crc32(0, s, sizeof s) == 0xCBF43926u);  // the standard check value
+    // Incremental = one shot, which is what the chunked upload relies on.
+    CHECK(svc::Storage::crc32(svc::Storage::crc32(0, s, 4), s + 4, 5) == 0xCBF43926u);
+}
+
+void test_upload_refuses_damage_and_wrong_files() {
+    const auto f = make_wav(48000, 1, 16, 2000);
+    RecordingSink r;
+    CHECK(upload("bad.wav", f, 0x12345678u, r) == Status::BadArg);
+    CHECK(r.contains("CRC mismatch"));
+    CHECK(!file_exists("tones/bad.wav") && !file_exists("tones/.bad.wav.part"));
+
+    const auto cd = make_wav(44100, 1, 16, 2000);
+    RecordingSink r2;
+    CHECK(upload("cd.wav", cd, svc::Storage::crc32(0, cd.data(), cd.size()), r2) == Status::BadArg);
+    CHECK(r2.contains("sample rate is not 48000 Hz"));
+    CHECK(!file_exists("tones/cd.wav"));
+
+    RecordingSink r3;
+    CHECK(run("storage put notes.txt 100 0", r3) == Status::BadArg);
+    CHECK(run("storage put ../x.wav 100 0", r3) == Status::BadArg);
+    CHECK(run("storage put .hidden.wav 100 0", r3) == Status::BadArg);
+    CHECK(run("storage put a.wav 99999999 0", r3) == Status::BadArg);
+}
+
+void test_upload_is_sequential_and_resumable() {
+    const auto f = make_wav(48000, 1, 16, 1000);
+    const uint32_t crc = svc::Storage::crc32(0, f.data(), f.size());
+    char line[96];
+    std::snprintf(line, sizeof line, "storage put res.wav %zu %08x", f.size(), crc);
+    RecordingSink r;
+    CHECK(run(line, r) == Status::Ok);
+    // No data yet: nothing to write out of order, and nothing to end.
+    auto b = blob_at(100, f.data() + 100, 50);
+    CHECK(sto().put_data(b.data(), b.size()) == Status::BadArg);
+    b = blob_at(0, f.data(), 1000);  // longer than a blob may be
+    CHECK(sto().put_data(b.data(), b.size()) == Status::BadArg);
+    b = blob_at(0, f.data(), 400);
+    CHECK(sto().put_data(b.data(), b.size()) == Status::Ok);
+    CHECK(sto().put_data(b.data(), b.size()) == Status::BadArg);  // a repeat: already have it
+    RecordingSink r2;
+    CHECK(run("storage put end", r2) == Status::NotReady);  // short -- and it says where
+    CHECK(r2.contains("next=400"));
+    // The link dropped; the phone comes back and asks again with the same name/size/CRC.
+    RecordingSink r3;
+    CHECK(run(line, r3) == Status::Ok);
+    CHECK(r3.contains("next=400"));
+    CHECK(r3.contains("resumed"));
+    for (std::size_t off = 400; off < f.size(); off += 400) {
+        const std::size_t n = f.size() - off < 400 ? f.size() - off : 400;
+        b = blob_at(static_cast<uint32_t>(off), f.data() + off, n);
+        CHECK(wait_until([&] { return sto().put_data(b.data(), b.size()) != Status::Busy; }));
+    }
+    RecordingSink r4;
+    CHECK(run("storage put end", r4) == Status::Ok);
+    CHECK(file_exists("tones/res.wav"));
+    RecordingSink r5;
+    CHECK(run("storage put end", r5) == Status::NotReady);  // nothing open any more
+    b = blob_at(0, f.data(), 10);
+    CHECK(sto().put_data(b.data(), b.size()) == Status::NotReady);
+}
+
+void test_upload_abort_leaves_nothing() {
+    RecordingSink r;
+    CHECK(run("storage put gone.wav 1000 0", r) == Status::Ok);
+    CHECK(run("storage put data 0 52494646", r) == Status::Ok);  // "RIFF", from the console
+    CHECK(file_exists("tones/.gone.wav.part"));
+    CHECK(run("storage put abort", r) == Status::Ok);
+    CHECK(!file_exists("tones/.gone.wav.part"));
+    RecordingSink r2;
+    CHECK(run("storage put", r2) == Status::NotReady);
+}
+
+void test_tones_lists_for_the_app() {
+    RecordingSink r;
+    CHECK(run("chrono alarm tone birds.wav", r) == Status::Ok);
+    RecordingSink t;
+    CHECK(run("storage tones", t) == Status::Ok);
+    CHECK(t.contains("alarm=birds.wav"));
+    CHECK(t.contains("card="));
+    CHECK(t.contains("tone=19280/200/ok/birds.wav"));
+    CHECK(t.contains("tone=8864/100/rate/cd44.wav"));
+    CHECK(t.contains("/channels/stereo.wav"));
+    CHECK(!t.contains("readme.txt"));  // not a tone
+    CHECK(!t.contains(".part"));       // nor half an upload
+}
+
+void test_rm_removes_and_clears_the_alarm() {
+    // Playing it and choosing it as the alarm: both let go.
+    RecordingSink r;
+    CHECK(run("chrono alarm tone new.wav", r) == Status::Ok);
+    CHECK(answered(sto().play("new.wav", true)));
+    RecordingSink r2;
+    CHECK(run("storage rm new.wav", r2) == Status::Ok);
+    CHECK(r2.contains("alarm tone"));
+    CHECK(!file_exists("tones/new.wav"));
+    CHECK(quiet());
+    CHECK(sto().snapshot().alarm_tone[0] == '\0');
+    RecordingSink r3;
+    CHECK(run("storage rm new.wav", r3) == Status::Failed);
+    CHECK(run("storage rm ../etc.wav", r3) == Status::BadArg);
+}
+
+// The same upload through the fake radio: the `blob` characteristic, its ATT answers, and the
+// `=` frames the app parses on `rsp`.
+void test_upload_over_ble() {
+    sim::ble_disconnect();
+    const auto f = make_wav(48000, 1, 16, 600);
+    const uint32_t crc = svc::Storage::crc32(0, f.data(), f.size());
+    auto b = blob_at(0, f.data(), 100);
+    CHECK(sim::ble_write_blob(b.data(), b.size()) == 0x05);  // not bonded: refused by the stack
+    sim::ble_reconnect();
+    sim::ble_set_mtu(185);
+    sim::ble_subscribe(true, true);
+    char fr[600];
+    while (sim::ble_pop_rsp(fr, sizeof fr)) {
+    }
+    CHECK(sim::ble_write_blob(b.data(), b.size()) == hal::ble::kBlobErrNoUpload);
+
+    char line[96];
+    std::snprintf(line, sizeof line, "41 storage put ble.wav %zu %08x", f.size(), crc);
+    CHECK(sim::ble_write(line) == Status::Ok);
+    std::vector<std::string> got;
+    CHECK(wait_until([&] {
+        while (sim::ble_pop_rsp(fr, sizeof fr)) got.emplace_back(fr);
+        return !got.empty() && got.back().rfind("41$", 0) == 0;
+    }));
+    CHECK(!got.empty() && got.back() == "41$ok");
+    bool next0 = false;
+    for (auto const& g : got) next0 = next0 || g == "41=next=0";
+    CHECK(next0);
+
+    for (std::size_t off = 0; off < f.size(); off += 178) {
+        const std::size_t n = f.size() - off < 178 ? f.size() - off : 178;
+        b = blob_at(static_cast<uint32_t>(off), f.data() + off, n);
+        uint8_t e = hal::ble::kBlobErrBusy;
+        for (int t = 0; e == hal::ble::kBlobErrBusy && t < 400; ++t) {
+            e = sim::ble_write_blob(b.data(), b.size());
+            if (e == hal::ble::kBlobErrBusy) hal::clock_::sleep_ms(2);
+        }
+        CHECK(e == 0);
+    }
+    b = blob_at(0, f.data(), 10);
+    CHECK(sim::ble_write_blob(b.data(), b.size()) == hal::ble::kBlobErrOffset);
+    CHECK(sim::ble_write("42 storage put end") == Status::Ok);
+    got.clear();
+    CHECK(wait_until([&] {
+        while (sim::ble_pop_rsp(fr, sizeof fr)) got.emplace_back(fr);
+        return !got.empty() && got.back().rfind("42$", 0) == 0;
+    }));
+    CHECK(!got.empty() && got.back() == "42$ok");
+    CHECK(file_exists("tones/ble.wav"));
+    RecordingSink r;
+    CHECK(run("storage rm ble.wav", r) == Status::Ok);
+    sim::ble_disconnect();
+}
+
 }  // namespace
 
 void run_storage_tests() {
@@ -496,6 +702,14 @@ void run_storage_service_tests() {
     test_alarm_rings_snoozes_and_dismisses();
     test_alarm_falls_back_to_the_beep();
     test_alarm_fires_at_its_minute_once();
+    test_crc32_is_zlibs();
+    test_upload_lands_a_playable_file();
+    test_upload_refuses_damage_and_wrong_files();
+    test_upload_is_sequential_and_resumable();
+    test_upload_abort_leaves_nothing();
+    test_tones_lists_for_the_app();
+    test_rm_removes_and_clears_the_alarm();
+    test_upload_over_ble();
     RecordingSink r;
     (void)run("chrono alarm tone none", r);
     sim::set_sd_dir("");

@@ -38,8 +38,9 @@ profiles are not available to iOS apps.)
 | `rsp` | `7a3e0003-5c1d-4b8e-9f3a-2c6d1e0b9a41` | notify | UTF-8 response frames, §3 |
 | `status` | `7a3e0004-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read, notify | 132-byte binary snapshot, §5 |
 | `info` | `7a3e0005-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read | UTF-8 `key=value` pairs separated by spaces, §6 |
+| `blob` | `7a3e0006-5c1d-4b8e-9f3a-2c6d1e0b9a41` | write **with response** | binary upload data: 4-byte LE offset + bytes, §4 "Sound files" |
 
-The standard GAP/GATT services are also present. **All four characteristics require an
+The standard GAP/GATT services are also present. **All five characteristics require an
 encrypted, bonded link** (§2); before bonding every access fails with an ATT
 insufficient-authentication / -encryption error.
 
@@ -126,7 +127,7 @@ Notifications on `rsp`, UTF-8, each one frame:
 |---|---|
 | `<id>\|<text>` | one output line — **human text, not stable across firmware versions: display it, never parse it** |
 | `<id>+<text>` | a **fragment**: this record continues in the next frame(s) with the same id |
-| `<id>=<key>=<value>` | a machine-readable pair. Stable when a command in §4 documents it (none do yet) |
+| `<id>=<key>=<value>` | a machine-readable pair. Stable when a command in §4 documents it (`storage tones`, `storage put`) |
 | `<id>$<status>` | **terminal**. Exactly one per request, always last |
 
 **Reassembly:** for a given id, append the text of `+` frames until a frame of kind `|` or `=`
@@ -184,6 +185,9 @@ status snapshot (§5), not from command output.**
 | `chrono alarm tone [<name>\|none]` | implemented | which `/sd/tones` WAV rings; `none` = the built-in beep. Checked on the card first — `bad-arg` if it is not 48 kHz mono 16-bit PCM, `not-present` with no card. Persisted. (No list the app can parse yet — `storage ls` is display text) |
 | `chrono alarm fire` · `chrono alarm snooze` · `chrono alarm dismiss` | implemented | ring now (test the sound) · snooze a ring · stop it (stays armed). The last two answer `not-ready` when nothing rings |
 | `audio play <name> [loop]` | implemented | preview a `/sd/tones` WAV; `audio stop` ends it |
+| `storage tones` | implemented | **list the sound files** — `=` pairs, see "Sound files" below |
+| `storage rm <name>` | implemented | **delete** one. If it was the alarm tone, the alarm falls back to the beep |
+| `storage put <name> <size> <crc32_hex>` · `storage put` · `storage put end` · `storage put abort` | implemented | **upload** one — see "Sound files" below |
 | `chrono alarm` | implemented | show it (display only — read the state from the snapshot) |
 | `chrono steps <1-60>` | implemented | hands tick (1) or sweep (60) |
 | `audio vol <0-100>` | implemented | volume. Above the firmware's current ceiling (25) → `denied` |
@@ -212,8 +216,68 @@ the clock stores only *the offset in force now*, never a zone or a DST table.
   in firmware) — after a reboot `time_valid` is clear until the phone reconnects.
 
 Not on this channel: **Wi-Fi credentials** will use Espressif's standard BLE provisioning
-(separate service, SRP6a security), and sound uploads will get their own characteristic. Both
-will be specified here when built.
+(separate service, SRP6a security) — specified here when built.
+
+### Sound files
+
+The alarm plays WAV files from the clock's microSD card, directory `/sd/tones`. The app can list,
+upload and delete them. **Only one format plays: WAV, PCM, 48 000 Hz, mono, 16-bit.** Convert
+on the phone before uploading (`AVAudioConverter`, or `AVAssetReader` → `AVAssetWriter` with
+`AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 1,
+AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false`).
+The clock checks the header and refuses anything else. Max 16 MB (~2.9 min). With no card,
+every `storage` command answers `not-present` — hide the feature.
+
+**List** — `storage tones` answers `=` pairs (stable; ignore the `|` lines):
+
+```
+7=card=31914983424/31900000000        total/free bytes
+7=alarm=birds.wav                     the alarm tone; empty value = the built-in beep
+7=tone=19280/200/ok/birds.wav         <bytes>/<ms>/<state>/<name>  -- name LAST, may contain
+7=tone=88244/1000/rate/cd.wav           anything but '/'; split on the first three '/'
+7$ok
+```
+
+`state` is `ok` (plays) or why not: `not-wav` `not-pcm` `rate` `channels` `bits` `no-data`
+`truncated` `unreadable`. Only `ok` files can be chosen with `chrono alarm tone <name>`.
+Non-`.wav` files and hidden files (a leading `.`, e.g. an unfinished upload) are not listed.
+
+**Delete** — `storage rm <name>` → `$ok`, or `$failed` (no such file). Deleting the alarm tone
+switches the alarm to the beep; re-read the list (or `chrono alarm`) afterwards.
+
+**Upload** — control on `cmd`, data on `blob`:
+
+1. `storage put <name> <size> <crc32_hex>` — `name` a bare file name ending `.wav` (5–63 bytes
+   UTF-8, no leading `.`, none of `/ \ : * ? " < > |`); `size` the file's bytes; `crc32` the
+   **zlib CRC-32** of the whole file, hex (Swift: `import zlib`, `crc32(0, ptr, len)`; check
+   value of `"123456789"` is `cbf43926`). Answers `=next=<offset>` `=size=<size>` `$ok`.
+   `bad-arg` = bad name/size; `failed` = card full or unwritable.
+2. Write the file to `blob` in order, **with response, one write at a time**: each value is
+   the offset as a **4-byte little-endian uint32** followed by the data. Data per write =
+   `maximumWriteValueLength(for: .withResponse) − 4` (≤ 508). Wait for each write's
+   completion (`didWriteValueFor`) before the next — the response *is* the flow control.
+   A failed write carries an ATT error:
+
+   | ATT error | meaning | do |
+   |---|---|---|
+   | `0x80` busy | the clock's queue is full (card busy) | retry the same write after ~50 ms |
+   | `0x81` bad offset | not the offset the clock expects (e.g. a response was lost and you resent), or past `size` | step 1 again with the same name/size/crc — it **resumes**; continue from its `next` |
+   | `0x82` no upload | no upload is open (never opened, ended, aborted, clock rebooted) | start over at step 1 |
+   | `0x83` failed | the card refused a write | `storage put abort`, start over |
+
+3. `storage put end` → `$ok`: length, CRC and WAV header checked, and the file appears in the
+   list (replacing a file of the same name — if that one was playing it stops). `$not-ready` +
+   `=next=` = bytes are missing: continue from `next`. `$bad-arg` = CRC mismatch or not a
+   usable WAV (the `|` lines say which); the upload is discarded.
+
+**Resuming.** After a disconnect, reconnect and send step 1 again with the *same* name, size
+and CRC: the clock answers the `next` it has and you continue from there. It keeps the
+partial upload until another `storage put` with different parameters, `storage put abort`,
+or a reboot. `storage put` alone reports the open upload (`=name=` `=next=` `=size=`).
+
+**Speed.** One write per round trip: expect roughly 5–10 KB/s on iOS (≈ 1–2 min for 10 s of
+audio). Keep the app in the foreground, or accept that iOS may suspend it mid-upload — resume
+covers that. Don't send other commands while uploading except `storage put`/`end`/`abort`.
 
 ---
 
@@ -308,3 +372,4 @@ marked newer. Unknown keys: ignore.
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
 | 2026-09-28 | proto 1 / schema 1 | Implemented `chrono time epoch` (offset now optional), `chrono alarm set/arm`; added `chrono tz`, `chrono alarm`; `tz_off_min` populated; new flag bit 30 `date_valid`; "Keeping time" guidance. All compatible |
 | 2026-09-27 | proto 1 / schema 1 | The alarm rings. New `ui_mode` values `ringing` (6) and `snoozed` (7); new commands `chrono alarm tone`, `chrono alarm fire/snooze/dismiss`, `audio play`. All compatible (new enum values, new commands) |
+| 2026-09-27 | proto 1 / schema 1 | Sound files: new `blob` characteristic (…0006, write with response, offset + data); `storage tones` / `storage rm` / `storage put …`; "Sound files" section with ATT errors 0x80–0x83. All compatible (new characteristic, new commands) |

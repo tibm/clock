@@ -8,6 +8,7 @@
 #include "clk/log.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
+#include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
 
 namespace clk::svc {
@@ -240,12 +241,20 @@ void Net::poll_radio() noexcept {
         return;
     }
     const Status st = hal::ble::start(name_, &Net::on_rx);
+    hal::ble::set_blob_handler(&Net::on_blob);
     if (st != Status::Ok) CLK_LOGW(net, "BLE did not start: %s", clk::name(st));
     port::Lock lk{mx_};
     up_ = st == Status::Ok;
 }
 
 // ---- the command channel -----------------------------------------------------------------
+
+// BLE host task.  Straight through to `storage`, which copies and answers -- the answer is
+// the ATT response, so there is nothing for `net` to queue.
+Status Net::on_blob(const uint8_t* data, std::size_t len) noexcept {
+    Storage* s = net().storage_;
+    return s ? s->put_data(data, len) : Status::NotReady;
+}
 
 // BLE host task.  Copy, wake the AO, return -- or, with the queue full, answer `busy` from
 // right here, because a write that is silently dropped leaves the phone waiting forever.

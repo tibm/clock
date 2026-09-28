@@ -5,6 +5,7 @@
 // thread: it is a bench listing, FATFS is re-entrant, and a 2 s ring does not notice.
 #include <cinttypes>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "clk/cli/registry.hpp"
@@ -241,6 +242,156 @@ Status cmd_stat(Args const& a, Sink& out) {
     return in.ok() ? Status::Ok : Status::BadArg;
 }
 
+// ---- the app's half (app/PROTOCOL.md "Sound files") -----------------------------------------
+// These answer in `=` pairs, which the protocol documents as stable.  The `|` lines around
+// them are for a human and may change.
+
+bool parse_u32(const char* s, int base, uint32_t& out) noexcept {
+    if (!s || !*s) return false;
+    char* end = nullptr;
+    const unsigned long long v = std::strtoull(s, &end, base);
+    if (end == s || *end != '\0' || v > 0xFFFFFFFFull) return false;
+    out = static_cast<uint32_t>(v);
+    return true;
+}
+
+struct Tones {
+    Sink* out;
+    int n;
+};
+
+bool tone_kv(hal::sd::Entry const& e, void* ctx) {
+    auto& T = *static_cast<Tones*>(ctx);
+    if (e.dir || e.name[0] == '.' || !has_wav_ext(e.name)) return true;
+    char path[hal::sd::kNameMax + 32];
+    std::snprintf(path, sizeof path, "%s/%s", hal::sd::kTonesDir, e.name);
+    Status st = Status::Ok;
+    const auto in = svc::Storage::probe(path, st);
+    const char* code =
+        st == Status::Ok || st == Status::BadArg ? hal::wav::code(in.err) : "unreadable";
+    // <bytes>/<ms>/<state>/<name> -- the name LAST, because it is the only field that may
+    // contain anything (except '/', which a file name cannot).
+    char v[hal::sd::kNameMax + 48];
+    std::snprintf(v, sizeof v, "%lu/%lu/%s/%s", static_cast<unsigned long>(e.size),
+                  static_cast<unsigned long>(in.ms()), code, e.name);
+    T.out->kv("tone", v);
+    ++T.n;
+    return true;
+}
+
+Status cmd_tones(Args const&, Sink& out) {
+    if (const Status st = mount_first(out); st != Status::Ok) return st;
+    const auto s = svc::storage().snapshot();
+    char v[64];
+    std::snprintf(v, sizeof v, "%" PRIu64 "/%" PRIu64, s.card.total_bytes, s.card.free_bytes);
+    out.kv("card", v);
+    out.kv("alarm", s.alarm_tone);
+    Tones T{&out, 0};
+    const Status st = hal::sd::list(hal::sd::kTonesDir, &tone_kv, &T);
+    // No /tones yet is an empty list, not an error: the first upload creates it.
+    if (st != Status::Ok && st != Status::Failed) return st;
+    out.printf("%d tone%s", T.n, T.n == 1 ? "" : "s");
+    return Status::Ok;
+}
+
+Status cmd_rm(Args const& a, Sink& out) {
+    if (!a.arg(0) || a.arg(1)) {
+        out.line("usage: storage rm <name>   (a file in /sd/tones)");
+        return Status::BadArg;
+    }
+    if (const Status st = sto_await(svc::storage().remove(a.arg(0)), "rm", out); st != Status::Ok)
+        return st;
+    const auto s = svc::storage().snapshot();
+    out.printf("removed %s%s%s", a.arg(0), s.last_why ? " -- " : "", s.last_why ? s.last_why : "");
+    return Status::Ok;
+}
+
+void put_kv(Sink& out) {
+    const auto s = svc::storage().snapshot();
+    char v[16];
+    std::snprintf(v, sizeof v, "%lu", static_cast<unsigned long>(s.put_next));
+    out.kv("next", v);
+    std::snprintf(v, sizeof v, "%lu", static_cast<unsigned long>(s.put_size));
+    out.kv("size", v);
+}
+
+// `storage put` alone: is an upload open, and where does it continue.
+// `storage put <name> <size> <crc32>`: open one (or resume the same one).
+Status cmd_put(Args const& a, Sink& out) {
+    if (!a.arg(0)) {
+        const auto s = svc::storage().snapshot();
+        if (!s.put_open) {
+            out.line("no upload open");
+            return Status::NotReady;
+        }
+        out.kv("name", s.put_name);
+        put_kv(out);
+        if (s.put_failed) out.line("⚠ the card refused a write -- `storage put abort`");
+        return Status::Ok;
+    }
+    uint32_t size = 0, crc = 0;
+    if (!parse_u32(a.arg(1), 10, size) || !parse_u32(a.arg(2), 16, crc) || a.arg(3)) {
+        out.line("usage: storage put <name.wav> <size_bytes> <crc32_hex>");
+        return Status::BadArg;
+    }
+    if (const Status st = sto_await(svc::storage().put_begin(a.arg(0), size, crc), "put", out);
+        st != Status::Ok)
+        return st;
+    const auto s = svc::storage().snapshot();
+    put_kv(out);
+    out.printf("put %s: %s at %lu of %lu -- data goes to the `blob` characteristic", s.put_name,
+               s.last_why ? s.last_why : "open", static_cast<unsigned long>(s.put_next),
+               static_cast<unsigned long>(s.put_size));
+    return Status::Ok;
+}
+
+Status cmd_put_end(Args const&, Sink& out) {
+    const auto before = svc::storage().snapshot();
+    const Status st = sto_await(svc::storage().put_end(), "put end", out);
+    if (st == Status::NotReady && before.put_open) put_kv(out);  // short: where to resume
+    if (st != Status::Ok) return st;
+    out.printf("put %s: done, in /sd/tones", before.put_name);
+    return Status::Ok;
+}
+
+Status cmd_put_abort(Args const&, Sink& out) {
+    if (const Status st = sto_await(svc::storage().put_abort(), "put abort", out); st != Status::Ok)
+        return st;
+    out.line("upload discarded");
+    return Status::Ok;
+}
+
+// The `blob` characteristic's path, from the console: one write of hex bytes at an offset.
+// For the bench and the tests -- 100 bytes a line is not how anybody should send a file.
+Status cmd_put_data(Args const& a, Sink& out) {
+    uint32_t off = 0;
+    const char* hex = a.arg(1);
+    const std::size_t hl = hex ? std::strlen(hex) : 0;
+    if (!parse_u32(a.arg(0), 10, off) || hl == 0 || hl % 2 || hl / 2 > hal::ble::kMaxBlob - 4) {
+        out.line("usage: storage put data <offset> <hex bytes>");
+        return Status::BadArg;
+    }
+    uint8_t blob[hal::ble::kMaxBlob];
+    for (int i = 0; i < 4; ++i) blob[i] = static_cast<uint8_t>(off >> (8 * i));
+    for (std::size_t i = 0; i < hl / 2; ++i) {
+        const char b[3] = {hex[2 * i], hex[2 * i + 1], 0};
+        char* end = nullptr;
+        blob[4 + i] = static_cast<uint8_t>(std::strtoul(b, &end, 16));
+        if (*end) {
+            out.line("put data refused: not hex");
+            return Status::BadArg;
+        }
+    }
+    const Status st = svc::storage().put_data(blob, 4 + hl / 2);
+    if (st != Status::Ok) {
+        out.printf("put data refused: %s (ATT error 0x%02X on `blob`)", cmd::name(st),
+                   hal::ble::blob_att_err(st));
+        put_kv(out);
+        return st;
+    }
+    return Status::Ok;
+}
+
 constexpr CmdSpec kRows[] = {
     {"storage", nullptr, "status", "", "card, alarm tone, what is streaming", ReleaseOk,
      cmd_status},
@@ -250,8 +401,18 @@ constexpr CmdSpec kRows[] = {
     {"storage", "sd", "", "", "is a card mounted, how big", ReleaseOk, cmd_sd},
     {"storage", "sd", "mount", "", "mount the card (no card-detect: try it)", ReleaseOk, cmd_mount},
     {"storage", "sd", "unmount", "", "unmount before pulling the card", ReleaseOk, cmd_unmount},
+    {"storage", nullptr, "tones", "", "the tone list as `=` pairs (the app's)", ReleaseOk,
+     cmd_tones},
+    {"storage", nullptr, "rm", "<name>", "delete a tone from /sd/tones", ReleaseOk, cmd_rm},
+    {"storage", "put", "", "[<name> <size> <crc32>]", "open/resume an upload, or show it",
+     ReleaseOk, cmd_put},
+    {"storage", "put", "end", "", "check length, CRC, header; move into place", ReleaseOk,
+     cmd_put_end},
+    {"storage", "put", "abort", "", "discard the open upload", ReleaseOk, cmd_put_abort},
+    {"storage", "put", "data", "<offset> <hex>", "one `blob` write, from the console", None,
+     cmd_put_data},
 };
-static_assert(sizeof(kRows) / sizeof(kRows[0]) == 6, "added a handler? add its row too");
+static_assert(sizeof(kRows) / sizeof(kRows[0]) == 12, "added a handler? add its row too");
 
 }  // namespace
 

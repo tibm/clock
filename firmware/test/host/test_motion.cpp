@@ -1547,7 +1547,7 @@ void run_motion_service_tests() {
     motion.subscribe(&chrono);
     chrono.bind(&motion);
     u.bind(&motion, &chrono, &net, &storage);
-    net.bind(&motion, &chrono, &u);
+    net.bind(&motion, &chrono, &u, &storage);
     cli::bind_net();
     motion.start();
     chrono.start();

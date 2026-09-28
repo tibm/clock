@@ -623,6 +623,15 @@ Result<std::size_t> read(int fd, void* buf, std::size_t n) noexcept;  // 0 = end
 Status seek(int fd, uint32_t offset) noexcept;
 Result<uint32_t> size(int fd) noexcept;
 void close(int fd) noexcept;
+
+// Writing, for the phone's uploads (app/PROTOCOL.md "Sound files").  `storage` is the only
+// writer.  create() truncates unless `append`; write() answers how many bytes went down.
+Result<int> create(const char* path, bool append) noexcept;
+Result<std::size_t> write(int fd, const void* buf, std::size_t n) noexcept;
+Status remove(const char* path) noexcept;  // Failed when there is no such file
+// FATFS will not rename onto an existing name, so the caller removes the target first.
+Status rename(const char* from, const char* to) noexcept;
+Status mkdir(const char* path) noexcept;  // Ok when it already exists
 }  // namespace sd
 
 // ---- power -----------------------------------------------------------------------------
@@ -772,6 +781,35 @@ Status set_status(const uint8_t* data, std::size_t len, bool notify) noexcept;
 Status set_info(const char* text) noexcept;  // what a read of `info` returns
 Status unbond_all() noexcept;                // forget every phone; drops a bonded link
 Link link() noexcept;
+
+// The `blob` characteristic: binary upload data, write WITH response (app/PROTOCOL.md "Sound
+// files").  Each write is a 4-byte little-endian offset and then the bytes.  The handler runs
+// on the host task, must copy and return, and its Status IS the ATT answer -- which is what
+// makes write-with-response the flow control: the phone cannot send the next chunk until this
+// one was accepted or refused, and a refusal says why (kBlobErr* below).
+inline constexpr std::size_t kMaxBlob = 512;  // ATT's attribute limit; a long write reassembles
+using BlobFn = Status (*)(const uint8_t* data, std::size_t len);
+void set_blob_handler(BlobFn) noexcept;
+// Application ATT error codes (0x80-0x9F) a refused blob write answers with.
+inline constexpr uint8_t kBlobErrBusy = 0x80;      // Busy: queue full -- retry the same write
+inline constexpr uint8_t kBlobErrOffset = 0x81;    // BadArg: not the expected offset, or past
+                                                   //   the size -- ask `storage put` for `next`
+inline constexpr uint8_t kBlobErrNoUpload = 0x82;  // NotReady: no `storage put` is open
+inline constexpr uint8_t kBlobErrFailed = 0x83;    // Failed: the card refused a write
+inline constexpr uint8_t blob_att_err(Status st) noexcept {
+    switch (st) {
+        case Status::Ok:
+            return 0;
+        case Status::Busy:
+            return kBlobErrBusy;
+        case Status::BadArg:
+            return kBlobErrOffset;
+        case Status::NotReady:
+            return kBlobErrNoUpload;
+        default:
+            return kBlobErrFailed;
+    }
+}
 
 }  // namespace ble
 

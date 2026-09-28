@@ -102,6 +102,53 @@ Result<uint32_t> size(int h) noexcept {
     return Result<uint32_t>::good(static_cast<uint32_t>(st.st_size));
 }
 
+Result<int> create(const char* path, bool append) noexcept {
+    if (!path) return Result<int>::bad(Status::BadArg);
+    char p[kPathMax];
+    if (const Status st = detail::native_path(path, p, sizeof p); st != Status::Ok)
+        return Result<int>::bad(st);
+    const int fd = ::open(p, O_WRONLY | O_CREAT | (append ? O_APPEND : O_TRUNC), 0644);
+    if (fd < 0) return Result<int>::bad(Status::Failed);
+    port::Lock lk{g_fd_mx};
+    for (int h = 0; h < kMaxOpen; ++h) {
+        if (g_fds[h] < 0) {
+            g_fds[h] = fd;
+            return Result<int>::good(h);
+        }
+    }
+    ::close(fd);
+    return Result<int>::bad(Status::Busy);
+}
+
+Result<std::size_t> write(int h, const void* buf, std::size_t n) noexcept {
+    const int fd = native_fd(h);
+    if (fd < 0 || !buf) return Result<std::size_t>::bad(Status::BadArg);
+    const auto r = ::write(fd, buf, n);
+    if (r < 0) return Result<std::size_t>::bad(Status::Failed);
+    return Result<std::size_t>::good(static_cast<std::size_t>(r));
+}
+
+Status remove(const char* path) noexcept {
+    char p[kPathMax];
+    if (const Status st = detail::native_path(path, p, sizeof p); st != Status::Ok) return st;
+    return ::unlink(p) == 0 ? Status::Ok : Status::Failed;
+}
+
+Status rename(const char* from, const char* to) noexcept {
+    char a[kPathMax], b[kPathMax];
+    if (const Status st = detail::native_path(from, a, sizeof a); st != Status::Ok) return st;
+    if (const Status st = detail::native_path(to, b, sizeof b); st != Status::Ok) return st;
+    return ::rename(a, b) == 0 ? Status::Ok : Status::Failed;
+}
+
+Status mkdir(const char* path) noexcept {
+    char p[kPathMax];
+    if (const Status st = detail::native_path(path, p, sizeof p); st != Status::Ok) return st;
+    struct stat st{};
+    if (::stat(p, &st) == 0) return S_ISDIR(st.st_mode) ? Status::Ok : Status::Failed;
+    return ::mkdir(p, 0755) == 0 ? Status::Ok : Status::Failed;
+}
+
 void close(int h) noexcept {
     if (h < 0 || h >= kMaxOpen) return;
     int fd = -1;

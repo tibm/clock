@@ -35,6 +35,7 @@ struct Fake {
     uint32_t paired = 0, refused = 0;
     uint32_t status_notifies = 0;
     ble::RxFn rx = nullptr;
+    ble::BlobFn blob = nullptr;
     std::deque<std::string> rsp;
     std::vector<uint8_t> status;
     std::string info;
@@ -59,6 +60,11 @@ Status start(const char* name, RxFn on_cmd) noexcept {
     g.rx = on_cmd;
     CLK_LOGI(net, "ble: fake stack up as \"%s\"", name ? name : "?");
     return Status::Ok;
+}
+
+void set_blob_handler(BlobFn fn) noexcept {
+    std::lock_guard lk{g_mx};
+    g.blob = fn;
 }
 
 Status stop() noexcept {
@@ -175,6 +181,18 @@ Status ble_write(const char* text) noexcept {
     if (n > ble::kMaxWrite) return Status::BadArg;  // ATT "invalid attribute value length"
     if (rx) rx(reinterpret_cast<const uint8_t*>(text), n);
     return Status::Ok;
+}
+
+uint8_t ble_write_blob(const uint8_t* data, std::size_t len) noexcept {
+    ble::BlobFn fn = nullptr;
+    {
+        std::lock_guard lk{g_mx};
+        if (!g.bonded_link) return 0x05;  // ATT insufficient authentication
+        fn = g.blob;
+    }
+    if (len <= 4 || len > ble::kMaxBlob) return 0x0D;  // invalid attribute value length
+    if (!fn) return ble::kBlobErrNoUpload;
+    return ble::blob_att_err(fn(data, len));
 }
 
 bool ble_pop_rsp(char* out, std::size_t cap) noexcept {

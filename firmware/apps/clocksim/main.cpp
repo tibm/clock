@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
     motion.subscribe(&chrono);
     chrono.bind(&motion);
     ui.bind(&motion, &chrono, &net, &storage);
-    net.bind(&motion, &chrono, &ui);
+    net.bind(&motion, &chrono, &ui, &storage);
     clk::cli::bind_net();
     // A real clock homes the moment it powers up (§6.1).  The test rig turns that off: a
     // nine-second sweep before every case buys nothing there, and the case that is ABOUT

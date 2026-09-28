@@ -28,6 +28,7 @@ namespace clk::svc {
 class Motion;
 class Chrono;
 class Ui;
+class Storage;
 
 class Net final : public ActiveObject {
 public:
@@ -57,10 +58,13 @@ public:
 
     Net() noexcept;
 
-    void bind(Motion* m, Chrono* c, Ui* u) noexcept {
+    // `s` receives the `blob` characteristic's upload data; without it every blob write is
+    // refused "no upload open".
+    void bind(Motion* m, Chrono* c, Ui* u, Storage* s = nullptr) noexcept {
         motion_ = m;
         chrono_ = c;
         ui_ = u;
+        storage_ = s;
     }
     void set_dispatch(DispatchFn f) noexcept { dispatch_ = f; }
     // Advertised name, the `info` characteristic's text, and the build id stamped on every
@@ -85,7 +89,8 @@ protected:
     void on_tick() override;
 
 private:
-    static void on_rx(const uint8_t* data, std::size_t len) noexcept;  // BLE host task
+    static void on_rx(const uint8_t* data, std::size_t len) noexcept;      // BLE host task
+    static Status on_blob(const uint8_t* data, std::size_t len) noexcept;  // ... likewise
     void run_queued() noexcept;
     void poll_radio() noexcept;
     void close_window(PairEnd) noexcept;
@@ -101,6 +106,7 @@ private:
     Motion* motion_ = nullptr;
     Chrono* chrono_ = nullptr;
     Ui* ui_ = nullptr;
+    Storage* storage_ = nullptr;
     DispatchFn dispatch_ = nullptr;
 
     char name_[24] = "clock";

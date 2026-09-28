@@ -62,6 +62,30 @@ constexpr const char* name(Err e) noexcept {
     return "?";
 }
 
+// The same, as a token a program can switch on (the app's tone list, app/PROTOCOL.md).
+// ⚠ On the wire: append, never rename.
+constexpr const char* code(Err e) noexcept {
+    switch (e) {
+        case Err::Ok:
+            return "ok";
+        case Err::NotWav:
+            return "not-wav";
+        case Err::NotPcm:
+            return "not-pcm";
+        case Err::Rate:
+            return "rate";
+        case Err::Channels:
+            return "channels";
+        case Err::Bits:
+            return "bits";
+        case Err::NoData:
+            return "no-data";
+        case Err::Truncated:
+            return "truncated";
+    }
+    return "?";
+}
+
 struct Info {
     Err err = Err::NotWav;
     // What the fmt chunk says, whether or not it passed -- so a refusal can say "44100 Hz

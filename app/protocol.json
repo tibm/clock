@@ -35,6 +35,15 @@
           "read"
         ],
         "encoding": "utf8"
+      },
+      "blob": {
+        "uuid": "7a3e0006-5c1d-4b8e-9f3a-2c6d1e0b9a41",
+        "properties": [
+          "write"
+        ],
+        "max_len": 512,
+        "encoding": "binary",
+        "layout": "bytes 0-3 = offset, uint32 little-endian; bytes 4.. = file data. Write WITH response, one at a time"
       }
     },
     "security": "LE Secure Connections, Just Works, bonded. Every characteristic requires an encrypted + bonded link.",
@@ -247,6 +256,42 @@
       "status": "implemented",
       "unsafe": false,
       "use": "play a /sd/tones WAV (48 kHz mono 16-bit) once, or looped until audio stop; e.g. to preview an alarm tone"
+    },
+    {
+      "line": "storage tones",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "list /sd/tones as `=` pairs: card=, alarm=, one tone= per .wav (sound_files.list_pairs). not-present with no card"
+    },
+    {
+      "line": "storage rm <name>",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "delete a file from /sd/tones. If it was the alarm tone the alarm falls back to the beep (the `|` line says so). failed = no such file"
+    },
+    {
+      "line": "storage put <name> <size> <crc32_hex>",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "open an upload -- or resume the open one when name/size/crc all match. Answers `=next=<offset>` and `=size=`. Then send the bytes to the blob characteristic"
+    },
+    {
+      "line": "storage put",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "the open upload: `=name=`, `=next=`, `=size=`; not-ready when none"
+    },
+    {
+      "line": "storage put end",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "finish: checks length, CRC and the WAV header, then the file appears in /sd/tones (replacing one of the same name). not-ready + `=next=` = bytes missing; bad-arg = CRC mismatch or not a usable WAV (upload discarded)"
+    },
+    {
+      "line": "storage put abort",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "discard the open upload"
     },
     {
       "line": "unsafe on",
@@ -821,6 +866,53 @@
         "wifi_state": 0,
         "wifi_rssi": -60,
         "reserved": 0
+      }
+    }
+  },
+  "sound_files": {
+    "dir": "/sd/tones",
+    "format": {
+      "container": "wav",
+      "audio_format": 1,
+      "sample_rate": 48000,
+      "channels": 1,
+      "bits": 16
+    },
+    "max_upload_bytes": 16777216,
+    "name_rule": "bare file name ending .wav (any case), 5-63 bytes UTF-8, no leading '.', none of / \\ : * ? \" < > | or control characters",
+    "crc": "CRC-32/ISO-HDLC over the whole file (zlib crc32; check value of '123456789' = cbf43926), sent as hex",
+    "list_pairs": {
+      "card": "<total_bytes>/<free_bytes>",
+      "alarm": "<name> of the alarm tone, empty = the built-in beep",
+      "tone": "<size_bytes>/<duration_ms>/<state>/<name> -- one per .wav, name last (it may contain anything but '/')"
+    },
+    "tone_states": [
+      "ok",
+      "not-wav",
+      "not-pcm",
+      "rate",
+      "channels",
+      "bits",
+      "no-data",
+      "truncated",
+      "unreadable"
+    ],
+    "blob_att_errors": {
+      "0x80": {
+        "name": "busy",
+        "action": "retry the same write after ~50 ms"
+      },
+      "0x81": {
+        "name": "bad-offset",
+        "action": "not the expected offset, or past the size: send `storage put <name> <size> <crc>` again and continue from its `next`"
+      },
+      "0x82": {
+        "name": "no-upload",
+        "action": "no `storage put` is open (never opened, ended, aborted, or the clock rebooted): start again"
+      },
+      "0x83": {
+        "name": "failed",
+        "action": "the card refused a write: `storage put abort`, then start again"
       }
     }
   }

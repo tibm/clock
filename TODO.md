@@ -46,7 +46,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | ⬜ | Repeat by weekday (and several alarms?) | today: one daily alarm. Needs a protocol addition when built |
 | ⬜ | Sunrise wake light, 30 min warm→cool before the alarm | `hal::wake` is the last HAL stub (12 V boost, plugged-only; Phase 4). On battery: dim dial-pixel glow instead |
 | ✅ | Alarm sound from a file (WAV), volume ramp over 30 s | 2026-09-27: `/sd/tones/*.wav`, 48 kHz mono 16-bit only; `storage` AO + 2 s PSRAM ring; tone chosen by `chrono alarm tone` (NVS); beep fallback. Host-tested; **bench: F5.7** |
-| ⬜ | Choose the alarm tone from the app | the CLI rows exist (`storage ls`, `chrono alarm tone`); the app needs a list it can parse — a protocol addition |
+| 🟡 | Manage sound files from the app: list, upload, delete, choose the alarm tone | Firmware + protocol done 2026-09-27 (`app/PROTOCOL.md` "Sound files", `blob` characteristic, `storage tones/put/rm`; `clockctl.py put` works as the reference). **The iOS screens are still to build**; bench the transfer rate (**F5.7**) |
 | ⬜ | Audio DSP: HPF + limiter (protects the 2″ driver) | `audio dsp`, **F5.6** |
 | ⬜ | Lift the 25 % volume ceiling | only after the protector sense loop is measured (**F5.4**, `FIRMWARE.md` R-AUDIO-1) |
 

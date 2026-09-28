@@ -13,6 +13,11 @@
 // 30 s (§6.6).  When that cannot play -- no card, no tone chosen, the file gone or wrong, the
 // card pulled mid-ring -- it falls back to a generated two-note beep, because an alarm that
 // stays silent because of a file is the one failure this product may not have.
+//
+// UPLOADS (app/PROTOCOL.md "Sound files"): `put_begin` opens `/sd/tones/.<name>.part`, the
+// phone streams the bytes through the `blob` characteristic into put_data(), `put_end` checks
+// the length, the CRC-32 and the WAV header and only then renames the file into place -- so a
+// half-sent or wrong file is never visible to `ls`, the alarm, or the app's listing.
 #pragma once
 
 #include <cstdint>
@@ -42,6 +47,12 @@ public:
         uint32_t data_bytes;
         uint32_t loops;      // completed passes
         uint32_t underruns;  // from the mixer: the ring ran dry
+        // The upload, if one is open.
+        bool put_open;
+        bool put_failed;  // the card refused a write: only `put abort` or a new begin now
+        char put_name[kNameMax];
+        uint32_t put_size;
+        uint32_t put_next;  // the offset the next blob write must carry
         // The answer to the last request, for whoever queued it.
         uint32_t done_seq;  // the last request finished -- compare with a returned seq
         Status last_st;
@@ -58,6 +69,24 @@ public:
     uint32_t play(const char* name, bool loop) noexcept;
     uint32_t ring_alarm() noexcept;  // the selected tone, looped + ramped; the beep otherwise
     uint32_t stop() noexcept;        // whatever is playing, file or beep, with a fade
+    // Delete a file from /sd/tones (bare name).  Stops it first if it is playing; clears the
+    // alarm selection -- back to the beep -- if it was the alarm tone.
+    uint32_t remove(const char* name) noexcept;
+
+    // Uploads.  `crc` is CRC-32/ISO-HDLC (zlib's crc32) of the whole file.  A begin with the
+    // same name, size and CRC as the open upload RESUMES it: snapshot().put_next says where.
+    static constexpr uint32_t kMaxUpload = 16u * 1024u * 1024u;  // ~2.9 min at 48 kHz mono
+    uint32_t put_begin(const char* name, uint32_t size, uint32_t crc) noexcept;
+    uint32_t put_end() noexcept;
+    uint32_t put_abort() noexcept;
+    // One blob write: 4-byte LE offset, then data.  ANY thread -- it is called on the BLE host
+    // task -- and it only copies: Ok (accepted), Busy (queue full, retry), BadArg (wrong
+    // offset or past the size), NotReady (no upload open), Failed (the card refused earlier).
+    Status put_data(const uint8_t* blob, std::size_t len) noexcept;
+
+    static uint32_t crc32(uint32_t crc, const uint8_t* p, std::size_t n) noexcept;
+    // A name an upload may create: bare, ends in .wav, no characters FAT refuses, no leading dot.
+    static bool valid_upload_name(const char* name) noexcept;
     uint32_t mount() noexcept;
     uint32_t unmount() noexcept;
     // Choose the alarm tone: a bare name under /sd/tones, checked on the card (it must open
@@ -80,16 +109,40 @@ protected:
     void on_tick() override;
 
 private:
-    enum class Kind : uint8_t { Mount, Unmount, Play, Alarm, Stop, Select };
+    enum class Kind : uint8_t {
+        Mount,
+        Unmount,
+        Play,
+        Alarm,
+        Stop,
+        Select,
+        Remove,
+        PutBegin,
+        PutEnd,
+        PutAbort
+    };
     struct Req {
         Kind kind;
         bool loop;
         char name[kNameMax];
         uint32_t seq;
+        uint32_t size, crc;  // PutBegin
     };
+    // Upload data in flight between the BLE host task and this AO.  Four is plenty: the phone
+    // waits for each write's response, so more than one or two only queue while a card write
+    // is slow -- and then Busy is the right answer.
+    struct Chunk {
+        uint16_t len;
+        uint8_t data[hal::ble::kMaxBlob];
+    };
+    static constexpr std::size_t kChunks = 4;
     static constexpr std::size_t kQueue = 4;
 
-    uint32_t enqueue(Kind, const char* name, bool loop) noexcept;
+    uint32_t enqueue(Kind, const char* name, bool loop, uint32_t size = 0,
+                     uint32_t crc = 0) noexcept;
+    void drain_chunks() noexcept;
+    void put_close(bool discard) noexcept;
+    void put_path(char* out, std::size_t cap) const noexcept;
     void handle(Req const&) noexcept;
     void answer(uint32_t seq, Status, const char* why, hal::wav::Err = hal::wav::Err::Ok) noexcept;
     Status ensure_mounted() noexcept;
@@ -107,6 +160,13 @@ private:
     Req q_[kQueue]{};
     std::size_t q_n_ = 0;
     uint32_t next_seq_ = 1;
+    // Upload, shared with put_data() -- under mx_.
+    Chunk chunks_[kChunks]{};
+    std::size_t chunk_head_ = 0, chunk_n_ = 0;
+    bool put_open_ = false;
+    bool put_failed_ = false;
+    uint32_t put_next_ = 0;  // accepted (queued) so far
+    uint32_t put_size_ = 0;
 
     // --- this AO's thread only ---
     bool mounted_ = false;
@@ -124,6 +184,12 @@ private:
     bool eof_sent_ = false;
     uint64_t beep_t0_us_ = 0;
     uint32_t beep_step_ = 0;
+    // Upload, this AO's thread only.
+    int put_fd_ = -1;
+    char put_name_[kNameMax] = {};
+    uint32_t put_crc_want_ = 0;
+    uint32_t put_crc_ = 0;  // running, over what has been written
+    uint32_t put_written_ = 0;
     // 8 KB: one card read.  Internal RAM -- the SPI DMA reads into it directly.
     int16_t buf_[4096];
 };

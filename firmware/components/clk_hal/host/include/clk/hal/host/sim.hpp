@@ -103,6 +103,9 @@ void ble_subscribe(bool rsp, bool status) noexcept;
 void ble_set_mtu(uint16_t) noexcept;
 // A write to `cmd`.  Denied on a link that is not bonded -- the ATT error a phone would get.
 Status ble_write(const char* text) noexcept;
+// A write to `blob`: 4-byte LE offset + data.  Answers what the phone would see -- 0 for
+// success, else the ATT error code (hal::ble::kBlobErr*, or 0x05/0x0D from the stack).
+uint8_t ble_write_blob(const uint8_t* data, std::size_t len) noexcept;
 // The oldest `rsp` notification not yet taken, NUL-terminated.  False when there is none.
 bool ble_pop_rsp(char* out, std::size_t cap) noexcept;
 std::size_t ble_read_status(uint8_t* out, std::size_t cap) noexcept;  // a read of `status`
