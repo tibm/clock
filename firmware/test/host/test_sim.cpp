@@ -291,7 +291,7 @@ void test_sim_commands() {
 
 void test_sensor_grammar() {
     fresh();
-    sim::set_opto(0.5f);  // a whole number of mV on the 18 mV span, so it round-trips exactly
+    sim::set_opto(0.5f);  // a whole number of mV on the 10 mV span, so it round-trips exactly
 
     // The wildcard object: `sensor <name> <verb>`, which is the form §9.5 specifies.
     RecordingSink r;

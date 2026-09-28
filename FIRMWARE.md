@@ -755,9 +755,10 @@ Two mechanical consequences land on the homing FSM, both of them real:
    distance, a printed index mark reflects far better, and V2 roughly doubles the scale. §12.1
    milestone 3 / §12.2 **F2.4** starts by re-measuring with the real hands on.
    **Re-measured 2026-09-27** (build #1, `R99` = 22k, real hands): clear ~3159 / minute ~3142 /
-   hour ~2978 mV. The span is now set on the minute hand (`kOptoClearMv` 3160, `kOptoMarkMv`
-   3142), putting the 0.45 threshold at ~3152 mV; the hour hand clamps to 1. Both crossings are
-   visible — with ~9 mV of margin either side (`hal.hpp`).
+   hour ~2978 mV. The span is now set just under the clear level (`kOptoClearMv` 3160, `kOptoMarkMv`
+   3150), putting the 0.45 threshold at ~3155.5 mV: clear is the ADC ceiling and does not drift,
+   so it gets ~3 mV; the minute hand does drift (boot-time homing sometimes missed it at the
+   first ~3152 line) and gets ~13. A failed hand search logs its brightest reading in mV.
 
 The labels in `hal.hpp`'s opto block were always written for *this* geometry, so the swap makes the
 calibration and the wiring agree for the first time; before it, the hand the docs called weak was
@@ -3848,8 +3849,8 @@ the ordered work. Delete a row when it closes; delete the section when it emptie
 | **F2.0** | ✅ | Hands swapped shafts (minute → inner pin, hour → outer tube); firmware crosses them in `motor_esp.cpp`'s `build()`, which logs `hour=tube(MCPWM0) minute=pin(MCPWM1)` at boot. ⚠ **Nothing on the host can catch that crossing being wrong** — that log plus one `motion step h` with a hand on is the whole verification. Do it before anything below leans on it |
 | **F2.3** | ⬜ | **Silence — the one item that needs no hands.** Tune microstep depth against the gear train's resonance; the 25 kHz carrier is already above hearing. Bare shafts are audible, so this can be done now |
 | **F2.1** | ⬜ | `steps_per_rev` — count microsteps for one revolution, confirm **11 520** (§13 Q1; changed from 17 280 on 2026-09-27 per the X27 gear ratio — needs the stopless `.NS` movement to count a full turn). ⚠ `motion spr` only *prints* the constant; `domain::kRev` is `constexpr` and everything in `hand.hpp` is `constexpr` over it. Worth changing **only if the count comes out wrong** — measure first |
-| **F2.2** | ⬜ | Direction — clockwise must come out positive. If not, `kSwapB` in `motor_esp.cpp` is one line. ⚠ It is one flag for **both** axes; make it per-hand + NVS-backed only *if* exactly one hand comes out backwards |
-| **F2.4** | ⬜ | Homing — place the index mark with `sensor homing stream`, then the FSM. ✅ *Opto re-measured 2026-09-27 with `R99` = 22k + real hands (3159/3142/2978 mV); span moved onto the minute hand — ~9 mV margin, watch for chatter.* Original note: `kOptoMarkMv` = 2600 is the *near* hand's level, so the far (minute) hand normalises to 0.25, under `motion`'s 0.45 `opto_thresh` — its index crossing is currently **invisible**. Do not lower the threshold on paper: those numbers were bare surfaces, and a printed index mark reflects far better. Decide v0.4 **V2** (`R99` 10k → 22k) *after* this measurement, not before |
+| **F2.2** | ✅ | Direction — clockwise must come out positive. *2026-09-27: build #1 ran both hands CCW (time mirrored about 12–6); `kSwapB` → `true`.* If not, `kSwapB` in `motor_esp.cpp` is one line. ⚠ It is one flag for **both** axes; make it per-hand + NVS-backed only *if* exactly one hand comes out backwards |
+| **F2.4** | ⬜ | Homing — place the index mark with `sensor homing stream`, then the FSM. ✅ *Opto re-measured 2026-09-27 with `R99` = 22k + real hands (3159/3142/2978 mV); threshold ~3155.5 mV, just under the clear ceiling — ~13 mV for the minute hand; failed searches log their peak.* Original note: `kOptoMarkMv` = 2600 is the *near* hand's level, so the far (minute) hand normalises to 0.25, under `motion`'s 0.45 `opto_thresh` — its index crossing is currently **invisible**. Do not lower the threshold on paper: those numbers were bare surfaces, and a printed index mark reflects far better. Decide v0.4 **V2** (`R99` 10k → 22k) *after* this measurement, not before |
 
 #### Phase 3 — milestones 4–5
 

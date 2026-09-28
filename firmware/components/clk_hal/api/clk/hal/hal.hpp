@@ -78,19 +78,24 @@ enum class Ch : uint8_t {
 // the real hour hand is ~15 uA and the minute ~7 uA), so the whole signal lives in the top
 // 200 mV.  The sensor is steady enough to work there.
 //
-// So the span is set on the WEAK hand, not the strong one: `kOptoMarkMv` is the minute
-// hand's level, which puts `motion`'s 0.45 `opto_thresh` at 3160 - 0.45*18 = ~3152 mV --
-// the bench's own "above 3151 is nothing" line.  The hour hand is far past the mark and
-// clamps to 1.  Homing moves ONE hand at a time with the other parked away, so one line that
-// sees the weaker hand sees both; which hand lit it never has to be read off the level.
-// ⚠ The margin is ~9 mV either side of the line (clear 3159, minute 3142).  If crossings
-// chatter or a hand is missed, `sensor homing stream` again and move these two numbers.
+// So the span is set on the WEAK hand, not the strong one.  The hour hand is far past the
+// mark and clamps to 1.
+//
+// And the line sits just under the CEILING, not halfway (2026-09-27, second pass): 3150 puts
+// `motion`'s 0.45 `opto_thresh` at 3160 - 0.45*10 = ~3155.5 mV.  The clear level is the ADC
+// clipping, not a sensor level, so it does not drift and can take a 3 mV margin; the minute
+// hand DOES drift, and the first line (~3152) left it ~10 mV -- which a cold boot sometimes
+// ate.  Now it has ~13.  ⚠ Only valid while clear reads >= 3156 on every sample: if
+// `sensor homing stream` ever shows clear below that, this line is too close.  Homing moves ONE
+// hand at a time with the other parked away, so one line that sees the weaker hand sees both; which
+// hand lit it never has to be read off the level. A failed search logs the brightest reading it
+// saw, in mV, next to this line.
 //
 // Deliberately ONE definition shared by the fake and the target: an inverted fake would have
 // sent the homing FSM hunting the wrong edge on hardware, which is a mechanical-looking bug
 // with a firmware cause.
 inline constexpr uint16_t kOptoClearMv = 3160;  // nothing above the sensor
-inline constexpr uint16_t kOptoMarkMv = 3142;   // the minute (weaker) hand over the window
+inline constexpr uint16_t kOptoMarkMv = 3150;   // just under clear; the minute hand is 3142
 
 // 0 = nothing in front, 1 = fully on the mark.  Everything above the HAL is written in this
 // sense (the homing FSM looks for it rising), so the inversion is undone exactly here.

@@ -711,6 +711,7 @@ void Motion::enter(Phase p) noexcept {
     const Tuning t = tuning();
     phase_ = p;
     phase_start_us_ = port::now_us();
+    sweep_peak_ = 0.0f;
     // Latch the CURRENT level, so a sweep that starts with the sensor already lit waits for
     // it to go dark and rise again instead of "finding" the mark it was parked on.
     opto_high_ = opto_ > t.opto_thresh;
@@ -778,6 +779,15 @@ void Motion::fail(const char* why) noexcept {
 
 void Motion::retry_or_fail(Hand h, const char* why) noexcept {
     hal::motor::hold(h);
+    // Was the hand there and too faint, or not there at all?  The brightest reading of the
+    // failed pass against the threshold answers that, in the bench's own units.
+    const auto mv = [](float n) {
+        return static_cast<double>(hal::adc::kOptoClearMv) -
+               static_cast<double>(n) * (hal::adc::kOptoClearMv - hal::adc::kOptoMarkMv);
+    };
+    CLK_LOGW(motion, "home: %s hand peaked at %.2f (~%.0f mV), threshold %.2f (~%.0f mV)",
+             h == Hand::Hour ? "hour" : "minute", static_cast<double>(sweep_peak_), mv(sweep_peak_),
+             static_cast<double>(tuning().opto_thresh), mv(tuning().opto_thresh));
     if (tries_ + 1 >= kHomeTries) return fail(why);
     ++tries_;
     CLK_LOGW(motion, "home: %s -- try %u/%u, at 1/%u speed", why, tries_ + 1, kHomeTries,
@@ -794,6 +804,7 @@ void Motion::run_homing(float opto) noexcept {
     const bool high = opto > t.opto_thresh;
     const bool rising = high && !opto_high_;
     opto_high_ = high;
+    sweep_peak_ = std::max(sweep_peak_, opto);
 
     switch (phase_) {
         // Nothing downstream can trust a rising edge until the sensor is demonstrably dark:

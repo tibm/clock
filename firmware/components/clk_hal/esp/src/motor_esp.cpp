@@ -60,7 +60,9 @@ constexpr int kElecShift = 14;  // 22 bits of cycle -> 8 bits of index
 // ⚠ If the hands run backwards on the bench, flip this and nothing else.  Reversing one coil's
 // phase reverses the rotor, and it is a wiring fact rather than a firmware one: esp32.md says
 // each coil's polarity and phase order are "firmware-trimmable -- just wire consistently".
-constexpr bool kSwapB = false;
+// Flipped 2026-09-27 on build #1 (F2.2): both hands ran counter-clockwise, so 3 o'clock
+// showed at the 9 and vice versa.  One flag for both axes, and both were backwards.
+constexpr bool kSwapB = true;
 
 // ---- the LUT -----------------------------------------------------------------------------
 // Taylor rather than std::sin, because std::sin is not a constant expression in standard C++

@@ -248,7 +248,8 @@ private:
     bool clear_started_ = false;
     uint8_t fine_pass_ = 0;
     int32_t backoff_ = 0;
-    uint8_t tries_ = 0;  // failed searches of the CURRENT hand; each halves both sweep speeds
+    uint8_t tries_ = 0;        // failed searches of the CURRENT hand; each halves both sweep speeds
+    float sweep_peak_ = 0.0f;  // brightest opto this phase saw -- logged when a search fails
     uint32_t faults_ = 0;
     bool home_on_start_ = true;
     // Auto-home bookkeeping.  `lost_` counts index crossings that landed nowhere near where

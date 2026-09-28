@@ -471,12 +471,13 @@ bool park_at(int32_t h, int32_t m, int ms = 8000) {
 
 // A sweep too fast for the sampling steps clean over the index -- build #1's minute hand,
 // 2026-09-27, whose dip is ~9 mV deep.  The answer is not a fault but the same search again,
-// slower: 1x, 1/2, 1/4.  16000 usteps/s misses at full speed in the fake; a quarter of it is
-// 1.5x the default and catches reliably, so this homes only because of the retries.
+// slower: 1x, 1/2, 1/4.  12000 usteps/s usually misses at full speed in the fake; a quarter
+// of it is ~the default and catches reliably.  (16000 made the last try marginal too, and a
+// fault here cascaded into a hang further down.)
 void test_motion_retries_a_missed_index_slower() {
     fresh_motion();
     RecordingSink r;
-    run("motion tune v_coarse 16000", r);
+    run("motion tune v_coarse 12000", r);
     sim::set_hand_angle(Hand::Hour, 137.0f);
     sim::set_hand_angle(Hand::Minute, 41.0f);
 
@@ -489,6 +490,7 @@ void test_motion_retries_a_missed_index_slower() {
         CHECK(off < 5.0f || off > 350.0f);
     }
     run("motion tune v_coarse 2667", r);
+    if (!mo().snapshot().homed) mo().halt();  // never hand a Fault to the next case
 }
 
 // §6.1: the opto answers "the mark is over the window", which is not the same question as "the
