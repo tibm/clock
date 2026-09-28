@@ -14,6 +14,8 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
     let commandChannel: CommandChannel
     let commands: [Command]
     let snapshot: SnapshotSpec
+    /// Absent on a contract older than the `blob` characteristic.
+    let soundFiles: SoundFiles?
 
     enum CodingKeys: String, CodingKey {
         case protocolVersion = "protocol_version"
@@ -21,6 +23,7 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
         case gatt, advertising
         case commandChannel = "command_channel"
         case commands, snapshot
+        case soundFiles = "sound_files"
     }
 
     // MARK: GATT
@@ -168,6 +171,44 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
         let hex: String
         let decoded: [String: JSONValue]
     }
+
+    // MARK: Sound files
+
+    struct SoundFiles: Decodable, Sendable {
+        let dir: String?
+        let format: AudioFormat
+        let maxUploadBytes: Int
+        let toneStates: [String]
+        /// ATT error code as hex text (`"0x80"`) → its name and what to do.
+        let blobATTErrors: [String: BlobError]
+
+        enum CodingKeys: String, CodingKey {
+            case dir, format
+            case maxUploadBytes = "max_upload_bytes"
+            case toneStates = "tone_states"
+            case blobATTErrors = "blob_att_errors"
+        }
+    }
+
+    struct AudioFormat: Decodable, Sendable {
+        let container: String
+        /// WAV `fmt ` audio format tag (1 = PCM).
+        let audioFormat: Int
+        let sampleRate: Int
+        let channels: Int
+        let bits: Int
+
+        enum CodingKeys: String, CodingKey {
+            case container, channels, bits
+            case audioFormat = "audio_format"
+            case sampleRate = "sample_rate"
+        }
+    }
+
+    struct BlobError: Decodable, Sendable {
+        let name: String
+        let action: String
+    }
 }
 
 // MARK: - Loading and lookups
@@ -188,6 +229,11 @@ nonisolated extension ProtocolSpec {
     /// UUID of a characteristic by its protocol name (`cmd`, `rsp`, `status`, `info`).
     func characteristicUUID(_ name: String) -> CBUUID? {
         gatt.characteristics[name].map { CBUUID(string: $0.uuid) }
+    }
+
+    /// Name of a `blob` ATT error code (`busy`, `bad-offset`, …), nil when the JSON doesn't list it.
+    func blobErrorName(_ code: Int) -> String? {
+        soundFiles?.blobATTErrors.first { Int($0.key.dropFirst(2), radix: 16) == code }?.value.name
     }
 
     /// Bit number of a named advertising state bit (e.g. `pairing_window_open`).

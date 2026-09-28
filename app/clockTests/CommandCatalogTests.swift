@@ -60,7 +60,7 @@ struct CommandCatalogTests {
     @Test func completesWordByWord() {
         let c = CommandCatalog(spec: spec)
         #expect(c.completions(for: "au").map(\.label) == ["audio"])
-        #expect(c.completions(for: "audio ").map(\.label).starts(with: ["stop", "tone", "vol"]))
+        #expect(c.completions(for: "audio ").map(\.label).starts(with: ["play", "stop", "tone", "vol"]))
         #expect(c.completions(for: "audio v").first?.insert == "audio vol ")
         #expect(c.completions(for: "audio vol ").map(\.label) == ["<pct 0–100>"])
         #expect(c.completions(for: "audio vol ").first?.insert == nil)

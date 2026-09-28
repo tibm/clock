@@ -29,6 +29,7 @@ command table or a shell with autocomplete. It is the phone side of the contract
 |---|---|
 | **Clock** | Scans for clocks, with a "ready to pair" badge from the advertising data. Connects and disconnects, and reconnects to the last clock. Explains pairing failures (window shut → hold the knob; clock forgot the phone → *Forget This Device*). Shows `info` (fw, sha, board, proto) with a protocol-version check, and has the "send phone time on connect" toggle. |
 | **Status** | The live `status` snapshot: sequence number, samples missed, age, clock time vs phone time, every flag as a chip, the 7 LEDs as colour swatches, and grouped values (power, room, light, IMU, hands, UI, radio). Invalid values show "—". Fields the layout doesn't list appear under **Other fields**. There is also a raw hex view and a notify-period menu. |
+| **Sounds** | The clock's microSD `/sd/tones` (`storage tones`): size, length, playability state, which one is the alarm; swipe to delete, context menu to play / stop / use it for the alarm. Below it, the WAVs **bundled with the app** (`clock/Tones/`), each checked against `sound_files.format`, with an upload button and a progress bar (`storage put` + `blob` writes, busy retry, resume after a dropped link). Hidden when the clock has no card or no `blob` characteristic. |
 | **Commands** | Every known command, grouped, with its help, arg ranges and badges (`unsafe`, `planned`, `device` = only the firmware's `help` knows it). Tap one to fill its arguments (pickers for `on\|off` choices, range warnings) and send it. Quick actions: sync time, `sys ver`, tone, stop, `unsafe on`, close pairing. |
 | **Shell** | A terminal over BLE, the same commands as the USB console. Completion chips for the next word or argument. Tab / ↑ / ↓ on a hardware keyboard, or the chevrons. History is persisted. Output is coloured by record kind (`>` sent, `$` status, `=` pairs, `#` app notes), with an optional raw-frame view. |
 
@@ -38,6 +39,18 @@ On connect the app automatically:
 3. runs `help`, then `help <group>` for each group, and merges the result into the command list
 
 On iOS it disconnects when backgrounded and reconnects when it comes back (PROTOCOL.md §7).
+
+## Alarm sounds
+
+Drop `.wav` files into **`app/clock/Tones/`** and rebuild — the folder is part of the synchronized
+`clock` group, so every file in it is copied into the app bundle, no project edit needed. They
+appear under **Sounds → In the app** and can be uploaded to the clock. The clock plays only
+**WAV PCM, 48 kHz, mono, 16-bit**, max 16 MB; other files are listed with the reason and can't be
+uploaded. Convert with `ffmpeg -i in -ac 1 -ar 48000 -c:a pcm_s16le -bitexact out.wav`. The file
+name is the name on the card (ending `.wav`, 5–63 bytes, no leading `.`, none of `/ \ : * ? " < > |`).
+
+An upload runs at roughly 5–10 KB/s. Keep the app in the foreground (iOS disconnects in the
+background); after a dropped link, tap upload again and it resumes where the clock left off.
 
 ## Designed to follow the protocol
 
@@ -53,6 +66,7 @@ this folder, not a copy. Editing the contract and rebuilding is enough.
 | `snapshot.fields` | the decoder: offset, type, scale, unit, `valid_if`, `enum`, `sentinel` |
 | `snapshot.flags` / `enums` | flag chips, enum labels (`unknown(n)` for newer values) |
 | `snapshot.golden` | the decoder's unit test |
+| `sound_files` | the WAV format check, upload size limit, `blob` ATT error names |
 
 Compatible protocol changes (PROTOCOL.md "Change process") need **no Swift change**:
 - **New command:** appears in the table and in autocomplete.
@@ -84,12 +98,15 @@ app/
 │   │   ├── ResponseFramer.swift   rsp frames `| + = $`, per-id reassembly
 │   │   ├── DeviceInfo.swift       `info` key=value + proto check
 │   │   ├── CommandCatalog.swift   JSON + `help` commands, completion
+│   │   ├── SoundFiles.swift       `storage tones` list, WAV header check, CRC-32, blob values
 │   │   └── JSONValue.swift
 │   ├── BLE/
-│   │   ├── ClockLink.swift        CoreBluetooth central, request queue, state
+│   │   ├── ClockLink.swift        CoreBluetooth central, request queue, blob writes, state
+│   │   ├── ToneStore.swift        sound files: list / delete / upload driver, bundled WAVs
 │   │   └── LinkTypes.swift        phases, problems/hints, results, transcript lines
-│   └── Views/                   Connect, Status, Commands, Shell, Common
-└── clockTests/                  Swift Testing: golden vector, framing, catalog, history
+│   ├── Tones/                   drop alarm WAVs here (bundled as resources)
+│   └── Views/                   Connect, Status, Sounds, Commands, Shell, Common
+└── clockTests/                  Swift Testing: golden vector, framing, catalog, history, sound files
 ```
 
 ## Troubleshooting

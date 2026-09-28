@@ -69,6 +69,8 @@ final class ClockLink: NSObject {
     @ObservationIgnored private var queue: [Pending] = []
     private var inFlight: Pending?
     @ObservationIgnored private var timeoutTask: Task<Void, Never>?
+    /// The one `blob` write in flight (PROTOCOL.md "Sound files": one at a time).
+    @ObservationIgnored private var blobWrite: CheckedContinuation<BlobWriteResult, Never>?
     @ObservationIgnored private var nextID: UInt16 = 1
 
     private static let transcriptLimit = 3000
@@ -189,6 +191,25 @@ final class ClockLink: NSObject {
         note("help: \(catalog.entries.count) commands (\(added) from firmware only)")
     }
 
+    /// The clock has the `blob` characteristic (sound uploads).
+    var hasBlob: Bool { chars["blob"] != nil }
+
+    /// File bytes per `blob` write, nil when not connected or no `blob`.
+    var blobChunkSize: Int? {
+        guard hasBlob, let maxWrite else { return nil }
+        return SoundUpload.chunkSize(maxWrite: maxWrite, blobMaxLen: spec.gatt.characteristics["blob"]?.maxLen)
+    }
+
+    /// One `blob` write with response; returns when the clock has answered it.
+    func writeBlob(_ value: Data) async -> BlobWriteResult {
+        guard phase == .ready, let p = peripheral, let c = chars["blob"] else { return .notConnected }
+        guard blobWrite == nil else { return .failed("a blob write is already in flight") }
+        return await withCheckedContinuation { cont in
+            blobWrite = cont
+            p.writeValue(value, for: c, type: .withResponse)
+        }
+    }
+
     func readStatus() { if let c = chars["status"] { peripheral?.readValue(for: c) } }
     func readInfo() { if let c = chars["info"] { peripheral?.readValue(for: c) } }
 
@@ -278,6 +299,8 @@ final class ClockLink: NSObject {
         for p in queue { var r = p.result; r.outcome = .linkLost; p.continuation.resume(returning: r) }
         queue.removeAll()
         if inFlight != nil { finish(.linkLost) }
+        blobWrite?.resume(returning: .linkLost)
+        blobWrite = nil
         chars.removeAll()
         framer.reset()
         peripheral = nil
@@ -478,8 +501,16 @@ extension ClockLink: CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard let error, name(of: characteristic) == "cmd" else { return }
-        finish(.writeFailed(error.localizedDescription))
+        switch name(of: characteristic) {
+        case "cmd":
+            if let error { finish(.writeFailed(error.localizedDescription)) }
+        case "blob":
+            let cont = blobWrite
+            blobWrite = nil
+            cont?.resume(returning: error.map { BlobWriteResult($0) } ?? .ok)
+        default:
+            break
+        }
     }
 
     private func name(of c: CBCharacteristic) -> String {

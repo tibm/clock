@@ -16,6 +16,7 @@ struct ContentView: View {
         TabView {
             Tab("Clock", systemImage: "dot.radiowaves.left.and.right") { ConnectView() }
             Tab("Status", systemImage: "gauge.with.dots.needle.33percent") { StatusView() }
+            Tab("Sounds", systemImage: "speaker.wave.2") { SoundsView() }
             Tab("Commands", systemImage: "list.bullet.rectangle") { CommandsView() }
             Tab("Shell", systemImage: "terminal") { ShellView() }
         }
@@ -36,5 +37,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView().environment(ClockLink.preview())
+    let store = ToneStore.preview()
+    ContentView().environment(store.link).environment(store)
 }

@@ -90,6 +90,24 @@ struct CommandResult {
 
     /// Text lines joined, for inline display.
     var text: String { lines.joined(separator: "\n") }
+
+    /// The first `=` pair with this key.
+    func pair(_ key: String) -> String? { pairs.first { $0.key == key }?.value }
+}
+
+/// How a `blob` write ended.
+enum BlobWriteResult: Equatable {
+    case ok
+    /// The clock refused it with this ATT error code (PROTOCOL.md "Sound files").
+    case att(Int)
+    case failed(String)
+    case linkLost
+    case notConnected
+
+    init(_ error: Error) {
+        let e = error as NSError
+        self = e.domain == CBATTErrorDomain ? .att(e.code) : .failed(e.localizedDescription)
+    }
 }
 
 /// One line in the shell transcript.
