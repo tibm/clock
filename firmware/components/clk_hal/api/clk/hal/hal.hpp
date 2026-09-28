@@ -95,7 +95,7 @@ enum class Ch : uint8_t {
 // sent the homing FSM hunting the wrong edge on hardware, which is a mechanical-looking bug
 // with a firmware cause.
 inline constexpr uint16_t kOptoClearMv = 3160;  // nothing above the sensor
-inline constexpr uint16_t kOptoMarkMv = 3150;   // just under clear; the minute hand is 3142
+inline constexpr uint16_t kOptoMarkMv = 3155;   // just under clear; the minute hand is 3142
 
 // 0 = nothing in front, 1 = fully on the mark.  Everything above the HAL is written in this
 // sense (the homing FSM looks for it rising), so the inversion is undone exactly here.
