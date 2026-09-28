@@ -1,7 +1,8 @@
-# transport/  — Command in, Response out
+# transport/  — the app link's bytes
 
-`cli_console/` argtable3 + the CmdSpec table → `Command`  (lives in the `cli` AO)
-`ble_gatt/`    TLV frame → `Command`                        (lives in the `net` AO)
+`frame`     CLI line in (`"<id> <line>"`), CLI output out (`"<id>|text"` … `"<id>$ok"`)
+`snapshot`  the 132-byte status record: encode / decode, schema + size, append-only
 
-Rule: transport talks to `command::dispatch` and nothing else. Never to a service, never to
-`hal`. §5, §8.
+Rule: no IDF, no services, no radio. The radio is `hal::ble`; the policy (pairing window,
+who may run a command, when to notify) is the `net` AO. The CLI line goes to
+`cli::dispatch_line_wait` — the app has exactly the console's command set (§5, §8).

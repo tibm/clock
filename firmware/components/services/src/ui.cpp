@@ -165,11 +165,15 @@ void Ui::on_tick() {
     watch_battery();
     drain_setting();  // release banked counts at the speed the hands can render them
 
-    // ONE timeout, and every mode obeys it -- pairing included.  A second number for a second
-    // mode is a second thing to discover, and the knob's whole contract is that whatever you
-    // last touched goes away five seconds after you stop touching it.
+    // ONE timeout, and every mode obeys it -- except a pairing window the radio is actually
+    // holding open.  Five seconds is not long enough to get a phone out of a pocket, and the
+    // window has an end of its own (Net::kDefaultWindowMs) that closes this mode through
+    // watch_pairing().  Without a radio, pairing is five seconds of blue like any other mode.
+    watch_pairing();
     const auto t = tuning();
-    if (mode_ != Mode::Idle && port::now_us() - last_input_us_ > t.timeout_ms * 1000ull) {
+    const bool radio_holds = mode_ == Mode::Pairing && net_ && net_->snapshot().pairing;
+    if (mode_ != Mode::Idle && !radio_holds &&
+        port::now_us() - last_input_us_ > t.timeout_ms * 1000ull) {
         CLK_LOGI(ui, "timeout -> idle (settings kept)");
         enter(Mode::Idle);
     }
@@ -191,7 +195,9 @@ void Ui::poll_tap() noexcept {
     if (++tap_div_ < kTapEveryTicks) return;
     tap_div_ = 0;
     const auto s = hal::imu::read();
+    imu_ok_ = s.ok();
     if (!s.ok()) return;
+    imu_ = s.v;
     if (s.v.taps != taps_last_) {
         taps_last_ = s.v.taps;
         post(Tap{});
@@ -241,6 +247,8 @@ void Ui::watch_battery() noexcept {
     power_div_ = 0;
     const auto p = hal::power::read();
     batt_warn_ = p.ok() && p.v.soc_pct < kLowBattPct && !p.v.plugged;
+    power_ok_ = p.ok();
+    if (p.ok()) power_ = p.v;
     if (p.ok()) plugged_ = p.v.plugged;  // ... and that paces the gravity poll above
 }
 
@@ -315,6 +323,20 @@ void Ui::enter(Mode m) noexcept {
         arm(over_, kClockPx, domain::flash(domain::kRed, level(), 3));
         m = Mode::Volume;
     }
+    // Pairing is the radio's window, and the mode is how it looks.  Opening it can fail --
+    // the rear toggle has the radio off -- and that is the same refusal as `clock`'s: three
+    // red flashes, on the row pairing would have lit, and straight back to idle.
+    if (net_ && m == Mode::Pairing && mode_ != Mode::Pairing) {
+        if (!net_->pair(true)) {
+            CLK_LOGW(ui, "pairing: the radio is off -- refused");
+            for (std::size_t i = kBell; i <= kBatt; ++i)
+                arm(over_, i, domain::flash(domain::kRed, level(), 3));
+            m = Mode::Idle;
+        } else {
+            net_windows_ = net_->snapshot().windows;
+        }
+    }
+    if (net_ && mode_ == Mode::Pairing && m != Mode::Pairing) (void)net_->pair(false);
     // Leaving `clock` is what writes the time; there is exactly one way out of that mode
     // that does not, and it is the refusal above (which never entered it).
     if (mode_ == Mode::Clock && m != Mode::Clock) commit_clock();
@@ -778,6 +800,32 @@ void Ui::publish() noexcept {
     snap_.idle_in_ms = mode_ == Mode::Idle ? 0 : left;
     snap_.net_locked = locked;
     snap_.held_ms = sw_last_ ? static_cast<uint32_t>((now - sw_down_us_) / 1000ull) : 0;
+    snap_.knob_count = knob_last_;
+    snap_.input = input_;
+    snap_.brightness = tune_.brightness;
+    snap_.power_ok = power_ok_;
+    snap_.power = power_;
+    snap_.batt_warn = batt_warn_;
+    snap_.imu_ok = imu_ok_;
+    snap_.imu = imu_;
+}
+
+// The window can close without the knob: a phone bonded, the two minutes ran out, or the
+// rear toggle killed the radio.  Any of those ends the mode -- the blue row is a promise that
+// a phone can pair right now, and it must not outlive the promise.  A bond gets two green
+// flashes across the row, because "it worked" is the one answer the user is waiting for.
+void Ui::watch_pairing() noexcept {
+    if (!net_ || mode_ != Mode::Pairing) return;
+    const auto n = net_->snapshot();
+    if (n.pairing || n.windows == net_windows_) return;
+    net_windows_ = n.windows;
+    CLK_LOGI(ui, "pairing over (%s)",
+             n.last_end == Net::PairEnd::Bonded ? "bonded" : "window closed");
+    enter(Mode::Idle);
+    if (n.last_end == Net::PairEnd::Bonded) {
+        for (std::size_t i = kBell; i <= kBatt; ++i)
+            arm(over_, i, domain::flash(domain::kGreen, level(), 2));
+    }
 }
 
 }  // namespace clk::svc

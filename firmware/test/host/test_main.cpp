@@ -13,6 +13,7 @@ void run_tsl2591_tests();
 void run_bme688_tests();
 void run_bno085_tests();
 void run_audio_tests();
+void run_net_tests();
 
 int main() {
     // Same first move as app_main and clocksim.  It is also what hands core/ its clock --
@@ -33,6 +34,8 @@ int main() {
     // The amp: the sine generator, the TAS5760M driver against the 0x6C register model, and
     // the ceiling that keeps a bring-up tone off the cell protector (§6.2).
     run_audio_tests();
+    // The app link's wire formats, byte for byte (§8).  The AO half runs with the others below.
+    run_net_tests();
     // Last: these start the active objects, and an AO thread outlives the test that woke it.
     run_motion_service_tests();
     return check_summary("host");

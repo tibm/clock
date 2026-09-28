@@ -11,10 +11,12 @@
 #include "testutil.hpp"
 
 #include "clk/board.hpp"
+#include "clk/cli/net_bind.hpp"
 #include "clk/domain/hand.hpp"
 #include "clk/hal/host/sim.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
+#include "clk/services/net.hpp"
 #include "clk/services/ui.hpp"
 
 using namespace clk;
@@ -1048,6 +1050,9 @@ void test_ui_long_hold_opens_pairing() {
     sim::set_warp(1.0);
     RecordingSink r;
     run("ui knob pair 300", r);  // 300 ms stands in for ten seconds
+    // The case before this one flips the rear radio toggle, and `net` reads it once a second:
+    // a hold in that second is refused, correctly.  Wait for the radio, not for luck.
+    CHECK(wait_until([] { return svc::net().snapshot().link.up; }, 3000));
 
     sim::press(60u * 60 * 1000);
     CHECK(in_mode("pairing", 2000));
@@ -1069,16 +1074,19 @@ void test_ui_long_hold_opens_pairing() {
     CHECK(in_mode("idle"));
     CHECK(wait_until(all_pixels_dark, 2000));
 
-    // And pairing obeys the ONE timeout, like every other mode: it used to have its own two
-    // minutes, which is a second rule to learn about a control with no labels (§6.6c, changed
-    // 2026-08-15).  A finger on the knob still counts as input, so the hold itself is safe.
+    // Pairing is the one mode the five-second rule does not end on its own: the radio holds
+    // it open for its window (two minutes; one second here), because five seconds is not long
+    // enough to get a phone out.  The window ending ends the mode.
     run("ui knob timeout 400", r);
+    run("net ble window 1", r);
     sim::press(60u * 60 * 1000);
     CHECK(in_mode("pairing", 2000));
-    hal::clock_::sleep_ms(900);
-    CHECK(std::strcmp(svc::ui().snapshot().mode_name, "pairing") == 0);  // held: not idle yet
     sim::press(0);
-    CHECK(in_mode("idle", 2000));
+    hal::clock_::sleep_ms(500);
+    CHECK(std::strcmp(svc::ui().snapshot().mode_name, "pairing") == 0);  // past 400 ms: held
+    CHECK(in_mode("idle", 3000));
+    CHECK(svc::net().snapshot().last_end == svc::Net::PairEnd::Expired);
+    run("net ble window 120", r);
 
     run("ui knob timeout 5000", r);
     run("ui knob pair 10000", r);
@@ -1519,6 +1527,8 @@ void test_chrono_drives_the_hands() {
     sim::set_warp(1.0);
 }
 
+void run_net_service_tests();  // test_net.cpp -- needs every AO running
+
 void run_motion_service_tests() {
     test_hand_wrap();
     test_hand_round_trip_and_shortest();
@@ -1530,11 +1540,15 @@ void run_motion_service_tests() {
     auto& motion = svc::motion();
     auto& chrono = svc::chrono();
     auto& u = svc::ui();
+    auto& net = svc::net();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    u.bind(&motion, &chrono);
+    u.bind(&motion, &chrono, &net);
+    net.bind(&motion, &chrono, &u);
+    cli::bind_net();
     motion.start();
     chrono.start();
+    net.start();
     u.start();
 
     test_motion_homes_from_an_unknown_position();
@@ -1566,8 +1580,10 @@ void run_motion_service_tests() {
     test_ui_winds_a_day_without_reversing();
     test_ui_volume_sweeps_the_gauge();
     test_chrono_drives_the_hands();
+    run_net_service_tests();
 
     u.stop();
+    net.stop();
     chrono.stop();
     motion.stop();
     sim::set_warp(1.0);

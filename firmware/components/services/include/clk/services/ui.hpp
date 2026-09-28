@@ -15,6 +15,7 @@
 #include "clk/domain/level.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
+#include "clk/services/net.hpp"
 
 namespace clk::svc {
 
@@ -36,6 +37,16 @@ public:
         // `clock` refuses rather than letting the knob overwrite what SNTP will restore.
         bool net_locked;
         uint32_t held_ms;  // how long ENC_SW has been down right now; 0 when it is up
+        // What `ui` already reads on its own tick, kept so nobody has to read it twice: the
+        // status snapshot (§8.3) takes these rather than racing `ui` for the same chips.
+        int32_t knob_count;
+        bool input;
+        uint8_t brightness;
+        bool power_ok;
+        hal::power::State power;
+        bool batt_warn;
+        bool imu_ok;
+        hal::imu::State imu;
     };
 
     struct Tuning {
@@ -60,9 +71,12 @@ public:
 
     Ui() noexcept;
 
-    void bind(Motion* m, Chrono* c) noexcept {
+    // `n` is optional: without it `pairing` is a light show that times out like any mode,
+    // which is what it was before the radio existed and what a test with no `net` still gets.
+    void bind(Motion* m, Chrono* c, Net* n = nullptr) noexcept {
         motion_ = m;
         chrono_ = c;
+        net_ = n;
     }
     void set_mode(Mode) noexcept;
 
@@ -107,6 +121,7 @@ private:
     void drain_setting() noexcept;
     [[nodiscard]] uint32_t pace_ms() const noexcept;
     void publish() noexcept;
+    void watch_pairing() noexcept;  // the window closed under us: bonded, expired, radio off
     [[nodiscard]] bool net_owns_time() const noexcept;
     [[nodiscard]] int32_t gain_for(int32_t magnitude) const noexcept;
 
@@ -133,6 +148,8 @@ private:
 
     Motion* motion_ = nullptr;
     Chrono* chrono_ = nullptr;
+    Net* net_ = nullptr;
+    uint32_t net_windows_ = 0;  // Net::Snapshot::windows when we last looked
 
     Mode mode_ = Mode::Idle;
     uint64_t last_input_us_ = 0;
@@ -169,6 +186,10 @@ private:
     // The cell warning is polled, not evented -- there is no producer of PowerState yet.
     bool batt_warn_ = false;
     uint8_t power_div_ = 0;
+    bool power_ok_ = false;
+    hal::power::State power_{};
+    bool imu_ok_ = false;
+    hal::imu::State imu_{};
     // Likewise the top tap, until the BNO085 driver exists to post it.  The first poll only
     // establishes the baseline: whatever the counter already read is not a tap the user made.
     uint16_t taps_last_ = 0;

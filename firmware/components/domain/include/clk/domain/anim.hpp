@@ -235,6 +235,7 @@ inline constexpr Rgbw kRed{255, 0, 0, 0};
 inline constexpr Rgbw kWhite{0, 0, 0, 255};
 inline constexpr Rgbw kBlue{0, 0, 255, 0};
 inline constexpr Rgbw kAmber{255, 90, 0, 0};
+inline constexpr Rgbw kGreen{0, 255, 0, 0};  // a phone bonded (§6.6b) -- and nothing else
 
 [[nodiscard]] constexpr Anim off() noexcept { return {}; }
 [[nodiscard]] constexpr Anim solid(Rgbw c, uint8_t level) noexcept {

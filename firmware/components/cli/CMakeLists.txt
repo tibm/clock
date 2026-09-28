@@ -12,17 +12,18 @@ set(CLK_CLI_SRCS
     src/cmd_chrono.cpp
     src/cmd_board.cpp
     src/cmd_audio.cpp
+    src/cmd_net.cpp
     src/stream.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${CLK_CLI_SRCS} src/console_esp.cpp
                            INCLUDE_DIRS include
-                           REQUIRES core command board_cfg clk_hal domain services
+                           REQUIRES core command board_cfg clk_hal domain services transport
                                     console esp_driver_usb_serial_jtag esp_timer pthread)
 else()
     add_library(clk_cli STATIC ${CLK_CLI_SRCS} src/console_host.cpp src/cmd_sim.cpp)
     target_include_directories(clk_cli PUBLIC include)
     target_link_libraries(clk_cli PUBLIC clk_command clk_core clk_board_cfg clk_hal
-                                         clk_domain clk_services)
+                                         clk_domain clk_services clk_transport)
     target_compile_definitions(clk_cli PUBLIC CLK_HAVE_SIM=1)
 endif()

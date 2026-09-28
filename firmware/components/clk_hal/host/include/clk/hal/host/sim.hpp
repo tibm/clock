@@ -83,6 +83,24 @@ bool cell_in() noexcept;
 // went through `VBAT_DIV_EN` rather than round it.  Same kind of observation as refreshed().
 uint32_t vbat_div_reads() noexcept;
 
+// ---- BLE: a fake phone -------------------------------------------------------------------
+// The stack's POLICY half is real (hal::ble's contract: the window gates bonding, only a
+// bonded link reaches `cmd`); the radio is a function call.  One central at a time, like the
+// board.  `sim ble ...` drives these, and so does test_net.
+void ble_connect() noexcept;    // a phone connects -- a stranger until it pairs
+bool ble_pair() noexcept;       // ... asks to bond.  False (and dropped) if the window is shut
+void ble_reconnect() noexcept;  // a phone that bonded earlier connects and encrypts
+void ble_disconnect() noexcept;
+void ble_subscribe(bool rsp, bool status) noexcept;
+void ble_set_mtu(uint16_t) noexcept;
+// A write to `cmd`.  Denied on a link that is not bonded -- the ATT error a phone would get.
+Status ble_write(const char* text) noexcept;
+// The oldest `rsp` notification not yet taken, NUL-terminated.  False when there is none.
+bool ble_pop_rsp(char* out, std::size_t cap) noexcept;
+std::size_t ble_read_status(uint8_t* out, std::size_t cap) noexcept;  // a read of `status`
+uint32_t ble_status_notifies() noexcept;  // how many `status` notifications went out
+std::size_t ble_read_info(char* out, std::size_t cap) noexcept;
+
 // ---- persistent settings ---------------------------------------------------------------
 // Where hal::store keeps its `key = value` file.  The app sets it; a test binary that leaves
 // it unset gets an honest NotPresent out of every read, which is what keeps a unit test from

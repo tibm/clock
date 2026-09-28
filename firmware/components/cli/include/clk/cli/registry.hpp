@@ -17,8 +17,15 @@ namespace clk::cli {
 [[nodiscard]] const CmdSpec* find(int argc, const char* const* argv, int& first) noexcept;
 
 // Tokenise + resolve aliases + look up + authorize + run.  This is the whole CLI.
+//
+// One command at a time, whoever asks: the console, the ux bridge and the BLE link all end
+// up here, and the `unsafe` window is state they share.  dispatch() waits for the previous
+// command to finish; dispatch_line_wait() gives up after `wait_ms` and answers Busy (through
+// the sink, like any other refusal) -- that is the BLE link's form, because a `sensor ...
+// stream` on the console can hold the CLI for two minutes and a phone should hear why.
 Status dispatch(int argc, const char* const* argv, Sink&) noexcept;
 Status dispatch_line(char* line, Sink&) noexcept;  // mutates `line` while tokenising
+Status dispatch_line_wait(char* line, Sink&, uint32_t wait_ms) noexcept;
 
 // `unsafe on|off`, auto-expiring 60 s after the last unsafe command.  [§9.6]
 void unsafe_set(bool on) noexcept;

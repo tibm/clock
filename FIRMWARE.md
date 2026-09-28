@@ -1437,7 +1437,7 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | 3 | `clock` | `clock` | **steady white** (arrives on a ramp) | the time being set, live — opening on the **clock's own time**, or 12:00 if it has never been told one |
 | 4 | `volume` | `vol` | **steady white** | **a gauge**: 12:00 = 0 %, 10:00 = 100 % |
 | 5 | → `idle` | — | every pixel fades out over `ramp_ms` | back to the time |
-| — | `pairing` | all five | **breathe blue, in sync** | untouched — the clock keeps them |
+| — | `pairing` | all five | **breathe blue, in sync**; a bond ends it with **two green flashes** across the row; refused (radio off) = three red flashes | untouched — the clock keeps them |
 | — | *(overlay)* | `batt` | **breathe amber** below 20 % SoC on battery | — |
 | — | *(overlay)* | `clock` | **flash red ×3** — the refusal | — |
 | — | *(overlay)* | `dial0` `dial1` | **swell** — the tap's dial wash, armed → red · off → white | — |
@@ -1484,15 +1484,18 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | press ≥ 800 ms, < 10 s | commit and drop to `idle` |
 | **hold ≥ 10 s** | **BLE pairing** — commits at the 10 s mark, *while the knob is still down*, and the release that follows is spent |
 | press, in `pairing` | back to `idle` |
-| **5 s without input** | drop to `idle`, committing whatever was being set — **every mode, pairing included** |
+| **5 s without input** | drop to `idle`, committing whatever was being set — every mode, **and pairing only when there is no radio** |
+| in `pairing`, with the radio up | the mode lasts as long as the **window** (`net ble window`, 120 s) and ends with it: a bond (two green flashes across the row), a press, or the time running out |
 
 **There is one timeout and it is five seconds** (changed 2026-08-15 — `pairing` used to have
 two minutes of its own). A control with no labels can afford exactly one rule about how long
 it waits for you; a second number for a second mode is a second thing to discover, and nothing
 tells you which one you are in. `Tuning::timeout_ms` is the only one left, and `ui knob
-pairtimeout` is gone with it. *(When `net` §6.7 makes `Pairing` actually advertise, five
-seconds of no input may prove too short to get a phone out — that is a decision for the mode
-that does something, and it is one number.)*
+pairtimeout` is gone with it. *(Revisited 2026-09-27, when `Pairing` started to advertise:
+five seconds is not long enough to get a phone out of a pocket, so a pairing window the radio is
+actually holding open is the one exception — the mode lasts as long as the window and ends with
+it (§8.2). Without a radio, pairing is still five seconds of blue like any other mode. The rest
+of the rule stands: every other mode, one number.)*
 
 The hold acts at ten seconds rather than on release on purpose: a gesture whose only feedback
 arrives after you let go is a gesture nobody discovers. A finger on the knob also counts as
@@ -1605,10 +1608,19 @@ dead zone. The arithmetic is three pure functions in `domain/hand.hpp` — `dire
 Wi-Fi HSM (`Off → Provisioning → Connecting → Online → Backoff`), `esp_netif_sntp`, NimBLE GATT
 server (§8), OTA orchestration.
 
+**Built 2026-09-27: the BLE half** (`services/src/net.cpp`, radio in `clk_hal/esp/src/ble_esp.cpp`,
+wire formats in `components/transport/`). Three jobs: the pairing window, the command channel
+(CLI lines through the console's own dispatcher), and the status snapshot (§8.2–8.3). Prio 6,
+8 KB stack, 50 ms tick, **core 1** for now (§3.2 says 0; the NimBLE host task is on 0 either way,
+and `net` only ever calls it through thread-safe `hal::ble`). Wi-Fi, SNTP and OTA are not built.
+
 **`RADIO_OFF` (expander GPA3) is a hard override**, checked on the state's entry action *and* on
 every reconnect attempt — not just at boot. Asserted → `esp_wifi_stop()` + `nimble_port_stop()`,
 and the AO refuses every transition out of `Off` until it clears. On-device knob configuration
-keeps working with radios off; time then comes from the crystal alone.
+keeps working with radios off; time then comes from the crystal alone. *(As built: `net` polls
+GPA3 once a second; asserted → `hal::ble::stop()` drops the link and stops advertising, and
+`Net::pair()` refuses. The controller stays initialised — nothing transmits, and NimBLE's
+deinit/re-init path is not exercised by a toggle people flick.)*
 
 ### 6.8 `supervisor`
 
@@ -1782,63 +1794,130 @@ app for v1, and the same protocol re-implemented in your own app later. Credenti
 characteristic you wrote. Advertised **only** while in provisioning mode (first boot, or knob
 long-press → `Provisioning`, 5 min timeout).
 
-### 8.2 Clock Control service — custom GATT
+### 8.2 Clock Control service — custom GATT (built 2026-09-27)
 
-128-bit vendor base UUID. Four characteristics, all requiring an encrypted bonded link:
+> **The app-facing contract is `app/PROTOCOL.md` + `app/protocol.json`**, written for the iOS
+> side without reference to this file. This section is the firmware's view of the same thing; if
+> they disagree, the contract wins and this file is fixed.
 
-| Char | Props | Payload |
-|---|---|---|
-| `Status` | read, **notify** | Packed: epoch_ms, tz hash, alarm-armed mask, next-fire epoch, SoC %, plugged/charging, Wi-Fi phase, homed, fault bits. Notified on change, ≤1 Hz |
-| `Command` | write w/ response | TLV frame: `{req_id, cmd_id, len, payload}` → decoded to a `Command` (§5) |
-| `Response` | **notify** | `{req_id, status, len, payload}` |
-| `Bulk` | write w/o response | Chunked WAV upload: `{offset, data…}`, CRC32 + commit at end, resumable. Routed to `storage` |
+**The app speaks the CLI.** The command channel carries the exact line you would type on the
+console, and the answer is the console's own output. No second command set, no TLV of our own:
+everything the console can do the app can do and nothing else (rule 6), `help` works over the
+air, and nRF Connect is a debug terminal on day one. `Status` is the one binary thing, because it
+is the one thing an app *plots*.
 
-MTU negotiated to 247 (chunk = MTU − 3). Everything the app can do, `dispatch()` already validates
-and routes — the GATT layer contains no product logic.
+Vendor UUIDs `7a3e000X-5c1d-4b8e-9f3a-2c6d1e0b9a41`. Every characteristic requires an
+**encrypted, bonded** link — enforced in `hal::ble`'s access callback, so nothing above it can
+forget.
 
-**Pairing UX without a display.** LE Secure Connections, Just Works, plus a **physical confirmation**:
-on a pairing request the `bell` pixel pulses and the user must press the knob within 30 s. That's a
-proximity proof no remote attacker has. Bonded peers thereafter get filtered (whitelist) advertising;
-`Pairing` mode is only entered by knob long-press or on first boot.
+| X | Char | Props | Payload |
+|---|---|---|---|
+| `01` | *service* | — | |
+| `02` | `cmd` | write (w/ response), ≤ 256 B | `"<id> <cli line>"`, e.g. `"7 motion goto 07:15"`. `<id>` 0–65535, optional (absent = 0). Blank → `bad-arg` |
+| `03` | `rsp` | **notify** | `"<id>\|<text>"` one output line · `"<id>+<text>"` a fragment, the line continues in the next frame · `"<id>=<k>=<v>"` a `Sink::kv` pair · `"<id>$<status>"` terminal, exactly one, last. `<status>` = `ok bad-arg denied busy not-ready failed not-present` |
+| `04` | `status` | read, **notify** | the 132-byte snapshot, §8.3. Re-taken every `net ble period` (1 s default); notified to a subscriber |
+| `05` | `info` | read | `fw=… sha=… built=… board=… profile=… sdk=… proto=1 schema=1` |
+| — | `Bulk` | *not built* | chunked WAV upload → `storage`, when `storage` exists |
+
+- **Fragments.** A notification carries MTU − 3 bytes (244 at the 247 we ask for, 20 before the
+  exchange). A longer line goes out as `+` frames ending in `|`/`=`; a reader appends until it sees
+  a terminator kind. `test_net` checks that `help sys` over a 23-byte MTU reassembles to exactly
+  what the console prints.
+- **Execution.** `net` queues ≤ 4 lines and runs each through `cli::dispatch_line_wait()` — the
+  console's dispatcher, now behind one lock that the console, the ux bridge and BLE share. A line
+  that waits > 1.5 s for the CLI (a console `sensor … stream` holds it for up to 120 s) is answered
+  `busy`, as is a fifth line in flight. Authorization is the console's: `unsafe on` gates hardware
+  over the air exactly as it does on USB, and **the window is shared** — it is one CLI.
+- **Advertising.** Always, while the radio is on: service UUID + manufacturer data (company
+  `0xFFFF`, one byte, bit 0 = pairing window open) so an app can list *ready to pair* without
+  connecting; name `clock` in the scan response. 1 s interval; 100 ms while the window is open. One
+  connection.
+
+**Pairing — the window is the proximity proof.** LE Secure Connections, Just Works, bonded. There
+is no display and no keypad, so the proof is physical: a phone can bond **only while the window
+is open**, and the window only opens from the knob (hold 10 s) or from the CLI (`net ble pair` —
+USB, or a phone that is already bonded). *This replaces the original design's "press the knob within
+30 s of the request": the hold already is that press, and a second one was a second thing to
+discover.* Enforcement, since NimBLE has no "refuse this request" hook: window shut →
+`sm_bonding = 0`, so a stranger's Just Works yields an encrypted but **unbonded** link, which the
+`ENC_CHANGE` handler drops and every characteristic refuses. A bonded phone reconnects from its
+stored LTK whether or not the window is open. The window closes on a bond (two green flashes
+across the row), a knob press, `net ble pair off`, `RADIO_OFF`, or after `net ble window`
+(120 s). Up to 4 bonds in NVS (oldest evicted); `net ble unbond` forgets them all.
+
+`RADIO_OFF` (§6.7) stops advertising and drops the link; the window cannot open while it is set
+(the hold answers with three red flashes, the same refusal `clock` uses).
 
 ```mermaid
 sequenceDiagram
     participant App as Phone app
     participant NET as net AO
     participant UI as ui AO
-    participant CHR as chrono AO
-    participant STO as storage AO
+    participant CLI as cli dispatch
 
-    Note over UI: user long-presses the knob
-    UI->>NET: EnterPairing
-    NET->>NET: advertise connectable, 120 s
-    App->>NET: connect + pairing request
-    NET->>UI: PairingConfirmRequest
-    UI-->>App: bell pixel pulses
-    Note over UI: user presses the knob within 30 s
-    UI->>NET: PairingConfirmed
-    NET->>App: bond established, encrypted
+    Note over UI: user holds the knob 10 s
+    UI->>NET: pair(true) -- window open, bonding on
+    UI-->>App: five pixels breathe blue
+    App->>NET: connect + Just Works pairing
+    NET->>NET: bond stored, window closes
+    NET-->>UI: windows+1, last_end=Bonded
+    UI-->>App: two green flashes, back to idle
 
-    App->>NET: Command TzSet + TimeSet
-    NET->>CHR: dispatch
-    CHR->>CHR: set clock, recompute all next-fire times
-    CHR-->>NET: Ok
-    NET-->>App: Response ok, Status notify
-
-    App->>NET: Command WifiCreds
-    NET->>NET: connect, then SNTP
-    NET->>CHR: TimeSync source=Sntp
-    CHR->>STO: persist
-    NET-->>App: Status notify wifi=Online
-
-    App->>NET: Command AlarmSet 07:15 Mon-Fri
-    NET->>CHR: dispatch
-    CHR->>STO: save config
-    CHR-->>NET: Ok
-    NET-->>App: Response ok
+    App->>NET: write cmd "1 chrono time set 07:15"
+    NET->>CLI: dispatch_line_wait (same table as USB)
+    CLI-->>NET: lines + Status
+    NET-->>App: notify "1|..." ... "1$ok"
+    NET-->>App: notify status (132 B, every period)
 ```
 
-And the alarm itself, end to end:
+### 8.3 The status snapshot — schema 1, 132 bytes
+
+One timestamped record of everything the clock knows (`transport/snapshot.hpp`): what `status`
+serves, what `sys snap` prints (`--hex` for the raw bytes), and what an app logs to plot the clock
+over time — 132 B a sample, ~190 KB a day at one a minute. Little-endian, fixed offsets.
+**Append-only:** new fields go on the end and raise `size`; `schema` changes only if a field
+moves. A reader decodes the prefix it knows. **Validity is in `flags`** — `env_ok` clear means the
+room fields are meaningless whatever they hold. `test_net` pins the offsets below;
+`tools/clockctl.py` is the reference decoder.
+
+| off | type | field | | off | type | field |
+|---|---|---|---|---|---|---|
+| 0 | u8 | schema = 1 | | 70 | u16 | taps (monotonic) |
+| 1 | u8 | size = 132 | | 72 | u8 | motion state (uninit homing idle moving fault) |
+| 2 | u16 | seq (+1 per record) | | 73 | u8 | dial_tick (§6.1d) |
+| 4 | u32 | uptime s | | 74 | u8×4 | hands h, m → target h, m |
+| 8 | i64 | epoch ms UTC (`time_valid`) | | 78 | u16 | opto, 0..65535 = 0..1 |
+| 16 | i16 | tz offset min (`tz_set`; chrono has no TZ yet) | | 80 | u32 | motion faults |
+| 18 | u8 | reset reason | | 84 | u16 / i16 | auto-home trims / last trim µsteps |
+| 19 | u8 | slow-clock source (§7.1) | | 88 | u8 | ui mode (idle bell alarm clock volume pairing) |
+| 20 | u32 | **flags** (below) | | 89 | u8×4 | volume %, alarm h, m, brightness % |
+| 24 | u32 | fw_id (first 8 hex of the git sha) | | 93 | u8×2 | wake light warm %, cool % |
+| 28 | u32×2 | heap free, heap low-water | | 95 | u8 | BLE state (off idle pairing connected secure) |
+| 36 | u16 | vbat mV | | 96 | u8×28 | 7 pixels R G B W, chain order (dial0 dial1 bell alarm clock vol batt) |
+| 38 | u8 | SoC % (255 = unknown, R-BOARD-3) | | 124 | i32 | knob count (256/rev) |
+| 39 | u8 | vbat source (cell / bat-node) | | 128 | u8 | bonds |
+| 40 | i16 | temp 0.01 °C | | 129 | u8 | Wi-Fi state (0 = off; not built) |
+| 42 | u16 | RH 0.01 % | | 130 | i8 | Wi-Fi RSSI dBm (0 = n/a) |
+| 44 | u16 | pressure 0.1 hPa | | 131 | u8 | reserved |
+| 46 | u32 | gas Ω | | | | |
+| 50 | u16 | env age s (sampled every 60 s) | | | | |
+| 52 | f32 | lux (−1 saturated) | | | | |
+| 56 | u16 | light age s (every 5 s) | | | | |
+| 58 | i16×3 | gravity mm/s², dial axes | | | | |
+| 64 | i16×3 | yaw pitch roll 0.01° | | | | |
+
+`flags`, bit 0 up: `time_valid time_follow tz_set net_provisioned net_synced net_locked radio_off
+ble_connected ble_secure ble_pairing power_ok plugged charging charge_fault full_charge batt_low
+homed motor_powered knob_pressed knob_input alarm_armed amp_active audio_playing imu_ok imu_link
+als_ok als_saturated env_ok env_gas_valid env_heat_stable` (30–31 free).
+
+Where the numbers come from: `ui`'s own cached power / gravity / knob readings (it polls them
+anyway — a second reader would race it for the same chips), `motion` / `chrono` snapshots, and
+`net`'s own slow reads of the BME688 (60 s — it blocks ~200 ms and heats itself) and TSL2591
+(5 s). ⚠ Those two reads run on `net`'s thread and can delay a command answer by up to ~1 s
+during an ALS auto-range; they move to `board` with the rest of the I²C (§6.5).
+
+### 8.4 The alarm, end to end (design — not built)
 
 ```mermaid
 sequenceDiagram
@@ -1959,7 +2038,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 
 | Group | Commands |
 |---|---|
-| `sys` | ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
+| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 132 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
@@ -1969,7 +2048,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
 | `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
-| `net` | ▲`net status` · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · `net ble status` · `net ble pair` · `net ble unbond` · ⚠`net ota <url>` |
+| `net` | ▲`net status` · ▲`net ble status` · ▲`net ble pair [on\|off]` (opens through `ui`, so the row lights — refuses with the radio off) · ▲`net ble unbond` · `net ble window [<s>]` (pairing window, 120 s) · `net ble period [<ms>]` (snapshot cadence, 1000) **· built 2026-09-27** · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
 | `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` *(routes through `hal::audio::enable()` now, so the fake cannot reach a state the firmware could not)* · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
 | *(top)* | ▲`help [<group> [<verb>]]` · ▲`?` · `unsafe <on\|off>` |
@@ -3820,7 +3899,7 @@ U9  TAS5760M   pin 1 AVDD (92.850, 83.432) -- bodged to C170 pad 1 PVDD (103.500
 | 6 | `audio`: I²S + MCLK + TAS5760M regs → `audio tone` → WAV from SD → tune `audio dsp` → **scope L5 current at max volume** (peaks must stay linear, ≤ ~2.4 A — §6.2) | The alarm can be loud without killing the driver *or* saturating the output inductors · **firmware is written and proven correct on the bench, 2026-09-13/14** (§12.0.15, §12.0.16): port, register set, start-up order, generated sine, and a **25 % bring-up volume ceiling**. ⛔ **Blocked on hardware, not firmware:** `U9` pin 1 `AVDD` is wired to +3V3 against a 4.5 V minimum, so the amp's analog domain is starved and reg 0x08 sits at `CLKE` — `kicad/REVIEW.md` **V13**, one net, with a bench bodge. The WAV path waits on `storage`, `audio dsp` on the biquad + limiter |
 | 7 | Alarm + sunrise + snooze end-to-end | The product |
 | 8 | `supervisor` power modes + `backup_tick_s` deep-sleep loop, measure actual mA | The 48 h backup claim |
-| 9 | BLE provisioning + Clock Control service + OTA | The app |
+| 9 | BLE provisioning + Clock Control service + OTA | The app · **Clock Control service built 2026-09-27** (§8.2–8.3, §12.2 Phase 6): pairing window, CLI-over-GATT, the status snapshot. Host-tested against a fake stack; **not yet run on the board**. Provisioning + OTA not started |
 
 ### 12.2 The queue — what to pick up next
 
@@ -3878,6 +3957,16 @@ blocked on one net for eight days (§12.0.16). Rework **R2** closed it: reg 0x08
 | **F5.4** | ⚠ | *"The one that costs money if it is wrong."* **Do not run this until the sense loop is measured** (§12.0.17). It was written as `audio vol 25` while watching cell current, predicting <1.2 A against a 1.89 A trip; the real trip on build #1 today is **0.86–1.55 A**, so the test is the failure. Stay at the 10 % default (~0.35 A) |
 | **F5.5** | ⬜ | ⚠ Unrelated, pre-existing: **`BOARD=devkit-uart` does not compile.** `console_esp.cpp` calls `esp_console_new_repl_usb_serial_jtag()` unconditionally while that profile sets `CONFIG_ESP_CONSOLE_UART_DEFAULT=y`. The other three profiles are clean. It is the profile you reach for when chasing a boot panic — worth an `#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG` before you need it |
 | **F5.6** | ⬜ | Still missing, not blockers: `audio play <file>` (needs `storage` + the PSRAM ring), the biquad HPF + limiter (`audio dsp`), and the pop-free 12 V PVDD ramp — which cannot be exercised until `PD_PG` is assertable, i.e. the pass-through rig |
+
+#### Phase 6 — milestone 9: the app link (BLE) · built 2026-09-27, bench next
+
+| | | |
+|---|---|---|
+| **F6.0** | ✅ | `net` AO + `hal::ble` (NimBLE) + `transport/` (framing, 132-byte snapshot) + `net …` / `sys snap` rows + `tools/clockctl.py`. 17 host cases in `test_net.cpp` (wire offsets, fake-phone policy, window ↔ `ui`). Both target profiles build clean. ⚠ Existing build dirs predate `CONFIG_BT_*`: **`rm build/*/sdkconfig`** once, or IDF keeps BT off and `ble_esp.cpp` fails to find `host/ble_hs.h` |
+| **F6.1** | ⬜ | **Bench it.** `tools/clockctl.py scan` → hold 10 s → `clockctl.py shell` → `help`, `sys snap`; then `clockctl.py status --watch`. Check on iOS *and* Android: (a) a stranger outside the window is dropped at `ENC_CHANGE` (`net status` → `refused` +1); (b) a bonded phone reconnects with the window shut; (c) `REPEAT_PAIRING` after "forget device" on the phone only succeeds inside the window; (d) `help` at the default 23-byte MTU (fragments) |
+| **F6.2** | ⬜ | Wi-Fi provisioning (§8.1) + SNTP → `chrono` (F3.2). The snapshot already carries `wifi_state`/`rssi`/`net_synced` |
+| **F6.3** | ⬜ | Device-side history: a PSRAM ring of snapshots (or a thinned subset) read back in bulk, so a plot survives the phone being away. The record is already the unit |
+| **F6.4** | ⬜ | Move the BME688/TSL2591 reads off `net`'s thread (to `board`, §6.5) — today an ALS auto-range can delay a command answer by ~1 s |
 
 #### Hardware gates — what is waiting on what
 
@@ -4092,10 +4181,9 @@ Exactly 12:1 between the hands, which is what a clock is, and not one sample aga
 state, so you can see what you are editing towards) and it is also the most likely thing a
 first-time user gets wrong.
 
-**Still open:** `Pairing` lights up and times out but does not yet advertise — NimBLE is
-`net`'s (§6.7), which does not exist. The mode, its exit conditions and its light are real; the
-radio underneath is a stub. Same for the chime, which drives `hal::audio::enable()` directly
-until the `audio` AO (§6.2) owns the amp; both carry a MOVE-IT comment naming their future owner.
+**Still open:** ~~`Pairing` lights up and times out but does not yet advertise~~ — it
+advertises as of 2026-09-27 (§8.2, §12.2 Phase 6). The chime which drives `hal::audio::enable()` directly
+until the `audio` AO (§6.2) owns the amp, and carries a MOVE-IT comment naming its future owner.
 
 ### 16d. The fourth pass (2026-08-17) — the clock finds its own zero
 

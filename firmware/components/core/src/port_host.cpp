@@ -2,6 +2,7 @@
 #include "clk/port.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
@@ -28,10 +29,13 @@ void set_clock(ClockFn f) noexcept { g_clock.store(f ? f : zero_clock); }
 uint64_t now_us() noexcept { return g_clock.load()(); }
 uint32_t now_ms() noexcept { return static_cast<uint32_t>(now_us() / 1000u); }
 
-Mutex::Mutex() noexcept : h_(new std::mutex) {}
-Mutex::~Mutex() { delete static_cast<std::mutex*>(h_); }
-void Mutex::lock() noexcept { static_cast<std::mutex*>(h_)->lock(); }
-void Mutex::unlock() noexcept { static_cast<std::mutex*>(h_)->unlock(); }
+Mutex::Mutex() noexcept : h_(new std::timed_mutex) {}
+Mutex::~Mutex() { delete static_cast<std::timed_mutex*>(h_); }
+void Mutex::lock() noexcept { static_cast<std::timed_mutex*>(h_)->lock(); }
+void Mutex::unlock() noexcept { static_cast<std::timed_mutex*>(h_)->unlock(); }
+bool Mutex::try_lock_ms(uint32_t ms) noexcept {
+    return static_cast<std::timed_mutex*>(h_)->try_lock_for(std::chrono::milliseconds(ms));
+}
 
 Signal::Signal() noexcept : h_(new SignalImpl) {}
 Signal::~Signal() { delete static_cast<SignalImpl*>(h_); }

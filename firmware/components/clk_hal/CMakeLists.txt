@@ -21,15 +21,16 @@ set(CLK_HAL_SHARED
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS esp/src/hal_esp.cpp esp/src/motor_esp.cpp esp/src/audio_esp.cpp
+                                esp/src/ble_esp.cpp
                                 ${CLK_HAL_SHARED}
                            INCLUDE_DIRS api
                            REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c
                                     esp_driver_gpio esp_driver_pcnt esp_driver_mcpwm
                                     esp_driver_gptimer esp_driver_i2s esp_adc
-                                    espressif__led_strip)
+                                    espressif__led_strip bt)
 else()
     find_package(Threads REQUIRED)
-    add_library(clk_hal STATIC host/src/hal_host.cpp host/src/model_tsl2591.cpp
+    add_library(clk_hal STATIC host/src/hal_host.cpp host/src/ble_host.cpp host/src/model_tsl2591.cpp
                                host/src/model_bme688.cpp host/src/model_tas5760m.cpp
                                ${CLK_HAL_SHARED})
     # host/include is public so cmd_sim.cpp can reach the fake-control surface.  Nothing

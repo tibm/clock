@@ -8,9 +8,13 @@ set(CLK_GTEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/googletest)
 add_executable(test_host test_main.cpp test_log.cpp test_cli.cpp test_sim.cpp test_motor.cpp
                          test_anim.cpp test_level.cpp test_motion.cpp
                          test_tsl2591.cpp test_bme688.cpp test_bno085.cpp
-                         test_audio.cpp)
+                         test_audio.cpp test_net.cpp)
 target_link_libraries(test_host PRIVATE clk_cli)
 target_include_directories(test_host PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+# The clock <-> app contract.  test_net checks the shipping snapshot encoder against its
+# golden vector, so the firmware cannot drift from what the iOS app was written against.
+target_compile_definitions(test_host PRIVATE
+    CLK_PROTOCOL_JSON="${CMAKE_CURRENT_SOURCE_DIR}/../../../app/protocol.json")
 
 if(EXISTS ${CLK_GTEST_DIR}/CMakeLists.txt)
     message(STATUS "host tests: GoogleTest from vendor/")

@@ -24,6 +24,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_attr.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -769,6 +770,14 @@ Status init() noexcept {
              board::board_name());
     return Status::Ok;
 }
+
+namespace sys {
+Info info() noexcept {
+    return Info{static_cast<uint32_t>(::esp_get_free_heap_size()),
+                static_cast<uint32_t>(::esp_get_minimum_free_heap_size()),
+                static_cast<uint8_t>(::esp_reset_reason())};
+}
+}  // namespace sys
 
 Status reboot() noexcept {
     CLK_LOGW(sys, "reboot: esp_restart()");

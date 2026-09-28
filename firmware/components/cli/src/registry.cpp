@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "clk/log.hpp"
+#include "clk/port.hpp"
 
 namespace clk::cli {
 // ---- the tables ----------------------------------------------------------------------
@@ -17,6 +18,7 @@ extern const CmdTable kTableMotion;
 extern const CmdTable kTableChrono;
 extern const CmdTable kTableBoard;
 extern const CmdTable kTableAudio;
+extern const CmdTable kTableNet;
 #if CLK_HAVE_SIM
 extern const CmdTable kTableSim;  // host only -- drives the fake HAL
 #endif
@@ -24,8 +26,8 @@ extern const CmdTable kTableSim;  // host only -- drives the fake HAL
 namespace {
 
 const CmdTable* const kAllTables[] = {
-    &kTableSys,    &kTableTop,    &kTableSensor, &kTableUi,
-    &kTableMotion, &kTableChrono, &kTableBoard,  &kTableAudio,
+    &kTableSys,    &kTableTop,   &kTableSensor, &kTableUi,  &kTableMotion,
+    &kTableChrono, &kTableBoard, &kTableAudio,  &kTableNet,
 #if CLK_HAVE_SIM
     &kTableSim,
 #endif
@@ -47,6 +49,12 @@ constexpr Alias kAliases[] = {
 constexpr int kMaxArgs = 16;
 
 bool eq(const char* a, const char* b) noexcept { return a && b && std::strcmp(a, b) == 0; }
+
+// The one lock (see registry.hpp).  Not recursive: nothing a command runs may dispatch.
+port::Mutex& cli_mutex() noexcept {
+    static port::Mutex mx;
+    return mx;
+}
 
 uint32_t millis_stub() noexcept { return 0; }
 MillisFn g_millis = millis_stub;
@@ -235,7 +243,61 @@ void help(Sink& out, const char* group, const char* verb) noexcept {
     if (!any) out.printf("no such group: %s   (`help` lists them)", group);
 }
 
+namespace {
+Status dispatch_locked(int argc, const char* const* argv, Sink& out) noexcept;
+constexpr int kMaxLineArgs = 16;
+
+// Split in place.  Quotes group a token and are dropped; there are no escapes.
+int tokenise(char* line, const char** argv) noexcept {
+    int argc = 0;
+    char* p = line;
+    while (*p && argc < kMaxLineArgs) {
+        while (*p == ' ' || *p == '\t') ++p;
+        if (!*p) break;
+        char quote = 0;
+        if (*p == '"' || *p == '\'') {
+            quote = *p;
+            ++p;
+        }
+        argv[argc++] = p;
+        while (*p && (quote ? *p != quote : (*p != ' ' && *p != '\t'))) ++p;
+        if (*p) *p++ = '\0';
+    }
+    return argc;
+}
+}  // namespace
+
 Status dispatch(int argc, const char* const* argv, Sink& out) noexcept {
+    port::Lock lk{cli_mutex()};
+    return dispatch_locked(argc, argv, out);
+}
+
+Status dispatch_line(char* line, Sink& out) noexcept {
+    const char* argv[kMaxLineArgs];
+    const int argc = tokenise(line, argv);
+    if (argc == 0) return Status::Ok;
+    return dispatch(argc, argv, out);
+}
+
+Status dispatch_line_wait(char* line, Sink& out, uint32_t wait_ms) noexcept {
+    const char* argv[kMaxLineArgs];
+    const int argc = tokenise(line, argv);
+    if (argc == 0) {
+        out.done(Status::Ok);
+        return Status::Ok;
+    }
+    if (!cli_mutex().try_lock_ms(wait_ms)) {
+        out.line("busy: another command is running (a console stream holds the CLI)");
+        out.done(Status::Busy);
+        return Status::Busy;
+    }
+    const Status st = dispatch_locked(argc, argv, out);
+    cli_mutex().unlock();
+    return st;
+}
+
+namespace {
+Status dispatch_locked(int argc, const char* const* argv, Sink& out) noexcept {
     if (argc < 1) {
         out.done(Status::Ok);
         return Status::Ok;
@@ -276,25 +338,6 @@ Status dispatch(int argc, const char* const* argv, Sink& out) noexcept {
     out.done(st);
     return st;
 }
-
-Status dispatch_line(char* line, Sink& out) noexcept {
-    const char* argv[kMaxArgs];
-    int argc = 0;
-    char* p = line;
-    while (*p && argc < kMaxArgs) {
-        while (*p == ' ' || *p == '\t') ++p;
-        if (!*p) break;
-        char quote = 0;
-        if (*p == '"' || *p == '\'') {
-            quote = *p;
-            ++p;
-        }
-        argv[argc++] = p;
-        while (*p && (quote ? *p != quote : (*p != ' ' && *p != '\t'))) ++p;
-        if (*p) *p++ = '\0';
-    }
-    if (argc == 0) return Status::Ok;
-    return dispatch(argc, argv, out);
-}
+}  // namespace
 
 }  // namespace clk::cli

@@ -91,11 +91,16 @@ struct PowerState {
     bool plugged;
 };
 
+// The app link (§8).  `NetRx` carries nothing: the command line is too big for a mailbox
+// slot every AO pays for, so it waits in `net`'s own small queue and this only says "look".
+struct NetRx {};
+struct NetUnbond {};
+
 struct Stop {};  // shutdown, posted by stop() and swallowed by run().  See Halt.
 
-using Event =
-    std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, DialTick, Halt, HomeDone,
-                 HandState, KnobDelta, KnobPress, Tap, ModeSet, TimeChanged, PowerState, Stop>;
+using Event = std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, DialTick, Halt,
+                           HomeDone, HandState, KnobDelta, KnobPress, Tap, ModeSet, TimeChanged,
+                           PowerState, NetRx, NetUnbond, Stop>;
 
 // std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
 // abort, and get_if reads better in a handler that only cares about three of these.

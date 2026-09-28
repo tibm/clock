@@ -7,11 +7,13 @@
 #include "nvs_flash.h"
 
 #include "clk/cli/console.hpp"
+#include "clk/cli/net_bind.hpp"
 #include "clk/cli/registry.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
+#include "clk/services/net.hpp"
 #include "clk/services/ui.hpp"
 
 using clk::log::Level;
@@ -53,10 +55,14 @@ extern "C" void app_main(void) {
     auto& motion = clk::svc::motion();
     auto& chrono = clk::svc::chrono();
     auto& ui = clk::svc::ui();
+    auto& net = clk::svc::net();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    ui.bind(&motion, &chrono);
+    ui.bind(&motion, &chrono, &net);
+    net.bind(&motion, &chrono, &ui);
+    clk::cli::bind_net();
     motion.start();
     chrono.start();
+    net.start();  // before ui: a ten-second hold must find the radio already up
     ui.start();
 }

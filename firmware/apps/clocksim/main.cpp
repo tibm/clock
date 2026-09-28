@@ -15,11 +15,13 @@
 #include "uibridge.hpp"
 
 #include "clk/cli/console.hpp"
+#include "clk/cli/net_bind.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/sim.hpp"
 #include "clk/log.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
+#include "clk/services/net.hpp"
 #include "clk/services/ui.hpp"
 
 namespace {
@@ -104,15 +106,19 @@ int main(int argc, char** argv) {
     auto& motion = clk::svc::motion();
     auto& chrono = clk::svc::chrono();
     auto& ui = clk::svc::ui();
+    auto& net = clk::svc::net();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    ui.bind(&motion, &chrono);
+    ui.bind(&motion, &chrono, &net);
+    net.bind(&motion, &chrono, &ui);
+    clk::cli::bind_net();
     // A real clock homes the moment it powers up (§6.1).  The test rig turns that off: a
     // nine-second sweep before every case buys nothing there, and the case that is ABOUT
     // boot homing simply starts a clocksim without the flag.
     motion.set_home_on_start(home_on_boot);
     motion.start();
     chrono.start();
+    net.start();
     ui.start();
 
     clk::uibridge::start(ui_port);
@@ -120,6 +126,7 @@ int main(int argc, char** argv) {
     clk::uibridge::stop();
 
     ui.stop();
+    net.stop();
     chrono.stop();
     motion.stop();
     return 0;

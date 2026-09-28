@@ -169,7 +169,14 @@ Result<als::State> read() noexcept {
 
     uint16_t ch0 = 0, ch1 = 0;
     for (int attempt = 0;; ++attempt) {
-        if (const Status st = wait_valid(); st != Status::Ok) return Result<als::State>::bad(st);
+        if (const Status st = wait_valid(); st != Status::Ok) {
+            // No AVALID in two integrations: the chip lost power under us (a brown-out on the
+            // sensor board, or `sim reset`) and is sitting at POR with PON/AEN clear.  It will
+            // never integrate again on its own, so drop the latch and let the next read bring
+            // it back up -- otherwise one glitch is an ALS that answers not-ready until reboot.
+            if (st == Status::NotReady) g_ready = false;
+            return Result<als::State>::bad(st);
+        }
         if (const Status st = sample(ch0, ch1); st != Status::Ok) {
             return Result<als::State>::bad(st);
         }

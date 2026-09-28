@@ -92,6 +92,21 @@ is retired (`../FIRMWARE.md` §12.2, and §12.0.13 for what to do if re-insertin
 the protector: momentarily short `U4` pin 1 to pin 3, which is now the documented procedure —
 `../FIRMWARE.md` §12.0.17).
 
+## Talking to the clock over BLE — `tools/clockctl.py`
+
+The reference client for the app link (FIRMWARE.md §8), and the bench tool until an app exists.
+`pip install bleak`, then hold the knob 10 s (or `net ble pair` on the console) and:
+
+```sh
+tools/clockctl.py scan                         # clocks in range; PAIRING = window open
+tools/clockctl.py shell                        # the CLI over the air -- `help` works
+tools/clockctl.py run "sys snap"               # one command; exit status = its Status
+tools/clockctl.py status --watch --csv log.csv # every status notification, one CSV row each
+```
+
+After the first build with BLE, **`rm build/*/sdkconfig` once** — an sdkconfig generated before
+`CONFIG_BT_*` was in `sdkconfig.defaults` keeps BT off.
+
 ## Host build — tests and `clocksim`
 
 Needs only cmake + ninja. No IDF, no hardware.

@@ -644,6 +644,66 @@ Result<bool> full_charge() noexcept;
 
 }  // namespace power
 
+// ---- BLE peripheral (NimBLE) --------------------------------------------------------------
+// The radio and the GATT table, and no policy.  One vendor service, four characteristics
+// (FIRMWARE.md §8.2): `cmd` (write), `rsp` (notify), `status` (read + notify), `info`
+// (read).  All four require an ENCRYPTED, BONDED link -- that check is here, in the access
+// callback, so nothing above can forget it.  WHEN a bond may be made (the pairing window),
+// what a command line means and when to notify are the `net` AO's.
+//
+// Threading: the callbacks below run on the BLE host task (core 0).  They must copy and
+// return.  Everything else may be called from any task.
+namespace ble {
+
+inline constexpr std::size_t kMaxWrite = 256;  // longest command write accepted, bytes
+
+struct Link {
+    bool up;  // stack running (false: never started, or RADIO_OFF stopped it)
+    bool advertising;
+    bool pairable;  // a new bond would be accepted right now
+    bool connected;
+    bool encrypted;
+    bool bonded;       // encrypted with a stored bond: the only state the service answers in
+    bool rsp_sub;      // the central subscribed to `rsp`
+    bool status_sub;   // ... and to `status`
+    uint16_t mtu;      // negotiated ATT MTU; a notification carries mtu - 3 bytes
+    uint8_t bonds;     // peers in the bond store
+    uint32_t paired;   // new bonds made since boot -- monotonic, so a poller sees every one
+    uint32_t refused;  // links dropped for trying to pair outside the window
+};
+
+using RxFn = void (*)(const uint8_t* data, std::size_t len);
+
+// Bring the stack up, register the service, advertise as `name`.  `on_cmd` receives each
+// complete write to `cmd`, on the host task, only from a bonded link.  NotPresent on a build
+// with no radio.
+Status start(const char* name, RxFn on_cmd) noexcept;
+Status stop() noexcept;  // drop the link, stop advertising, power the controller down
+
+// The pairing window.  Closed: an unknown phone may connect but cannot bond, and is dropped
+// the moment its link encrypts without one.  Open: Just Works bonding, advertising faster.
+Status set_pairable(bool) noexcept;
+
+// Busy: no buffer right now (retry); NotReady: nobody bonded + subscribed to hear it.
+Status notify_rsp(const uint8_t* data, std::size_t len) noexcept;
+// Replaces what a read of `status` returns; also notifies it when `notify` and subscribed.
+Status set_status(const uint8_t* data, std::size_t len, bool notify) noexcept;
+Status set_info(const char* text) noexcept;  // what a read of `info` returns
+Status unbond_all() noexcept;                // forget every phone; drops a bonded link
+Link link() noexcept;
+
+}  // namespace ble
+
+// ---- the chip itself ------------------------------------------------------------------------
+namespace sys {
+struct Info {
+    uint32_t heap_free;    // bytes, all heaps
+    uint32_t heap_min;     // low-water since boot
+    uint8_t reset_reason;  // esp_reset_reason_t; 0 on the host
+};
+Info info() noexcept;
+}  // namespace sys
+
 // Brings the fake or the real peripherals up.  Idempotent.
 Status init() noexcept;
 

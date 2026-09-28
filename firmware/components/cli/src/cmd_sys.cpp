@@ -7,6 +7,9 @@
 #include "clk/log.hpp"
 
 namespace clk::cli {
+
+Status cmd_sys_snap(Args const&, Sink&);  // cmd_net.cpp -- it is the record `net` serves
+
 namespace {
 
 using log::Level;
@@ -157,6 +160,8 @@ constexpr CmdSpec kTop[] = {
 constexpr CmdSpec kSys[] = {
     {"sys", nullptr, "stat", "", "one-screen: what is it doing right now", ReleaseOk, cmd_stat},
     {"sys", nullptr, "ver", "", "app / build / sdk identity", ReleaseOk, cmd_ver},
+    {"sys", nullptr, "snap", "[--hex]", "everything, timestamped: the app's status record",
+     ReleaseOk, cmd_sys_snap},
     {"sys", nullptr, "debug", "[<module|glob|all> <level>]", "show or set per-module log levels",
      ReleaseOk, cmd_debug},
     {"sys", nullptr, "top", "", "per-task CPU, stack high-water, core", ReleaseOk, cmd_notyet},

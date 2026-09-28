@@ -42,6 +42,9 @@ Mutex::~Mutex() {
 }
 void Mutex::lock() noexcept { xSemaphoreTake(static_cast<SemaphoreHandle_t>(h_), portMAX_DELAY); }
 void Mutex::unlock() noexcept { xSemaphoreGive(static_cast<SemaphoreHandle_t>(h_)); }
+bool Mutex::try_lock_ms(uint32_t ms) noexcept {
+    return xSemaphoreTake(static_cast<SemaphoreHandle_t>(h_), pdMS_TO_TICKS(ms)) == pdTRUE;
+}
 
 Signal::Signal() noexcept : h_(xSemaphoreCreateBinary()) {}
 Signal::~Signal() {

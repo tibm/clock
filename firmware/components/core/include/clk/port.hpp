@@ -33,6 +33,9 @@ public:
 
     void lock() noexcept;
     void unlock() noexcept;
+    // Waits at most `ms` REAL milliseconds.  For the one caller that must not queue behind
+    // an unbounded holder: BLE answers `busy` rather than wait out a 120 s console stream.
+    [[nodiscard]] bool try_lock_ms(uint32_t ms) noexcept;
 
 private:
     void* h_ = nullptr;

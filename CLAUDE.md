@@ -15,6 +15,7 @@ Wooden smart clock (v0.19): **walnut cube (~120 mm) + aluminum front plate**, ce
 - `kicad/REVIEW.md` — **the authoritative v0.4 change list** (V1–V17). `kicad/gen/review_check.py` is the **gate**: `cd kicad/gen && python3 review_check.py` before any respin is fabbed — it asserts each finding against the real design files, because ERC and DRC passed all three bring-up defects.
 - **Build #1 (rev0.3) is fully reworked** as of 2026-09-27 — charges, plays, runs off the cell. The outcome, the coordinate card and the **cell-insertion SOP** (momentarily short `U4` pin 1 ↔ pin 3 every time a cell goes in — `hy2111` §11.1) are in `FIRMWARE.md` §12.0.17. `REWORK.md` is retired.
 - **The ordered FW queue lives in `FIRMWARE.md` §12.2** (was `NEXT_STEPS.md`, consolidated 2026-09-22). Read it first when picking up firmware work.
+- **`app/PROTOCOL.md` + `app/protocol.json` — the clock ⇄ iOS app BLE contract.** The only thing the firmware and the app share; change it first, in both files, with a changelog line. `test_net` asserts the firmware against its golden vector.
 - `ux/` — the clock on screen: SVG plate + hands + pixels, and controls for the knob/toggle/IMU. Attaches to `clocksim` over a loopback socket (`ux/README.md`, protocol in `firmware/apps/clocksim/README.md`). **Display only — every algorithm stays in C++.**
 
 ## Locked BOM (core)
