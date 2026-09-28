@@ -6,13 +6,35 @@
 //
 
 import SwiftUI
+import CoreBluetooth
 
 struct ContentView: View {
+    @Environment(ClockLink.self) private var link
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
-        Text("clock")
+        TabView {
+            Tab("Clock", systemImage: "dot.radiowaves.left.and.right") { ConnectView() }
+            Tab("Status", systemImage: "gauge.with.dots.needle.33percent") { StatusView() }
+            Tab("Commands", systemImage: "list.bullet.rectangle") { CommandsView() }
+            Tab("Shell", systemImage: "terminal") { ShellView() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // PROTOCOL.md §7: don't hold the (single) link open in the background.
+            #if os(iOS)
+            switch phase {
+            case .background: link.disconnect()
+            case .active: link.reconnectLast()
+            default: break
+            }
+            #endif
+        }
+        .onChange(of: link.bluetooth) { _, state in
+            if state == .poweredOn { link.reconnectLast() }
+        }
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView().environment(ClockLink.preview())
 }
