@@ -11,6 +11,11 @@ The protocol will change over time, so all protocol numbers come from `app/proto
 
 Decisions (confirmed with the user): iOS + macOS (drop visionOS) · autocomplete = bundled JSON + live `help` parse · drop SwiftData · reference the repo's `protocol.json` directly as a bundle resource (no copy).
 
+## Protocol update folded in (2026-09-28, firmware 8a3c2c8)
+- `chrono time epoch`, `chrono tz`, `chrono alarm [set|arm]` are now implemented. On every connect the app sends `chrono time epoch <now_ms> <offset_min>`, and sends it again on a timezone/DST change (`NSSystemTimeZoneDidChange`).
+- Local time = `epoch_ms + tz_off_min*60000` always. Show the date only when flag `date_valid` is set.
+- A command's `args` value is `[min,max]` **or** a text hint → `ArgSpec.range / .hint`.
+
 ## Project setup
 - Target `clock` (bundle `ch.tallyo.clock`, iOS/macOS 27, synchronized folder group, MainActor default isolation).
 - Remove visionOS from `SUPPORTED_PLATFORMS` → `iphoneos iphonesimulator macosx`.
