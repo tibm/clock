@@ -105,7 +105,7 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
     }
 
     /// One argument's constraint: `[min, max]` in the JSON, or a text hint (e.g. `">= 1e11 (ms)"`).
-    enum ArgSpec: Decodable, Sendable, Equatable {
+    enum ArgSpec: Decodable, Sendable, Hashable {
         case range(Double, Double)
         case hint(String)
 
