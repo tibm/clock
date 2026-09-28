@@ -25,6 +25,12 @@ struct Pins {
     int wake_cool = 46;     // LEDC
     int enc_a = 47;         // PCNT
     int enc_b = 48;         // PCNT
+    // microSD on SPI2, its only device since v0.19 (esp32.md).  Through the GPIO matrix -- none
+    // of these are SPI2's IOMUX pins -- which caps the bus near 26 MHz; the card runs at 20.
+    int sd_sclk = 13;
+    int sd_mosi = 14;
+    int sd_miso = 21;
+    int sd_cs = 18;  // active-low, external pull-up keeps the card idle through boot
 
     // Stepper coils, one TB6612 per shaft -- and named for the SHAFT, not for the hand.
     //

@@ -41,11 +41,12 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | | Feature | Notes |
 |---|---|---|
 | ✅ | Alarm time + arm/disarm: knob, CLI, BLE; persisted in NVS | 2026-09-28 |
-| ⬜ | **The alarm actually rings** | `chrono` schedules it (move the alarm out of `ui` into `chrono`'s alarm table, §6.4); `ui` gets `Ringing` / `Snoozed` (§6.6 state diagram) |
-| ⬜ | Snooze (tap on top via BNO085, or press) and dismiss (long press) | tap counter already reaches `ui`; snooze length = config |
+| ✅ | **The alarm actually rings** | 2026-09-27: `ui` fires it at the set local minute → `Ringing` / `Snoozed` (§6.6). Still `ui`'s single alarm — moving it into `chrono`'s table (§6.4) comes with weekdays below |
+| ✅ | Snooze (tap on top via BNO085, or press) and dismiss (long press) | 2026-09-27. Snooze 9 min, auto-dismiss after 15 min unanswered (`Ui::Tuning`, not yet NVS/app-settable). Bench: **F5.7** |
 | ⬜ | Repeat by weekday (and several alarms?) | today: one daily alarm. Needs a protocol addition when built |
 | ⬜ | Sunrise wake light, 30 min warm→cool before the alarm | `hal::wake` is the last HAL stub (12 V boost, plugged-only; Phase 4). On battery: dim dial-pixel glow instead |
-| ⬜ | Alarm sound from a file (WAV), volume ramp over 30 s | needs the `storage` AO (SD / LittleFS) and the `audio` AO (§6.2); the chime lives in `ui` until then |
+| ✅ | Alarm sound from a file (WAV), volume ramp over 30 s | 2026-09-27: `/sd/tones/*.wav`, 48 kHz mono 16-bit only; `storage` AO + 2 s PSRAM ring; tone chosen by `chrono alarm tone` (NVS); beep fallback. Host-tested; **bench: F5.7** |
+| ⬜ | Choose the alarm tone from the app | the CLI rows exist (`storage ls`, `chrono alarm tone`); the app needs a list it can parse — a protocol addition |
 | ⬜ | Audio DSP: HPF + limiter (protects the 2″ driver) | `audio dsp`, **F5.6** |
 | ⬜ | Lift the 25 % volume ceiling | only after the protector sense loop is measured (**F5.4**, `FIRMWARE.md` R-AUDIO-1) |
 

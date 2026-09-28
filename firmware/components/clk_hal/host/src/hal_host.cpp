@@ -4,6 +4,9 @@
 // physics.  So the opto has a dark/bright span and noise, because homing branches on a
 // threshold -- but there is no phototransistor model, because nothing in the firmware can
 // tell the difference and a wrong model is worse than no model.
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -15,11 +18,13 @@
 #include <thread>
 #include <vector>
 
+#include "../../shared/sd_detail.hpp"
 #include "clk/board.hpp"
 #include "clk/hal/bme688.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/models.hpp"
 #include "clk/hal/host/sim.hpp"
+#include "clk/hal/pcm.hpp"
 #include "clk/hal/tas5760m.hpp"
 #include "clk/hal/tone.hpp"
 #include "clk/hal/tsl2591.hpp"
@@ -344,9 +349,12 @@ void knob_settle_locked() noexcept {
 // own sake.  The path is set by the app (clocksim), never defaulted here: a test binary that
 // wrote calibration into somebody's home directory would be a fake with side effects, and the
 // honest answer for "no store configured" is the same NotPresent as an unfitted device.
+// A value is an int32 or, since the alarm tone, a quoted string: `sto.tone = "birds.wav"`.
 struct Kv {
     std::string key;
-    int32_t val;
+    int32_t val = 0;
+    std::string str;
+    bool is_str = false;
 };
 std::string g_store_path;
 std::vector<Kv> g_store;
@@ -364,7 +372,16 @@ void store_load_locked() noexcept {
         std::string k{line};
         while (!k.empty() && (k.back() == ' ' || k.back() == '\t')) k.pop_back();
         if (k.empty()) continue;
-        g_store.push_back({k, static_cast<int32_t>(std::strtol(eq + 1, nullptr, 10))});
+        const char* v = eq + 1;
+        while (*v == ' ' || *v == '\t') ++v;
+        if (*v == '"') {
+            std::string str{v + 1};
+            const auto close = str.rfind('"');
+            str = close == std::string::npos ? std::string{} : str.substr(0, close);
+            g_store.push_back({k, 0, str, true});
+        } else {
+            g_store.push_back({k, static_cast<int32_t>(std::strtol(v, nullptr, 10)), {}, false});
+        }
     }
     std::fclose(f);
 }
@@ -373,7 +390,13 @@ bool store_save_locked() noexcept {
     if (g_store_path.empty()) return false;
     std::FILE* f = std::fopen(g_store_path.c_str(), "w");
     if (!f) return false;
-    for (auto const& kv : g_store) std::fprintf(f, "%s = %d\n", kv.key.c_str(), kv.val);
+    for (auto const& kv : g_store) {
+        if (kv.is_str) {
+            std::fprintf(f, "%s = \"%s\"\n", kv.key.c_str(), kv.str.c_str());
+        } else {
+            std::fprintf(f, "%s = %d\n", kv.key.c_str(), kv.val);
+        }
+    }
     std::fclose(f);
     return true;
 }
@@ -937,6 +960,45 @@ Status g_start_st = Status::Ok;
 const char* g_start_step = nullptr;
 uint32_t g_start_seq = 0;
 
+// The stream.  Same Ring and Mixer as the target (pcm.hpp), drained lazily in SIM time: every
+// call that reports on the audio first pulls through the mixer the frames the DMA would have
+// taken since the last one.  So the fake underruns when `storage` falls behind, primes, ramps
+// and ends exactly where the board would -- the samples go nowhere, the counters are real.
+// All under g_mx.
+pcm::Ring g_ring;
+std::vector<int16_t> g_ring_buf;
+pcm::Mixer g_mix;
+bool g_stream = false;  // the stream is the live source
+bool g_eof = false;
+uint64_t g_drain_us = 0;  // sim time the ring was last drained up to
+uint32_t g_stream_seq = 0;
+
+// Caller holds g_mx.  True when the stream just finished and the amp should be parked.
+bool drain_locked() noexcept {
+    if (!g_stream) return false;
+    const uint64_t now = sim_us_locked();
+    if (now <= g_drain_us) return false;
+    uint64_t due = (now - g_drain_us) * kRateHz / 1'000'000ull;
+    g_drain_us += due * 1'000'000ull / kRateHz;
+    int16_t scratch[512 * 2];
+    while (due > 0 && !g_mix.done()) {
+        // Nothing the mixer could do with more time: waiting to prime, or starving.  One fill
+        // registers the state (an underrun is counted once per gap) and the rest of the
+        // interval is skipped -- `sim warp 1000` must not spin here for a simulated hour.
+        const bool waiting =
+            !g_mix.primed() && !g_eof && g_ring.level() < kRateHz * pcm::kPrimeMs / 1000u;
+        const bool starving = g_mix.primed() && !g_eof && g_ring.level() == 0;
+        const std::size_t n = due < 512 ? static_cast<std::size_t>(due) : 512u;
+        g_mix.fill(g_ring, g_eof, scratch, n);
+        due -= n;
+        if (waiting || starving) break;
+    }
+    if (!g_mix.done()) return false;
+    g_stream = false;
+    g_st.tone_on = false;
+    return true;
+}
+
 Status finish_start(const char* step, Status st) noexcept {
     std::lock_guard lk{g_mx};
     g_start_step = st == Status::Ok ? nullptr : step;
@@ -997,7 +1059,12 @@ bool tone_expired() noexcept {
 }
 
 void age_tone() noexcept {
-    if (tone_expired()) bring_down();
+    bool finished = false;
+    {
+        std::lock_guard lk{g_mx};
+        finished = drain_locked();
+    }
+    if (tone_expired() || finished) bring_down();
 }
 
 }  // namespace
@@ -1047,6 +1114,7 @@ Status tone(uint32_t hz, uint32_t ms) noexcept {
     int16_t block[64 * 2];
     const std::size_t made = gen.fill(block, 64);
     std::lock_guard lk{g_mx};
+    g_stream = false;  // a tone replaces the stream
     g_st.tone_frames = static_cast<uint32_t>(made);
     g_st.tone_on = true;
     g_st.tone_hz = hz;
@@ -1058,9 +1126,65 @@ Status stop() noexcept {
     {
         std::lock_guard lk{g_mx};
         g_st.tone_on = false;
+        g_mix.release();
+        g_stream = false;
     }
     bring_down();
     return Status::Ok;
+}
+
+Status stream_open(uint32_t ramp_ms) noexcept {
+    if (!board::present(board::Dev::Amp)) return Status::NotPresent;
+    // Synchronous here, as tone() is: the failure latch is published before this returns.
+    if (const Status st = bring_up(); st != Status::Ok) return st;
+    std::lock_guard lk{g_mx};
+    if (g_ring_buf.empty()) {
+        g_ring_buf.resize(static_cast<std::size_t>(kRateHz) * kStreamRingMs / 1000u);
+        g_ring.attach(g_ring_buf.data(), g_ring_buf.size());
+    }
+    g_ring.clear();
+    g_mix.start(kRateHz, ramp_ms);
+    g_eof = false;
+    g_stream = true;
+    g_drain_us = sim_us_locked();
+    ++g_stream_seq;
+    g_st.tone_on = true;  // "playing", as far as state() and playing() are concerned
+    g_st.tone_hz = 0;
+    g_st.tone_off_us = 0;
+    return Status::Ok;
+}
+
+std::size_t stream_write(const int16_t* mono, std::size_t n) noexcept {
+    if (!mono) return 0;
+    std::lock_guard lk{g_mx};
+    if (!g_stream || g_eof) return 0;
+    return g_ring.write(mono, n);
+}
+
+std::size_t stream_space() noexcept {
+    age_tone();
+    std::lock_guard lk{g_mx};
+    if (!g_stream || g_eof) return 0;
+    return g_ring.space();
+}
+
+void stream_end() noexcept {
+    std::lock_guard lk{g_mx};
+    g_eof = true;
+}
+
+Stream stream() noexcept {
+    age_tone();
+    std::lock_guard lk{g_mx};
+    Stream st{};
+    st.open = g_stream && !g_mix.done();
+    st.primed = st.open && g_mix.primed();
+    st.level = static_cast<uint32_t>(g_ring_buf.empty() ? 0u : g_ring.level());
+    st.cap = static_cast<uint32_t>(g_ring.capacity());
+    st.underruns = g_mix.underruns();
+    st.played = g_mix.frames_played();
+    st.seq = g_stream_seq;
+    return st;
 }
 
 bool playing() noexcept {
@@ -1145,6 +1269,84 @@ Result<State> state() noexcept {
 // an open-drain inversion.  It is shared/power.cpp now -- one copy, reached through the fake ADC
 // and the fake expander above, so these tests exercise the code the board runs (§11.2).
 
+// ============================ hal::sd ====================================================
+// The card is a DIRECTORY on the laptop (`clocksim --sd <dir>`, `sim sd <dir>`), mapped onto
+// /sd.  No directory = no card, which is the D16 answer a board with an empty slot gives.
+// The file calls themselves are shared/sd_files.cpp, the same POSIX code the target runs
+// against its VFS.
+namespace sd {
+namespace {
+std::mutex g_sd_mx;
+std::string g_sd_dir;  // "" = the slot is empty
+bool g_sd_mounted = false;
+
+bool dir_exists(std::string const& d) noexcept {
+    struct stat st{};
+    return !d.empty() && ::stat(d.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+}  // namespace
+
+Status mount() noexcept {
+    if (!board::present(board::Dev::Sd)) return Status::NotPresent;
+    std::lock_guard lk{g_sd_mx};
+    if (g_sd_mounted) return Status::Ok;
+    if (!dir_exists(g_sd_dir)) return Status::NotPresent;
+    g_sd_mounted = true;
+    return Status::Ok;
+}
+
+Status unmount() noexcept {
+    std::lock_guard lk{g_sd_mx};
+    g_sd_mounted = false;
+    return Status::Ok;
+}
+
+bool mounted() noexcept {
+    std::lock_guard lk{g_sd_mx};
+    // A card pulled out from under a mount: the directory went away.
+    return g_sd_mounted && dir_exists(g_sd_dir);
+}
+
+Result<Info> info() noexcept {
+    if (!mounted()) return Result<Info>::bad(Status::NotPresent);
+    std::lock_guard lk{g_sd_mx};
+    struct statvfs v{};
+    if (::statvfs(g_sd_dir.c_str(), &v) != 0) return Result<Info>::bad(Status::Failed);
+    Info in{};
+    in.total_bytes = static_cast<uint64_t>(v.f_blocks) * v.f_frsize;
+    in.free_bytes = static_cast<uint64_t>(v.f_bavail) * v.f_frsize;
+    in.freq_khz = 20000;
+    std::snprintf(in.name, sizeof in.name, "SIM");
+    return Result<Info>::good(in);
+}
+
+namespace detail {
+Status native_path(const char* path, char* out, std::size_t cap) noexcept {
+    if (!path || std::strncmp(path, kRoot, 3) != 0 || (path[3] != '/' && path[3] != '\0'))
+        return Status::BadArg;
+    if (!mounted()) return Status::NotPresent;
+    std::lock_guard lk{g_sd_mx};
+    const int n = std::snprintf(out, cap, "%s%s", g_sd_dir.c_str(), path + 3);
+    return n > 0 && static_cast<std::size_t>(n) < cap ? Status::Ok : Status::BadArg;
+}
+}  // namespace detail
+
+void set_dir_host(const char* dir) noexcept {
+    std::lock_guard lk{g_sd_mx};
+    g_sd_dir = dir ? dir : "";
+    while (g_sd_dir.size() > 1 && g_sd_dir.back() == '/') g_sd_dir.pop_back();
+    g_sd_mounted = false;  // a different card: whatever was mounted is gone
+}
+std::string dir_host() {
+    std::lock_guard lk{g_sd_mx};
+    return g_sd_dir;
+}
+void reset_host() noexcept {
+    std::lock_guard lk{g_sd_mx};
+    g_sd_mounted = false;
+}
+}  // namespace sd
+
 // ============================ hal::store =================================================
 namespace store {
 
@@ -1153,7 +1355,8 @@ Result<int32_t> get_i32(const char* key) noexcept {
     std::lock_guard lk{g_mx};
     if (g_store_path.empty()) return Result<int32_t>::bad(Status::NotPresent);
     for (auto const& kv : g_store) {
-        if (kv.key == key) return Result<int32_t>::good(kv.val);
+        if (kv.key == key)
+            return kv.is_str ? Result<int32_t>::bad(Status::Failed) : Result<int32_t>::good(kv.val);
     }
     return Result<int32_t>::bad(Status::NotPresent);
 }
@@ -1166,11 +1369,45 @@ Status set_i32(const char* key, int32_t value) noexcept {
     for (auto& kv : g_store) {
         if (kv.key == key) {
             kv.val = value;
+            kv.is_str = false;
             found = true;
             break;
         }
     }
-    if (!found) g_store.push_back({std::string{key}, value});
+    if (!found) g_store.push_back({std::string{key}, value, {}, false});
+    return store_save_locked() ? Status::Ok : Status::Failed;
+}
+
+Status get_str(const char* key, char* out, std::size_t cap) noexcept {
+    if (!key || !*key || !out || cap == 0) return Status::BadArg;
+    out[0] = '\0';
+    std::lock_guard lk{g_mx};
+    if (g_store_path.empty()) return Status::NotPresent;
+    for (auto const& kv : g_store) {
+        if (kv.key != key) continue;
+        if (!kv.is_str || kv.str.size() >= cap) return Status::Failed;
+        std::memcpy(out, kv.str.c_str(), kv.str.size() + 1);
+        return Status::Ok;
+    }
+    return Status::NotPresent;
+}
+
+Status set_str(const char* key, const char* value) noexcept {
+    if (!key || !*key || !value || std::strlen(value) >= kStrMax || std::strchr(value, '"') ||
+        std::strchr(value, '\n'))
+        return Status::BadArg;
+    std::lock_guard lk{g_mx};
+    if (g_store_path.empty()) return Status::NotPresent;
+    bool found = false;
+    for (auto& kv : g_store) {
+        if (kv.key == key) {
+            kv.str = value;
+            kv.is_str = true;
+            found = true;
+            break;
+        }
+    }
+    if (!found) g_store.push_back({std::string{key}, 0, std::string{value}, true});
     return store_save_locked() ? Status::Ok : Status::Failed;
 }
 
@@ -1351,6 +1588,9 @@ void set_expander_in(expander::Sig s, bool level) noexcept {
 // -- the amp unmuted with no register set, which is what "just set spk_active" produced.
 void set_speaker(bool on) noexcept { (void)audio::enable(on); }
 
+void set_sd_dir(const char* dir) noexcept { sd::set_dir_host(dir); }
+std::string sd_dir() { return sd::dir_host(); }
+
 void set_plugged(bool p) noexcept {
     std::lock_guard lk{g_mx};
     g_st.plugged = p;
@@ -1476,6 +1716,9 @@ void reset() noexcept {
     // file was just wiped.
     tas5760m::forget();
     board::reset_presence();
+    // The card stays in the slot (it is not "hardware state", it is what you plugged in),
+    // but power-on means nothing is mounted.
+    sd::reset_host();
 }
 
 }  // namespace host

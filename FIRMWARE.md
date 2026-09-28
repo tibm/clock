@@ -25,7 +25,7 @@ brought up on it, plus a full host simulator. See **§12.0**.
 | D5 | **Stepper commutation from a GPTimer ISR @ 20 kHz**, ×16 microstepping; MCPWM carrier 25 kHz | GPTimer decouples update rate from carrier, and can be **stopped when idle** (the hands are stationary >99 % of the time). 20 kHz × ×16 → max ≈1.1 rev/s slew, ample for time-set |
 | D6 | **32.768 kHz crystal is the RTC slow clock** (`CONFIG_RTC_CLK_SRC_EXT_CRYS`) | Drives wall-clock retention, `esp_timer` re-basing across sleep, and the deep-sleep wake timer. ±20 ppm ≈ 1.7 s/day between SNTP syncs. See §7.1 — this is *not* the commutation clock |
 | D7 | **Deep-sleep hand cadence is a runtime config** (`backup_tick_s`, default **60**, range 1–900) | Motion is always *absolute-target*, never "step N times", so cadence is a pure power/aesthetics knob with zero correctness coupling. Changing it later is one NVS value |
-| D8 | **WAV only** (16-bit PCM, 44.1/48 kHz) | No decoder, no extra stack/heap, no dependency. SD space is free. FLAC can be added later behind the same `AudioSource` concept |
+| D8 | **WAV only — 48 kHz · mono · 16-bit PCM, nothing else** (narrowed 2026-09-27) | No decoder, no resampler, no mixdown, no dependency: it is the I²S port's own format, so the samples go from the card into the ring untouched. The header is *checked*, not decoded (`hal/wav.hpp`) — a wrong file is refused by name instead of playing 9 % sharp. SD space is free. FLAC can be added later behind the same stream source |
 | D9 | **One `Command` surface shared by the CLI and the BLE app** | The phone app and the debug console need the same 40 operations. Defining them once (§5) means every feature is testable from the console the day it exists, and host-testable with no transport at all |
 
 ### 0.1 Locked 2026-08-09 (firmware kickoff)
@@ -1155,6 +1155,33 @@ rather than leaving the default. `power_values.md` §10 says "digital boost defa
 - OTA image writes; rollback confirmation only after 60 s of healthy uptime.
 - **Card-absent is a normal state.** System sounds live in LittleFS on internal flash.
 
+> **As built, 2026-09-27 — the card and the alarm's sound.** Config, BLE upload, OTA and
+> LittleFS are still to come; this is the playback half.
+>
+> - **`hal::sd`** — SPI2 at 20 MHz through the GPIO matrix, every block moved by DMA
+>   (`SPI_DMA_CH_AUTO`), FATFS in the VFS at `/sd` with long names (`CONFIG_FATFS_LFN_HEAP`).
+>   Never formats. **No card-detect line exists**, so a card is only ever found by mounting it:
+>   at boot, on `storage sd mount`, and whenever something needs it. The file calls are POSIX in
+>   `shared/sd_files.cpp` — the host runs the same code against a directory (`clocksim --sd`).
+> - **The format** is D8's, checked by `shared/wav.cpp`: RIFF/WAVE, fmt = PCM 1 ch 48000 Hz
+>   16-bit, unknown chunks (Audacity's and ffmpeg's `LIST`) skipped, `data` clipped to the file.
+>   `ffmpeg -i in.mp3 -ac 1 -ar 48000 -c:a pcm_s16le -bitexact out.wav`.
+> - **The ring** is `hal::pcm::Ring` — 2 s **mono** (96 000 samples, 192 KB PSRAM), SPSC, two
+>   atomics. `storage` writes it; the audio writer task drains it through `hal::pcm::Mixer`,
+>   which holds the rules about sound: nothing plays until 250 ms is buffered (or the whole
+>   file), the ramp is digital gain from −30 dB on a square law (the user's volume register is
+>   never touched), an underrun decays the last sample over 5 ms and fades back in, and a stop
+>   is a 5 ms tail. The mixer is shared code — the host tests assert on its samples.
+> - **The `storage` AO** (prio 14) owns the mount and every file read. Playing is a *request*
+>   (queue of 4, answered via `done_seq` like `hal::audio::start_seq`): open, check the header,
+>   `hal::audio::stream_open()`, then top the ring up from the card every 10 ms, seamlessly
+>   looping when asked. A `tone()` or `audio stop` closes the stream and `storage` lets go.
+> - **The alarm tone** is a bare name under `/sd/tones`, checked on the card before it is
+>   accepted and persisted as NVS `sto.tone` (`hal::store::set_str` — the store's first
+>   string). **Fallback**: no card, no tone chosen, a bad file, or a read failing mid-ring →
+>   an 880 Hz two-note beep (period 800 ms, under the amp's 500 ms idle park). An alarm must
+>   never go silent over a file.
+
 ### 6.4 `chrono` — the time authority
 
 > **As built, 2026-09-28:** one offset, not a zone. `epoch_ms` is UTC once `chrono time epoch`
@@ -1444,6 +1471,8 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | 4 | `volume` | `vol` | **steady white** | **a gauge**: 12:00 = 0 %, 10:00 = 100 % |
 | 5 | → `idle` | — | every pixel fades out over `ramp_ms` | back to the time |
 | — | `pairing` | all five | **breathe blue, in sync**; a bond ends it with **two green flashes** across the row; refused (radio off) = three red flashes | untouched — the clock keeps them |
+| — | `ringing` | `bell` | **blink red** — the one mode that is *meant* to be urgent | the time |
+| — | `snoozed` | `bell` | **breathe amber** until it rings again | the time |
 | — | *(overlay)* | `batt` | **breathe amber** below 20 % SoC on battery | — |
 | — | *(overlay)* | `clock` | **flash red ×3** — the refusal | — |
 | — | *(overlay)* | `dial0` `dial1` | **swell** — the tap's dial wash, armed → red · off → white | — |
@@ -1453,7 +1482,14 @@ bring-up command overwritten 20 ms later is not a bring-up command.
   a fast red blink). Same curve, same period, one difference, which is what makes the pair
   comparable at a glance. A blink reads as an alarm *going off* rather than one that is set,
   and this is the light on the thing you look at last before you sleep. Nothing in a mode
-  blinks now; `Blink` stays in the vocabulary for fault codes.
+  blinks now except `ringing` (2026-09-27), which is an alarm going off; `Blink` is otherwise
+  kept for fault codes.
+- **Ringing** (built 2026-09-27; `ui` still owns the one alarm until `chrono`'s table exists).
+  Fires once per matching **local** minute of a *set* clock, in any mode but `alarm` (whose
+  knob sweeps the time past "now" while editing). Short press or tap → `snoozed`
+  (`Tuning::snooze_min`, 9); long press → dismissed, still armed for tomorrow; unanswered for
+  `ring_max_min` (15) → dismissed. The knob's rotation and the 10 s pairing hold are ignored
+  while it rings. Sound: `storage` plays the chosen tone looped with a 30 s ramp, or the beep.
 - **The volume gauge is 300° of dial**, both hands together, `96 usteps per percent` exactly
   (`11520 × 300/360 / 100`). A percentage needs somewhere to be *read*, and the dial is the
   only readout this product has; the pixel is left as a plain steady white. The other 60° —
@@ -2048,12 +2084,12 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
-| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min>]` (NVS) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
+| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min>]` (NVS) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono alarm tone [<name>\|none]` (which `/sd/tones` WAV rings; checked on the card, NVS) · `chrono alarm fire` (ring now) · ▲`chrono alarm snooze` · ▲`chrono alarm dismiss` **· built 2026-09-27** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
-| `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · ⚠`audio play <file>` *(waits on `storage`)* · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
+| `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · `audio play <name> [loop]` (a `/sd/tones` WAV through `storage`; `audio stop` ends it) **· built 2026-09-27** · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
-| `storage` | `storage ls [<path>]` · `storage stat <file>` · `storage sd` · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
+| `storage` | ▲`storage status` · ▲`storage ls [<path>]` (default `/sd/tones`; each WAV checked — length, or why not) · ▲`storage stat <file>` · ▲`storage sd` · ▲`storage sd mount` · ▲`storage sd unmount` **· built 2026-09-27** · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · ▲`net ble status` · ▲`net ble pair [on\|off]` (opens through `ui`, so the row lights — refuses with the radio off) · ▲`net ble unbond` · `net ble window [<s>]` (pairing window, 120 s) · `net ble period [<ms>]` (snapshot cadence, 1000) **· built 2026-09-27** · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
 | `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` *(routes through `hal::audio::enable()` now, so the fake cannot reach a state the firmware could not)* · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
@@ -3962,7 +3998,8 @@ blocked on one net for eight days (§12.0.16). Rework **R2** closed it: reg 0x08
 | **F5.3** | ⬜ | Confirm the volume map with a meter: `audio vol 10` → `audio vol 20` must move the output **+6.0 dB** (percent is amplitude). At 10 % expect ~0.9 V rms into 4 Ω. If the numbers come out 6 dB high the digital boost did not get cleared — `audio reg 2` must read `0x04` |
 | **F5.4** | ⚠ | *"The one that costs money if it is wrong."* **Do not run this until the sense loop is measured** (§12.0.17). It was written as `audio vol 25` while watching cell current, predicting <1.2 A against a 1.89 A trip; the real trip on build #1 today is **0.86–1.55 A**, so the test is the failure. Stay at the 10 % default (~0.35 A) |
 | **F5.5** | ⬜ | ⚠ Unrelated, pre-existing: **`BOARD=devkit-uart` does not compile.** `console_esp.cpp` calls `esp_console_new_repl_usb_serial_jtag()` unconditionally while that profile sets `CONFIG_ESP_CONSOLE_UART_DEFAULT=y`. The other three profiles are clean. It is the profile you reach for when chasing a boot panic — worth an `#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG` before you need it |
-| **F5.6** | ⬜ | Still missing, not blockers: `audio play <file>` (needs `storage` + the PSRAM ring), the biquad HPF + limiter (`audio dsp`), and the pop-free 12 V PVDD ramp — which cannot be exercised until `PD_PG` is assertable, i.e. the pass-through rig |
+| **F5.6** | ⬜ | Still missing, not blockers: the biquad HPF + limiter (`audio dsp`), and the pop-free 12 V PVDD ramp — which cannot be exercised until `PD_PG` is assertable, i.e. the pass-through rig. *(`audio play` + the PSRAM ring + the alarm ringing: built 2026-09-27, §6.3's "as built".)* |
+| **F5.7** | ⬜ | **Bench the card and the ring.** A FAT32 card with `/tones/*.wav` (48 kHz mono 16-bit): `storage sd mount` (expect `real_freq` 20000 kHz) → `storage ls` → `audio play <x> loop` for a minute, then `storage status` must show **0 underruns** → `chrono alarm tone <x>` → `chrono alarm fire` (ramps from −30 dB over 30 s) → tap/press = snooze, long press = dismiss → pull the card mid-ring: it must fall back to the beep, not go silent. ⚠ First build after this change: **`rm build/*/sdkconfig`** once, or the FATFS long-name options stay off and `birds.wav`-style names fail to list |
 
 #### Phase 6 — milestone 9: the app link (BLE) · built 2026-09-27, bench next
 

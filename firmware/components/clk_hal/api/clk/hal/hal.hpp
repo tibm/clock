@@ -385,9 +385,10 @@ Status set(Sig, bool level) noexcept;
 // (`SPK_SD`, expander GPA0), the port, the sequencing and the one signal source are here,
 // because all four are board wiring rather than silicon.
 //
-// The SOURCE is a generated sine and nothing else.  The WAV path, the PSRAM ring and the
-// HPF/limiter chain arrive with `audio` (§6.2) + `storage` (§6.3) and replace tone() with a
-// real block source; the clocks, the register set and the sequencing under it do not change.
+// Two SOURCES, one at a time: the generated sine (tone(), the bring-up signal and the preview
+// chime) and the stream (a WAV that `storage` pushes through a PSRAM ring, pcm.hpp).  Starting
+// either one replaces the other.  The HPF/limiter chain is still to come (§6.2); the clocks,
+// the register set and the sequencing under both sources are the same.
 namespace audio {
 
 // 48 kHz because the amp wants MCLK = 256 x f_S and 12.288 MHz is what IDF's default
@@ -436,6 +437,31 @@ bool playing() noexcept;
 // for a duration -- which is the difference between "the amp is slow today" and a CLI row
 // that guesses.
 uint32_t start_seq() noexcept;
+
+// ---- the stream source (pcm.hpp) --------------------------------------------------------
+// 48 kHz mono s16 -- wav.hpp's format, which is the reason there is no conversion anywhere.
+// The ring is 2 s (§6.3) and lives in PSRAM on target.
+//
+// PRODUCER side, and there is exactly one producer: `storage`.  stream_open() drops whatever
+// was playing (tone or stream), empties the ring and queues the amp start exactly as tone()
+// does -- asynchronous, answered through start_seq()/State::last_error.  Nothing is heard until
+// the ring holds pcm::kPrimeMs or stream_end() says that is all there is.
+inline constexpr uint32_t kStreamRingMs = 2000;
+Status stream_open(uint32_t ramp_ms) noexcept;
+std::size_t stream_write(const int16_t* mono, std::size_t n) noexcept;  // how many went in
+std::size_t stream_space() noexcept;  // samples the ring will take right now; 0 when closed
+void stream_end() noexcept;           // the last sample is written: drain, then park
+
+struct Stream {
+    bool open;       // opened and not yet finished, stopped or replaced
+    bool primed;     // ... and actually making sound
+    uint32_t level;  // samples in the ring
+    uint32_t cap;    // ring size, samples
+    uint32_t underruns;
+    uint64_t played;  // frames consumed since stream_open()
+    uint32_t seq;     // bumped by every stream_open(): tells a producer its stream was replaced
+};
+Stream stream() noexcept;
 
 // ---- two bench tools, both for the same question: is the clock ARRIVING? ------------------
 // The TAS5760M answers "clock error" (reg 0x08 CLKE) for two completely different faults --
@@ -496,7 +522,7 @@ struct State {
     bool clocks;   // I2S channel enabled: MCLK/BCLK/LRCLK are running
     bool sd_pin;   // SPK_SD (expander GPA0) high = out of shutdown
     bool muted;    // reg 0x03
-    bool playing;  // a tone is being generated
+    bool playing;  // a tone or a stream is being played
     bool configured;
     bool fault_pin;  // SPK_FAULT (expander GPB6), open-drain active-low -- inverted here
     uint8_t vol_pct;
@@ -539,10 +565,65 @@ Result<State> state() noexcept;
 // typed surface with exactly one type is a surface with no casts in it.  A key that has never
 // been written answers NotPresent -- the same D16 answer as a device that is not fitted, and
 // the caller's cue to keep its compiled-in default.
+//
+// ... and one string, since 2026-09-27: the alarm tone is a FILE NAME, and there is no honest
+// way to write that as an int.  NUL-terminated, at most kStrMax - 1 bytes; get_str() answers
+// NotPresent exactly as get_i32() does.  An empty string is a value (the setting was cleared),
+// not an absence.
 namespace store {
+inline constexpr std::size_t kStrMax = 64;
 Result<int32_t> get_i32(const char* key) noexcept;
 Status set_i32(const char* key, int32_t value) noexcept;
+Status get_str(const char* key, char* out, std::size_t cap) noexcept;
+Status set_str(const char* key, const char* value) noexcept;
 }  // namespace store
+
+// ---- microSD (SPI2 + DMA, FATFS) ------------------------------------------------------------
+// The card is USER assets only (§1: `/sd/tones/*.wav`) and absence is a normal state (D16):
+// the clock is fully a clock with no card, and the alarm falls back to a generated tone.
+//
+// There is NO card-detect line on this board (esp32.md: IO13/14/21/18 and nothing else), so
+// "is there a card" is only ever answered by trying to mount it.  mount() is idempotent and is
+// retried by `storage` whenever it needs the card; unmount() before pulling it.
+//
+// Paths are the target's VFS paths on both backends -- "/sd/tones/x.wav" -- and the host maps
+// them onto a directory.  Everything that touches a file is a BLOCKING call; §3.2 puts all of
+// them on `storage`'s task, and the few CLI rows that read a directory say so.
+namespace sd {
+inline constexpr const char* kRoot = "/sd";
+inline constexpr const char* kTonesDir = "/sd/tones";
+inline constexpr std::size_t kNameMax = 64;  // a name in a listing, NUL included (FAT LFN)
+
+struct Info {
+    uint64_t total_bytes;
+    uint64_t free_bytes;
+    uint32_t freq_khz;  // the SPI clock the card accepted
+    char name[8];       // the card's CID product name ("SD16G"); "" on the host
+};
+
+Status mount() noexcept;  // Ok, or NotPresent when no card answered
+Status unmount() noexcept;
+bool mounted() noexcept;
+Result<Info> info() noexcept;
+
+struct Entry {
+    char name[kNameMax];
+    uint32_t size;
+    bool dir;
+};
+// Calls `fn` once per entry (not `.`/`..`), in directory order; `fn` returns false to stop.
+// NotPresent when the card is not mounted, Failed when the directory is not there.
+using ListFn = bool (*)(Entry const&, void* ctx);
+Status list(const char* dir, ListFn fn, void* ctx) noexcept;
+
+// A small file table -- the whole product needs one open stream and a header probe.
+inline constexpr int kMaxOpen = 3;
+Result<int> open(const char* path) noexcept;  // a handle; NotPresent (no card) / Failed (no file)
+Result<std::size_t> read(int fd, void* buf, std::size_t n) noexcept;  // 0 = end of file
+Status seek(int fd, uint32_t offset) noexcept;
+Result<uint32_t> size(int fd) noexcept;
+void close(int fd) noexcept;
+}  // namespace sd
 
 // ---- power -----------------------------------------------------------------------------
 // One implementation for both backends (shared/power.cpp): it is arithmetic over hal::adc and

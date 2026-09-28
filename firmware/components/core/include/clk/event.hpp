@@ -103,11 +103,15 @@ struct PowerState {
 struct NetRx {};
 struct NetUnbond {};
 
+// `storage` (§6.3): a request is waiting in its own small queue.  Same reason as NetRx -- a
+// file name is 64 bytes and every mailbox slot of every AO would pay for it.
+struct StoRx {};
+
 struct Stop {};  // shutdown, posted by stop() and swallowed by run().  See Halt.
 
 using Event = std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, DialTick, Halt,
                            HomeDone, HandState, KnobDelta, KnobPress, Tap, ModeSet, AlarmCfg,
-                           TimeChanged, PowerState, NetRx, NetUnbond, Stop>;
+                           TimeChanged, PowerState, NetRx, NetUnbond, StoRx, Stop>;
 
 // std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
 // abort, and get_if reads better in a handler that only cares about three of these.

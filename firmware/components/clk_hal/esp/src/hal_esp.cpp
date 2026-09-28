@@ -16,6 +16,8 @@
 // absence is a first-class result, never a faked success and never an error log.  Each
 // peripheral is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
+#include <cstring>
+
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "driver/pulse_cnt.h"
@@ -700,6 +702,29 @@ Status set_i32(const char* key, int32_t value) noexcept {
     nvs_handle_t h{};
     if (::nvs_open(kNs, NVS_READWRITE, &h) != ESP_OK) return Status::NotPresent;
     esp_err_t err = ::nvs_set_i32(h, key, value);
+    if (err == ESP_OK) err = ::nvs_commit(h);
+    ::nvs_close(h);
+    return err == ESP_OK ? Status::Ok : Status::Failed;
+}
+
+Status get_str(const char* key, char* out, std::size_t cap) noexcept {
+    if (!key || !*key || !out || cap == 0) return Status::BadArg;
+    out[0] = '\0';
+    nvs_handle_t h{};
+    if (::nvs_open(kNs, NVS_READONLY, &h) != ESP_OK) return Status::NotPresent;
+    std::size_t len = cap;
+    const esp_err_t err = ::nvs_get_str(h, key, out, &len);
+    ::nvs_close(h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) return Status::NotPresent;
+    if (err != ESP_OK) out[0] = '\0';
+    return err == ESP_OK ? Status::Ok : Status::Failed;
+}
+
+Status set_str(const char* key, const char* value) noexcept {
+    if (!key || !*key || !value || std::strlen(value) >= kStrMax) return Status::BadArg;
+    nvs_handle_t h{};
+    if (::nvs_open(kNs, NVS_READWRITE, &h) != ESP_OK) return Status::NotPresent;
+    esp_err_t err = ::nvs_set_str(h, key, value);
     if (err == ESP_OK) err = ::nvs_commit(h);
     ::nvs_close(h);
     return err == ESP_OK ? Status::Ok : Status::Failed;

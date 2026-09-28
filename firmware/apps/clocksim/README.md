@@ -10,6 +10,7 @@ cmake --preset host-dev && cmake --build --preset host-dev
 ./build/host-dev/apps/clocksim/clocksim --ui-port 5000
 ./build/host-dev/apps/clocksim/clocksim --no-home  # do not home on boot (the test rig)
 ./build/host-dev/apps/clocksim/clocksim --nvs /tmp/x.nvs   # ... and where settings live
+./build/host-dev/apps/clocksim/clocksim --sd ~/tones-card  # the microSD card: a directory
 ```
 
 It **homes the moment it starts**, because the clock does (`FIRMWARE.md` §6.1a) — the hands are
@@ -19,6 +20,11 @@ browser suite, which would otherwise sit through a nine-second sweep forty times
 `--nvs` is the flash: a `key = value` file holding what has to survive a power cut, which today
 is the per-hand calibration (§6.1b). It defaults to `~/.clocksim.nvs` (or `$CLOCKSIM_NVS`) and
 it survives `sim reset` and `sys reboot`, exactly as the real NVS survives a power cycle.
+
+`--sd` is the card: a directory mapped onto `/sd`, so alarm tones go in `<dir>/tones/` (48 kHz
+mono 16-bit WAV — `storage ls` says why anything else is refused). Defaults to `~/.clocksim.sd`
+(or `$CLOCKSIM_SD`); no such directory is an empty slot. `sim sd <dir>|off` swaps or pulls it
+at runtime. Nothing is played aloud — the stream is consumed in sim time and counted.
 
 `uibridge.{hpp,cpp}` is the pipe [`ux/`](../../../ux/) attaches to. It lives **in the app and
 not under `components/`** on purpose: `apps/clock` puts `components/` on

@@ -17,6 +17,7 @@
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
 #include "clk/services/net.hpp"
+#include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
 
 using namespace clk;
@@ -1527,7 +1528,8 @@ void test_chrono_drives_the_hands() {
     sim::set_warp(1.0);
 }
 
-void run_net_service_tests();  // test_net.cpp -- needs every AO running
+void run_net_service_tests();      // test_net.cpp -- needs every AO running
+void run_storage_service_tests();  // test_storage.cpp -- likewise
 
 void run_motion_service_tests() {
     test_hand_wrap();
@@ -1541,13 +1543,15 @@ void run_motion_service_tests() {
     auto& chrono = svc::chrono();
     auto& u = svc::ui();
     auto& net = svc::net();
+    auto& storage = svc::storage();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    u.bind(&motion, &chrono, &net);
+    u.bind(&motion, &chrono, &net, &storage);
     net.bind(&motion, &chrono, &u);
     cli::bind_net();
     motion.start();
     chrono.start();
+    storage.start();
     net.start();
     u.start();
 
@@ -1581,9 +1585,11 @@ void run_motion_service_tests() {
     test_ui_volume_sweeps_the_gauge();
     test_chrono_drives_the_hands();
     run_net_service_tests();
+    run_storage_service_tests();
 
     u.stop();
     net.stop();
+    storage.stop();
     chrono.stop();
     motion.stop();
     sim::set_warp(1.0);

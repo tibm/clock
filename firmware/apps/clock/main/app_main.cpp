@@ -14,6 +14,7 @@
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
 #include "clk/services/net.hpp"
+#include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
 
 using clk::log::Level;
@@ -56,13 +57,15 @@ extern "C" void app_main(void) {
     auto& chrono = clk::svc::chrono();
     auto& ui = clk::svc::ui();
     auto& net = clk::svc::net();
+    auto& storage = clk::svc::storage();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    ui.bind(&motion, &chrono, &net);
+    ui.bind(&motion, &chrono, &net, &storage);
     net.bind(&motion, &chrono, &ui);
     clk::cli::bind_net();
     motion.start();
     chrono.start();
-    net.start();  // before ui: a ten-second hold must find the radio already up
+    storage.start();  // before ui: an alarm due at boot must find the card already mounted
+    net.start();      // before ui: a ten-second hold must find the radio already up
     ui.start();
 }

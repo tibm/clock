@@ -7,9 +7,9 @@
 // `hal::audio` now is.  These rows read the HAL directly and move behind `audio`'s Command
 // surface when the AO lands; the verbs are chosen now so that move is a re-implementation.
 //
-// Missing on purpose, because the things under them do not exist yet: `audio play <file>`
-// (needs `storage` and the PSRAM ring, §6.3) and the `audio dsp` trio (needs the firmware
-// biquad + limiter).  A row that parses and then does nothing is worse than no row.
+// `audio play` goes through `storage` (§6.3), which owns the card and feeds the PSRAM ring.
+// Missing on purpose: the `audio dsp` trio (needs the firmware biquad + limiter).  A row that
+// parses and then does nothing is worse than no row.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -19,6 +19,8 @@
 #include "clk/hal/hal.hpp"
 #include "clk/hal/tas5760m.hpp"
 #include "clk/hal/tone.hpp"
+#include "clk/services/storage.hpp"
+#include "sto_wait.hpp"
 
 namespace clk::cli {
 namespace {
@@ -224,9 +226,35 @@ Status cmd_tone(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// Through `storage` first: a file closes and the alarm's fallback beep stops re-arming itself
+// -- stopping only the amp would have the next beep along in 800 ms.
 Status cmd_stop(Args const&, Sink& out) {
+    (void)sto_await(svc::storage().stop(), "stop", out);
     if (const Status st = hal::audio::stop(); st != Status::Ok) return refused(out, "stop", st);
     out.line("stopping -- the tail fades, then the amp parks itself");
+    return Status::Ok;
+}
+
+// A file off the card, through the same path the alarm uses minus the ramp.  Waits for
+// `storage` to have opened it, checked the header and handed the amp a stream -- and then for
+// the amp's own start, exactly as `audio tone` does.
+Status cmd_play(Args const& a, Sink& out) {
+    if (!a.arg(0) || (a.arg(1) && a.sv(1) != "loop")) {
+        out.line("usage: audio play <name> [loop]   (a name in /sd/tones, or a /sd/... path)");
+        return Status::BadArg;
+    }
+    const uint32_t seq = hal::audio::start_seq();
+    if (const Status st =
+            sto_await(svc::storage().play(a.arg(0), a.arg(1) != nullptr), "play", out);
+        st != Status::Ok)
+        return st;
+    if (const Status st = await_start(out, seq); st != Status::Ok) return st;
+    const auto s = svc::storage().snapshot();
+    char len[24];
+    fmt_ms(len, sizeof len,
+           static_cast<uint32_t>(uint64_t{s.data_bytes} * 1000u / 2u / hal::audio::kRateHz));
+    out.printf("play %s, %s%s at %u%% -- `audio stop` to end", s.file, len, s.loop ? " looped" : "",
+               hal::audio::volume_pct());
     return Status::Ok;
 }
 
@@ -437,7 +465,9 @@ constexpr CmdSpec kRows[] = {
     {"audio", nullptr, "status", "", "clocks, pin, registers, faults", ReleaseOk, cmd_status},
     {"audio", nullptr, "tone", "[<hz>] [<ms>]", "a generated sine; no <ms> = until stop", None,
      cmd_tone},
-    {"audio", nullptr, "stop", "", "fade the tone out and park the amp", ReleaseOk, cmd_stop},
+    {"audio", nullptr, "stop", "", "fade the tone or file out, park the amp", ReleaseOk, cmd_stop},
+    {"audio", nullptr, "play", "<name> [loop]", "a WAV from /sd/tones (48k mono 16-bit)", None,
+     cmd_play},
     {"audio", nullptr, "vol", "[<0-100>]", "amplitude percent; refuses over the ceiling", None,
      cmd_vol},
     {"audio", nullptr, "reg", "<r> [<v>]", "one TAS5760M register -- drives real pins", Unsafe,
@@ -453,7 +483,7 @@ constexpr CmdSpec kRows[] = {
 // shipped as a function nobody could call.  -Wunused-function would have said so, but it is
 // only a warning in this build and a warning in 1100 lines of ninja output is not a signal.
 // One assert per group is: it costs nothing and it fails at BUILD time.
-static_assert(sizeof(kRows) / sizeof(kRows[0]) == 8, "added a handler? add its row too");
+static_assert(sizeof(kRows) / sizeof(kRows[0]) == 9, "added a handler? add its row too");
 
 }  // namespace
 

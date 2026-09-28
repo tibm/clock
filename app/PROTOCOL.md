@@ -180,11 +180,14 @@ status snapshot (§5), not from command output.**
 | `chrono tz [<utc_offset_min>]` | implemented | the UTC offset alone (−720…840). Same instant, the hands move. Persisted |
 | `chrono time set <hh:mm[:ss]>` | implemented | set the *local* time of day only; keeps the date if the clock has one |
 | `chrono alarm set <hh:mm>` | implemented | alarm time, local 24 h. Persisted. `$ok` only after the clock has taken it |
-| `chrono alarm arm <on\|off>` | implemented | arm / disarm. Persisted. ⚠ The firmware **does not ring yet** — setting is stored and shown, the ringing is on the firmware TODO |
+| `chrono alarm arm <on\|off>` | implemented | arm / disarm. Persisted. Armed, it rings at the set local minute: `ui_mode` goes to `ringing` (6), then `snoozed` (7) or back to `idle` |
+| `chrono alarm tone [<name>\|none]` | implemented | which `/sd/tones` WAV rings; `none` = the built-in beep. Checked on the card first — `bad-arg` if it is not 48 kHz mono 16-bit PCM, `not-present` with no card. Persisted. (No list the app can parse yet — `storage ls` is display text) |
+| `chrono alarm fire` · `chrono alarm snooze` · `chrono alarm dismiss` | implemented | ring now (test the sound) · snooze a ring · stop it (stays armed). The last two answer `not-ready` when nothing rings |
+| `audio play <name> [loop]` | implemented | preview a `/sd/tones` WAV; `audio stop` ends it |
 | `chrono alarm` | implemented | show it (display only — read the state from the snapshot) |
 | `chrono steps <1-60>` | implemented | hands tick (1) or sweep (60) |
 | `audio vol <0-100>` | implemented | volume. Above the firmware's current ceiling (25) → `denied` |
-| `audio tone [<hz>] [<ms>]` · `audio stop` | implemented | test sound / "find my clock" |
+| `audio tone [<hz>] [<ms>]` · `audio stop` | implemented | test sound / "find my clock"; `audio stop` also ends `audio play` |
 | `ui knob bright <0-100>` | implemented | status-LED brightness |
 | `net ble period <100-3600000>` | implemented | status notify interval, ms. Global, **not persisted** (1000 after every boot) |
 | `net ble pair off` | implemented | close the pairing window |
@@ -304,3 +307,4 @@ marked newer. Unknown keys: ignore.
 |---|---|---|
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
 | 2026-09-28 | proto 1 / schema 1 | Implemented `chrono time epoch` (offset now optional), `chrono alarm set/arm`; added `chrono tz`, `chrono alarm`; `tz_off_min` populated; new flag bit 30 `date_valid`; "Keeping time" guidance. All compatible |
+| 2026-09-27 | proto 1 / schema 1 | The alarm rings. New `ui_mode` values `ringing` (6) and `snoozed` (7); new commands `chrono alarm tone`, `chrono alarm fire/snooze/dismiss`, `audio play`. All compatible (new enum values, new commands) |

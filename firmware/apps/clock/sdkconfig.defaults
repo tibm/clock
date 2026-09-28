@@ -32,6 +32,13 @@ CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
 
+# microSD (FIRMWARE.md §6.3): tones are named by people, so long file names -- "birds.wav" is
+# already past 8.3's case rules, "forest morning.wav" past its length.  Heap, not stack: 255
+# UTF-16 units is half a KB of somebody's task stack otherwise.
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+CONFIG_FATFS_API_ENCODING_UTF_8=y
+
 # language
 CONFIG_COMPILER_CXX_EXCEPTIONS=n
 CONFIG_COMPILER_CXX_RTTI=n

@@ -168,7 +168,31 @@
       "line": "chrono alarm arm <on|off>",
       "status": "implemented",
       "unsafe": false,
-      "use": "arm / disarm. NVS-persisted. NOTE: firmware does not ring the alarm yet (TODO)"
+      "use": "arm / disarm. NVS-persisted. When armed the clock rings at the set local minute (ui_mode -> ringing)"
+    },
+    {
+      "line": "chrono alarm tone [<name>|none]",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "which /sd/tones WAV rings (bare file name; none = the built-in beep). Checked on the card first: bad-arg if it is not 48 kHz mono 16-bit, not-present with no card. NVS-persisted"
+    },
+    {
+      "line": "chrono alarm fire",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "ring now (a test of the alarm sound); ui_mode -> ringing"
+    },
+    {
+      "line": "chrono alarm snooze",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "snooze a ringing alarm (not-ready otherwise); ui_mode -> snoozed"
+    },
+    {
+      "line": "chrono alarm dismiss",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "stop a ringing or snoozed alarm; it stays armed for tomorrow (not-ready otherwise)"
     },
     {
       "line": "chrono steps <n>",
@@ -216,7 +240,13 @@
       "line": "audio stop",
       "status": "implemented",
       "unsafe": false,
-      "use": "stop a tone"
+      "use": "stop a tone or a playing file (not a ringing alarm's mode -- use chrono alarm dismiss)"
+    },
+    {
+      "line": "audio play <name> [loop]",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "play a /sd/tones WAV (48 kHz mono 16-bit) once, or looped until audio stop; e.g. to preview an alarm tone"
     },
     {
       "line": "unsafe on",
@@ -642,7 +672,9 @@
         "alarm",
         "clock",
         "volume",
-        "pairing"
+        "pairing",
+        "ringing",
+        "snoozed"
       ],
       "ble_state": [
         "off",

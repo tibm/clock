@@ -3,8 +3,10 @@
 // Owns the encoder (PCNT diff every 20 ms), ENC_SW, the seven pixels and the wake light.
 //
 // One press steps the mode, a turn edits the lit mode, five seconds without input drops
-// back to Idle, and a ten-second hold opens BLE pairing.  The modes are NAMED AFTER THE
-// ICONS on the plate -- `bell` arms the alarm, `alarm` sets its time, `clock` sets the time
+// back to Idle, and a ten-second hold opens BLE pairing.  And the alarm: at the set minute the
+// clock RINGS (storage plays the tone), a press or a tap snoozes, a long press dismisses.  The
+// modes are NAMED AFTER THE ICONS on the plate -- `bell` arms the alarm, `alarm` sets its time,
+// `clock` sets the time
 // -- because the icon is the only label the user ever sees.
 #pragma once
 
@@ -16,14 +18,18 @@
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
 #include "clk/services/net.hpp"
+#include "clk/services/storage.hpp"
 
 namespace clk::svc {
 
 class Ui final : public ActiveObject {
 public:
     // README §12, in the order a press visits them.  Battery is status-only and is skipped
-    // by the cycle; Pairing is off the cycle entirely and is reached by holding.
-    enum class Mode : uint8_t { Idle, Bell, Alarm, Clock, Volume, Pairing };
+    // by the cycle; Pairing is off the cycle entirely and is reached by holding.  Ringing and
+    // Snoozed are off it too: only the alarm gets you there (§6.6's state diagram).
+    // ⚠ The numbers are on the wire (snapshot offset 88, app/protocol.json `ui_mode`) --
+    // append, never reorder.
+    enum class Mode : uint8_t { Idle, Bell, Alarm, Clock, Volume, Pairing, Ringing, Snoozed };
 
     struct Snapshot {
         Mode mode;
@@ -36,7 +42,9 @@ public:
         // The network owns the time (radio on + provisioned + synced at least once), so
         // `clock` refuses rather than letting the knob overwrite what SNTP will restore.
         bool net_locked;
-        uint32_t held_ms;  // how long ENC_SW has been down right now; 0 when it is up
+        uint32_t held_ms;         // how long ENC_SW has been down right now; 0 when it is up
+        uint32_t ringing_ms;      // how long the current ring has gone on; 0 unless Ringing
+        uint32_t snooze_left_ms;  // until it rings again; 0 unless Snoozed
         // What `ui` already reads on its own tick, kept so nobody has to read it twice: the
         // status snapshot (§8.3) takes these rather than racing `ui` for the same chips.
         int32_t knob_count;
@@ -67,16 +75,23 @@ public:
         uint32_t pair_press_ms = 10000;  // ... and this far in, BLE pairing instead
         uint8_t brightness = 60;         // percent, perceptual (gamma is applied after it)
         uint8_t arm_deadband = 2;        // counts before a turn in `bell` means anything
+        uint8_t snooze_min = 9;          // §7.5's default
+        // An alarm nobody answers stops by itself: a clock ringing all day in an empty flat is
+        // a neighbour problem, not a feature.  Dismissed, not snoozed -- it is over.
+        uint8_t ring_max_min = 15;
     };
 
     Ui() noexcept;
 
     // `n` is optional: without it `pairing` is a light show that times out like any mode,
     // which is what it was before the radio existed and what a test with no `net` still gets.
-    void bind(Motion* m, Chrono* c, Net* n = nullptr) noexcept {
+    // `s` likewise: without it the alarm still rings as far as the modes and the pixels go,
+    // and makes no sound.
+    void bind(Motion* m, Chrono* c, Net* n = nullptr, Storage* s = nullptr) noexcept {
         motion_ = m;
         chrono_ = c;
         net_ = n;
+        storage_ = s;
     }
     void set_mode(Mode) noexcept;
     // The alarm, from the CLI / the app.  Posted: `ui` owns it (the knob edits the same two
@@ -85,6 +100,12 @@ public:
         post(AlarmCfg{static_cast<int16_t>(min_of_day), -1});
     }
     void arm_alarm(bool on) noexcept { post(AlarmCfg{-1, static_cast<int8_t>(on ? 1 : 0)}); }
+    // The same three things the knob and a tap do, for `chrono alarm fire|snooze|dismiss` and
+    // the app.  fire() rings now whatever the time and whether or not it is armed -- it is
+    // the bench's way to hear the alarm.  snooze() only means something while it rings.
+    void fire_alarm() noexcept { post(ModeSet{static_cast<uint8_t>(Mode::Ringing)}); }
+    void snooze() noexcept { post(ModeSet{static_cast<uint8_t>(Mode::Snoozed)}); }
+    void dismiss() noexcept { post(ModeSet{static_cast<uint8_t>(Mode::Idle)}); }
 
     // Bench isolation for the knob (§12.0.10).  While input is OFF, `ui` still runs -- the
     // pixels animate, the timeout ticks, the alarm chimes -- but it stops READING the knob
@@ -128,6 +149,10 @@ private:
     [[nodiscard]] uint32_t pace_ms() const noexcept;
     void publish() noexcept;
     void watch_pairing() noexcept;  // the window closed under us: bonded, expired, radio off
+    void watch_alarm() noexcept;    // due? snooze over? rung long enough?
+    [[nodiscard]] bool ringing() const noexcept {
+        return mode_ == Mode::Ringing || mode_ == Mode::Snoozed;
+    }
     [[nodiscard]] bool net_owns_time() const noexcept;
     [[nodiscard]] int32_t gain_for(int32_t magnitude) const noexcept;
 
@@ -156,6 +181,7 @@ private:
     Motion* motion_ = nullptr;
     Chrono* chrono_ = nullptr;
     Net* net_ = nullptr;
+    Storage* storage_ = nullptr;
     uint32_t net_windows_ = 0;  // Net::Snapshot::windows when we last looked
 
     Mode mode_ = Mode::Idle;
@@ -179,6 +205,12 @@ private:
     // now it survives as long as clocksim runs, which is enough to tune the interaction.
     bool alarm_armed_ = false;
     int alarm_min_of_day_ = 7 * 60;
+    // The LOCAL minute (minutes since the epoch, offset applied) the alarm last fired in, so
+    // it fires once per matching minute however many ticks land inside it -- and a dismissal
+    // at 07:00:20 does not ring again at 07:00:40.
+    int64_t fired_min_ = -1;
+    uint64_t ring_since_us_ = 0;
+    uint64_t snooze_until_us_ = 0;
     int set_min_of_day_ = 0;  // what the knob is editing in Alarm / Clock
     // Counts the knob has delivered and the setting has not spent yet.  Not an optimisation:
     // a turn arrives as a stream of small deltas, and dividing each one on its own discards

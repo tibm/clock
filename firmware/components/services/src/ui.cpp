@@ -84,6 +84,10 @@ const char* name_of(Ui::Mode m) noexcept {
             return "volume";
         case Ui::Mode::Pairing:
             return "pairing";
+        case Ui::Mode::Ringing:
+            return "ringing";
+        case Ui::Mode::Snoozed:
+            return "snoozed";
     }
     return "?";
 }
@@ -147,7 +151,13 @@ void Ui::set_anim_cfg(domain::AnimCfg const& c) noexcept {
 void Ui::set_mode(Mode m) noexcept { post(ModeSet{static_cast<uint8_t>(m)}); }
 
 void Ui::on_event(Event const& e) {
-    if (const auto* m = as<ModeSet>(e)) return enter(static_cast<Mode>(m->mode));
+    if (const auto* m = as<ModeSet>(e)) {
+        const auto want = static_cast<Mode>(m->mode);
+        // Snoozing is an answer to a ring; there is nothing to snooze otherwise.
+        if (want == Mode::Snoozed && mode_ != Mode::Ringing) return;
+        if (want == Mode::Ringing) CLK_LOGI(ui, "ALARM fires (asked for)");
+        return enter(want);
+    }
     if (const auto* a = as<AlarmCfg>(e)) {
         if (a->min_of_day >= 0 && a->min_of_day < 24 * 60) {
             alarm_min_of_day_ = a->min_of_day;
@@ -166,12 +176,12 @@ void Ui::on_event(Event const& e) {
         return;
     }
     if (as<Tap>(e)) {
-        // Tap-to-snooze (README §12).  Until the alarm exists it is a visible
-        // acknowledgement, which is still the interaction worth tuning: a tap must feel
-        // like it did something.
+        // Tap-to-snooze (README §12).  Otherwise it is a visible acknowledgement: a tap must
+        // feel like it did something.
         CLK_LOGI(ui, "tap");
-        tap_ack();
         last_input_us_ = port::now_us();
+        if (mode_ == Mode::Ringing) return enter(Mode::Snoozed);
+        tap_ack();
     }
 }
 
@@ -181,6 +191,7 @@ void Ui::on_tick() {
     poll_level();
     watch_battery();
     drain_setting();  // release banked counts at the speed the hands can render them
+    watch_alarm();
 
     // ONE timeout, and every mode obeys it -- except a pairing window the radio is actually
     // holding open.  Five seconds is not long enough to get a phone out of a pocket, and the
@@ -189,7 +200,8 @@ void Ui::on_tick() {
     watch_pairing();
     const auto t = tuning();
     const bool radio_holds = mode_ == Mode::Pairing && net_ && net_->snapshot().pairing;
-    if (mode_ != Mode::Idle && !radio_holds &&
+    // Nor a ringing alarm: it ends by an answer, or by Tuning::ring_max_min (watch_alarm).
+    if (mode_ != Mode::Idle && !radio_holds && !ringing() &&
         port::now_us() - last_input_us_ > t.timeout_ms * 1000ull) {
         CLK_LOGI(ui, "timeout -> idle (settings kept)");
         enter(Mode::Idle);
@@ -321,7 +333,9 @@ void Ui::poll_knob() noexcept {
     // deliberate ten-second hold.
     last_input_us_ = port::now_us();
     const auto t = tuning();
-    if (!pair_armed_ && mode_ != Mode::Pairing &&
+    // Not out of an alarm: a hand held on the knob of a ringing clock is somebody trying to
+    // make it stop, and the long-press dismissal has already done that at 800 ms.
+    if (!pair_armed_ && mode_ != Mode::Pairing && !ringing() &&
         port::now_us() - sw_down_us_ >= t.pair_press_ms * 1000ull) {
         // The hold commits HERE, at the ten-second mark, and lights up to say so -- a
         // gesture with no feedback until you let go is a gesture nobody discovers.  The
@@ -359,6 +373,18 @@ void Ui::enter(Mode m) noexcept {
     if (mode_ == Mode::Clock && m != Mode::Clock) commit_clock();
     if (mode_ == Mode::Volume && m != Mode::Volume) chime_stop();
     if (mode_ == Mode::Alarm && m != Mode::Alarm) save_alarm();  // once per edit, not per minute
+    // The sound.  Ringing is the only mode that makes one; leaving it for anything, snooze
+    // included, stops it (with a fade -- hal::audio::stop() always releases through the tail).
+    if (m == Mode::Ringing && mode_ != Mode::Ringing) {
+        ring_since_us_ = port::now_us();
+        if (storage_) (void)storage_->ring_alarm();
+    }
+    if (mode_ == Mode::Ringing && m != Mode::Ringing && storage_) (void)storage_->stop();
+    if (m == Mode::Snoozed) {
+        snooze_until_us_ = port::now_us() + tuning().snooze_min * 60'000'000ull;
+        CLK_LOGI(ui, "snoozed %u min", static_cast<unsigned>(tuning().snooze_min));
+    }
+    if (ringing() && m == Mode::Idle) CLK_LOGI(ui, "alarm dismissed");
 
     mode_ = m;
     last_input_us_ = port::now_us();
@@ -384,7 +410,9 @@ void Ui::enter(Mode m) noexcept {
     // The hands are the readout in every mode but Idle and Pairing, so the clock has to let
     // go of them first: chrono pushes a fresh target every second, and it would take the
     // preview back between one turn of the knob and the next.
-    if (chrono_) chrono_->set_follow(m == Mode::Idle || m == Mode::Pairing);
+    if (chrono_)
+        chrono_->set_follow(m == Mode::Idle || m == Mode::Pairing || m == Mode::Ringing ||
+                            m == Mode::Snoozed);
     show_hands();
     CLK_LOGI(ui, "mode %s", name_of(m));
 }
@@ -404,8 +432,9 @@ void Ui::rotate(int32_t counts) noexcept {
     if (counts == 0) return;
     last_input_us_ = port::now_us();
     // A turn in Idle wakes nothing -- press first.  A turn while pairing is not a control
-    // either; there is nothing on that screen to adjust.
-    if (mode_ == Mode::Idle || mode_ == Mode::Pairing) return;
+    // either; there is nothing on that screen to adjust.  Nor while the alarm rings: turning
+    // a knob in the dark is fumbling for it, and fumbling must not change the alarm.
+    if (mode_ == Mode::Idle || mode_ == Mode::Pairing || ringing()) return;
 
     const auto t = tuning();
 
@@ -560,11 +589,18 @@ void Ui::press(uint32_t held_ms) noexcept {
 
     if (held_ms >= tuning().long_press_ms) {
         CLK_LOGI(ui, "long press -> idle");
-        enter(Mode::Idle);  // commits a clock set on the way out
+        enter(Mode::Idle);  // commits a clock set on the way out; dismisses an alarm
         return;
     }
 
     switch (mode_) {
+        case Mode::Ringing:
+            enter(Mode::Snoozed);
+            break;
+        case Mode::Snoozed:
+            // Already snoozed.  A short press is somebody checking; it changes nothing, and
+            // the bell still says so.  Only a long press ends it.
+            break;
         case Mode::Idle:
             enter(Mode::Bell);
             break;
@@ -732,6 +768,14 @@ void Ui::cue() noexcept {
             for (std::size_t i = kBell; i <= kBatt; ++i)
                 want[i] = domain::breathe(domain::kBlue, l);
             break;
+        case Mode::Ringing:
+            // §6.6: "bell pixel red".  Blinking -- this is the one moment the light on the
+            // bedside is SUPPOSED to be urgent (compare the armed bell, which breathes).
+            want[kBell] = domain::blink(domain::kRed, l);
+            break;
+        case Mode::Snoozed:
+            want[kBell] = domain::breathe(domain::kAmber, l);
+            break;
     }
 
     // The cell warning is the one emitter no input causes, and the one documented exception
@@ -806,6 +850,38 @@ void Ui::chime_stop() noexcept {
     chime_off_us_ = chime_at_us_ = 0;
 }
 
+// The alarm, once a tick.  Three clocks run here: is it due, is the snooze over, has it rung
+// long enough.  Wall time for the first (it is a TIME, and the clock can be set under it);
+// monotonic for the other two (they are durations, and must not care if it is).
+void Ui::watch_alarm() noexcept {
+    const uint64_t now = port::now_us();
+    const auto t = tuning();
+    if (mode_ == Mode::Snoozed && now >= snooze_until_us_) {
+        CLK_LOGI(ui, "snooze over -- ringing again");
+        enter(Mode::Ringing);
+        return;
+    }
+    if (mode_ == Mode::Ringing && now - ring_since_us_ >= t.ring_max_min * 60'000'000ull) {
+        CLK_LOGW(ui, "alarm rang %u min unanswered -- stopping",
+                 static_cast<unsigned>(t.ring_max_min));
+        enter(Mode::Idle);
+        return;
+    }
+    if (!alarm_armed_ || !chrono_ || ringing()) return;
+    // Not while the alarm is being EDITED: the time under the knob sweeps past "now" on its way
+    // to where it is going, and that is not the user asking to be woken.  Nothing is marked as
+    // fired, so if the edit ends inside the minute it still rings.
+    if (mode_ == Mode::Alarm) return;
+    const auto c = chrono_->snapshot();
+    if (!c.valid) return;  // no time, no alarm: 07:00 of an unset clock is an uptime
+    if (c.hour * 60 + c.minute != alarm_min_of_day_) return;
+    const int64_t local_min = (c.epoch_ms + c.tz_off_min * 60'000ll) / 60'000ll;
+    if (local_min == fired_min_) return;
+    fired_min_ = local_min;
+    CLK_LOGI(ui, "ALARM %02d:%02d fires", alarm_min_of_day_ / 60, alarm_min_of_day_ % 60);
+    enter(Mode::Ringing);
+}
+
 void Ui::publish() noexcept {
     const auto t = tuning();
     const uint64_t now = port::now_us();
@@ -826,6 +902,11 @@ void Ui::publish() noexcept {
     snap_.idle_in_ms = mode_ == Mode::Idle ? 0 : left;
     snap_.net_locked = locked;
     snap_.held_ms = sw_last_ ? static_cast<uint32_t>((now - sw_down_us_) / 1000ull) : 0;
+    snap_.ringing_ms =
+        mode_ == Mode::Ringing ? static_cast<uint32_t>((now - ring_since_us_) / 1000ull) : 0u;
+    snap_.snooze_left_ms = mode_ == Mode::Snoozed && snooze_until_us_ > now
+                               ? static_cast<uint32_t>((snooze_until_us_ - now) / 1000ull)
+                               : 0u;
     snap_.knob_count = knob_last_;
     snap_.input = input_;
     snap_.brightness = tune_.brightness;

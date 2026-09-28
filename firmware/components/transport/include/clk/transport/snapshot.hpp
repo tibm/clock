@@ -98,7 +98,7 @@ struct Snapshot {
     uint16_t trims = 0;     // auto-home corrections since boot
     int16_t last_trim = 0;  // usteps
     // ---- ui -----------------------------------------------------------------------------------
-    uint8_t ui_mode = 0;  // svc::Ui::Mode: idle bell alarm clock volume pairing
+    uint8_t ui_mode = 0;  // svc::Ui::Mode: idle bell alarm clock volume pairing ringing snoozed
     uint8_t volume = 0;   // %
     uint8_t alarm_h = 0, alarm_m = 0;
     uint8_t brightness = 0;                // %

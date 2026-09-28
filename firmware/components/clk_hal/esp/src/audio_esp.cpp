@@ -23,11 +23,13 @@
 #include "driver/gpio.h"
 #include "driver/i2s_std.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
+#include "clk/hal/pcm.hpp"
 #include "clk/hal/tas5760m.hpp"
 #include "clk/hal/tone.hpp"
 #include "clk/log.hpp"
@@ -86,7 +88,20 @@ i2s_chan_handle_t g_tx = nullptr;
 bool g_task_started = false;
 
 // --- guarded by g_mx ---
+// Which source the writer is draining.  One at a time: starting either replaces the other.
+enum class Src : uint8_t { None, Tone, Stream };
+Src g_src = Src::None;
 tone::Sine g_gen;
+// The stream.  The ring's two indices are atomics (SPSC, pcm.hpp) and `storage` writes it
+// without this lock; everything else -- clearing it, the mixer, which source is live -- is
+// under g_mx, which the writer also holds while it fills a block.  That is what makes
+// stream_open()'s clear safe: the writer cannot be halfway through a read of the ring.
+pcm::Ring g_ring;
+int16_t* g_ring_buf = nullptr;  // PSRAM, allocated on the first stream_open(), never freed
+pcm::Mixer g_mix;
+std::atomic<bool> g_eof{false};
+std::atomic<uint32_t> g_stream_seq{0};
+bool g_req_stream = false;  // the pending start is for the stream, not a tone
 bool g_req_pending = false;
 uint32_t g_req_hz = 0;
 uint32_t g_req_ms = 0;
@@ -307,11 +322,13 @@ void writer(void*) noexcept {
     uint32_t idle_since = 0;
     for (;;) {
         bool start_req = false;
+        bool stream_req = false;
         uint32_t hz = 0, ms = 0;
         bool stop_req = false;
         {
             port::Lock lk{g_mx};
             start_req = g_req_pending;
+            stream_req = g_req_stream;
             hz = g_req_hz;
             ms = g_req_ms;
             stop_req = g_req_stop;
@@ -322,9 +339,17 @@ void writer(void*) noexcept {
         if (start_req) {
             if (bring_up() == Status::Ok) {
                 port::Lock lk{g_mx};
-                g_gen.start(hz, kRateHz, 1.0f, ms);
+                // The stream's mixer was started by stream_open() itself -- it has to be, so
+                // that the ring is clear before `storage` writes the first sample into it.
+                if (!stream_req) {
+                    g_src = Src::Tone;
+                    g_gen.start(hz, kRateHz, 1.0f, ms);
+                }
                 g_playing.store(true, std::memory_order_relaxed);
             } else {
+                port::Lock lk{g_mx};
+                if (stream_req) g_mix.release();  // unprimed: done at once, `storage` sees it
+                g_src = Src::None;
                 g_playing.store(false, std::memory_order_relaxed);
             }
             // Published LAST, so a waiter that sees the new sequence number also sees the
@@ -334,6 +359,7 @@ void writer(void*) noexcept {
         if (stop_req) {
             port::Lock lk{g_mx};
             g_gen.release();
+            g_mix.release();
         }
 
         if (!g_playing.load(std::memory_order_relaxed)) {
@@ -353,8 +379,14 @@ void writer(void*) noexcept {
         bool finished = false;
         {
             port::Lock lk{g_mx};
-            (void)g_gen.fill(g_block, kBlockFrames);
-            finished = g_gen.done();
+            if (g_src == Src::Stream) {
+                g_mix.fill(g_ring, g_eof.load(std::memory_order_acquire), g_block, kBlockFrames);
+                finished = g_mix.done();
+            } else {
+                (void)g_gen.fill(g_block, kBlockFrames);
+                finished = g_gen.done();
+            }
+            if (finished) g_src = Src::None;
         }
         std::size_t wrote = 0;
         const esp_err_t e =
@@ -389,6 +421,8 @@ Status enable(bool on) noexcept {
         port::Lock lk{g_mx};
         g_req_pending = false;
         g_gen.release();
+        g_mix.release();
+        g_src = Src::None;
     }
     g_playing.store(false, std::memory_order_relaxed);
     bring_down();
@@ -423,12 +457,73 @@ Status tone(uint32_t hz, uint32_t ms) noexcept {
     {
         port::Lock lk{g_mx};
         g_req_pending = true;
+        g_req_stream = false;
         g_req_hz = hz;
         g_req_ms = ms;
         g_req_stop = false;
+        // A tone replaces a stream.  Released rather than cut, so the ~5 ms before the writer
+        // picks the request up are a fade and not a step.
+        g_mix.release();
     }
     g_sig.notify();
     return Status::Ok;
+}
+
+Status stream_open(uint32_t ramp_ms) noexcept {
+    if (!board::present(board::Dev::Amp)) return Status::NotPresent;
+    if (!ensure_task()) return Status::Failed;
+    constexpr std::size_t kCap = static_cast<std::size_t>(kRateHz) * kStreamRingMs / 1000u;
+    port::Lock lk{g_mx};
+    if (!g_ring_buf) {
+        // 192 KB.  PSRAM, and it has to be: that is two thirds of what internal RAM has left
+        // with BLE up.  The writer copies out of it a block at a time into internal g_block,
+        // so the DMA never sees PSRAM.
+        g_ring_buf = static_cast<int16_t*>(
+            ::heap_caps_malloc(kCap * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+        if (!g_ring_buf) {
+            CLK_LOGE(drv_amp, "no PSRAM for the %u ms stream ring",
+                     static_cast<unsigned>(kStreamRingMs));
+            return Status::Failed;
+        }
+        g_ring.attach(g_ring_buf, kCap);
+    }
+    g_gen.release();
+    g_ring.clear();
+    g_mix.start(kRateHz, ramp_ms);
+    g_eof.store(false, std::memory_order_release);
+    g_src = Src::Stream;
+    g_req_pending = true;
+    g_req_stream = true;
+    g_req_stop = false;
+    g_stream_seq.fetch_add(1, std::memory_order_relaxed);
+    g_sig.notify();
+    return Status::Ok;
+}
+
+std::size_t stream_write(const int16_t* mono, std::size_t n) noexcept {
+    if (!mono || !g_ring_buf) return 0;
+    return g_ring.write(mono, n);
+}
+
+std::size_t stream_space() noexcept {
+    port::Lock lk{g_mx};
+    if (g_src != Src::Stream || g_mix.done() || g_eof.load(std::memory_order_relaxed)) return 0;
+    return g_ring.space();
+}
+
+void stream_end() noexcept { g_eof.store(true, std::memory_order_release); }
+
+Stream stream() noexcept {
+    Stream st{};
+    port::Lock lk{g_mx};
+    st.open = g_src == Src::Stream && !g_mix.done();
+    st.primed = st.open && g_mix.primed();
+    st.level = static_cast<uint32_t>(g_ring_buf ? g_ring.level() : 0u);
+    st.cap = static_cast<uint32_t>(g_ring.capacity());
+    st.underruns = g_mix.underruns();
+    st.played = g_mix.frames_played();
+    st.seq = g_stream_seq.load(std::memory_order_relaxed);
+    return st;
 }
 
 uint32_t start_seq() noexcept { return g_start_seq.load(std::memory_order_acquire); }

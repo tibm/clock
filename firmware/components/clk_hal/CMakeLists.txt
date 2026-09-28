@@ -17,16 +17,20 @@ set(CLK_HAL_SHARED
     shared/bme688.cpp
     shared/bno085.cpp
     shared/power.cpp
-    shared/tone.cpp)
+    shared/tone.cpp
+    shared/wav.cpp
+    shared/pcm.cpp
+    shared/sd_files.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS esp/src/hal_esp.cpp esp/src/motor_esp.cpp esp/src/audio_esp.cpp
-                                esp/src/ble_esp.cpp
+                                esp/src/ble_esp.cpp esp/src/sd_esp.cpp
                                 ${CLK_HAL_SHARED}
                            INCLUDE_DIRS api
                            REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c
                                     esp_driver_gpio esp_driver_pcnt esp_driver_mcpwm
                                     esp_driver_gptimer esp_driver_i2s esp_adc
+                                    esp_driver_spi esp_driver_sdspi sdmmc fatfs vfs
                                     espressif__led_strip bt)
 else()
     find_package(Threads REQUIRED)

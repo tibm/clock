@@ -13,6 +13,7 @@ set(CLK_CLI_SRCS
     src/cmd_board.cpp
     src/cmd_audio.cpp
     src/cmd_net.cpp
+    src/cmd_storage.cpp
     src/stream.cpp)
 
 if(ESP_PLATFORM)

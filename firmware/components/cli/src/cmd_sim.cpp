@@ -211,6 +211,21 @@ Status cmd_speaker(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// The card is a directory here.  `sim sd off` pulls it -- mid-stream, if you like, which is the
+// failure `storage` has to survive with the alarm still ringing.
+Status cmd_sd(Args const& a, Sink& out) {
+    if (!a.arg(0)) {
+        const std::string d = sim::sd_dir();
+        out.printf("sd     %s", d.empty() ? "(slot empty)" : d.c_str());
+        out.line("  tones go in <dir>/tones/ -- 48 kHz mono 16-bit WAV (`storage ls`)");
+        return Status::Ok;
+    }
+    const bool off = a.sv(0) == "off";
+    sim::set_sd_dir(off ? "" : a.arg(0));
+    out.printf("sd     %s -- `storage sd mount` to mount it", off ? "slot emptied" : a.arg(0));
+    return Status::Ok;
+}
+
 Status cmd_vbat(Args const& a, Sink& out) {
     const long mv = arg_l(a, 0, -1);
     if (mv < 2500 || mv > 4400) {
@@ -465,6 +480,7 @@ constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "env", "<degC> <RH%> <hPa> [<ohm>]", "the air (BME688 model)", kHost, cmd_env},
     {"sim", nullptr, "radio", "<on|off>", "rear J11 toggle; on = radios off", kHost, cmd_radio},
     {"sim", nullptr, "speaker", "<on|off>", "amp out of shutdown", kHost, cmd_speaker},
+    {"sim", nullptr, "sd", "[<dir>|off]", "the microSD card: a directory, or none", kHost, cmd_sd},
     {"sim", nullptr, "vbat", "<mV>", "cell voltage", kHost, cmd_vbat},
     {"sim", nullptr, "cell", "[in|out]", "a cell in the holder, or none", kHost, cmd_cell},
     {"sim", nullptr, "noise", "<mV>", "ADC noise, deterministic", kHost, cmd_noise},

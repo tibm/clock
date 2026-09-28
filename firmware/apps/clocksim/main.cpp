@@ -22,6 +22,7 @@
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
 #include "clk/services/net.hpp"
+#include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
 
 namespace {
@@ -55,6 +56,14 @@ std::string store_path() {
     return home ? std::string{home} + "/.clocksim.nvs" : std::string{".clocksim.nvs"};
 }
 
+// The microSD slot.  A directory stands in for the card -- /sd/tones/x.wav is <dir>/tones/x.wav
+// -- and no directory is an empty slot, which is a state the product must handle anyway.
+std::string sd_path() {
+    if (const char* env = std::getenv("CLOCKSIM_SD")) return env;
+    const char* home = std::getenv("HOME");
+    return home ? std::string{home} + "/.clocksim.sd" : std::string{};
+}
+
 void usage() {
     std::printf(
         "clocksim -- the clock firmware against fake hardware\n"
@@ -63,6 +72,8 @@ void usage() {
         "  --no-home       do not home on boot (the test rig; `motion home` still works)\n"
         "  --nvs <path>    where persistent settings live  (default ~/.clocksim.nvs,\n"
         "                  or $CLOCKSIM_NVS)\n"
+        "  --sd <dir>      the microSD card: a directory, tones in <dir>/tones/\n"
+        "                  (default ~/.clocksim.sd, or $CLOCKSIM_SD; missing = no card)\n"
         "  -h, --help      this\n",
         clk::uibridge::kDefaultPort);
 }
@@ -73,6 +84,7 @@ int main(int argc, char** argv) {
     uint16_t ui_port = clk::uibridge::kDefaultPort;
     bool home_on_boot = true;
     std::string nvs = store_path();
+    std::string sd = sd_path();
     g_argv = argv;
 
     for (int i = 1; i < argc; ++i) {
@@ -81,6 +93,8 @@ int main(int argc, char** argv) {
             ui_port = 0;
         } else if (std::strcmp(a, "--no-home") == 0) {
             home_on_boot = false;
+        } else if (std::strcmp(a, "--sd") == 0 && i + 1 < argc) {
+            sd = argv[++i];
         } else if (std::strcmp(a, "--nvs") == 0 && i + 1 < argc) {
             nvs = argv[++i];
         } else if (std::strcmp(a, "--ui-port") == 0 && i + 1 < argc) {
@@ -100,6 +114,8 @@ int main(int argc, char** argv) {
     clk::hal::host::set_reboot_hook(reboot_now);
     clk::hal::host::set_store_path(nvs.c_str());
     CLK_LOGI(sys, "nvs: %s", nvs.c_str());
+    clk::hal::host::set_sd_dir(sd.c_str());
+    CLK_LOGI(sys, "sd: %s", sd.c_str());
 
     // Same construction order as app_main: wire the AOs to each other, then start them in
     // priority order.  motion has no dependencies; chrono drives it; ui drives both.
@@ -107,9 +123,10 @@ int main(int argc, char** argv) {
     auto& chrono = clk::svc::chrono();
     auto& ui = clk::svc::ui();
     auto& net = clk::svc::net();
+    auto& storage = clk::svc::storage();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    ui.bind(&motion, &chrono, &net);
+    ui.bind(&motion, &chrono, &net, &storage);
     net.bind(&motion, &chrono, &ui);
     clk::cli::bind_net();
     // A real clock homes the moment it powers up (§6.1).  The test rig turns that off: a
@@ -118,6 +135,7 @@ int main(int argc, char** argv) {
     motion.set_home_on_start(home_on_boot);
     motion.start();
     chrono.start();
+    storage.start();  // before ui: an alarm due at boot must find the card already mounted
     net.start();
     ui.start();
 
@@ -127,6 +145,7 @@ int main(int argc, char** argv) {
 
     ui.stop();
     net.stop();
+    storage.stop();
     chrono.stop();
     motion.stop();
     return 0;

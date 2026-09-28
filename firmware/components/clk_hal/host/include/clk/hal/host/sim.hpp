@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "clk/board.hpp"
 #include "clk/hal/hal.hpp"
@@ -70,6 +71,13 @@ void set_expander_in(hal::expander::Sig, bool level) noexcept;
 
 // ---- audio -----------------------------------------------------------------------------
 void set_speaker(bool on) noexcept;  // stands in for the `audio` AO until it exists
+
+// ---- microSD ---------------------------------------------------------------------------
+// The card is a directory on this machine; /sd/tones/x.wav is <dir>/tones/x.wav.  nullptr or
+// "" empties the slot.  Survives reset() -- it is what is plugged in, not a power-on state --
+// but reset() unmounts, as a power cycle would.
+void set_sd_dir(const char* dir) noexcept;
+std::string sd_dir();
 
 // ---- power -----------------------------------------------------------------------------
 void set_plugged(bool) noexcept;

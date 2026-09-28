@@ -8,7 +8,9 @@
 #include "clk/cli/registry.hpp"
 #include "clk/domain/hand.hpp"
 #include "clk/services/chrono.hpp"
+#include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
+#include "sto_wait.hpp"
 
 namespace clk::cli {
 namespace {
@@ -136,14 +138,98 @@ bool alarm_is(int min_of_day, int armed) {
 
 Status alarm_print(Sink& out) {
     const auto u = svc::ui().snapshot();
-    out.printf("alarm %02d:%02d %s", u.alarm_hour, u.alarm_minute, u.alarm_armed ? "armed" : "off");
+    const auto s = svc::storage().snapshot();
+    out.printf("alarm %02d:%02d %s  tone %s", u.alarm_hour, u.alarm_minute,
+               u.alarm_armed ? "armed" : "off", s.alarm_tone[0] ? s.alarm_tone : "(beep)");
+    if (u.mode == svc::Ui::Mode::Ringing)
+        out.printf("  RINGING for %lu s -- `chrono alarm snooze|dismiss`",
+                   static_cast<unsigned long>(u.ringing_ms / 1000));
+    if (u.mode == svc::Ui::Mode::Snoozed)
+        out.printf("  snoozed, rings again in %lu s",
+                   static_cast<unsigned long>(u.snooze_left_ms / 1000));
     return Status::Ok;
 }
 
 Status cmd_alarm(Args const& a, Sink& out) {
     if (a.count() == 0) return alarm_print(out);
-    out.line("usage: chrono alarm [set <hh:mm> | arm <on|off>]");
+    out.line("usage: chrono alarm [set <hh:mm> | arm <on|off> | tone [<name>|none]]");
     return Status::BadArg;
+}
+
+// Which file rings.  The AO opens it and checks the header before it is accepted, so a file
+// that would not play is refused NOW rather than at 07:00.
+Status cmd_alarm_tone(Args const& a, Sink& out) {
+    if (!a.arg(0)) {
+        const auto s = svc::storage().snapshot();
+        out.printf("tone %s", s.alarm_tone[0] ? s.alarm_tone : "(none -- the beep)");
+        out.line(
+            "  `storage ls` lists the candidates; `chrono alarm tone none` goes back to the beep");
+        return Status::Ok;
+    }
+    const bool none = a.sv(0) == "none";
+    if (const Status st = sto_await(svc::storage().select_tone(none ? "" : a.arg(0)), "tone", out);
+        st != Status::Ok)
+        return st;
+    return alarm_print(out);
+}
+
+bool mode_is(svc::Ui::Mode m) {
+    for (int i = 0; i < 60; ++i) {
+        if (svc::ui().snapshot().mode == m) return true;
+        hal::clock_::sleep_ms(5);
+    }
+    return false;
+}
+
+// The three things the knob and a tap do to an alarm, from the console and the app.
+Status cmd_alarm_fire(Args const&, Sink& out) {
+    svc::ui().fire_alarm();
+    if (!mode_is(svc::Ui::Mode::Ringing)) {
+        out.line("ui did not take it (not running?)");
+        return Status::Failed;
+    }
+    // `storage` answers the ring request on its own thread; give it the moment it needs to
+    // pick a voice, so the line below says which one it picked.
+    hal::clock_::sleep_ms(50);
+    const auto s = svc::storage().snapshot();
+    if (s.playing == svc::Storage::Playing::Beep) {
+        out.printf("ringing -- the fallback beep (%s)", s.last_why ? s.last_why : "?");
+    } else if (s.playing == svc::Storage::Playing::File) {
+        out.printf("ringing -- %s, ramping up over %lu s", s.file,
+                   static_cast<unsigned long>(svc::Storage::kAlarmRampMs / 1000));
+    } else {
+        out.line(
+            "ringing -- silently (no sound source answered: `storage status`, `audio status`)");
+    }
+    return Status::Ok;
+}
+
+Status cmd_alarm_snooze(Args const&, Sink& out) {
+    if (svc::ui().snapshot().mode != svc::Ui::Mode::Ringing) {
+        out.line("snooze refused: the alarm is not ringing");
+        return Status::NotReady;
+    }
+    svc::ui().snooze();
+    if (!mode_is(svc::Ui::Mode::Snoozed)) {
+        out.line("ui did not take it (not running?)");
+        return Status::Failed;
+    }
+    return alarm_print(out);
+}
+
+Status cmd_alarm_dismiss(Args const&, Sink& out) {
+    const auto m = svc::ui().snapshot().mode;
+    if (m != svc::Ui::Mode::Ringing && m != svc::Ui::Mode::Snoozed) {
+        out.line("dismiss refused: the alarm is not ringing or snoozed");
+        return Status::NotReady;
+    }
+    svc::ui().dismiss();
+    if (!mode_is(svc::Ui::Mode::Idle)) {
+        out.line("ui did not take it (not running?)");
+        return Status::Failed;
+    }
+    out.line("alarm dismissed -- still armed for tomorrow");
+    return Status::Ok;
 }
 
 Status cmd_alarm_set(Args const& a, Sink& out) {
@@ -256,6 +342,13 @@ constexpr CmdSpec kRows[] = {
      cmd_tz},
     {"chrono", "alarm", "set", "<hh:mm>", "alarm time (NVS)", None, cmd_alarm_set},
     {"chrono", "alarm", "arm", "<on|off>", "arm or disarm the alarm (NVS)", None, cmd_alarm_arm},
+    {"chrono", "alarm", "tone", "[<name>|none]", "which /sd/tones WAV rings (NVS)", None,
+     cmd_alarm_tone},
+    {"chrono", "alarm", "fire", "", "ring now -- hear the alarm", None, cmd_alarm_fire},
+    {"chrono", "alarm", "snooze", "", "what a press or a tap does to a ring", ReleaseOk,
+     cmd_alarm_snooze},
+    {"chrono", "alarm", "dismiss", "", "what a long press does to a ring", ReleaseOk,
+     cmd_alarm_dismiss},
     {"chrono", "alarm", "", "", "show the alarm", ReleaseOk, cmd_alarm},
     {"chrono", nullptr, "net", "[<fact> [on|off]]", "who owns the time: wifi + sntp", None,
      cmd_net},

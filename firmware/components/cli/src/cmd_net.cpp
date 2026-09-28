@@ -143,7 +143,8 @@ constexpr CmdSpec kNet[] = {
 // ---- sys snap -----------------------------------------------------------------------------
 
 constexpr const char* kMotion[] = {"uninit", "homing", "idle", "moving", "fault"};
-constexpr const char* kMode[] = {"idle", "bell", "alarm", "clock", "volume", "pairing"};
+constexpr const char* kMode[] = {"idle",   "bell",    "alarm",   "clock",
+                                 "volume", "pairing", "ringing", "snoozed"};
 constexpr const char* kPx[] = {"dial0", "dial1", "bell", "alarm", "clock", "vol", "batt"};
 
 template <std::size_t N>
