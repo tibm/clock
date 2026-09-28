@@ -51,7 +51,7 @@ FLAGS = (
     "time_valid time_follow tz_set net_provisioned net_synced net_locked radio_off "
     "ble_connected ble_secure ble_pairing power_ok plugged charging charge_fault full_charge "
     "batt_low homed motor_powered knob_pressed knob_input alarm_armed amp_active "
-    "audio_playing imu_ok imu_link als_ok als_saturated env_ok env_gas_valid env_heat_stable"
+    "audio_playing imu_ok imu_link als_ok als_saturated env_ok env_gas_valid env_heat_stable date_valid"
 ).split()
 MOTION = ["uninit", "homing", "idle", "moving", "fault"]
 MODE = ["idle", "bell", "alarm", "clock", "volume", "pairing"]
@@ -72,10 +72,13 @@ def decode(buf: bytes) -> dict:
     d["lux"] = d["lux"] if d["als_ok"] else None
     d["soc_pct"] = None if d["soc_pct"] == 0xFF or not d["power_ok"] else d["soc_pct"]
     d["opto"] = d["opto"] / 65535
-    d["time"] = (
-        datetime.datetime.fromtimestamp(d["epoch_ms"] / 1000, datetime.timezone.utc).isoformat()
-        if d["time_valid"] else None
-    )
+    # local = UTC + offset (PROTOCOL.md §5 Time); without a date only the time of day is real
+    if d["time_valid"]:
+        local = datetime.datetime.fromtimestamp(
+            (d["epoch_ms"] + d["tz_off_min"] * 60000) / 1000, datetime.timezone.utc)
+        d["time"] = local.strftime("%Y-%m-%d %H:%M:%S" if d["date_valid"] else "%H:%M:%S")
+    else:
+        d["time"] = None
     px = d.pop("px")
     for i, name in enumerate(PIXELS):
         d[f"px_{name}"] = px[4 * i:4 * i + 4].hex()

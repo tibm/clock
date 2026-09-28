@@ -341,6 +341,9 @@ void Net::take_status() noexcept {
             f |= kTimeValid;
             s.epoch_ms = c.epoch_ms;
         }
+        s.tz_off_min = static_cast<int16_t>(c.tz_off_min);
+        if (c.tz_set) f |= kTzSet;
+        if (c.date_valid) f |= kDateValid;
         if (c.follow) f |= kTimeFollow;
         if (c.net_provisioned) f |= kNetProvisioned;
         if (c.net_synced) f |= kNetSynced;

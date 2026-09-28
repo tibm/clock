@@ -2,20 +2,45 @@
   "$comment": "Machine-readable half of app/PROTOCOL.md -- the clock <-> app BLE contract. PROTOCOL.md is normative for behaviour; this file is normative for numbers (UUIDs, offsets, enums, golden vector). The firmware test suite (firmware/test/host/test_net.cpp) asserts the golden vector against the shipping encoder.",
   "protocol_version": 1,
   "snapshot_schema": 1,
-
   "gatt": {
     "service_uuid": "7a3e0001-5c1d-4b8e-9f3a-2c6d1e0b9a41",
     "characteristics": {
-      "cmd":    { "uuid": "7a3e0002-5c1d-4b8e-9f3a-2c6d1e0b9a41", "properties": ["write"],          "max_len": 256, "encoding": "utf8" },
-      "rsp":    { "uuid": "7a3e0003-5c1d-4b8e-9f3a-2c6d1e0b9a41", "properties": ["notify"],         "encoding": "utf8" },
-      "status": { "uuid": "7a3e0004-5c1d-4b8e-9f3a-2c6d1e0b9a41", "properties": ["read", "notify"], "encoding": "binary", "len": 132 },
-      "info":   { "uuid": "7a3e0005-5c1d-4b8e-9f3a-2c6d1e0b9a41", "properties": ["read"],           "encoding": "utf8" }
+      "cmd": {
+        "uuid": "7a3e0002-5c1d-4b8e-9f3a-2c6d1e0b9a41",
+        "properties": [
+          "write"
+        ],
+        "max_len": 256,
+        "encoding": "utf8"
+      },
+      "rsp": {
+        "uuid": "7a3e0003-5c1d-4b8e-9f3a-2c6d1e0b9a41",
+        "properties": [
+          "notify"
+        ],
+        "encoding": "utf8"
+      },
+      "status": {
+        "uuid": "7a3e0004-5c1d-4b8e-9f3a-2c6d1e0b9a41",
+        "properties": [
+          "read",
+          "notify"
+        ],
+        "encoding": "binary",
+        "len": 132
+      },
+      "info": {
+        "uuid": "7a3e0005-5c1d-4b8e-9f3a-2c6d1e0b9a41",
+        "properties": [
+          "read"
+        ],
+        "encoding": "utf8"
+      }
     },
     "security": "LE Secure Connections, Just Works, bonded. Every characteristic requires an encrypted + bonded link.",
     "max_connections": 1,
     "preferred_mtu": 247
   },
-
   "advertising": {
     "service_uuid_in_adv": true,
     "local_name": "clock",
@@ -23,14 +48,21 @@
     "manufacturer_data": {
       "company_id": 65535,
       "layout": "bytes 0-1 = company id 0xFFFF little-endian (FF FF), byte 2 = state",
-      "state_bits": { "0": "pairing_window_open" }
+      "state_bits": {
+        "0": "pairing_window_open"
+      }
     },
-    "interval_ms": { "idle": 1000, "pairing": 100 }
+    "interval_ms": {
+      "idle": 1000,
+      "pairing": 100
+    }
   },
-
   "command_channel": {
     "request_format": "<id> <cli line>",
-    "request_id_range": [0, 65535],
+    "request_id_range": [
+      0,
+      65535
+    ],
     "request_id_optional": true,
     "max_request_bytes": 256,
     "response_kinds": {
@@ -39,127 +71,724 @@
       "=": "key=value record (machine-readable, stable when a command documents it)",
       "$": "terminal status, exactly one per request, always last"
     },
-    "statuses": ["ok", "bad-arg", "denied", "busy", "not-ready", "failed", "not-present"],
+    "statuses": [
+      "ok",
+      "bad-arg",
+      "denied",
+      "busy",
+      "not-ready",
+      "failed",
+      "not-present"
+    ],
     "max_in_flight": 4,
     "cli_wait_before_busy_ms": 1500,
     "recommended_timeout_ms": 10000
   },
-
   "commands": [
-    { "line": "sys ver",                              "status": "implemented", "unsafe": false, "use": "firmware identity, display" },
-    { "line": "sys snap",                             "status": "implemented", "unsafe": false, "use": "the status record as text, display/debug" },
-    { "line": "net ble pair off",                     "status": "implemented", "unsafe": false, "use": "close the pairing window" },
-    { "line": "net ble unbond",                       "status": "implemented", "unsafe": false, "use": "forget every phone; drops this link. The user must also 'Forget This Device' in iOS Settings" },
-    { "line": "net ble period <ms>",                  "status": "implemented", "unsafe": false, "args": { "ms": [100, 3600000] }, "use": "status notify cadence; global, not persisted (1000 after boot)" },
-    { "line": "chrono time set <hh:mm[:ss]>",         "status": "implemented", "unsafe": false, "use": "set local wall time (no date in v1)" },
-    { "line": "chrono steps <n>",                     "status": "implemented", "unsafe": false, "args": { "n": [1, 60] }, "use": "hand positions per minute: 1 = tick, 60 = sweep" },
-    { "line": "ui knob bright <pct>",                 "status": "implemented", "unsafe": false, "args": { "pct": [0, 100] }, "use": "status LED brightness" },
-    { "line": "audio vol <pct>",                      "status": "implemented", "unsafe": false, "args": { "pct": [0, 100] }, "use": "volume; values over the firmware ceiling (currently 25) answer $denied" },
-    { "line": "audio tone [<hz>] [<ms>]",             "status": "implemented", "unsafe": false, "use": "test sound / find my clock" },
-    { "line": "audio stop",                           "status": "implemented", "unsafe": false, "use": "stop a tone" },
-    { "line": "unsafe on",                            "status": "implemented", "unsafe": false, "use": "unlock hardware-moving commands for 60 s (debug screen only)" },
-    { "line": "motion home",                          "status": "implemented", "unsafe": true,  "use": "re-home the hands (debug)" },
-    { "line": "sys reboot",                           "status": "implemented", "unsafe": true,  "use": "restart; the link drops without a $ record" },
-    { "line": "chrono time epoch <unix_ms> <utc_offset_min>", "status": "planned", "unsafe": false, "use": "set date + time + current UTC offset from the phone" },
-    { "line": "chrono alarm set <hh:mm>",             "status": "planned", "unsafe": false, "use": "alarm time (knob-only today)" },
-    { "line": "chrono alarm arm <on|off>",            "status": "planned", "unsafe": false, "use": "arm / disarm the alarm (knob-only today)" }
+    {
+      "line": "sys ver",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "firmware identity, display"
+    },
+    {
+      "line": "sys snap",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "the status record as text, display/debug"
+    },
+    {
+      "line": "net ble pair off",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "close the pairing window"
+    },
+    {
+      "line": "net ble unbond",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "forget every phone; drops this link. The user must also 'Forget This Device' in iOS Settings"
+    },
+    {
+      "line": "net ble period <ms>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "ms": [
+          100,
+          3600000
+        ]
+      },
+      "use": "status notify cadence; global, not persisted (1000 after boot)"
+    },
+    {
+      "line": "chrono time set <hh:mm[:ss]>",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "set the LOCAL time of day; keeps the date if the clock has one"
+    },
+    {
+      "line": "chrono time epoch <unix_ms> [<utc_offset_min>]",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "unix_ms": ">= 100000000000 (milliseconds, UTC)",
+        "utc_offset_min": [
+          -720,
+          840
+        ]
+      },
+      "use": "set date + time + current UTC offset from the phone. Offset omitted = keep the stored one. A value that looks like seconds answers bad-arg"
+    },
+    {
+      "line": "chrono tz [<utc_offset_min>]",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "utc_offset_min": [
+          -720,
+          840
+        ]
+      },
+      "use": "read / set the UTC offset alone (same instant, the hands move). NVS-persisted"
+    },
+    {
+      "line": "chrono alarm",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "show the alarm (display only; state is in the snapshot)"
+    },
+    {
+      "line": "chrono alarm set <hh:mm>",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "alarm time, local, 24 h. NVS-persisted. Answers after the clock has taken it"
+    },
+    {
+      "line": "chrono alarm arm <on|off>",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "arm / disarm. NVS-persisted. NOTE: firmware does not ring the alarm yet (TODO)"
+    },
+    {
+      "line": "chrono steps <n>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "n": [
+          1,
+          60
+        ]
+      },
+      "use": "hand positions per minute: 1 = tick, 60 = sweep"
+    },
+    {
+      "line": "ui knob bright <pct>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "pct": [
+          0,
+          100
+        ]
+      },
+      "use": "status LED brightness"
+    },
+    {
+      "line": "audio vol <pct>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "pct": [
+          0,
+          100
+        ]
+      },
+      "use": "volume; values over the firmware ceiling (currently 25) answer $denied"
+    },
+    {
+      "line": "audio tone [<hz>] [<ms>]",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "test sound / find my clock"
+    },
+    {
+      "line": "audio stop",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "stop a tone"
+    },
+    {
+      "line": "unsafe on",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "unlock hardware-moving commands for 60 s (debug screen only)"
+    },
+    {
+      "line": "motion home",
+      "status": "implemented",
+      "unsafe": true,
+      "use": "re-home the hands (debug)"
+    },
+    {
+      "line": "sys reboot",
+      "status": "implemented",
+      "unsafe": true,
+      "use": "restart; the link drops without a $ record"
+    }
   ],
-
   "snapshot": {
     "endianness": "little",
     "size": 132,
     "evolution": "append-only: new fields are added at the end and raise `size`; `schema` changes only if an existing field moves or changes type. Decode the prefix you know; ignore extra bytes; reject schema != 1 or size < 132.",
     "fields": [
-      { "off": 0,   "type": "u8",   "name": "schema" },
-      { "off": 1,   "type": "u8",   "name": "size" },
-      { "off": 2,   "type": "u16",  "name": "seq",           "note": "+1 per record taken, wraps; a gap = missed samples" },
-      { "off": 4,   "type": "u32",  "name": "uptime_s" },
-      { "off": 8,   "type": "i64",  "name": "epoch_ms",      "valid_if": "time_valid", "note": "see PROTOCOL.md 'Time'" },
-      { "off": 16,  "type": "i16",  "name": "tz_off_min",    "valid_if": "tz_set" },
-      { "off": 18,  "type": "u8",   "name": "reset_reason",  "enum": "reset_reason" },
-      { "off": 19,  "type": "u8",   "name": "clk_src",       "enum": "clk_src" },
-      { "off": 20,  "type": "u32",  "name": "flags",         "bitfield": "flags" },
-      { "off": 24,  "type": "u32",  "name": "fw_id",         "note": "first 8 hex digits of the firmware git sha" },
-      { "off": 28,  "type": "u32",  "name": "heap_free",     "unit": "B" },
-      { "off": 32,  "type": "u32",  "name": "heap_min",      "unit": "B" },
-      { "off": 36,  "type": "u16",  "name": "vbat_mv",       "unit": "mV", "valid_if": "power_ok" },
-      { "off": 38,  "type": "u8",   "name": "soc_pct",       "unit": "%",  "valid_if": "power_ok", "sentinel": { "255": "unknown (plugged: not measurable)" } },
-      { "off": 39,  "type": "u8",   "name": "vbat_src",      "enum": "vbat_src", "valid_if": "power_ok" },
-      { "off": 40,  "type": "i16",  "name": "temp",          "unit": "degC",  "scale": 0.01, "valid_if": "env_ok" },
-      { "off": 42,  "type": "u16",  "name": "rh",            "unit": "%RH",   "scale": 0.01, "valid_if": "env_ok" },
-      { "off": 44,  "type": "u16",  "name": "pressure",      "unit": "hPa",   "scale": 0.1,  "valid_if": "env_ok" },
-      { "off": 46,  "type": "u32",  "name": "gas_ohms",      "unit": "ohm",   "valid_if": "env_gas_valid" },
-      { "off": 50,  "type": "u16",  "name": "env_age_s",     "unit": "s", "sentinel": { "65535": "never read" }, "note": "room sensor sampled every 60 s" },
-      { "off": 52,  "type": "f32",  "name": "lux",           "unit": "lx", "valid_if": "als_ok", "sentinel": { "-1": "saturated" } },
-      { "off": 56,  "type": "u16",  "name": "als_age_s",     "unit": "s", "sentinel": { "65535": "never read" }, "note": "light sampled every 5 s" },
-      { "off": 58,  "type": "i16",  "name": "grav_x",        "unit": "m/s2", "scale": 0.001, "valid_if": "imu_ok", "note": "dial axes: +X right, +Y toward the printed 12, +Z out of the glass" },
-      { "off": 60,  "type": "i16",  "name": "grav_y",        "unit": "m/s2", "scale": 0.001, "valid_if": "imu_ok" },
-      { "off": 62,  "type": "i16",  "name": "grav_z",        "unit": "m/s2", "scale": 0.001, "valid_if": "imu_ok" },
-      { "off": 64,  "type": "i16",  "name": "yaw",           "unit": "deg",  "scale": 0.01, "valid_if": "imu_ok" },
-      { "off": 66,  "type": "i16",  "name": "pitch",         "unit": "deg",  "scale": 0.01, "valid_if": "imu_ok" },
-      { "off": 68,  "type": "i16",  "name": "roll",          "unit": "deg",  "scale": 0.01, "valid_if": "imu_ok" },
-      { "off": 70,  "type": "u16",  "name": "taps",          "valid_if": "imu_ok", "note": "monotonic counter, wraps" },
-      { "off": 72,  "type": "u8",   "name": "motion_state",  "enum": "motion_state" },
-      { "off": 73,  "type": "u8",   "name": "dial_tick",     "note": "which of the 12 dots is at the top; 0 = upright" },
-      { "off": 74,  "type": "u8",   "name": "hand_h",        "note": "hour the hands show, 0-11" },
-      { "off": 75,  "type": "u8",   "name": "hand_m",        "note": "minute the hands show, 0-59" },
-      { "off": 76,  "type": "u8",   "name": "target_h" },
-      { "off": 77,  "type": "u8",   "name": "target_m" },
-      { "off": 78,  "type": "u16",  "name": "opto",          "scale": 0.0000152590219, "note": "homing sensor 0..1 (x/65535)" },
-      { "off": 80,  "type": "u32",  "name": "motion_faults" },
-      { "off": 84,  "type": "u16",  "name": "trims" },
-      { "off": 86,  "type": "i16",  "name": "last_trim",     "unit": "usteps" },
-      { "off": 88,  "type": "u8",   "name": "ui_mode",       "enum": "ui_mode" },
-      { "off": 89,  "type": "u8",   "name": "volume",        "unit": "%" },
-      { "off": 90,  "type": "u8",   "name": "alarm_h" },
-      { "off": 91,  "type": "u8",   "name": "alarm_m" },
-      { "off": 92,  "type": "u8",   "name": "brightness",    "unit": "%" },
-      { "off": 93,  "type": "u8",   "name": "wake_warm",     "unit": "%" },
-      { "off": 94,  "type": "u8",   "name": "wake_cool",     "unit": "%" },
-      { "off": 95,  "type": "u8",   "name": "ble_state",     "enum": "ble_state" },
-      { "off": 96,  "type": "u8[28]", "name": "pixels",      "note": "7 x (R,G,B,W) 0-255, chain order: dial0 dial1 bell alarm clock vol batt" },
-      { "off": 124, "type": "i32",  "name": "knob_count",    "note": "raw quadrature, 256 per revolution" },
-      { "off": 128, "type": "u8",   "name": "bonds" },
-      { "off": 129, "type": "u8",   "name": "wifi_state",    "enum": "wifi_state" },
-      { "off": 130, "type": "i8",   "name": "wifi_rssi",     "unit": "dBm", "sentinel": { "0": "n/a" } },
-      { "off": 131, "type": "u8",   "name": "reserved" }
+      {
+        "off": 0,
+        "type": "u8",
+        "name": "schema"
+      },
+      {
+        "off": 1,
+        "type": "u8",
+        "name": "size"
+      },
+      {
+        "off": 2,
+        "type": "u16",
+        "name": "seq",
+        "note": "+1 per record taken, wraps; a gap = missed samples"
+      },
+      {
+        "off": 4,
+        "type": "u32",
+        "name": "uptime_s"
+      },
+      {
+        "off": 8,
+        "type": "i64",
+        "name": "epoch_ms",
+        "valid_if": "time_valid",
+        "note": "UTC ms. Local time = epoch_ms + tz_off_min*60000. The date part is real only if date_valid"
+      },
+      {
+        "off": 16,
+        "type": "i16",
+        "name": "tz_off_min",
+        "note": "local = UTC + this. 0 until an offset has been given (tz_set)"
+      },
+      {
+        "off": 18,
+        "type": "u8",
+        "name": "reset_reason",
+        "enum": "reset_reason"
+      },
+      {
+        "off": 19,
+        "type": "u8",
+        "name": "clk_src",
+        "enum": "clk_src"
+      },
+      {
+        "off": 20,
+        "type": "u32",
+        "name": "flags",
+        "bitfield": "flags"
+      },
+      {
+        "off": 24,
+        "type": "u32",
+        "name": "fw_id",
+        "note": "first 8 hex digits of the firmware git sha"
+      },
+      {
+        "off": 28,
+        "type": "u32",
+        "name": "heap_free",
+        "unit": "B"
+      },
+      {
+        "off": 32,
+        "type": "u32",
+        "name": "heap_min",
+        "unit": "B"
+      },
+      {
+        "off": 36,
+        "type": "u16",
+        "name": "vbat_mv",
+        "unit": "mV",
+        "valid_if": "power_ok"
+      },
+      {
+        "off": 38,
+        "type": "u8",
+        "name": "soc_pct",
+        "unit": "%",
+        "valid_if": "power_ok",
+        "sentinel": {
+          "255": "unknown (plugged: not measurable)"
+        }
+      },
+      {
+        "off": 39,
+        "type": "u8",
+        "name": "vbat_src",
+        "enum": "vbat_src",
+        "valid_if": "power_ok"
+      },
+      {
+        "off": 40,
+        "type": "i16",
+        "name": "temp",
+        "unit": "degC",
+        "scale": 0.01,
+        "valid_if": "env_ok"
+      },
+      {
+        "off": 42,
+        "type": "u16",
+        "name": "rh",
+        "unit": "%RH",
+        "scale": 0.01,
+        "valid_if": "env_ok"
+      },
+      {
+        "off": 44,
+        "type": "u16",
+        "name": "pressure",
+        "unit": "hPa",
+        "scale": 0.1,
+        "valid_if": "env_ok"
+      },
+      {
+        "off": 46,
+        "type": "u32",
+        "name": "gas_ohms",
+        "unit": "ohm",
+        "valid_if": "env_gas_valid"
+      },
+      {
+        "off": 50,
+        "type": "u16",
+        "name": "env_age_s",
+        "unit": "s",
+        "sentinel": {
+          "65535": "never read"
+        },
+        "note": "room sensor sampled every 60 s"
+      },
+      {
+        "off": 52,
+        "type": "f32",
+        "name": "lux",
+        "unit": "lx",
+        "valid_if": "als_ok",
+        "sentinel": {
+          "-1": "saturated"
+        }
+      },
+      {
+        "off": 56,
+        "type": "u16",
+        "name": "als_age_s",
+        "unit": "s",
+        "sentinel": {
+          "65535": "never read"
+        },
+        "note": "light sampled every 5 s"
+      },
+      {
+        "off": 58,
+        "type": "i16",
+        "name": "grav_x",
+        "unit": "m/s2",
+        "scale": 0.001,
+        "valid_if": "imu_ok",
+        "note": "dial axes: +X right, +Y toward the printed 12, +Z out of the glass"
+      },
+      {
+        "off": 60,
+        "type": "i16",
+        "name": "grav_y",
+        "unit": "m/s2",
+        "scale": 0.001,
+        "valid_if": "imu_ok"
+      },
+      {
+        "off": 62,
+        "type": "i16",
+        "name": "grav_z",
+        "unit": "m/s2",
+        "scale": 0.001,
+        "valid_if": "imu_ok"
+      },
+      {
+        "off": 64,
+        "type": "i16",
+        "name": "yaw",
+        "unit": "deg",
+        "scale": 0.01,
+        "valid_if": "imu_ok"
+      },
+      {
+        "off": 66,
+        "type": "i16",
+        "name": "pitch",
+        "unit": "deg",
+        "scale": 0.01,
+        "valid_if": "imu_ok"
+      },
+      {
+        "off": 68,
+        "type": "i16",
+        "name": "roll",
+        "unit": "deg",
+        "scale": 0.01,
+        "valid_if": "imu_ok"
+      },
+      {
+        "off": 70,
+        "type": "u16",
+        "name": "taps",
+        "valid_if": "imu_ok",
+        "note": "monotonic counter, wraps"
+      },
+      {
+        "off": 72,
+        "type": "u8",
+        "name": "motion_state",
+        "enum": "motion_state"
+      },
+      {
+        "off": 73,
+        "type": "u8",
+        "name": "dial_tick",
+        "note": "which of the 12 dots is at the top; 0 = upright"
+      },
+      {
+        "off": 74,
+        "type": "u8",
+        "name": "hand_h",
+        "note": "hour the hands show, 0-11"
+      },
+      {
+        "off": 75,
+        "type": "u8",
+        "name": "hand_m",
+        "note": "minute the hands show, 0-59"
+      },
+      {
+        "off": 76,
+        "type": "u8",
+        "name": "target_h"
+      },
+      {
+        "off": 77,
+        "type": "u8",
+        "name": "target_m"
+      },
+      {
+        "off": 78,
+        "type": "u16",
+        "name": "opto",
+        "scale": 1.52590219e-05,
+        "note": "homing sensor 0..1 (x/65535)"
+      },
+      {
+        "off": 80,
+        "type": "u32",
+        "name": "motion_faults"
+      },
+      {
+        "off": 84,
+        "type": "u16",
+        "name": "trims"
+      },
+      {
+        "off": 86,
+        "type": "i16",
+        "name": "last_trim",
+        "unit": "usteps"
+      },
+      {
+        "off": 88,
+        "type": "u8",
+        "name": "ui_mode",
+        "enum": "ui_mode"
+      },
+      {
+        "off": 89,
+        "type": "u8",
+        "name": "volume",
+        "unit": "%"
+      },
+      {
+        "off": 90,
+        "type": "u8",
+        "name": "alarm_h"
+      },
+      {
+        "off": 91,
+        "type": "u8",
+        "name": "alarm_m"
+      },
+      {
+        "off": 92,
+        "type": "u8",
+        "name": "brightness",
+        "unit": "%"
+      },
+      {
+        "off": 93,
+        "type": "u8",
+        "name": "wake_warm",
+        "unit": "%"
+      },
+      {
+        "off": 94,
+        "type": "u8",
+        "name": "wake_cool",
+        "unit": "%"
+      },
+      {
+        "off": 95,
+        "type": "u8",
+        "name": "ble_state",
+        "enum": "ble_state"
+      },
+      {
+        "off": 96,
+        "type": "u8[28]",
+        "name": "pixels",
+        "note": "7 x (R,G,B,W) 0-255, chain order: dial0 dial1 bell alarm clock vol batt"
+      },
+      {
+        "off": 124,
+        "type": "i32",
+        "name": "knob_count",
+        "note": "raw quadrature, 256 per revolution"
+      },
+      {
+        "off": 128,
+        "type": "u8",
+        "name": "bonds"
+      },
+      {
+        "off": 129,
+        "type": "u8",
+        "name": "wifi_state",
+        "enum": "wifi_state"
+      },
+      {
+        "off": 130,
+        "type": "i8",
+        "name": "wifi_rssi",
+        "unit": "dBm",
+        "sentinel": {
+          "0": "n/a"
+        }
+      },
+      {
+        "off": 131,
+        "type": "u8",
+        "name": "reserved"
+      }
     ],
     "flags": [
-      "time_valid", "time_follow", "tz_set", "net_provisioned", "net_synced", "net_locked", "radio_off",
-      "ble_connected", "ble_secure", "ble_pairing", "power_ok", "plugged", "charging", "charge_fault",
-      "full_charge", "batt_low", "homed", "motor_powered", "knob_pressed", "knob_input", "alarm_armed",
-      "amp_active", "audio_playing", "imu_ok", "imu_link", "als_ok", "als_saturated", "env_ok",
-      "env_gas_valid", "env_heat_stable"
+      "time_valid",
+      "time_follow",
+      "tz_set",
+      "net_provisioned",
+      "net_synced",
+      "net_locked",
+      "radio_off",
+      "ble_connected",
+      "ble_secure",
+      "ble_pairing",
+      "power_ok",
+      "plugged",
+      "charging",
+      "charge_fault",
+      "full_charge",
+      "batt_low",
+      "homed",
+      "motor_powered",
+      "knob_pressed",
+      "knob_input",
+      "alarm_armed",
+      "amp_active",
+      "audio_playing",
+      "imu_ok",
+      "imu_link",
+      "als_ok",
+      "als_saturated",
+      "env_ok",
+      "env_gas_valid",
+      "env_heat_stable",
+      "date_valid"
     ],
-    "flags_note": "index in this array = bit number (bit 0 = time_valid). Bits 30-31 unused; ignore unknown bits.",
+    "flags_note": "index in this array = bit number (bit 0 = time_valid). Bit 31 unused; ignore unknown bits.",
     "enums": {
-      "motion_state": ["uninit", "homing", "idle", "moving", "fault"],
-      "ui_mode":      ["idle", "bell", "alarm", "clock", "volume", "pairing"],
-      "ble_state":    ["off", "idle", "pairing", "connected", "secure"],
-      "vbat_src":     ["unknown", "cell", "bat-node"],
-      "clk_src":      ["INT_RC", "XTAL32K", "RC_FAST/256", "unknown"],
-      "wifi_state":   ["off"],
-      "reset_reason": ["unknown", "power-on", "external", "software", "panic", "int-wdt", "task-wdt", "wdt", "deep-sleep", "brownout", "sdio", "usb", "jtag", "efuse", "pwr-glitch", "cpu-lockup"]
+      "motion_state": [
+        "uninit",
+        "homing",
+        "idle",
+        "moving",
+        "fault"
+      ],
+      "ui_mode": [
+        "idle",
+        "bell",
+        "alarm",
+        "clock",
+        "volume",
+        "pairing"
+      ],
+      "ble_state": [
+        "off",
+        "idle",
+        "pairing",
+        "connected",
+        "secure"
+      ],
+      "vbat_src": [
+        "unknown",
+        "cell",
+        "bat-node"
+      ],
+      "clk_src": [
+        "INT_RC",
+        "XTAL32K",
+        "RC_FAST/256",
+        "unknown"
+      ],
+      "wifi_state": [
+        "off"
+      ],
+      "reset_reason": [
+        "unknown",
+        "power-on",
+        "external",
+        "software",
+        "panic",
+        "int-wdt",
+        "task-wdt",
+        "wdt",
+        "deep-sleep",
+        "brownout",
+        "sdio",
+        "usb",
+        "jtag",
+        "efuse",
+        "pwr-glitch",
+        "cpu-lockup"
+      ]
     },
     "enums_note": "Values beyond the listed range may appear in newer firmware: show them as 'unknown(<n>)'.",
-
     "golden": {
       "hex": "0184efbe40e201007b6c50c4a0010000d4fe0301010800084f21d60e400d0300f0490200480f51012efbd7119427cd8101002a0000400f430300f4ff4e266400b1b900000000070002000a0800008813010000800000fdff050000000000000000000000000000000000c8000000000000000000000000000000000918fcffff0200c400",
       "decoded": {
-        "schema": 1, "size": 132, "seq": 48879, "uptime_s": 123456, "epoch_ms": 1790000000123,
-        "tz_off_min": -300, "reset_reason": 3, "clk_src": 1,
-        "flags": 134219777, "flags_set": ["time_valid", "plugged", "env_ok"],
-        "fw_id": 248914255, "heap_free": 200000, "heap_min": 150000,
-        "vbat_mv": 3912, "soc_pct": 81, "vbat_src": 1,
-        "temp": -12.34, "rh": 45.67, "pressure": 1013.2, "gas_ohms": 98765, "env_age_s": 42,
-        "lux": 143.25, "als_age_s": 3,
-        "grav_x": -0.012, "grav_y": 9.806, "grav_z": 0.1, "yaw": -179.99, "pitch": 0.0, "roll": 0.0, "taps": 7,
-        "motion_state": 2, "dial_tick": 0, "hand_h": 10, "hand_m": 8, "target_h": 0, "target_m": 0,
-        "opto_raw": 5000, "motion_faults": 2147483649, "trims": 0, "last_trim": -3,
-        "ui_mode": 5, "volume": 0, "alarm_h": 0, "alarm_m": 0, "brightness": 0, "wake_warm": 0, "wake_cool": 0,
+        "schema": 1,
+        "size": 132,
+        "seq": 48879,
+        "uptime_s": 123456,
+        "epoch_ms": 1790000000123,
+        "tz_off_min": -300,
+        "reset_reason": 3,
+        "clk_src": 1,
+        "flags": 134219777,
+        "flags_set": [
+          "time_valid",
+          "plugged",
+          "env_ok"
+        ],
+        "fw_id": 248914255,
+        "heap_free": 200000,
+        "heap_min": 150000,
+        "vbat_mv": 3912,
+        "soc_pct": 81,
+        "vbat_src": 1,
+        "temp": -12.34,
+        "rh": 45.67,
+        "pressure": 1013.2,
+        "gas_ohms": 98765,
+        "env_age_s": 42,
+        "lux": 143.25,
+        "als_age_s": 3,
+        "grav_x": -0.012,
+        "grav_y": 9.806,
+        "grav_z": 0.1,
+        "yaw": -179.99,
+        "pitch": 0.0,
+        "roll": 0.0,
+        "taps": 7,
+        "motion_state": 2,
+        "dial_tick": 0,
+        "hand_h": 10,
+        "hand_m": 8,
+        "target_h": 0,
+        "target_m": 0,
+        "opto_raw": 5000,
+        "motion_faults": 2147483649,
+        "trims": 0,
+        "last_trim": -3,
+        "ui_mode": 5,
+        "volume": 0,
+        "alarm_h": 0,
+        "alarm_m": 0,
+        "brightness": 0,
+        "wake_warm": 0,
+        "wake_cool": 0,
         "ble_state": 0,
-        "pixels": [[0,0,0,0],[0,0,0,0],[0,0,200,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,9]],
-        "knob_count": -1000, "bonds": 2, "wifi_state": 0, "wifi_rssi": -60, "reserved": 0
+        "pixels": [
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            200,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            9
+          ]
+        ],
+        "knob_count": -1000,
+        "bonds": 2,
+        "wifi_state": 0,
+        "wifi_rssi": -60,
+        "reserved": 0
       }
     }
   }

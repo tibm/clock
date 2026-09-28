@@ -1,18 +1,20 @@
 #include "clk/services/chrono.hpp"
 
 #include "clk/domain/hand.hpp"
+#include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
 
 namespace clk::svc {
 namespace {
 
-constexpr uint32_t kTickMs = 250;  // four times a second is plenty for a minute hand
+constexpr uint32_t kTickMs = 250;         // four times a second is plenty for a minute hand
+constexpr const char* kKeyTz = "chr.tz";  // NVS (§7.5): the last UTC offset the phone sent
 
 struct Hms {
     int h, m, s;
 };
 
-// Local time == UTC for now; TZ/DST arrive with §6.4 and change only this function.
+// Time of day of a LOCAL millisecond count (UTC + offset, already added by the caller).
 Hms hms_of(int64_t epoch_ms) noexcept {
     int64_t secs = epoch_ms / 1000;
     int64_t day = secs % 86400;
@@ -32,7 +34,54 @@ Chrono& chrono() noexcept {
 
 void Chrono::on_start() {
     mono_base_us_ = port::now_us();
+    if (const auto tz = hal::store::get_i32(kKeyTz); tz.ok()) {
+        port::Lock lk{mx_};
+        tz_off_min_ = tz.v;
+        tz_set_ = true;
+    }
     CLK_LOGI(chrono, "up; time not set (no RTC here -- `chrono time set`)");
+}
+
+void Chrono::set_epoch(int64_t utc_ms, int tz_off_min) noexcept {
+    {
+        port::Lock lk{mx_};
+        tz_off_min_ = tz_off_min;
+        tz_set_ = true;
+        date_valid_ = true;
+    }
+    (void)hal::store::set_i32(kKeyTz, tz_off_min);
+    post(TimeChanged{utc_ms});
+}
+
+void Chrono::set_tz(int tz_off_min) noexcept {
+    {
+        port::Lock lk{mx_};
+        tz_off_min_ = tz_off_min;
+        tz_set_ = true;
+        last_h_ = last_m_ = -1;  // same instant, different hands
+    }
+    (void)hal::store::set_i32(kKeyTz, tz_off_min);
+    CLK_LOGI(chrono, "UTC offset %+d min", tz_off_min);
+}
+
+int64_t Chrono::set_local_time(int h, int m, int s) noexcept {
+    const int64_t tod_ms = ((h * 60LL + m) * 60 + s) * 1000;
+    int64_t utc;
+    {
+        port::Lock lk{mx_};
+        const int64_t off_ms = tz_off_min_ * 60'000LL;
+        if (valid_) {
+            // Today, locally: the local midnight of the current instant, plus the new time.
+            const int64_t local = snap_.epoch_ms + off_ms;
+            int64_t day = local / 86'400'000LL * 86'400'000LL;
+            if (local < 0 && local % 86'400'000LL) day -= 86'400'000LL;
+            utc = day + tod_ms - off_ms;
+        } else {
+            utc = tod_ms - off_ms;  // no date to keep: 1970-01-01, and date_valid says so
+        }
+    }
+    post(TimeChanged{utc});
+    return utc;
 }
 
 int64_t Chrono::now_epoch_ms() const noexcept {
@@ -81,8 +130,13 @@ void Chrono::on_event(Event const& e) {
         epoch_base_ms_ = t->epoch_ms;
         mono_base_us_ = port::now_us();
         valid_ = true;
-        const auto hm = hms_of(t->epoch_ms);
-        CLK_LOGI(chrono, "time set to %02d:%02d:%02d", hm.h, hm.m, hm.s);
+        int off;
+        {
+            port::Lock lk{mx_};
+            off = tz_off_min_;
+        }
+        const auto hm = hms_of(t->epoch_ms + off * 60'000LL);
+        CLK_LOGI(chrono, "time set to %02d:%02d:%02d local (UTC%+d min)", hm.h, hm.m, hm.s, off);
         push_target(true);
         return;
     }
@@ -97,12 +151,13 @@ void Chrono::on_event(Event const& e) {
 void Chrono::on_tick() {
     const int64_t now_ms =
         epoch_base_ms_ + static_cast<int64_t>((port::now_us() - mono_base_us_) / 1000ull);
-    const auto hm = hms_of(now_ms);
-    int steps;
+    int steps, off;
     {
         port::Lock lk{mx_};
         steps = steps_per_minute_;
+        off = tz_off_min_;
     }
+    const auto hm = hms_of(now_ms + off * 60'000LL);
     const auto p = domain::for_time(hm.h, hm.m, hm.s, steps);
     {
         port::Lock lk{mx_};
@@ -110,6 +165,9 @@ void Chrono::on_tick() {
         snap_.hour = hm.h;
         snap_.minute = hm.m;
         snap_.second = hm.s;
+        snap_.tz_off_min = off;
+        snap_.tz_set = tz_set_;
+        snap_.date_valid = date_valid_ && valid_;
         snap_.valid = valid_;
         snap_.follow = follow_;
         snap_.target_hour = p.hour;

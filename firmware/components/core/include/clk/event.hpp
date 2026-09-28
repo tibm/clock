@@ -81,6 +81,13 @@ struct ModeSet {
     uint8_t mode;
 };
 
+// The alarm, from somewhere other than the knob (`chrono alarm`, the app).  `ui` owns it
+// until the alarm table moves to `chrono` (§6.4).  -1 = leave that half alone.
+struct AlarmCfg {
+    int16_t min_of_day;  // 0..1439, or -1
+    int8_t armed;        // 0 / 1, or -1
+};
+
 struct TimeChanged {
     int64_t epoch_ms;
 };
@@ -99,8 +106,8 @@ struct NetUnbond {};
 struct Stop {};  // shutdown, posted by stop() and swallowed by run().  See Halt.
 
 using Event = std::variant<std::monostate, HandTarget, HomeRequest, ZeroSet, DialTick, Halt,
-                           HomeDone, HandState, KnobDelta, KnobPress, Tap, ModeSet, TimeChanged,
-                           PowerState, NetRx, NetUnbond, Stop>;
+                           HomeDone, HandState, KnobDelta, KnobPress, Tap, ModeSet, AlarmCfg,
+                           TimeChanged, PowerState, NetRx, NetUnbond, Stop>;
 
 // std::visit is avoided on purpose: with -fno-exceptions its valueless path becomes an
 // abort, and get_if reads better in a handler that only cares about three of these.

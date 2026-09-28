@@ -19,8 +19,9 @@ separately, that meet only here:
 **Change process.** Either side may propose a change by editing this file and `protocol.json`
 together, adding a line to the changelog at the bottom. Compatible changes (new command, new
 snapshot field at the end, new flag bit, new enum value) keep `protocol_version`. Anything that
-breaks an existing reader bumps it. A command marked `planned` is a promise of grammar, not of
-availability — the app must handle `bad-arg` ("unknown command") from it gracefully.
+breaks an existing reader bumps it. A command marked `planned` (in `protocol.json`) is a promise of
+grammar, not of availability — the app must handle `bad-arg` ("unknown command") from it
+gracefully. (None are planned right now.)
 
 ---
 
@@ -175,7 +176,12 @@ status snapshot (§5), not from command output.**
 
 | Command | Status | Purpose |
 |---|---|---|
-| `chrono time set <hh:mm[:ss]>` | implemented | set local wall time (v1: no date — see §5 Time) |
+| `chrono time epoch <unix_ms> [<utc_offset_min>]` | implemented | **set date + time + UTC offset from the phone** — see "Keeping time" below |
+| `chrono tz [<utc_offset_min>]` | implemented | the UTC offset alone (−720…840). Same instant, the hands move. Persisted |
+| `chrono time set <hh:mm[:ss]>` | implemented | set the *local* time of day only; keeps the date if the clock has one |
+| `chrono alarm set <hh:mm>` | implemented | alarm time, local 24 h. Persisted. `$ok` only after the clock has taken it |
+| `chrono alarm arm <on\|off>` | implemented | arm / disarm. Persisted. ⚠ The firmware **does not ring yet** — setting is stored and shown, the ringing is on the firmware TODO |
+| `chrono alarm` | implemented | show it (display only — read the state from the snapshot) |
 | `chrono steps <1-60>` | implemented | hands tick (1) or sweep (60) |
 | `audio vol <0-100>` | implemented | volume. Above the firmware's current ceiling (25) → `denied` |
 | `audio tone [<hz>] [<ms>]` · `audio stop` | implemented | test sound / "find my clock" |
@@ -185,11 +191,22 @@ status snapshot (§5), not from command output.**
 | `net ble unbond` | implemented | forget **all** phones; drops this link (then Forget This Device in iOS) |
 | `sys ver` · `sys snap` | implemented | identity / whole snapshot as text, for an "about" or debug screen |
 | `unsafe on` · `motion home` · `sys reboot` | implemented | debug screen only (`motion home`, `sys reboot` need `unsafe on` within the last 60 s) |
-| `chrono time epoch <unix_ms> <utc_offset_min>` | **planned** | set date + time + UTC offset from the phone; resend on DST change / timezone change |
-| `chrono alarm set <hh:mm>` | **planned** | alarm time (the knob only, today) |
-| `chrono alarm arm <on\|off>` | **planned** | arm / disarm (the knob only, today) |
 
 Anything else the console accepts also works (`help` lists it) — treat it as debug.
+
+### Keeping time
+
+The phone is the clock's time source until Wi-Fi/SNTP exists, and it owns the timezone rules:
+the clock stores only *the offset in force now*, never a zone or a DST table.
+
+- **On every connect**, send `chrono time epoch <now_unix_ms> <utc_offset_min>` — iOS:
+  `Int64(Date().timeIntervalSince1970 * 1000)` and `TimeZone.current.secondsFromGMT() / 60`.
+  Milliseconds: a value under 10¹¹ is taken as a seconds mistake and answered `bad-arg`.
+- **When the offset changes** (DST transition, travel — iOS `NSSystemTimeZoneDidChange` /
+  `significantTimeChangeNotification`) send it again, or just `chrono tz <utc_offset_min>`.
+- The knob can also set the time of day; it keeps the date and the offset.
+- The offset and the alarm survive a reboot. **The time itself does not yet** (no RTC retention
+  in firmware) — after a reboot `time_valid` is clear until the phone reconnects.
 
 Not on this channel: **Wi-Fi credentials** will use Espressif's standard BLE provisioning
 (separate service, SRP6a security), and sound uploads will get their own characteristic. Both
@@ -233,11 +250,12 @@ Field-by-field layout, types, units, scales and enums: **`protocol.json` → `sn
 ### Time
 
 - `epoch_ms` is valid only when `time_valid` is set (the clock has been told the time since boot).
-- **Local time to display = `epoch_ms` + (`tz_set` ? `tz_off_min` × 60 000 : 0)**, formatted as
-  UTC. This rule stays correct across firmware versions:
-  - **v1 firmware** has no timezone and no date: `tz_set` is clear, and `epoch_ms` holds the local
-    wall-clock time as if it were UTC, with a meaningless date. Show only hh:mm:ss.
-  - When `chrono time epoch` lands, `epoch_ms` becomes true UTC with a real date and `tz_set` is set.
+- **Local time = `epoch_ms` + `tz_off_min` × 60 000**, formatted as UTC. Always — `tz_off_min` is 0
+  until an offset has been given, and then `epoch_ms` is true UTC.
+- **`date_valid`** (flag bit 30): the date part is real (it came from `chrono time epoch`). Clear
+  → only the time of day means anything (the clock was set by the knob or `chrono time set` since
+  boot and never got a date); show hh:mm:ss only.
+- `tz_set` (bit 2): an offset has been given at some point (it is persisted).
 - `hand_h:hand_m` is what the hands physically show right now (differs from the time while
   moving, homing, or when a UI mode uses the hands as a gauge).
 
@@ -285,3 +303,4 @@ marked newer. Unknown keys: ignore.
 | Date | Version | Change |
 |---|---|---|
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
+| 2026-09-28 | proto 1 / schema 1 | Implemented `chrono time epoch` (offset now optional), `chrono alarm set/arm`; added `chrono tz`, `chrono alarm`; `tz_off_min` populated; new flag bit 30 `date_valid`; "Keeping time" guidance. All compatible |

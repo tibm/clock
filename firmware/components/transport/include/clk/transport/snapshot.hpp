@@ -28,7 +28,7 @@ inline constexpr std::size_t kPixels = 7;
 enum Flag : uint32_t {
     kTimeValid = 1u << 0,       // epoch_ms is a real time (someone set it)
     kTimeFollow = 1u << 1,      // the hands are tracking the clock (not showing a mode)
-    kTzSet = 1u << 2,           // tz_off_min is real (chrono has no TZ yet: always clear)
+    kTzSet = 1u << 2,           // tz_off_min was given (`chrono time epoch` / `chrono tz`)
     kNetProvisioned = 1u << 3,  // Wi-Fi credentials stored
     kNetSynced = 1u << 4,       // ... and SNTP has landed at least once
     kNetLocked = 1u << 5,       // the network owns the time: `clock` mode refuses
@@ -56,14 +56,15 @@ enum Flag : uint32_t {
     kEnvOk = 1u << 27,  // temp / rh / press / gas are real
     kEnvGasValid = 1u << 28,
     kEnvHeatStable = 1u << 29,
+    kDateValid = 1u << 30,  // epoch_ms carries a real date (added 2026-09-28)
 };
 
 struct Snapshot {
     // ---- when, and which clock -------------------------------------------------------------
     uint16_t seq = 0;          // +1 per snapshot taken; wraps.  A gap = a missed sample
     uint32_t uptime_s = 0;     // since boot
-    int64_t epoch_ms = 0;      // wall time, UTC ms; meaningless unless kTimeValid
-    int16_t tz_off_min = 0;    // local = UTC + this; meaningless unless kTzSet
+    int64_t epoch_ms = 0;      // UTC ms, local = this + tz_off_min; needs kTimeValid
+    int16_t tz_off_min = 0;    // 0 until an offset is given (kTzSet)
     uint8_t reset_reason = 0;  // esp_reset_reason_t
     uint8_t clk_src = 0;       // hal::clock_::SlowSrc
     uint32_t flags = 0;        // Flag

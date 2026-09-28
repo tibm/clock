@@ -7,6 +7,7 @@
 // command, what the knob and the window do to each other.
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -16,6 +17,7 @@
 
 #include "clk/cli/registry.hpp"
 #include "clk/hal/host/sim.hpp"
+#include "clk/services/chrono.hpp"
 #include "clk/services/net.hpp"
 #include "clk/services/ui.hpp"
 #include "clk/transport/frame.hpp"
@@ -556,6 +558,86 @@ void test_net_radio_off_is_absolute() {
     sim::ble_disconnect();
 }
 
+// The phone's three commands (app/PROTOCOL.md §4): a whole instant + offset, the offset alone,
+// and the alarm.  Local = UTC + offset everywhere -- the hands, `chrono`, the snapshot.
+void test_net_sets_time_and_alarm() {
+    auto& c = svc::chrono();
+    RecordingSink r;
+    // 2026-09-28 06:30:00 UTC, at UTC+02:00: the hands show 08:30.
+    constexpr long long kUtc = 1790577000000LL;
+    CHECK(run("chrono time epoch 1790577000000 120", r) == Status::Ok);
+    CHECK(r.contains("2026-09-28 08:30"));
+    CHECK(until([] {
+        const auto s = svc::chrono().snapshot();
+        return s.valid && s.hour == 8 && s.minute == 30 && s.date_valid && s.tz_set;
+    }));
+    CHECK(c.snapshot().tz_off_min == 120);
+    const long long drift = c.snapshot().epoch_ms - kUtc;
+    CHECK(drift >= 0 && drift < 60'000);  // true UTC, not local-as-UTC
+
+    // The snapshot carries the same three facts, in the contract's form.
+    CHECK(until([] {
+        const auto s = svc::net().status();
+        return (s.flags & tp::kTzSet) && (s.flags & tp::kDateValid) && s.tz_off_min == 120 &&
+               s.epoch_ms >= kUtc;
+    }));
+
+    // A time of day keeps the date and is LOCAL.
+    RecordingSink t;
+    CHECK(run("chrono time set 07:15", t) == Status::Ok);
+    CHECK(until([] {
+        const auto s = svc::chrono().snapshot();
+        return s.hour == 7 && s.minute == 15;
+    }));
+    const auto s1 = c.snapshot();
+    CHECK(s1.date_valid);
+    CHECK((s1.epoch_ms + 120 * 60'000LL) / 86'400'000LL == (kUtc + 120 * 60'000LL) / 86'400'000LL);
+
+    // The offset alone: same instant, the hands move an hour (a DST change, as the phone sends it).
+    RecordingSink z;
+    CHECK(run("chrono tz 60", z) == Status::Ok);
+    CHECK(until([] { return svc::chrono().snapshot().hour == 6; }));
+    CHECK(std::llabs(c.snapshot().epoch_ms - s1.epoch_ms) < 5'000);
+
+    // Refusals: seconds instead of milliseconds, an offset off the map, garbage.
+    RecordingSink bad;
+    CHECK(run("chrono time epoch 1790577000 120", bad) == Status::BadArg);
+    CHECK(bad.contains("looks like seconds"));
+    CHECK(run("chrono time epoch 1790577000000 900", bad) == Status::BadArg);
+    CHECK(run("chrono tz -800", bad) == Status::BadArg);
+    CHECK(run("chrono time epoch soon", bad) == Status::BadArg);
+
+    // The alarm -- and the answer is what `ui` took, not what was asked.
+    RecordingSink al;
+    CHECK(run("chrono alarm set 06:45", al) == Status::Ok);
+    CHECK(al.contains("alarm 06:45"));
+    CHECK(run("chrono alarm arm on", al) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_armed);
+    CHECK(svc::ui().snapshot().alarm_hour == 6 && svc::ui().snapshot().alarm_minute == 45);
+    CHECK(until([] {
+        const auto s = svc::net().status();
+        return (s.flags & tp::kAlarmArmed) && s.alarm_h == 6 && s.alarm_m == 45;
+    }));
+    CHECK(run("chrono alarm set 25:00", bad) == Status::BadArg);
+    CHECK(run("chrono alarm arm maybe", bad) == Status::BadArg);
+    RecordingSink show;
+    CHECK(run("chrono alarm", show) == Status::Ok);
+    CHECK(show.contains("06:45 armed"));
+
+    // And the same over the air.
+    bonded_phone();
+    CHECK(sim::ble_write("11 chrono alarm arm off") == Status::Ok);
+    auto a = answer(11);
+    CHECK(!a.empty() && a.back() == "$ok");
+    CHECK(!svc::ui().snapshot().alarm_armed);
+    CHECK(sim::ble_write("12 chrono time epoch 1790577000000 0") == Status::Ok);
+    a = answer(12);
+    CHECK(!a.empty() && a.back() == "$ok");
+    CHECK(until([] { return svc::chrono().snapshot().hour == 6; }));
+    sim::ble_disconnect();
+    run("chrono tz 0", r);
+}
+
 void run_net_service_tests() {
     test_net_stack_is_up();
     test_net_a_stranger_cannot_pair_or_command();
@@ -564,5 +646,6 @@ void run_net_service_tests() {
     test_net_serves_the_status_record();
     test_net_cli_opens_and_closes_the_window();
     test_net_radio_off_is_absolute();
+    test_net_sets_time_and_alarm();
     sim::ble_disconnect();
 }

@@ -178,13 +178,16 @@ Status cmd_sys_snap(Args const& a, Sink& out) {
                "   schema %u, %zu B   flags %08" PRIx32,
                s.seq, s.uptime_s, s.fw_id, kSchema, kWireSize, f);
     if (on(kTimeValid)) {
-        const std::time_t t = static_cast<std::time_t>(s.epoch_ms / 1000);
+        // Local = UTC + offset (app/PROTOCOL.md §5); without a date only the time of day is real.
+        const std::time_t t =
+            static_cast<std::time_t>((s.epoch_ms + s.tz_off_min * 60'000LL) / 1000);
         std::tm tm{};
         gmtime_r(&t, &tm);
         char buf[32];
-        std::strftime(buf, sizeof buf, "%Y-%m-%d %H:%M:%S", &tm);
-        out.printf("time    %s UTC%s   tz %s   clk %s", buf,
-                   on(kTimeFollow) ? "  (hands follow)" : "", on(kTzSet) ? "set" : "unset",
+        std::strftime(buf, sizeof buf, on(kDateValid) ? "%Y-%m-%d %H:%M:%S" : "%H:%M:%S (no date)",
+                      &tm);
+        out.printf("time    %s local   UTC%+d min%s%s   clk %s", buf, s.tz_off_min,
+                   on(kTzSet) ? "" : " (unset)", on(kTimeFollow) ? "   hands follow" : "",
                    hal::clock_::name(static_cast<hal::clock_::SlowSrc>(s.clk_src)));
     } else {
         out.printf("time    not set   clk %s",

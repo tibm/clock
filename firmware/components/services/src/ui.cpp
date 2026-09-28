@@ -11,6 +11,8 @@ namespace {
 
 // NVS key (§7.5).  Fifteen characters is the NVS limit and this is eight.
 constexpr const char* kKeyInput = "ui.input";
+constexpr const char* kKeyAlarm = "ui.alarm";  // minute of day
+constexpr const char* kKeyArmed = "ui.armed";
 
 using hal::pixels::Rgbw;
 
@@ -103,6 +105,9 @@ Ui& ui() noexcept {
 void Ui::on_start() {
     // The bench gate first: it decides whether the seeding read below means anything.
     if (const auto v = hal::store::get_i32(kKeyInput); v.ok()) input_ = v.v != 0;
+    if (const auto v = hal::store::get_i32(kKeyAlarm); v.ok() && v.v >= 0 && v.v < 24 * 60)
+        alarm_min_of_day_ = v.v;
+    if (const auto v = hal::store::get_i32(kKeyArmed); v.ok()) alarm_armed_ = v.v != 0;
 
     const auto k = hal::knob::read();
     knob_last_ = k.ok() ? k.v.count : 0;
@@ -143,6 +148,18 @@ void Ui::set_mode(Mode m) noexcept { post(ModeSet{static_cast<uint8_t>(m)}); }
 
 void Ui::on_event(Event const& e) {
     if (const auto* m = as<ModeSet>(e)) return enter(static_cast<Mode>(m->mode));
+    if (const auto* a = as<AlarmCfg>(e)) {
+        if (a->min_of_day >= 0 && a->min_of_day < 24 * 60) {
+            alarm_min_of_day_ = a->min_of_day;
+            if (mode_ == Mode::Alarm) set_min_of_day_ = a->min_of_day;  // the dial follows
+        }
+        if (a->armed >= 0) alarm_armed_ = a->armed != 0;
+        save_alarm();
+        CLK_LOGI(ui, "alarm %02d:%02d %s", alarm_min_of_day_ / 60, alarm_min_of_day_ % 60,
+                 alarm_armed_ ? "armed" : "off");
+        if (mode_ == Mode::Alarm || mode_ == Mode::Bell) show_hands();
+        return;
+    }
     if (const auto* d = as<KnobDelta>(e)) return rotate(d->counts);
     if (const auto* p = as<KnobPress>(e)) {
         if (!p->down) press(p->held_ms);
@@ -341,6 +358,7 @@ void Ui::enter(Mode m) noexcept {
     // that does not, and it is the refusal above (which never entered it).
     if (mode_ == Mode::Clock && m != Mode::Clock) commit_clock();
     if (mode_ == Mode::Volume && m != Mode::Volume) chime_stop();
+    if (mode_ == Mode::Alarm && m != Mode::Alarm) save_alarm();  // once per edit, not per minute
 
     mode_ = m;
     last_input_us_ = port::now_us();
@@ -401,6 +419,7 @@ void Ui::rotate(int32_t counts) noexcept {
         arm_resid_ = 0;
         if (want == alarm_armed_) return;
         alarm_armed_ = want;
+        save_alarm();
         CLK_LOGI(ui, "alarm %s", want ? "ON" : "OFF");
         show_hands();
         return;
@@ -519,7 +538,7 @@ void Ui::drain_setting() noexcept {
     // not buy a free minute the instant it is touched again.
     if (now - last_unit_us_ > pace_us) last_unit_us_ = now - pace_us;
     set_min_of_day_ = wrap_day(set_min_of_day_ + dir * units);
-    if (mode_ == Mode::Alarm) alarm_min_of_day_ = set_min_of_day_;
+    if (mode_ == Mode::Alarm) alarm_min_of_day_ = set_min_of_day_;  // saved on leaving the mode
     // The hands are still moving to what the knob asked for, so the mode is not idle -- a
     // five-second timeout that fired while the dial was visibly winding would be measured
     // from the wrong thing.
@@ -773,6 +792,13 @@ void Ui::chime_tick() noexcept {
         chime_off_us_ = now + kChimeMs * 1000ull;
         chime_at_us_ = now + kChimeEveryMs * 1000ull;
     }
+}
+
+// Two keys.  Called once per edit -- leaving `alarm`, an arm/disarm, a `chrono alarm` --
+// never per minute of a knob wind: NVS pages are not free.
+void Ui::save_alarm() const noexcept {
+    (void)hal::store::set_i32(kKeyAlarm, alarm_min_of_day_);
+    (void)hal::store::set_i32(kKeyArmed, alarm_armed_ ? 1 : 0);
 }
 
 void Ui::chime_stop() noexcept {

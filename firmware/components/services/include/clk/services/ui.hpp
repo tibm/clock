@@ -79,6 +79,12 @@ public:
         net_ = n;
     }
     void set_mode(Mode) noexcept;
+    // The alarm, from the CLI / the app.  Posted: `ui` owns it (the knob edits the same two
+    // values), and both are NVS-backed so a reboot keeps the alarm the user set.
+    void set_alarm(int min_of_day) noexcept {
+        post(AlarmCfg{static_cast<int16_t>(min_of_day), -1});
+    }
+    void arm_alarm(bool on) noexcept { post(AlarmCfg{-1, static_cast<int8_t>(on ? 1 : 0)}); }
 
     // Bench isolation for the knob (§12.0.10).  While input is OFF, `ui` still runs -- the
     // pixels animate, the timeout ticks, the alarm chimes -- but it stops READING the knob
@@ -138,6 +144,7 @@ private:
     [[nodiscard]] domain::Anim alarm_cue() const noexcept;  // the bell/alarm rule
     [[nodiscard]] uint8_t level() const noexcept;           // Tuning::brightness, 0..255
 
+    void save_alarm() const noexcept;
     void chime_tick() noexcept;
     void chime_stop() noexcept;
 
