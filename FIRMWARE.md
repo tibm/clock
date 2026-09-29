@@ -1191,6 +1191,46 @@ rather than leaving the default. `power_values.md` §10 says "digital boost defa
 >   an 880 Hz two-note beep (period 800 ms, under the amp's 500 ms idle park). An alarm must
 >   never go silent over a file.
 
+### 6.3a The history log — built 2026-09-28
+
+The clock records the room, the light and its battery on the microSD card whether or not a
+phone is around, for the app to download and plot (app/PROTOCOL.md "History",
+app/protocol.json → `history`). Part of `storage` (`services/src/storage_history.cpp`); the
+wire format is `transport/history.hpp`.
+
+- **Input**: `net` hands `storage` its status snapshot every **10 s** (`log_feed`); `storage`
+  averages it over the period (mean; gas as a geometric mean; light mean + peak; battery mean;
+  state flags as of the end, "any time" for env/light validity).
+- **Record**: fixed **24 bytes**, one per period on the **UTC grid** (a 5-minute record starts
+  at :00, :05, …), CRC-8 in the last byte; events (boot, alarm fire/snooze/dismiss, Wi-Fi
+  online/fail, SNTP sync, log settings) are the same 24 bytes, kind 2. Nothing is recorded
+  before the clock has a real date; events from before are held (16) and back-dated.
+- **Files**: `/sd/log/<yyyy>/<mmdd>.bin` per UTC day, 32-byte header + records, append-only.
+  A torn tail (power cut) is padded to the next slot on the next append, so it fails its CRC
+  and everything after it stays aligned.
+- **Writes**: records wait in a RAM ring (8192 = 192 KB, PSRAM; 28 days at 5 min) and go to
+  the card every **15 min** or at 1024 records — never while a file plays. No card: the ring
+  keeps the newest, drops (and counts) the oldest.
+- **Retention**: whole days, oldest first, never today — by age (`keep`, default 731 days) and
+  by bytes on the card, cluster-rounded (`cap`, default 200 MB). Checked after each write that
+  touches a new day and after any settings change.
+- **Budget**: `log period|keep|cap` are refused (`denied`, with the numbers) when
+  `ceil((32 + 86400/p × 24 + 50 events × 24) / cluster) × cluster × keep` exceeds the cap.
+
+| period | data/day | 2 years, data | 2 years on a 32 KB-cluster card | within 200 MB? |
+|---|---|---|---|---|
+| **300 s (default)** | 6.9 KB | 5.0 MB | **24 MB** | ✅ |
+| 60 s | 34.6 KB | 25 MB | 48 MB | ✅ |
+| 10 s (minimum) | 207 KB | 152 MB | 168 MB | ✅ |
+
+- **Download**: `log days` (`=day=<yyyymmdd>/<bytes>`), `log fetch <day> [<offset>]` → CRC-32
+  of the range in `=crc=`, the bytes on the new notify-only **`bulk`** characteristic (…0007),
+  4-byte offset + data per notification, up to 16 per 10 ms tick, a packet the radio has no
+  buffer for retried next tick. Resumable by offset; the phone is the long-term archive.
+- **Settings** (NVS `log.per/keep/cap/on`): `log status|period|keep|cap|enable|flush|days|fetch|tail`.
+- Not yet: the sensor reads move from `net` to `board` (F6.4) — the log's input moves with them;
+  a download over Wi-Fi (HTTP) would be ~50× faster than BLE.
+
 ### 6.4 `chrono` — the time authority
 
 > **As built, 2026-09-28 (Wi-Fi):** a ZONE now, not an offset — a POSIX TZ rule
@@ -2134,6 +2174,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · `audio play <name> [loop]` (a `/sd/tones` WAV through `storage`; `audio stop` ends it) **· built 2026-09-27** · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
+| `log` | ▲`log status` · ▲`log period [<s>]` · ▲`log keep [<days>]` · ▲`log cap [<MB>]` · ▲`log enable <on\|off>` · ▲`log flush` · ▲`log days` · ▲`log fetch <yyyymmdd> [<off>] \| stop` · ▲`log tail [<n>]` **· built 2026-09-28** (§6.3a) |
 | `storage` | ▲`storage status` · ▲`storage ls [<path>]` (default `/sd/tones`; each WAV checked — length, or why not) · ▲`storage stat <file>` · ▲`storage sd` · ▲`storage sd mount` · ▲`storage sd unmount` **· built 2026-09-27** · ▲`storage tones` (the app's list, `=` pairs) · ▲`storage rm <name>` · ▲`storage put [<name> <size> <crc32>]` · ▲`storage put end` · ▲`storage put abort` · `storage put data <off> <hex>` (a `blob` write from the console) **· built 2026-09-27** · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
 | `net` | ▲`net status` · ▲`net ble status` · ▲`net ble pair [on\|off]` (opens through `ui`, so the row lights — refuses with the radio off) · ▲`net ble unbond` · `net ble window [<s>]` (pairing window, 120 s) · `net ble period [<ms>]` (snapshot cadence, 1000) **· built 2026-09-27** · ▲`net wifi` (`=` pairs for the app) · ▲`net wifi join <ssid> [<psk>]` (plain or `hex:`) · ▲`net wifi forget` · ▲`net wifi scan` (`=ap=` pairs) · ▲`net sntp` · ▲`net sntp sync` **· built 2026-09-28** · `net on\|off` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
@@ -4053,7 +4094,7 @@ blocked on one net for eight days (§12.0.16). Rework **R2** closed it: reg 0x08
 | **F6.0** | ✅ | `net` AO + `hal::ble` (NimBLE) + `transport/` (framing, 132-byte snapshot) + `net …` / `sys snap` rows + `tools/clockctl.py`. 17 host cases in `test_net.cpp` (wire offsets, fake-phone policy, window ↔ `ui`). Both target profiles build clean. ⚠ Existing build dirs predate `CONFIG_BT_*`: **`rm build/*/sdkconfig`** once, or IDF keeps BT off and `ble_esp.cpp` fails to find `host/ble_hs.h` |
 | **F6.1** | ⬜ | **Bench it.** `tools/clockctl.py scan` → hold 10 s → `clockctl.py shell` → `help`, `sys snap`; then `clockctl.py status --watch`. Check on iOS *and* Android: (a) a stranger outside the window is dropped at `ENC_CHANGE` (`net status` → `refused` +1); (b) a bonded phone reconnects with the window shut; (c) `REPEAT_PAIRING` after "forget device" on the phone only succeeds inside the window; (d) `help` at the default 23-byte MTU (fragments) |
 | **F6.2** | 🟡 | 2026-09-28: **built, host-tested, not benched.** Wi-Fi join over the BLE command channel + own SNTP client (3 servers in order) → `chrono.set_utc` (§6.7); POSIX TZ zones, default San Francisco (§6.4); app Wi-Fi screen + zone rule on connect. **Bench it:** from the app (or `clockctl.py shell`) `net wifi scan` → `net wifi join <ssid> <psk>` → `net wifi` online within ~5 s → `net sntp` shows server 1 answered, `chrono status` `set by sntp` with the right local time → wrong password shows `err=auth` → rear toggle off/on rejoins → reboot rejoins from NVS. Watch heap (`sys heap`) with BLE + Wi-Fi both up. ⚠ First build after this change: **`rm build/*/sdkconfig`** once so `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` lands |
-| **F6.3** | ⬜ | Device-side history: a PSRAM ring of snapshots (or a thinned subset) read back in bulk, so a plot survives the phone being away. The record is already the unit |
+| **F6.3** | 🟡 | 2026-09-28: **history log built, host-tested, not benched** (§6.3a): 24-byte records every 5 min → `/sd/log/<yyyy>/<mmdd>.bin`, retention by days + MB, `bulk` download. **Bench it:** `log period 10` → `log tail` after a minute → `log flush` → `log days` → `clockctl.py`/app fetch a day and compare CRC; pull the card mid-write, reinsert, check the next append realigns. App side: `app/PLAN.md` → "Next: history" |
 | **F6.5** | ✅ | 2026-09-28: the app's three commands — `chrono time epoch` (UTC + offset; `Chrono` now keeps `tz_off_min` in NVS and every local reading is UTC + offset), `chrono tz`, `chrono alarm set/arm` (NVS-backed in `ui`). Snapshot: `tz_off_min` populated, new flag bit 30 `date_valid`. `app/PROTOCOL.md` changelog. Product-level list of what is left: **`TODO.md`** |
 | **F6.4** | ⬜ | Move the BME688/TSL2591 reads off `net`'s thread (to `board`, §6.5) — today an ALS auto-range can delay a command answer by ~1 s |
 

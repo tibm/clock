@@ -39,9 +39,10 @@ profiles are not available to iOS apps.)
 | `status` | `7a3e0004-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read, notify | 132-byte binary snapshot, §5 |
 | `info` | `7a3e0005-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read | UTF-8 `key=value` pairs separated by spaces, §6 |
 | `blob` | `7a3e0006-5c1d-4b8e-9f3a-2c6d1e0b9a41` | write **with response** | binary upload data: 4-byte LE offset + bytes, §4 "Sound files" |
+| `bulk` | `7a3e0007-5c1d-4b8e-9f3a-2c6d1e0b9a41` | notify | binary download data: 4-byte LE offset + bytes, §4 "History" |
 
-The standard GAP/GATT services are also present. **All five characteristics require an
-encrypted, bonded link** (§2); before bonding every access fails with an ATT
+The standard GAP/GATT services are also present. **All six characteristics require an
+encrypted, bonded link** (§2) — `bulk` included; before bonding every access fails with an ATT
 insufficient-authentication / -encryption error.
 
 ### Advertising
@@ -191,6 +192,8 @@ status snapshot (§5), not from command output.**
 | `storage tones` | implemented | **list the sound files** — `=` pairs, see "Sound files" below |
 | `storage rm <name>` | implemented | **delete** one. If it was the alarm tone, the alarm falls back to the beep |
 | `storage put <name> <size> <crc32_hex>` · `storage put` · `storage put end` · `storage put abort` | implemented | **upload** one — see "Sound files" below |
+| `log days` · `log fetch <yyyymmdd> [<offset>]` · `log fetch stop` | implemented | **download the history log** — see "History" below |
+| `log status` · `log period <s>` · `log keep <days>` · `log cap <MB>` · `log enable <on\|off>` · `log flush` | implemented | history settings (budget-checked) and state |
 | `chrono alarm` | implemented | show it (display only — read the state from the snapshot) |
 | `chrono steps <1-60>` | implemented | hands tick (1) or sweep (60) |
 | `audio vol <0-100>` | implemented | volume. Above the firmware's current ceiling (25) → `denied` |
@@ -267,6 +270,68 @@ provisioning service.
   hour; a round where none answered is retried after 30 s, backing off to 15 min.
   `net sntp` shows which answered; `net sntp sync` asks now.
 - The rear radio toggle turns Wi-Fi off too (`wifi_state` = `off`), and it rejoins by itself.
+
+### History (logs)
+
+The clock records the room, the light and its battery **all the time**, phone or not, onto the
+microSD card, so the app can download it later and plot it. Numbers (offsets, flags, event
+codes, encodings, golden vectors): `protocol.json` → `history`.
+
+**What is recorded.** One **24-byte record per period** — default **5 min** (`log period`,
+10–3600 s) — holding the *average* of the readings taken every 10 s during that period:
+temperature, humidity, pressure, gas resistance (geometric mean), light (mean and peak),
+battery mV and %, Wi-Fi RSSI, and state flags (plugged, charging, alarm armed, …). Plus
+**event records** of the same size for things that happen: boot, alarm fired / snoozed /
+dismissed, Wi-Fi joined / failed, SNTP sync, log settings changed. Nothing is recorded until the
+clock has a real date (Wi-Fi time or the phone); events from before that are back-dated.
+
+**On the card.** One file per **UTC** day, `/sd/log/<yyyy>/<mmdd>.bin`: a 32-byte header then
+records, append-only. Only today's file grows; old days are deleted whole — by age
+(`log keep`, default 731 days) and by size (`log cap`, default 200 MB, counted in card
+clusters). The clock refuses (`denied`) a period/keep/cap combination whose projection passes
+the cap. At the defaults a day is 6.9 KB and two years 5 MB of data (~24 MB of card).
+Records reach the card every 15 min (they wait in RAM, up to 28 days' worth with no card).
+
+**Decoding a file** (all little-endian):
+
+1. Check the header: magic `CLKL`, version 1, record size 24. Refuse the file otherwise.
+2. From byte 32, every 24 bytes is a record. **Byte 23 is a CRC-8** (poly 0x07, init 0,
+   CRC-8/SMBUS) of bytes 0–22: skip a record that fails it (a power cut mid-write) and carry
+   on — the next one is aligned. Ignore a partial record at the very end (it is being written).
+3. Byte 0 is the kind: **1 = sample, 2 = event**; skip anything else (newer firmware).
+4. Sample: `t` (u32 @2) is Unix seconds UTC, the **start** of its period. A field is only
+   meaningful if its validity flag is set (`env_ok` → temp/rh/press/gas, `als_ok` → lux,
+   `power_ok` → vbat/soc, `wifi_online` → rssi). Gas and light are logarithmic:
+   `ohms = 10^(v/8192)`, `lux = 10^(v/12000) − 1`, peak `lux = 10^(v/50) − 1`.
+5. Records are in time order within a file, but a clock that was re-set may repeat or skip a
+   stretch: plot by `t`, not by position, and don't join points across a gap longer than two
+   periods.
+
+**Downloading** — incremental, resumable, and the app keeps its own copy:
+
+1. Subscribe to `bulk` (and `rsp`) before anything else.
+2. `log days` → one `=day=<yyyymmdd>/<bytes>` per file, oldest first (the clock writes its RAM
+   records to the card first, so today is complete). Compare with what the app already has:
+   - a day the app doesn't have → fetch from 0;
+   - a day that is **longer** on the clock → fetch from the app's length (only today, normally);
+   - a day the app has but the clock doesn't list any more → retention removed it: **keep the
+     app's copy** (the phone is the long-term archive).
+   - a day **shorter** on the clock than in the app → the card was replaced or erased: fetch
+     it again from 0 and replace.
+3. `log fetch <yyyymmdd> <from>` → `=day=` `=from=` `=size=` `=crc=` then `$ok`. The bytes
+   `[from, size)` then arrive on `bulk`, each notification = **4-byte LE file offset + data**
+   (≤ MTU − 3 bytes). Write each at its offset. Done when `size` is reached; check the
+   **CRC-32 (zlib) of exactly the bytes `[from, size)`** against `crc`. If the link drops,
+   reconnect and `log fetch` again from what you have. One download at a time; a new
+   `log fetch` replaces the one running; `log fetch stop` abandons it.
+4. Don't send other commands while a download runs, except `log fetch stop`.
+
+**Speed.** Notifications need no per-packet round trip: expect ~20–40 KB/s on iOS. At the
+default period one day is 7 KB (well under a second), a first sync of two years ~5 MB (a few
+minutes); after that, a daily sync is one fetch of today's tail.
+
+`log status` gives the settings and state as `=` pairs (`on`, `period`, `keep`, `cap`,
+`projected`, `used`, `days`, `ram`) for a settings screen.
 
 ### Sound files
 
@@ -423,6 +488,7 @@ marked newer. Unknown keys: ignore.
 | Date | Version | Change |
 |---|---|---|
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
+| 2026-09-28 | proto 1 / schema 1 | **History log.** New `bulk` characteristic (…0007, notify, offset + data); `log status/period/keep/cap/enable/flush/days/fetch` commands; "History" section; `protocol.json` → `history` (file + record layout, flags, event codes, golden vectors). All compatible (new characteristic, new commands) |
 | 2026-09-28 | proto 1 / schema 1 | **Wi-Fi + SNTP.** New `net wifi join/forget/scan`, `net wifi`, `net sntp [sync]`; "Wi-Fi" section (credentials over the bonded link — replaces the planned Espressif provisioning). `wifi_state` enum grows `idle connecting online backoff`; byte 131 `reserved` → `wifi_err` (was always 0). **Time zones**: `chrono tz <posix> [<name>]`, default San Francisco; `tz_off_min` is now the zone's offset at the instant (DST included) and is no longer 0 before a zone is given; `chrono time epoch` with a disagreeing offset makes the zone fixed. All compatible |
 | 2026-09-28 | proto 1 / schema 1 | Implemented `chrono time epoch` (offset now optional), `chrono alarm set/arm`; added `chrono tz`, `chrono alarm`; `tz_off_min` populated; new flag bit 30 `date_valid`; "Keeping time" guidance. All compatible |
 | 2026-09-27 | proto 1 / schema 1 | The alarm rings. New `ui_mode` values `ringing` (6) and `snoozed` (7); new commands `chrono alarm tone`, `chrono alarm fire/snooze/dismiss`, `audio play`. All compatible (new enum values, new commands) |

@@ -112,6 +112,15 @@ uint32_t Storage::put_begin(const char* name, uint32_t size, uint32_t crc) noexc
 }
 uint32_t Storage::put_end() noexcept { return enqueue(Kind::PutEnd, nullptr, false); }
 uint32_t Storage::put_abort() noexcept { return enqueue(Kind::PutAbort, nullptr, false); }
+uint32_t Storage::log_flush() noexcept { return enqueue(Kind::LogFlush, nullptr, false); }
+uint32_t Storage::log_fetch(uint32_t day, uint32_t offset) noexcept {
+    return enqueue(Kind::LogFetch, nullptr, false, day, offset);
+}
+uint32_t Storage::log_fetch_stop() noexcept { return enqueue(Kind::LogFetchStop, nullptr, false); }
+
+void Storage::retick() noexcept {
+    set_tick(playing_ != Playing::Nothing || fetch_fd_ >= 0 ? kPumpMs : kIdleMs);
+}
 
 // ---- uploads ---------------------------------------------------------------------------------
 
@@ -249,6 +258,7 @@ void Storage::on_start() {
     const Status st = ensure_mounted();
     CLK_LOGI(storage, "up; card %s, alarm tone %s", st == Status::Ok ? "mounted" : clk::name(st),
              tone_[0] ? tone_ : "(none -- the beep)");
+    log_start();
     publish();
 }
 
@@ -275,6 +285,7 @@ void Storage::on_tick() {
     drain_chunks();  // a StoRx lost to a full mailbox must not strand accepted data
     if (playing_ == Playing::File) pump();
     if (playing_ == Playing::Beep) beep_tick();
+    log_tick();
     publish();
 }
 
@@ -302,6 +313,7 @@ void Storage::handle(Req const& r) noexcept {
         }
         case Kind::Unmount: {
             if (put_fd_ >= 0) put_close(true);  // a file half-written to a card being pulled
+            log_fetch_end("card unmounted");
             const bool ringing = alarm_;
             if (playing_ == Playing::File) halt(false);
             const Status st = hal::sd::unmount();
@@ -418,6 +430,21 @@ void Storage::handle(Req const& r) noexcept {
         }
         case Kind::PutAbort:
             put_close(true);
+            return answer(r.seq, Status::Ok, nullptr);
+        case Kind::LogFlush: {
+            const Status st = log_write();
+            return answer(r.seq, st, st == Status::Ok ? nullptr : "no card");
+        }
+        case Kind::LogFetch: {
+            const Status st = log_fetch_begin(r.size, r.crc);
+            const char* why = nullptr;
+            if (st == Status::NotPresent) why = "no card";
+            if (st == Status::Failed) why = "no log for that day";
+            if (st == Status::BadArg) why = "offset past the end of the file";
+            return answer(r.seq, st, why);
+        }
+        case Kind::LogFetchStop:
+            log_fetch_end("stopped");
             return answer(r.seq, Status::Ok, nullptr);
         case Kind::PutEnd: {
             bool open = false, failed = false;
@@ -588,7 +615,7 @@ void Storage::halt(bool fade) noexcept {
     (void)fade;  // both stops fade: hal::audio::stop() always releases through the tail
     playing_ = Playing::Nothing;
     alarm_ = false;
-    set_tick(kIdleMs);
+    retick();
 }
 
 void Storage::pump() noexcept {
@@ -599,7 +626,7 @@ void Storage::pump() noexcept {
         close_file();
         playing_ = Playing::Nothing;
         alarm_ = false;
-        set_tick(kIdleMs);
+        retick();
         return;
     }
     if (eof_sent_) return;  // draining the last of the ring

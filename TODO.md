@@ -77,7 +77,8 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | ✅ | Set time / alarm over BLE | 2026-09-28 |
 | 🟡 | Wi-Fi + SNTP (app: Clock tab → Wi-Fi; zone rule sent on connect) | **F6.2** — built, not benched |
 | ⬜ | Firmware update over the air (OTA) | partition table is ready; `net ota` |
-| ⬜ | Status history on the device (plot survives the phone being away) | **F6.3** |
+| 🟡 | History log on the SD card: room / light / battery every 5 min, 2 years, ≤ 200 MB, download over `bulk` | **F6.3** — firmware built + host-tested 2026-09-28, bench next |
+| ⬜ | App: sync the history log and plot it (Swift Charts) | `app/PLAN.md` → "Next: history" |
 | ⬜ | Upload alarm sounds from the phone | `Bulk` characteristic → `storage`; protocol addition |
 
 ## Sensors

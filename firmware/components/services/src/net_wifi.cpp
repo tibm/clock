@@ -22,6 +22,7 @@
 #include "clk/log.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/net.hpp"
+#include "clk/services/storage.hpp"
 
 namespace clk::svc {
 namespace {
@@ -261,6 +262,11 @@ void Net::wifi_fail(uint64_t now, WifiErr err, uint8_t reason) noexcept {
     }
     CLK_LOGW(net, "wifi: \"%s\" failed: %s (reason %u); retry in %" PRIu32 " s", ssid,
              transport::name(err), reason, s);
+    // Only the first failure of a streak: a wrong password retried for a week is one event.
+    if (storage_ && backoff_ == 1) {
+        const uint8_t a[2] = {static_cast<uint8_t>(err), reason};
+        storage_->log_event(transport::hist::Ev::WifiFail, a, sizeof a);
+    }
 }
 
 void Net::wifi_tick(uint64_t now) noexcept {
@@ -305,6 +311,10 @@ void Net::wifi_tick(uint64_t now) noexcept {
                     std::memcpy(ssid, wifi_.ssid, sizeof ssid);
                 }
                 CLK_LOGI(net, "wifi: online on \"%s\", %d dBm, ch %u", ssid, l.rssi, l.channel);
+                if (storage_) {
+                    const uint8_t a[1] = {static_cast<uint8_t>(l.rssi)};
+                    storage_->log_event(transport::hist::Ev::WifiOnline, a, sizeof a);
+                }
             } else if (l.phase == hal::wifi::Phase::Failed) {
                 wifi_fail(now, map_err(l.err), l.reason);
             } else if (now > attempt_at_us_ && now - attempt_at_us_ >= kConnectTimeoutUs) {
@@ -436,6 +446,16 @@ void Net::sntp_tick(uint64_t now) noexcept {
     }
     CLK_LOGI(net, "sntp: %s answered (stratum %u, rtt %" PRIu64 " ms)%s", host, r.stratum,
              (ex.recv_us - ex.sent_us) / 1000, first ? " -- the clock is set" : "");
+    if (storage_) {
+        const auto st =
+            static_cast<uint32_t>(static_cast<int32_t>(step_ms > INT32_MAX   ? INT32_MAX
+                                                       : step_ms < INT32_MIN ? INT32_MIN
+                                                                             : step_ms));
+        const uint8_t a[5] = {static_cast<uint8_t>(sntp_idx_), static_cast<uint8_t>(st),
+                              static_cast<uint8_t>(st >> 8), static_cast<uint8_t>(st >> 16),
+                              static_cast<uint8_t>(st >> 24)};
+        storage_->log_event(transport::hist::Ev::SntpSync, a, sizeof a);
+    }
     sntp_idx_ = 0;
     report_net();
 }

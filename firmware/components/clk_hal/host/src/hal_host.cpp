@@ -1316,6 +1316,7 @@ Result<Info> info() noexcept {
     in.total_bytes = static_cast<uint64_t>(v.f_blocks) * v.f_frsize;
     in.free_bytes = static_cast<uint64_t>(v.f_bavail) * v.f_frsize;
     in.freq_khz = 20000;
+    in.cluster_bytes = 32768;  // what a 32 GB FAT32 card is formatted with
     std::snprintf(in.name, sizeof in.name, "SIM");
     return Result<Info>::good(in);
 }

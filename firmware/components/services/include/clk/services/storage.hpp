@@ -18,6 +18,12 @@
 // phone streams the bytes through the `blob` characteristic into put_data(), `put_end` checks
 // the length, the CRC-32 and the WAV header and only then renames the file into place -- so a
 // half-sent or wrong file is never visible to `ls`, the alarm, or the app's listing.
+//
+// HISTORY (§6.3a, app/PROTOCOL.md "History"; storage_history.cpp): `net` feeds a reading every
+// 10 s, this AO averages them into one 24-byte record per period (default 5 min) on the UTC
+// clock, keeps records in a RAM ring and appends them to `/sd/log/<yyyy>/<mmdd>.bin` every
+// 15 min.  Retention by age AND by megabytes, both measured on the card.  The phone downloads
+// a day file through the `bulk` characteristic (`log fetch`), resumable by offset.
 #pragma once
 
 #include <cstdint>
@@ -25,6 +31,8 @@
 #include "clk/ao.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/wav.hpp"
+#include "clk/transport/history.hpp"
+#include "clk/transport/snapshot.hpp"
 
 namespace clk::svc {
 
@@ -95,6 +103,55 @@ public:
 
     [[nodiscard]] Snapshot snapshot() const noexcept;
 
+    // ---- history (storage_history.cpp) ----
+    struct LogCfg {
+        uint16_t period_s = 300;  // one record per this many seconds
+        uint16_t keep_days = 731;
+        uint16_t cap_mb = 200;  // on-card bytes, cluster-rounded, all day files together
+        bool on = true;
+    };
+    static constexpr uint16_t kPeriodMin = 10, kPeriodMax = 3600;
+    static constexpr uint16_t kKeepMin = 1, kKeepMax = 3650;
+    static constexpr uint16_t kCapMin = 10, kCapMax = 2000;
+    struct LogSnap {
+        LogCfg cfg;
+        bool time_ok;  // records are only made once the clock has a real date
+        uint32_t ram;  // records waiting in RAM for the card
+        uint32_t ram_cap;
+        uint32_t written;  // records appended to the card since boot
+        uint32_t dropped;  // records lost: RAM full with no card
+        uint32_t flushes;
+        uint32_t flush_ago_s;     // since the last write to the card (UINT32_MAX = never)
+        uint32_t cluster;         // the card's, or the 32 KB assumed without one
+        uint64_t used_bytes;      // on the card, cluster-rounded, as of the last prune
+        uint32_t days;            // day files on the card, as of the last prune
+        uint32_t oldest, newest;  // yyyymmdd, 0 = none
+        const char* last_err;     // a literal, or nullptr
+        // The download in progress, and the answer to the last `log fetch`.
+        bool fetching;
+        uint32_t fetch_day;  // yyyymmdd
+        uint32_t fetch_from, fetch_size, fetch_crc, fetch_sent;
+    };
+    // `net`'s reading, every 10 s, any thread.  Only the room / light / battery / radio parts
+    // of the snapshot are used.
+    void log_feed(transport::Snapshot const&) noexcept;
+    // Something happened.  Any thread; stamped now (back-dated if the time is not known yet).
+    void log_event(transport::hist::Ev, const uint8_t* args = nullptr, std::size_t n = 0) noexcept;
+    // Denied when the projection (period x keep, cluster-rounded) exceeds the cap -- `why`
+    // then holds the numbers.  BadArg out of range.  Persisted (NVS).
+    Status log_set(LogCfg const&, char* why, std::size_t cap) noexcept;
+    [[nodiscard]] LogCfg log_cfg() const noexcept;
+    [[nodiscard]] LogSnap log_snapshot() const noexcept;
+    [[nodiscard]] static uint64_t log_projected(LogCfg const&, uint32_t cluster) noexcept;
+    uint32_t log_flush() noexcept;  // write the RAM records to the card now (a request)
+    // Stream [offset, size) of a day file on `bulk`.  Flushes first, so today is complete.
+    // Answered with fetch_size / fetch_crc (CRC-32 of exactly those bytes) in log_snapshot().
+    uint32_t log_fetch(uint32_t yyyymmdd, uint32_t offset) noexcept;
+    uint32_t log_fetch_stop() noexcept;
+    void set_fw_id(uint32_t id) noexcept { fw_id_ = id; }
+    // The last few records (RAM, newest last), for `log tail`.  Returns how many were copied.
+    std::size_t log_tail(uint8_t (*out)[transport::hist::kRecord], std::size_t max) const noexcept;
+
     // Blocking: open `path`, read and check its header.  For `storage ls`, which is a bench
     // listing and reads each file's first 512 bytes on the CLI thread (FATFS is re-entrant).
     // Everything that PLAYS goes through the queue above.
@@ -119,7 +176,10 @@ private:
         Remove,
         PutBegin,
         PutEnd,
-        PutAbort
+        PutAbort,
+        LogFlush,
+        LogFetch,
+        LogFetchStop,
     };
     struct Req {
         Kind kind;
@@ -154,6 +214,17 @@ private:
     void close_file() noexcept;
     void halt(bool fade) noexcept;  // stop whatever is playing
     void publish() noexcept;
+    void retick() noexcept;  // 10 ms while playing or downloading, else idle
+    // history
+    void log_start() noexcept;
+    void log_tick() noexcept;
+    void log_emit(uint32_t t) noexcept;
+    void log_push(const uint8_t* rec) noexcept;  // hmx_ held
+    Status log_write() noexcept;                 // RAM -> card
+    void log_prune(uint32_t today) noexcept;
+    Status log_fetch_begin(uint32_t day, uint32_t off) noexcept;
+    void log_fetch_pump() noexcept;
+    void log_fetch_end(const char* why) noexcept;
 
     mutable port::Mutex mx_;  // guards snap_ and the request queue
     Snapshot snap_{};
@@ -192,6 +263,41 @@ private:
     uint32_t put_written_ = 0;
     // 8 KB: one card read.  Internal RAM -- the SPI DMA reads into it directly.
     int16_t buf_[4096];
+
+    // --- history.  hmx_ guards the accumulator, the ring, the pending events and hsnap_;
+    // the card side is this AO's thread only.
+    mutable port::Mutex hmx_;
+    LogCfg cfg_{};
+    LogSnap hsnap_{};
+    struct Acc {
+        uint32_t n = 0, n_env = 0, n_als = 0, n_pow = 0;
+        int64_t temp = 0, rh = 0, press = 0;
+        double lgas = 0, lux = 0;
+        float lux_max = 0;
+        uint64_t vbat = 0;
+        uint16_t sticky = 0;  // flags that are "any time in the period"
+        transport::Snapshot last{};
+    } acc_{};
+    uint8_t (*ring_)[transport::hist::kRecord] = nullptr;  // heap (PSRAM on target)
+    std::size_t ring_cap_ = 0, ring_head_ = 0, ring_n_ = 0;
+    struct Pending {
+        uint64_t mono_us;
+        transport::hist::Event e;
+    };
+    static constexpr std::size_t kPendingMax = 16;
+    Pending pend_[kPendingMax]{};
+    std::size_t pend_n_ = 0;
+    uint32_t bucket_ = 0;  // start of the period being averaged, 0 = none yet
+    uint64_t flush_at_us_ = 0;
+    uint64_t last_flush_us_ = 0;  // hmx_
+    uint32_t pruned_day_ = 0;     // yyyymmdd of the last prune
+    bool prune_due_ = false;      // hmx_: the settings changed -- prune at the next write
+    uint32_t fw_id_ = 0;
+    // download, this AO's thread
+    int fetch_fd_ = -1;
+    uint32_t fetch_off_ = 0, fetch_end_ = 0;
+    uint8_t fetch_pkt_[4 + 512] = {};
+    std::size_t fetch_pkt_n_ = 0;  // a packet read but not yet accepted by the radio
 };
 
 Storage& storage() noexcept;

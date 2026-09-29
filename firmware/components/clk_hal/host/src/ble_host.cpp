@@ -29,7 +29,7 @@ struct Fake {
     bool connected = false;
     bool encrypted = false;
     bool bonded_link = false;
-    bool rsp_sub = false, status_sub = false;
+    bool rsp_sub = false, status_sub = false, bulk_sub = false;
     uint16_t mtu = 23;
     uint8_t bonds = 0;
     uint32_t paired = 0, refused = 0;
@@ -37,6 +37,7 @@ struct Fake {
     ble::RxFn rx = nullptr;
     ble::BlobFn blob = nullptr;
     std::deque<std::string> rsp;
+    std::deque<std::string> bulk;
     std::vector<uint8_t> status;
     std::string info;
 };
@@ -46,7 +47,7 @@ Fake g;
 
 void drop_link_locked() {
     g.connected = g.encrypted = g.bonded_link = false;
-    g.rsp_sub = g.status_sub = false;
+    g.rsp_sub = g.status_sub = g.bulk_sub = false;
     g.mtu = 23;
 }
 
@@ -91,6 +92,15 @@ Status notify_rsp(const uint8_t* data, std::size_t len) noexcept {
     return Status::Ok;
 }
 
+Status notify_bulk(const uint8_t* data, std::size_t len) noexcept {
+    std::lock_guard lk{g_mx};
+    if (!g.bonded_link || !g.bulk_sub) return Status::NotReady;
+    if (len > static_cast<std::size_t>(g.mtu - 3)) return Status::BadArg;
+    if (g.bulk.size() >= kQueueDepth) return Status::Busy;
+    g.bulk.emplace_back(reinterpret_cast<const char*>(data), len);
+    return Status::Ok;
+}
+
 Status set_status(const uint8_t* data, std::size_t len, bool notify) noexcept {
     std::lock_guard lk{g_mx};
     g.status.assign(data, data + len);
@@ -117,7 +127,8 @@ Link link() noexcept {
     std::lock_guard lk{g_mx};
     return Link{
         g.up,      g.up && !g.connected, g.pairable, g.connected, g.encrypted, g.bonded_link,
-        g.rsp_sub, g.status_sub,         g.mtu,      g.bonds,     g.paired,    g.refused};
+        g.rsp_sub, g.status_sub,         g.mtu,      g.bonds,     g.paired,    g.refused,
+        g.bulk_sub};
 }
 
 }  // namespace ble
@@ -156,6 +167,7 @@ void ble_disconnect() noexcept {
     std::lock_guard lk{g_mx};
     drop_link_locked();
     g.rsp.clear();
+    g.bulk.clear();
 }
 
 void ble_subscribe(bool rsp, bool status) noexcept {
@@ -204,6 +216,21 @@ bool ble_pop_rsp(char* out, std::size_t cap) noexcept {
     out[n] = '\0';
     g.rsp.pop_front();
     return true;
+}
+
+void ble_subscribe_bulk(bool on) noexcept {
+    std::lock_guard lk{g_mx};
+    if (g.bonded_link) g.bulk_sub = on;
+}
+
+std::size_t ble_pop_bulk(uint8_t* out, std::size_t cap) noexcept {
+    std::lock_guard lk{g_mx};
+    if (g.bulk.empty()) return 0;
+    const std::string& f = g.bulk.front();
+    const std::size_t n = f.size() < cap ? f.size() : cap;
+    std::memcpy(out, f.data(), n);
+    g.bulk.pop_front();
+    return n;
 }
 
 std::size_t ble_read_status(uint8_t* out, std::size_t cap) noexcept {

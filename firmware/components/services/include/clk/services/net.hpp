@@ -171,6 +171,7 @@ private:
     uint32_t refused_seen_ = 0;
     uint64_t radio_at_us_ = 0;
     uint64_t status_at_us_ = 0;
+    uint64_t hist_at_us_ = 0;
     uint16_t seq_ = 0;
 
     // Wi-Fi.  wifi_ (and the pending flags) under mx_: the CLI thread writes them.

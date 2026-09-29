@@ -47,6 +47,7 @@ const ble_uuid128_t kRspUuid = CLK_UUID(0x03);
 const ble_uuid128_t kStatusUuid = CLK_UUID(0x04);
 const ble_uuid128_t kInfoUuid = CLK_UUID(0x05);
 const ble_uuid128_t kBlobUuid = CLK_UUID(0x06);
+const ble_uuid128_t kBulkUuid = CLK_UUID(0x07);
 
 // Advertising interval, 0.625 ms units.  Fast while somebody is trying to find the clock;
 // slow the rest of the time, when the only listener is a phone that already knows it.
@@ -67,7 +68,7 @@ bool g_pairable = false;
 bool g_advertising = false;
 uint16_t g_conn = BLE_HS_CONN_HANDLE_NONE;
 bool g_encrypted = false, g_bonded = false;
-bool g_rsp_sub = false, g_status_sub = false;
+bool g_rsp_sub = false, g_status_sub = false, g_bulk_sub = false;
 uint16_t g_mtu = 23;
 uint8_t g_bonds = 0;
 uint32_t g_paired = 0, g_refused = 0;
@@ -80,7 +81,7 @@ uint8_t g_status[kStatusCap];
 std::size_t g_status_len = 0;
 char g_info[kInfoCap] = "";
 
-uint16_t g_rsp_handle = 0, g_status_handle = 0;
+uint16_t g_rsp_handle = 0, g_status_handle = 0, g_bulk_handle = 0;
 
 int gap_event(ble_gap_event* ev, void*);
 
@@ -146,7 +147,8 @@ int access(uint16_t conn, uint16_t attr, ble_gatt_access_ctxt* ctxt, void*) {
                        ? 0
                        : BLE_ATT_ERR_INSUFFICIENT_RES;
         }
-        if (::ble_uuid_cmp(u, &kRspUuid.u) == 0) return 0;  // notify-only in spirit; empty read
+        if (::ble_uuid_cmp(u, &kRspUuid.u) == 0) return 0;   // notify-only in spirit; empty read
+        if (::ble_uuid_cmp(u, &kBulkUuid.u) == 0) return 0;  // likewise
     }
     return BLE_ATT_ERR_UNLIKELY;
 }
@@ -193,6 +195,16 @@ const ble_gatt_chr_def kChrs[] = {
      .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_ENC,
      .min_key_size = 16,
      .val_handle = nullptr,
+     .cpfd = nullptr},
+    // Download data (history files): notify, offset + bytes.  READ_ENC on an empty read is
+    // what makes the CCCD need the same bonded link as everything else.
+    {.uuid = &kBulkUuid.u,
+     .access_cb = access,
+     .arg = nullptr,
+     .descriptors = nullptr,
+     .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_NOTIFY,
+     .min_key_size = 16,
+     .val_handle = &g_bulk_handle,
      .cpfd = nullptr},
     {},
 };
@@ -255,7 +267,7 @@ void advertise_locked() {
 void clear_link_locked() {
     g_conn = BLE_HS_CONN_HANDLE_NONE;
     g_encrypted = g_bonded = false;
-    g_rsp_sub = g_status_sub = false;
+    g_rsp_sub = g_status_sub = g_bulk_sub = false;
     g_mtu = 23;
 }
 
@@ -331,6 +343,7 @@ int gap_event(ble_gap_event* ev, void*) {
             if (ev->subscribe.attr_handle == g_rsp_handle) g_rsp_sub = ev->subscribe.cur_notify;
             if (ev->subscribe.attr_handle == g_status_handle)
                 g_status_sub = ev->subscribe.cur_notify;
+            if (ev->subscribe.attr_handle == g_bulk_handle) g_bulk_sub = ev->subscribe.cur_notify;
             return 0;
 
         case BLE_GAP_EVENT_MTU:
@@ -469,6 +482,21 @@ Status notify_rsp(const uint8_t* data, std::size_t len) noexcept {
     return rc == BLE_HS_ENOMEM ? Status::Busy : Status::Failed;
 }
 
+Status notify_bulk(const uint8_t* data, std::size_t len) noexcept {
+    uint16_t conn;
+    {
+        std::lock_guard lk{g_mx};
+        if (g_conn == BLE_HS_CONN_HANDLE_NONE || !g_bonded || !g_bulk_sub) return Status::NotReady;
+        if (len > static_cast<std::size_t>(g_mtu - 3)) return Status::BadArg;
+        conn = g_conn;
+    }
+    os_mbuf* om = ::ble_hs_mbuf_from_flat(data, static_cast<uint16_t>(len));
+    if (!om) return Status::Busy;
+    const int rc = ::ble_gatts_notify_custom(conn, g_bulk_handle, om);
+    if (rc == 0) return Status::Ok;
+    return rc == BLE_HS_ENOMEM ? Status::Busy : Status::Failed;
+}
+
 Status set_status(const uint8_t* data, std::size_t len, bool notify) noexcept {
     uint16_t conn;
     {
@@ -514,7 +542,8 @@ Link link() noexcept {
     std::lock_guard lk{g_mx};
     return Link{g_up,        g_advertising, g_pairable, g_conn != BLE_HS_CONN_HANDLE_NONE,
                 g_encrypted, g_bonded,      g_rsp_sub,  g_status_sub,
-                g_mtu,       g_bonds,       g_paired,   g_refused};
+                g_mtu,       g_bonds,       g_paired,   g_refused,
+                g_bulk_sub};
 }
 
 }  // namespace clk::hal::ble

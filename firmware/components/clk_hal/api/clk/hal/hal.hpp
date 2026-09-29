@@ -599,8 +599,9 @@ inline constexpr std::size_t kNameMax = 64;  // a name in a listing, NUL include
 struct Info {
     uint64_t total_bytes;
     uint64_t free_bytes;
-    uint32_t freq_khz;  // the SPI clock the card accepted
-    char name[8];       // the card's CID product name ("SD16G"); "" on the host
+    uint32_t freq_khz;       // the SPI clock the card accepted
+    char name[8];            // the card's CID product name ("SD16G"); "" on the host
+    uint32_t cluster_bytes;  // allocation unit: every file takes a multiple of it (0 = unknown)
 };
 
 Status mount() noexcept;  // Ok, or NotPresent when no card answered
@@ -762,6 +763,7 @@ struct Link {
     uint8_t bonds;     // peers in the bond store
     uint32_t paired;   // new bonds made since boot -- monotonic, so a poller sees every one
     uint32_t refused;  // links dropped for trying to pair outside the window
+    bool bulk_sub;     // the central subscribed to `bulk` (history downloads)
 };
 
 using RxFn = void (*)(const uint8_t* data, std::size_t len);
@@ -781,7 +783,11 @@ Status notify_rsp(const uint8_t* data, std::size_t len) noexcept;
 // Replaces what a read of `status` returns; also notifies it when `notify` and subscribed.
 Status set_status(const uint8_t* data, std::size_t len, bool notify) noexcept;
 Status set_info(const char* text) noexcept;  // what a read of `info` returns
-Status unbond_all() noexcept;                // forget every phone; drops a bonded link
+// The `bulk` characteristic: notify-only binary, the download half of `blob` (app/PROTOCOL.md
+// "History").  Each notification is a 4-byte LE offset and then data, at most mtu - 3 bytes.
+// Busy: no buffer right now (retry); NotReady: nobody bonded + subscribed.
+Status notify_bulk(const uint8_t* data, std::size_t len) noexcept;
+Status unbond_all() noexcept;  // forget every phone; drops a bonded link
 Link link() noexcept;
 
 // The `blob` characteristic: binary upload data, write WITH response (app/PROTOCOL.md "Sound

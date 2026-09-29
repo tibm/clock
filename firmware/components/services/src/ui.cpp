@@ -377,14 +377,26 @@ void Ui::enter(Mode m) noexcept {
     // included, stops it (with a fade -- hal::audio::stop() always releases through the tail).
     if (m == Mode::Ringing && mode_ != Mode::Ringing) {
         ring_since_us_ = port::now_us();
-        if (storage_) (void)storage_->ring_alarm();
+        if (storage_) {
+            (void)storage_->ring_alarm();
+            const uint8_t a[2] = {static_cast<uint8_t>(alarm_min_of_day_ / 60),
+                                  static_cast<uint8_t>(alarm_min_of_day_ % 60)};
+            storage_->log_event(transport::hist::Ev::AlarmFire, a, sizeof a);
+        }
     }
     if (mode_ == Mode::Ringing && m != Mode::Ringing && storage_) (void)storage_->stop();
     if (m == Mode::Snoozed) {
         snooze_until_us_ = port::now_us() + tuning().snooze_min * 60'000'000ull;
         CLK_LOGI(ui, "snoozed %u min", static_cast<unsigned>(tuning().snooze_min));
+        if (storage_) {
+            const uint8_t a[1] = {static_cast<uint8_t>(tuning().snooze_min)};
+            storage_->log_event(transport::hist::Ev::AlarmSnooze, a, sizeof a);
+        }
     }
-    if (ringing() && m == Mode::Idle) CLK_LOGI(ui, "alarm dismissed");
+    if (ringing() && m == Mode::Idle) {
+        CLK_LOGI(ui, "alarm dismissed");
+        if (storage_) storage_->log_event(transport::hist::Ev::AlarmDismiss);
+    }
 
     mode_ = m;
     last_input_us_ = port::now_us();

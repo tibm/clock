@@ -16,6 +16,7 @@ void run_audio_tests();
 void run_net_tests();
 void run_storage_tests();
 void run_wifi_tests();
+void run_history_tests();
 
 int main() {
     // Same first move as app_main and clocksim.  It is also what hands core/ its clock --
@@ -42,6 +43,8 @@ int main() {
     run_net_tests();
     // Time zones and SNTP packets -- the pure halves of Wi-Fi time (§6.4, §6.7).
     run_wifi_tests();
+    // The history log's record + files + budget (§6.3a).
+    run_history_tests();
     // Last: these start the active objects, and an AO thread outlives the test that woke it.
     run_motion_service_tests();
     return check_summary("host");

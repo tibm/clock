@@ -13,6 +13,7 @@
 #include "clk/cli/registry.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/services/net.hpp"
+#include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
 #include "clk/transport/snapshot.hpp"
 
@@ -455,6 +456,7 @@ void bind_net() noexcept {
     auto& n = svc::net();
     n.set_dispatch(&dispatch_line_wait);
     n.set_identity("clock", info, transport::fw_id(b.git_sha));
+    svc::storage().set_fw_id(transport::fw_id(b.git_sha));  // stamped in history file headers
 }
 
 }  // namespace clk::cli

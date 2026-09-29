@@ -20,6 +20,7 @@ extern const CmdTable kTableBoard;
 extern const CmdTable kTableAudio;
 extern const CmdTable kTableNet;
 extern const CmdTable kTableStorage;
+extern const CmdTable kTableLog;
 #if CLK_HAVE_SIM
 extern const CmdTable kTableSim;  // host only -- drives the fake HAL
 #endif
@@ -27,8 +28,8 @@ extern const CmdTable kTableSim;  // host only -- drives the fake HAL
 namespace {
 
 const CmdTable* const kAllTables[] = {
-    &kTableSys,    &kTableTop,   &kTableSensor, &kTableUi,  &kTableMotion,
-    &kTableChrono, &kTableBoard, &kTableAudio,  &kTableNet, &kTableStorage,
+    &kTableSys,   &kTableTop,   &kTableSensor, &kTableUi,      &kTableMotion, &kTableChrono,
+    &kTableBoard, &kTableAudio, &kTableNet,    &kTableStorage, &kTableLog,
 #if CLK_HAVE_SIM
     &kTableSim,
 #endif

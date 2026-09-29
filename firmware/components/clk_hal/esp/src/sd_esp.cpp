@@ -14,6 +14,7 @@
 #include "driver/spi_common.h"
 #include "esp_err.h"
 #include "esp_vfs_fat.h"
+#include "ff.h"
 #include "sdmmc_cmd.h"
 
 #include "../../shared/sd_detail.hpp"
@@ -114,6 +115,17 @@ Result<Info> info() noexcept {
     in.freq_khz = static_cast<uint32_t>(g_card->real_freq_khz);
     std::memcpy(in.name, g_card->cid.name, sizeof in.name);
     in.name[sizeof in.name - 1] = '\0';
+    // The SD card is the only FAT volume on this board (the flash `assets` partition is
+    // LittleFS), so it is logical drive 0.
+    FATFS* fs = nullptr;
+    DWORD fre = 0;
+    if (::f_getfree("0:", &fre, &fs) == FR_OK && fs) {
+#if FF_MAX_SS != FF_MIN_SS
+        in.cluster_bytes = static_cast<uint32_t>(fs->csize) * fs->ssize;
+#else
+        in.cluster_bytes = static_cast<uint32_t>(fs->csize) * FF_MAX_SS;
+#endif
+    }
     return Result<Info>::good(in);
 }
 

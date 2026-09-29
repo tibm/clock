@@ -1,7 +1,7 @@
 # Wire formats for the app link: the command framing and the status snapshot.  Pure bytes
 # in, bytes out -- no IDF, no services, no radio -- so every byte of the protocol is tested
 # on the host.  The radio is hal::ble; the policy is the `net` AO.  [FIRMWARE.md §8]
-set(CLK_TRANSPORT_SRCS src/frame.cpp src/snapshot.cpp)
+set(CLK_TRANSPORT_SRCS src/frame.cpp src/snapshot.cpp src/history.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${CLK_TRANSPORT_SRCS}

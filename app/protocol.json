@@ -44,6 +44,14 @@
         "max_len": 512,
         "encoding": "binary",
         "layout": "bytes 0-3 = offset, uint32 little-endian; bytes 4.. = file data. Write WITH response, one at a time"
+      },
+      "bulk": {
+        "uuid": "7a3e0007-5c1d-4b8e-9f3a-2c6d1e0b9a41",
+        "properties": [
+          "notify"
+        ],
+        "encoding": "binary",
+        "layout": "bytes 0-3 = offset into the file being sent, uint32 little-endian; bytes 4.. = file data. At most MTU-3 bytes per notification"
       }
     },
     "security": "LE Secure Connections, Just Works, bonded. Every characteristic requires an encrypted + bonded link.",
@@ -334,6 +342,82 @@
       "status": "implemented",
       "unsafe": false,
       "use": "discard the open upload"
+    },
+    {
+      "line": "log status",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "history log settings and state as `=` pairs: on (0/1), period (s), keep (days), cap (MB), projected (bytes on the card at these settings), used (bytes on the card), days (day files), ram (records not yet on the card)"
+    },
+    {
+      "line": "log period <s>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "s": [
+          10,
+          3600
+        ]
+      },
+      "use": "one record per this many seconds (default 300). denied when period x keep would exceed the cap; the `|` line gives the numbers. NVS-persisted"
+    },
+    {
+      "line": "log keep <days>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "days": [
+          1,
+          3650
+        ]
+      },
+      "use": "days kept on the card (default 731); older day files are deleted. denied over the cap. NVS-persisted"
+    },
+    {
+      "line": "log cap <MB>",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "MB": [
+          10,
+          2000
+        ]
+      },
+      "use": "most the log may take on the card, cluster-rounded (default 200); oldest days are deleted past it. denied if the current period x keep already exceeds it. NVS-persisted"
+    },
+    {
+      "line": "log enable <on|off>",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "record or stop recording; files stay"
+    },
+    {
+      "line": "log days",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "every day file on the card, oldest first, as `=day=<yyyymmdd>/<bytes>`. Writes the RAM records to the card first, so today is complete. not-present with no card"
+    },
+    {
+      "line": "log fetch <yyyymmdd> [<offset>]",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "yyyymmdd": "a UTC date from `log days`",
+        "offset": "byte offset to start from (default 0)"
+      },
+      "use": "send [offset, size) of that day file on the `bulk` characteristic. Answers `=day=` `=from=` `=size=` `=crc=` (CRC-32/zlib of exactly the bytes sent, 8 hex) then $ok; the data follows on `bulk`. failed = no such day; bad-arg = offset past the end"
+    },
+    {
+      "line": "log fetch stop",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "abandon a download in progress"
+    },
+    {
+      "line": "log flush",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "write the RAM records to the card now"
     },
     {
       "line": "unsafe on",
@@ -984,5 +1068,299 @@
       "posix": "PST8PDT,M3.2.0,M11.1.0",
       "name": "America/Los_Angeles"
     }
+  },
+  "history": {
+    "dir": "/sd/log",
+    "files": "one file per UTC day: /sd/log/<yyyy>/<mmdd>.bin = 32-byte header + 24-byte records, append-only. Only today's file grows; retention deletes whole files (oldest first)",
+    "defaults": {
+      "period_s": 300,
+      "keep_days": 731,
+      "cap_mb": 200
+    },
+    "header": {
+      "size": 32,
+      "fields": [
+        {
+          "off": 0,
+          "type": "char[4]",
+          "name": "magic",
+          "value": "CLKL"
+        },
+        {
+          "off": 4,
+          "type": "u8",
+          "name": "version",
+          "value": 1
+        },
+        {
+          "off": 5,
+          "type": "u8",
+          "name": "record_size",
+          "value": 24
+        },
+        {
+          "off": 6,
+          "type": "u16",
+          "name": "period_s",
+          "note": "the period when the file was created; records carry their own time"
+        },
+        {
+          "off": 8,
+          "type": "u32",
+          "name": "day",
+          "note": "Unix seconds of 00:00 UTC of this file's day"
+        },
+        {
+          "off": 12,
+          "type": "u32",
+          "name": "fw_id",
+          "note": "as in the snapshot"
+        },
+        {
+          "off": 16,
+          "type": "u8[16]",
+          "name": "reserved"
+        }
+      ]
+    },
+    "record": {
+      "size": 24,
+      "endianness": "little",
+      "crc": "byte 23 = CRC-8 (poly 0x07, init 0x00, not reflected; CRC-8/SMBUS) of bytes 0-22. A record that fails it is skipped (a torn write after a power cut); the next record is still aligned",
+      "kinds": {
+        "1": "sample",
+        "2": "event"
+      },
+      "sample": [
+        {
+          "off": 0,
+          "type": "u8",
+          "name": "kind",
+          "value": 1
+        },
+        {
+          "off": 1,
+          "type": "u8",
+          "name": "n",
+          "note": "readings averaged into this record (one every 10 s)"
+        },
+        {
+          "off": 2,
+          "type": "u32",
+          "name": "t",
+          "unit": "s",
+          "note": "Unix seconds UTC, the START of the period; always a multiple of the period"
+        },
+        {
+          "off": 6,
+          "type": "i16",
+          "name": "temp",
+          "scale": 0.01,
+          "unit": "°C",
+          "valid_if": "env_ok"
+        },
+        {
+          "off": 8,
+          "type": "u16",
+          "name": "rh",
+          "scale": 0.01,
+          "unit": "%",
+          "valid_if": "env_ok"
+        },
+        {
+          "off": 10,
+          "type": "u16",
+          "name": "press",
+          "scale": 0.1,
+          "unit": "hPa",
+          "valid_if": "env_ok"
+        },
+        {
+          "off": 12,
+          "type": "u16",
+          "name": "gas",
+          "encoding": "log_gas",
+          "unit": "Ω",
+          "valid_if": "env_ok",
+          "note": "geometric mean over the period"
+        },
+        {
+          "off": 14,
+          "type": "u16",
+          "name": "lux",
+          "encoding": "log_lux16",
+          "unit": "lx",
+          "valid_if": "als_ok",
+          "note": "mean over the period"
+        },
+        {
+          "off": 16,
+          "type": "u16",
+          "name": "vbat",
+          "unit": "mV",
+          "valid_if": "power_ok"
+        },
+        {
+          "off": 18,
+          "type": "u8",
+          "name": "soc",
+          "unit": "%",
+          "valid_if": "power_ok",
+          "sentinel": {
+            "255": "unknown"
+          }
+        },
+        {
+          "off": 19,
+          "type": "i8",
+          "name": "rssi",
+          "unit": "dBm",
+          "valid_if": "wifi_online"
+        },
+        {
+          "off": 20,
+          "type": "u16",
+          "name": "flags",
+          "bitfield": "sample_flags"
+        },
+        {
+          "off": 22,
+          "type": "u8",
+          "name": "lux_max",
+          "encoding": "log_lux8",
+          "unit": "lx",
+          "valid_if": "als_ok",
+          "note": "peak in the period, coarse (~12 %)"
+        },
+        {
+          "off": 23,
+          "type": "u8",
+          "name": "crc8"
+        }
+      ],
+      "event": [
+        {
+          "off": 0,
+          "type": "u8",
+          "name": "kind",
+          "value": 2
+        },
+        {
+          "off": 1,
+          "type": "u8",
+          "name": "code",
+          "enum": "event_code"
+        },
+        {
+          "off": 2,
+          "type": "u32",
+          "name": "t",
+          "unit": "s",
+          "note": "Unix seconds UTC, when it happened"
+        },
+        {
+          "off": 6,
+          "type": "u8[16]",
+          "name": "args",
+          "note": "per code, see event_args"
+        },
+        {
+          "off": 22,
+          "type": "u8",
+          "name": "reserved"
+        },
+        {
+          "off": 23,
+          "type": "u8",
+          "name": "crc8"
+        }
+      ]
+    },
+    "encodings": {
+      "log_gas": "ohms = 10^(v / 8192)",
+      "log_lux16": "lux = 10^(v / 12000) - 1",
+      "log_lux8": "lux = 10^(v / 50) - 1"
+    },
+    "sample_flags": [
+      "env_ok",
+      "gas_valid",
+      "heat_stable",
+      "als_ok",
+      "als_saturated",
+      "power_ok",
+      "plugged",
+      "charging",
+      "batt_low",
+      "wifi_online",
+      "radio_off",
+      "alarm_armed",
+      "time_sntp"
+    ],
+    "event_code": [
+      "unknown",
+      "boot",
+      "alarm-fire",
+      "alarm-snooze",
+      "alarm-dismiss",
+      "wifi-online",
+      "wifi-fail",
+      "sntp-sync",
+      "time-set",
+      "log-config"
+    ],
+    "event_args": {
+      "boot": "a0 = reset reason (snapshot enum), a1-4 = fw_id u32",
+      "alarm-fire": "a0 = hour, a1 = minute (local)",
+      "alarm-snooze": "a0 = snooze minutes",
+      "alarm-dismiss": "-",
+      "wifi-online": "a0 = rssi i8",
+      "wifi-fail": "a0 = wifi_err enum, a1 = driver reason code",
+      "sntp-sync": "a0 = server index (wifi.sntp_servers), a1-4 = clock step in ms i32 (0 on the first set)",
+      "time-set": "a0 = source, a1-4 = step ms i32 (reserved, not emitted yet)",
+      "log-config": "a0-1 = period s u16, a2-3 = keep days u16"
+    },
+    "golden": {
+      "sample_hex": "011e6809ba6a6908ac0f9427b5968670ac0f57ca6f1a9a72",
+      "sample_decoded": {
+        "n": 30,
+        "t": 1790577000,
+        "temp": 21.53,
+        "rh": 40.12,
+        "press": 1013.2,
+        "gas": 51238,
+        "lux": 250.48,
+        "vbat": 4012,
+        "soc": 87,
+        "rssi": -54,
+        "flags": [
+          "env_ok",
+          "gas_valid",
+          "heat_stable",
+          "als_ok",
+          "power_ok",
+          "plugged",
+          "wifi_online",
+          "alarm_armed",
+          "time_sntp"
+        ],
+        "lux_max": 1201.3
+      },
+      "event_hex": "0202e309ba6a062d000000000000000000000000000000ed",
+      "event_decoded": {
+        "code": "alarm-fire",
+        "t": 1790577123,
+        "args": [
+          6,
+          45
+        ]
+      },
+      "header_hex": "434c4b4c01182c0100aeb96a4f21d60e00000000000000000000000000000000",
+      "header_decoded": {
+        "period_s": 300,
+        "day": 1790553600,
+        "fw_id": "0ed6214f"
+      }
+    },
+    "sizes": "per day at period p: 32 + ceil(86400/p) x 24 bytes (+ events, ~24 B each). 300 s: 6.9 KB/day, 5 MB for 2 years (24 MB on a card with 32 KB clusters)"
   }
 }

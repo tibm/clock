@@ -29,6 +29,7 @@ constexpr uint32_t kEnvEveryMs = 60'000;
 constexpr uint32_t kAlsEveryMs = 5'000;
 constexpr uint32_t kMinPeriodMs = 100;
 constexpr uint32_t kMaxPeriodMs = 3'600'000;
+constexpr uint32_t kHistEveryMs = 10'000;  // a reading for `storage`'s history log
 constexpr uint32_t kMinWindowMs = 1000;
 constexpr uint32_t kMaxWindowMs = 600'000;
 
@@ -218,6 +219,16 @@ void Net::on_tick() {
     if (now - status_at_us_ >= period * 1000ull) {
         status_at_us_ = now;
         take_status();
+    }
+    // The history log's reading: the record just taken, or a fresh one when the app has
+    // slowed the snapshot cadence down past it.
+    if (storage_ && now - hist_at_us_ >= kHistEveryMs * 1000ull) {
+        hist_at_us_ = now;
+        if (now - status_at_us_ > kHistEveryMs * 1000ull) {
+            status_at_us_ = now;
+            take_status();
+        }
+        storage_->log_feed(status());
     }
     publish();
 }
