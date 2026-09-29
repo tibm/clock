@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		1158634A306A2B5D009B7EB0 /* protocol.json in Resources */ = {isa = PBXBuildFile; fileRef = 11586348306A2B5D009B7EB0 /* protocol.json */; };
 		1158634B306A2B5D009B7EB0 /* PROTOCOL.md in Resources */ = {isa = PBXBuildFile; fileRef = 11586349306A2B5D009B7EB0 /* PROTOCOL.md */; };
+		119DAC73306B830900C1458B /* PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = 119DAC72306B830900C1458B /* PLAN.md */; };
+		119DAC76306B832200C1458B /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 119DAC74306B832200C1458B /* CLAUDE.md */; };
+		119DAC77306B832200C1458B /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 119DAC75306B832200C1458B /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +29,9 @@
 		11586348306A2B5D009B7EB0 /* protocol.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = protocol.json; sourceTree = "<group>"; };
 		11586349306A2B5D009B7EB0 /* PROTOCOL.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROTOCOL.md; sourceTree = "<group>"; };
 		11586358306A30AB009B7EB0 /* clockTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = clockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		119DAC72306B830900C1458B /* PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PLAN.md; sourceTree = "<group>"; };
+		119DAC74306B832200C1458B /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+		119DAC75306B832200C1458B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -58,6 +64,9 @@
 		113A7216306A222500F344E9 = {
 			isa = PBXGroup;
 			children = (
+				119DAC74306B832200C1458B /* CLAUDE.md */,
+				119DAC75306B832200C1458B /* README.md */,
+				119DAC72306B830900C1458B /* PLAN.md */,
 				11586348306A2B5D009B7EB0 /* protocol.json */,
 				11586349306A2B5D009B7EB0 /* PROTOCOL.md */,
 				113A7221306A222500F344E9 /* clock */,
@@ -161,7 +170,10 @@
 			isa = PBXResourcesBuildPhase;
 			files = (
 				1158634A306A2B5D009B7EB0 /* protocol.json in Resources */,
+				119DAC73306B830900C1458B /* PLAN.md in Resources */,
 				1158634B306A2B5D009B7EB0 /* PROTOCOL.md in Resources */,
+				119DAC76306B832200C1458B /* CLAUDE.md in Resources */,
+				119DAC77306B832200C1458B /* README.md in Resources */,
 			);
 		};
 		11586356306A30AB009B7EB0 /* Resources */ = {
@@ -312,8 +324,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = W44SXW64DM;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
@@ -338,6 +352,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ch.tallyo.clock;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -356,8 +371,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = W44SXW64DM;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
@@ -382,6 +399,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ch.tallyo.clock;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

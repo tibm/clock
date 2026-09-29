@@ -31,11 +31,13 @@ command table or a shell with autocomplete. It is the phone side of the contract
 | **Status** | The live `status` snapshot: sequence number, samples missed, age, clock time vs phone time, every flag as a chip, the 7 LEDs as colour swatches, and grouped values (power, room, light, IMU, hands, UI, radio). Invalid values show "—". Fields the layout doesn't list appear under **Other fields**. There is also a raw hex view and a notify-period menu. |
 | **Sounds** | The clock's microSD `/sd/tones` (`storage tones`): size, length, playability state, which one is the alarm; swipe to delete, context menu to play / stop / use it for the alarm. Below it, the WAVs **bundled with the app** (`clock/Tones/`), each checked against `sound_files.format`, with an upload button and a progress bar (`storage put` + `blob` writes, busy retry, resume after a dropped link). Hidden when the clock has no card or no `blob` characteristic. |
 | **Commands** | Every known command, grouped, with its help, arg ranges and badges (`unsafe`, `planned`, `device` = only the firmware's `help` knows it). Tap one to fill its arguments (pickers for `on\|off` choices, range warnings) and send it. Quick actions: sync time, `sys ver`, tone, stop, `unsafe on`, close pairing. |
+| **Clock → Wi-Fi** | The clock's own scan of networks in range, join (SSID + password sent `hex:`-encoded over the bonded link, never echoed to the shell), forget; state, last failure reason and signal from the snapshot. |
+| *History* (planned) | Download the clock's history log (`log days` / `log fetch` + the `bulk` characteristic) and plot it with Swift Charts — see **`PLAN.md` → "Next: history"**. Not built yet. |
 | **Shell** | A terminal over BLE, the same commands as the USB console. Completion chips for the next word or argument. Tab / ↑ / ↓ on a hardware keyboard, or the chevrons. History is persisted. Output is coloured by record kind (`>` sent, `$` status, `=` pairs, `#` app notes), with an optional raw-frame view. |
 
 On connect the app automatically:
 1. subscribes to `rsp` (this is what triggers iOS pairing), then to `status`, and reads `info`
-2. sends `chrono time epoch <now_ms> <utc_offset_min>` (PROTOCOL.md "Keeping time"), and sends it again whenever the phone's timezone changes
+2. sends the zone as a POSIX rule (`chrono tz <posix> <iana>`) and then `chrono time epoch <now_ms> <utc_offset_min>` (PROTOCOL.md "Keeping time"), and sends both again whenever the phone's timezone changes
 3. runs `help`, then `help <group>` for each group, and merges the result into the command list
 
 On iOS it disconnects when backgrounded and reconnects when it comes back (PROTOCOL.md §7).

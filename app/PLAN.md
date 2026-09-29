@@ -85,3 +85,81 @@ Decisions (confirmed with the user): iOS + macOS (drop visionOS) · autocomplete
 2. `BuildProject` for iOS and for My Mac. `XcodeRefreshCodeIssuesInFile` while editing.
 3. `RenderPreview` of Status/Commands/Shell with a mock snapshot (golden vector) and mock transcript.
 4. On hardware (by the user; needs a real device, not the simulator): open the pairing window (knob 10 s), pair, see `info` + live status ticking with seq, run `sys ver`, `audio tone`, `help` in the shell, and try `motion home` without `unsafe` → `denied`.
+
+---
+
+## Next: history — capture the clock's log and plot it (added 2026-09-28)
+
+The firmware now records the room (temperature, humidity, pressure, gas), light, battery and
+Wi-Fi to the microSD card on its own, every **5 min** by default, and keeps **2 years**. The
+contract is `PROTOCOL.md` §4 "History" + `protocol.json` → `history` (record layout, flags,
+event codes, encodings, **golden vectors**) and the new `bulk` characteristic. This section is
+how the app captures it; nothing here needs a firmware change.
+
+### Model: the phone is the archive
+- The clock keeps at most `keep` days and deletes older ones. **The app never deletes a day
+  because the clock did** — after the first sync the phone holds the full history.
+- Mirror the clock's files **byte for byte**, one file per clock per UTC day:
+  `Application Support/History/<clock CBPeripheral.identifier>/<yyyymmdd>.bin`. The raw file is
+  the source of truth (re-decodable when the decoder learns new fields); anything derived
+  (a SwiftData/SQLite index, hourly aggregates) is a cache that can be rebuilt from it.
+- Exclude nothing from backup by default: two years is ~5 MB per clock at the default period.
+
+### Protocol layer (`Protocol/`, pure, `nonisolated`)
+- **`HistoryRecord.swift`** — decode a file: header (magic `CLKL`, version 1, record 24), then
+  24-byte records; CRC-8/SMBUS on bytes 0–22 (skip failures, keep going); kind 1 = sample,
+  2 = event, anything else skipped; trailing partial record ignored. Offsets, flag names,
+  event codes and the three log encodings come from `spec.history` (add a `History` block to
+  `ProtocolSpec`, optional like `soundFiles`). Output: `[HistorySample]` (Date + optional
+  values, nil when the validity flag is clear) and `[HistoryEvent]` (Date, code name, args).
+- **`HistorySync.swift`** — the pure diff from PROTOCOL.md "Downloading": given
+  `log days` pairs (`=day=<yyyymmdd>/<bytes>`) and the local sizes, return the fetch plan
+  `[(day, from)]`: new day → 0, longer on the clock → local size, shorter on the clock → 0 and
+  replace; days only on the phone are kept. Oldest first, today last.
+- **CRC-32** already exists for uploads (`zlib.crc32`); reuse it to check `=crc=`.
+
+### BLE layer (`BLE/`)
+- `ClockLink`: subscribe to `bulk` together with `rsp` when the characteristic exists
+  (`hasBulk`, like `hasBlob`). Route `bulk` notifications to a handler instead of the framer:
+  `offset = UInt32(le: bytes 0..<4)`, payload after it.
+- **`HistoryStore`** (`@Observable`, MainActor), like `ToneStore`:
+  1. `send("log days")` → sync plan.
+  2. For each entry: `send("log fetch <day> <from>")` → read `=size=`, `=from=`, `=crc=`.
+     Collect `bulk` packets into a buffer at `offset - from` until `size - from` bytes arrived
+     (timeout: nothing new for 5 s → give up this day, keep what is on disk, retry next sync).
+  3. Check CRC-32 of the received bytes, then append to (or, from 0, replace) the local file
+     atomically (write to a temp file + `replaceItemAt`). A bad CRC → discard and retry once.
+  4. Progress: bytes done / total for the whole plan; cancellable (`log fetch stop`).
+  - Don't send other commands during a fetch (the shell/Commands tabs should show "syncing").
+  - Run a sync on every connect (after time + zone), and from a "Sync now" button. On iOS a
+    backgrounded app loses the link (§7): a sync interrupted there simply resumes next time,
+    because every step is idempotent and resumable by offset.
+
+### UI (`Views/`) — a "History" tab (Swift Charts)
+- One chart per quantity: temperature (°C), humidity (%), pressure (hPa), gas (Ω, log scale),
+  light (lx, log scale, mean line + peak points), battery (mV / %). Range picker: 24 h · 7 d ·
+  30 d · 1 y · all. Break the line where two points are more than 2 × period apart (PROTOCOL.md:
+  plot by `t`, not by position).
+- **Downsample for long ranges** before handing points to Charts (≤ ~1000 points per series):
+  bucket by hour (≥ 7 d) or by day (≥ 90 d) with min/mean/max bands. Compute from the decoded
+  samples; cache per day.
+- Events as vertical rule marks with an icon (alarm, boot, Wi-Fi), tappable for details.
+- Local time for display (`TimeZone.current`); the data are UTC.
+- Settings sheet: `log status` pairs → period / keep / cap pickers sending `log period|keep|cap`;
+  show the `|` line when the clock answers `denied` (the budget numbers). Show `used`, `days`,
+  `projected`, and the last sync time.
+- Export: share the raw `.bin` files and a CSV (`time_utc,temp_c,rh_pct,…`) generated on the
+  phone.
+
+### Tests (`clockTests`)
+- Decode `spec.history.golden.sample_hex` / `event_hex` / `header_hex` and assert every key in
+  the matching `*_decoded` (scaled/log fields within 0.1 %); a flipped bit fails the CRC and is
+  skipped; a torn tail is ignored.
+- `HistorySync` plans: new / grown / shrunk / clock-deleted days.
+- The fetch loop against a fake link feeding out-of-order-free packets with offsets, including a
+  drop mid-day and a resume from the stored length.
+
+### On hardware
+`log period 10` on the bench makes records every 10 s; `log tail` on the console shows what is
+being recorded, `log days` / `log status` what is on the card. `firmware/tools/clockctl.py` can
+be extended the same way as the app for a desktop check.
