@@ -32,13 +32,14 @@ command table or a shell with autocomplete. It is the phone side of the contract
 | **Sounds** | The clock's microSD `/sd/tones` (`storage tones`): size, length, playability state, which one is the alarm; swipe to delete, context menu to play / stop / use it for the alarm. Below it, the WAVs **bundled with the app** (`clock/Tones/`), each checked against `sound_files.format`, with an upload button and a progress bar (`storage put` + `blob` writes, busy retry, resume after a dropped link). Hidden when the clock has no card or no `blob` characteristic. |
 | **Commands** | Every known command, grouped, with its help, arg ranges and badges (`unsafe`, `planned`, `device` = only the firmware's `help` knows it). Tap one to fill its arguments (pickers for `on\|off` choices, range warnings) and send it. Quick actions: sync time, `sys ver`, tone, stop, `unsafe on`, close pairing. |
 | **Clock → Wi-Fi** | The clock's own scan of networks in range, join (SSID + password sent `hex:`-encoded over the bonded link, never echoed to the shell), forget; state, last failure reason and signal from the snapshot. |
-| *History* (planned) | Download the clock's history log (`log days` / `log fetch` + the `bulk` characteristic) and plot it with Swift Charts — see **`PLAN.md` → "Next: history"**. Not built yet. |
+| **History** | The clock's history log, **mirrored on the phone** (`Application Support/History/<clock id>/<yyyymmdd>.bin`, byte for byte; never deleted because the clock deleted it). Syncs on every connect and from *Sync now*: `log days` → diff → `log fetch <day> <from>` → `bulk` packets → CRC-32 → atomic append. Other commands wait while it runs (the toolbar says "syncing history…"). Charts (Swift Charts) per quantity: temperature, humidity, pressure, gas (log), light (mean + peak), battery, charge, Wi-Fi; 24 h · 7 d · 30 d · 1 y · All, bucketed to ≤ ~1000 points with a min…max band, lines broken at gaps > 2 periods, events as rules plus a list. Settings sheet: `log status`, period / keep / cap / record. Export: the raw day files, or a CSV. |
 | **Shell** | A terminal over BLE, the same commands as the USB console. Completion chips for the next word or argument. Tab / ↑ / ↓ on a hardware keyboard, or the chevrons. History is persisted. Output is coloured by record kind (`>` sent, `$` status, `=` pairs, `#` app notes), with an optional raw-frame view. |
 
 On connect the app automatically:
 1. subscribes to `rsp` (this is what triggers iOS pairing), then to `status`, and reads `info`
 2. sends the zone as a POSIX rule (`chrono tz <posix> <iana>`) and then `chrono time epoch <now_ms> <utc_offset_min>` (PROTOCOL.md "Keeping time"), and sends both again whenever the phone's timezone changes
 3. runs `help`, then `help <group>` for each group, and merges the result into the command list
+4. syncs the history log (only what is new: normally today's tail)
 
 On iOS it disconnects when backgrounded and reconnects when it comes back (PROTOCOL.md §7).
 
@@ -69,11 +70,13 @@ this folder, not a copy. Editing the contract and rebuilding is enough.
 | `snapshot.flags` / `enums` | flag chips, enum labels (`unknown(n)` for newer values) |
 | `snapshot.golden` | the decoder's unit test |
 | `sound_files` | the WAV format check, upload size limit, `blob` ATT error names |
+| `history` | the day-file decoder: header checks, record fields (offset, type, scale, `valid_if`, `sentinel`), kinds, `encodings` (parsed `10^(v / k) − c`), flag and event names, golden vectors |
 
 Compatible protocol changes (PROTOCOL.md "Change process") need **no Swift change**:
 - **New command:** appears in the table and in autocomplete.
 - **New snapshot field at the end:** shows up in *Other fields*.
 - **New flag bit:** gets a chip.
+- **New history sample field:** gets a chart under *Other*, and a CSV column.
 - **New enum value:** shows as its label.
 - **Longer snapshot:** the extra bytes are ignored until the JSON describes them.
 
@@ -101,13 +104,18 @@ app/
 │   │   ├── DeviceInfo.swift       `info` key=value + proto check
 │   │   ├── CommandCatalog.swift   JSON + `help` commands, completion
 │   │   ├── SoundFiles.swift       `storage tones` list, WAV header check, CRC-32, blob values
+│   │   ├── HistoryRecord.swift    day-file decoder: header, CRC-8, samples, events
+│   │   ├── HistorySync.swift      `log days` → fetch plan, `bulk` packets + reassembly
+│   │   ├── HistorySeries.swift    chart points: buckets (min/mean/max), gap segments
 │   │   └── JSONValue.swift
 │   ├── BLE/
-│   │   ├── ClockLink.swift        CoreBluetooth central, request queue, blob writes, state
+│   │   ├── ClockLink.swift        CoreBluetooth central, request queue, blob writes, bulk, state
 │   │   ├── ToneStore.swift        sound files: list / delete / upload driver, bundled WAVs
+│   │   ├── HistoryStore.swift     history: sync driver, settings, chart loading, export
+│   │   ├── HistoryArchive.swift   the phone's copy of the day files, CSV
 │   │   └── LinkTypes.swift        phases, problems/hints, results, transcript lines
 │   ├── Tones/                   drop alarm WAVs here (bundled as resources)
-│   └── Views/                   Connect, Status, Sounds, Commands, Shell, Common
+│   └── Views/                   Connect, Status, History, Sounds, Commands, Shell, Common
 └── clockTests/                  Swift Testing: golden vector, framing, catalog, history, sound files
 ```
 

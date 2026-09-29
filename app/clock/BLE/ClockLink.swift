@@ -18,6 +18,8 @@ final class ClockLink: NSObject {
     private(set) var problem: LinkProblem?
     private(set) var discovered: [DiscoveredClock] = []
     private(set) var connectedName: String?
+    /// `CBPeripheral.identifier` of the clock being connected / connected.
+    private(set) var connectedID: UUID?
 
     private(set) var info: DeviceInfo?
     private(set) var snapshot: Snapshot?
@@ -34,6 +36,16 @@ final class ClockLink: NSObject {
     private(set) var maxWrite: Int?
     /// True while a request is in flight.
     var isBusy: Bool { inFlight != nil }
+    /// A `bulk` download runs: other requests wait in the queue (PROTOCOL.md "History": no
+    /// other commands during a download).
+    private(set) var downloading = false
+    /// Subscribed to `bulk` (history downloads).
+    private(set) var hasBulk = false
+
+    /// Each `bulk` notification: file offset + payload. Set by the history store.
+    @ObservationIgnored var onBulk: ((Int, Data) -> Void)?
+    /// Runs once per connect, after the time sync and the command list.
+    @ObservationIgnored var afterConnect: (() async -> Void)?
 
     /// Send the zone + `chrono time epoch` on every connect and on timezone changes (PROTOCOL.md "Keeping time").
     var autoSyncTime: Bool {
@@ -63,6 +75,8 @@ final class ClockLink: NSObject {
     private struct Pending {
         var result: CommandResult
         let echo: Bool
+        /// Part of the download itself: may go out while `downloading`.
+        let duringDownload: Bool
         var busyRetries = 0
         let continuation: CheckedContinuation<CommandResult, Never>
     }
@@ -123,6 +137,7 @@ final class ClockLink: NSObject {
         peripheral = p
         peripherals[id] = p
         connectedName = p.name ?? "clock"
+        connectedID = id
         phase = .connecting
         defaults.set(id.uuidString, forKey: Keys.lastClock)
         central.connect(p)
@@ -147,8 +162,10 @@ final class ClockLink: NSObject {
 
     /// Sends one CLI line and waits for its `$` (or a timeout / disconnect).
     /// `echo: false` keeps app-internal requests (help discovery, time sync) out of the shell.
+    /// `duringDownload`: a request of the running download (`log fetch …`); everything else
+    /// waits until `endDownload()`.
     @discardableResult
-    func send(_ line: String, echo: Bool = true) async -> CommandResult {
+    func send(_ line: String, echo: Bool = true, duringDownload: Bool = false) async -> CommandResult {
         let line = line.trimmingCharacters(in: .whitespacesAndNewlines)
         let id = takeID()
         var result = CommandResult(id: id, line: line)
@@ -165,9 +182,16 @@ final class ClockLink: NSObject {
             return result
         }
         return await withCheckedContinuation { cont in
-            queue.append(Pending(result: result, echo: echo, continuation: cont))
+            queue.append(Pending(result: result, echo: echo, duringDownload: duringDownload, continuation: cont))
             pump()
         }
+    }
+
+    func beginDownload() { downloading = true }
+
+    func endDownload() {
+        downloading = false
+        pump()
     }
 
     /// PROTOCOL.md "Keeping time": the zone as a POSIX rule (so the clock changes DST on its
@@ -232,8 +256,9 @@ final class ClockLink: NSObject {
     }
 
     private func pump() {
-        guard inFlight == nil, !queue.isEmpty, let p = peripheral, let cmd = chars["cmd"] else { return }
-        let next = queue.removeFirst()
+        guard inFlight == nil, let p = peripheral, let cmd = chars["cmd"],
+              let i = queue.firstIndex(where: { !downloading || $0.duringDownload }) else { return }
+        let next = queue.remove(at: i)
         inFlight = next
         if next.echo && next.busyRetries == 0 { transcript(.sent, next.result.line, next.result.id) }
         let data = Data("\(next.result.id) \(next.result.line)".utf8)
@@ -313,6 +338,9 @@ final class ClockLink: NSObject {
         peripheral = nil
         maxWrite = nil
         connectedName = nil
+        connectedID = nil
+        hasBulk = false
+        downloading = false
         securingRetries = 0
         phase = .idle
         if let reason { problem = reason }
@@ -333,6 +361,7 @@ final class ClockLink: NSObject {
                 note("time sync: \(r.outcome.label)")
             }
             await refreshCatalog()
+            await afterConnect?()
         }
     }
 
@@ -475,7 +504,10 @@ extension ClockLink: CBPeripheralDelegate {
             }
             return
         }
+        if characteristic.uuid == chars["bulk"]?.uuid { hasBulk = characteristic.isNotifying }
         if isRsp {
+            // `bulk` together with `rsp`, before any `log fetch` (PROTOCOL.md "Downloading").
+            if let bulk = chars["bulk"] { peripheral.setNotifyValue(true, for: bulk) }
             if let status = chars["status"] {
                 peripheral.setNotifyValue(true, for: status)
                 peripheral.readValue(for: status)
@@ -497,6 +529,8 @@ extension ClockLink: CBPeripheralDelegate {
             for e in framer.feed(data) { handle(e) }
         case "status":
             applySnapshot(data)
+        case "bulk":
+            if let (offset, payload) = HistorySync.packet(data) { onBulk?(offset, payload) }
         case "info":
             info = DeviceInfo(String(decoding: data, as: UTF8.self))
             if case .appTooOld(let clock, let app)? = info?.compatibility(appProto: spec.protocolVersion) {

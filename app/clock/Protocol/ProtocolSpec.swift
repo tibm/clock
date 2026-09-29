@@ -16,6 +16,8 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
     let snapshot: SnapshotSpec
     /// Absent on a contract older than the `blob` characteristic.
     let soundFiles: SoundFiles?
+    /// Absent on a contract older than the history log and the `bulk` characteristic.
+    let history: History?
 
     enum CodingKeys: String, CodingKey {
         case protocolVersion = "protocol_version"
@@ -24,6 +26,7 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
         case commandChannel = "command_channel"
         case commands, snapshot
         case soundFiles = "sound_files"
+        case history
     }
 
     // MARK: GATT
@@ -208,6 +211,120 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
     struct BlobError: Decodable, Sendable {
         let name: String
         let action: String
+    }
+
+    // MARK: History
+
+    struct History: Decodable, Sendable {
+        let dir: String?
+        let defaults: HistoryDefaults?
+        let header: HistoryHeaderSpec
+        let record: HistoryRecordSpec
+        /// Encoding name → formula text, e.g. `"log_gas": "ohms = 10^(v / 8192)"`.
+        let encodings: [String: String]
+        /// Every top-level string list (`sample_flags`, `event_code`, …), by key. Fields name
+        /// them in `bitfield` / `enum`, so a new list needs no Swift change.
+        let lists: [String: [String]]
+        /// Event code name → what its args mean (display only).
+        let eventArgs: [String: String]
+        let golden: HistoryGolden?
+
+        enum CodingKeys: String, CodingKey {
+            case dir, defaults, header, record, encodings, golden
+            case eventArgs = "event_args"
+        }
+
+        private struct AnyKey: CodingKey {
+            var stringValue: String
+            var intValue: Int? { nil }
+            init(stringValue: String) { self.stringValue = stringValue }
+            init?(intValue: Int) { nil }
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            dir = try c.decodeIfPresent(String.self, forKey: .dir)
+            defaults = try c.decodeIfPresent(HistoryDefaults.self, forKey: .defaults)
+            header = try c.decode(HistoryHeaderSpec.self, forKey: .header)
+            record = try c.decode(HistoryRecordSpec.self, forKey: .record)
+            encodings = try c.decodeIfPresent([String: String].self, forKey: .encodings) ?? [:]
+            eventArgs = try c.decodeIfPresent([String: String].self, forKey: .eventArgs) ?? [:]
+            golden = try? c.decodeIfPresent(HistoryGolden.self, forKey: .golden)
+            let any = try decoder.container(keyedBy: AnyKey.self)
+            var lists: [String: [String]] = [:]
+            for key in any.allKeys {
+                if let l = try? any.decode([String].self, forKey: key) { lists[key.stringValue] = l }
+            }
+            self.lists = lists
+        }
+    }
+
+    struct HistoryDefaults: Decodable, Sendable {
+        let periodS: Int?
+        let keepDays: Int?
+        let capMB: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case periodS = "period_s"
+            case keepDays = "keep_days"
+            case capMB = "cap_mb"
+        }
+    }
+
+    struct HistoryHeaderSpec: Decodable, Sendable {
+        let size: Int
+        let fields: [HistoryField]
+    }
+
+    struct HistoryRecordSpec: Decodable, Sendable {
+        let size: Int
+        /// Kind byte (as a string key) → `sample` / `event`.
+        let kinds: [String: String]
+        let sample: [HistoryField]
+        let event: [HistoryField]
+    }
+
+    /// One field of the history header or a record.
+    struct HistoryField: Decodable, Sendable {
+        let off: Int
+        let type: String
+        let name: String
+        /// The only value allowed here (header magic/version, a record's kind).
+        let value: JSONValue?
+        let unit: String?
+        let scale: Double?
+        let validIf: String?
+        /// Key of an `encodings` entry.
+        let encoding: String?
+        /// Key of a string list (e.g. `sample_flags`).
+        let bitfield: String?
+        let enumName: String?
+        let sentinel: [String: String]?
+        let note: String?
+
+        enum CodingKeys: String, CodingKey {
+            case off, type, name, value, unit, scale, encoding, bitfield, sentinel, note
+            case validIf = "valid_if"
+            case enumName = "enum"
+        }
+    }
+
+    struct HistoryGolden: Decodable, Sendable {
+        let sampleHex: String?
+        let sampleDecoded: [String: JSONValue]?
+        let eventHex: String?
+        let eventDecoded: [String: JSONValue]?
+        let headerHex: String?
+        let headerDecoded: [String: JSONValue]?
+
+        enum CodingKeys: String, CodingKey {
+            case sampleHex = "sample_hex"
+            case sampleDecoded = "sample_decoded"
+            case eventHex = "event_hex"
+            case eventDecoded = "event_decoded"
+            case headerHex = "header_hex"
+            case headerDecoded = "header_decoded"
+        }
     }
 }
 

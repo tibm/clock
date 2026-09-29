@@ -60,7 +60,9 @@ struct LinkStatusLabel: View {
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(link.phase.color).frame(width: 8, height: 8)
-            Text(link.phase == .ready ? (link.connectedName ?? "clock") : link.phase.label)
+            // Commands queue behind a history download (PROTOCOL.md "History").
+            Text(link.phase != .ready ? link.phase.label
+                 : link.downloading ? "syncing history…" : (link.connectedName ?? "clock"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

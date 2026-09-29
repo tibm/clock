@@ -90,6 +90,27 @@ Decisions (confirmed with the user): iOS + macOS (drop visionOS) · autocomplete
 
 ## Next: history — capture the clock's log and plot it (added 2026-09-28)
 
+**Built 2026-09-29.** Where the build differs from this plan, to fit the app as it is:
+- `ClockLink` gained `connectedID` (the archive key), `hasBulk` (set once the `bulk`
+  subscription is confirmed, subscribed right after `rsp`), `onBulk`, and an `afterConnect`
+  hook (runs after time sync + `help`, so the sync starts last).
+- "No other commands during a download" is enforced in the queue, not just shown:
+  `beginDownload()/endDownload()` hold every request not sent with `duringDownload: true`
+  until the download ends. `LinkStatusLabel` shows "syncing history…" meanwhile.
+- The archive lives in `BLE/HistoryArchive.swift` (file I/O, `nonisolated`); pure code stays in
+  `Protocol/` (`HistoryRecord`, `HistorySync` + `BulkAssembler`, `HistorySeries`).
+- Files are written with `Data.write(.atomic)` (temp + rename) instead of `replaceItemAt`.
+- The `encodings` formulas are parsed (`10^(v / k) − c`), so their constants stay in the JSON.
+  String lists (`sample_flags`, `event_code`) are found by the key a field names.
+- Buckets: raw up to 1000 samples, then the first of 5 min · 15 min · 1 h · 6 h · 1 d that gives
+  ≤ 1000 points (instead of "hour ≥ 7 d, day ≥ 90 d"). Reduced per day file, cached by
+  day + size + bucket, off the main actor.
+- Events: rule marks on every chart + a list with their args and `event_args` meaning (no
+  tap-on-chart selection).
+- The fetch loop is not tested against a fake link (`ClockLink` has no protocol seam, same as
+  the uploads); the plan, reassembly (repeat / overlap / gap / before `=size=`) and the archive
+  append / replace are.
+
 The firmware now records the room (temperature, humidity, pressure, gas), light, battery and
 Wi-Fi to the microSD card on its own, every **5 min** by default, and keeps **2 years**. The
 contract is `PROTOCOL.md` §4 "History" + `protocol.json` → `history` (record layout, flags,
