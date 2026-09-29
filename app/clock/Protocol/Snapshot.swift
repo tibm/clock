@@ -122,7 +122,7 @@ nonisolated struct Snapshot: Sendable {
     /// as UTC. `hasDate` mirrors `date_valid`: when false only the time of day means anything.
     var localTime: (date: Date, hasDate: Bool)? {
         guard let epoch = self["epoch_ms"], epoch.isValid, let ms = epoch.raw.integer else { return nil }
-        // tz_off_min's valid_if is tz_set; with no offset given the firmware sends 0 anyway.
+        // tz_off_min is the clock's zone offset at this instant (default zone: San Francisco).
         let off = Int64(self["tz_off_min"]?.raw.integer ?? 0) * 60_000
         return (Date(timeIntervalSince1970: Double(ms + off) / 1000), has("date_valid"))
     }

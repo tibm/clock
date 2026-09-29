@@ -35,7 +35,7 @@ final class ClockLink: NSObject {
     /// True while a request is in flight.
     var isBusy: Bool { inFlight != nil }
 
-    /// Send `chrono time epoch` on every connect and on timezone changes (PROTOCOL.md "Keeping time").
+    /// Send the zone + `chrono time epoch` on every connect and on timezone changes (PROTOCOL.md "Keeping time").
     var autoSyncTime: Bool {
         get { access(keyPath: \.autoSyncTime); return defaults.object(forKey: Keys.autoSyncTime) as? Bool ?? true }
         set { withMutation(keyPath: \.autoSyncTime) { defaults.set(newValue, forKey: Keys.autoSyncTime) } }
@@ -170,11 +170,18 @@ final class ClockLink: NSObject {
         }
     }
 
-    /// PROTOCOL.md "Keeping time": phone time + current UTC offset.
+    /// PROTOCOL.md "Keeping time": the zone as a POSIX rule (so the clock changes DST on its
+    /// own), then phone time + current UTC offset. A firmware without the POSIX form answers
+    /// `bad-arg` to the first line; the second still sets the offset.
     @discardableResult
     func syncTime(echo: Bool = false) async -> CommandResult {
+        let tz = TimeZone.current
+        let rule = PosixTimeZone.rule(for: tz)
+        let label = tz.identifier.utf8.count < 40 && !tz.identifier.contains(" ") ? " \(tz.identifier)" : ""
+        let z = await send("chrono tz \(rule)\(label)", echo: echo)
+        if !z.outcome.isOK { note("chrono tz \(rule): \(z.outcome.label)") }
         let ms = Int64(Date().timeIntervalSince1970 * 1000)
-        let off = TimeZone.current.secondsFromGMT() / 60
+        let off = tz.secondsFromGMT() / 60
         return await send("chrono time epoch \(ms) \(off)", echo: echo)
     }
 

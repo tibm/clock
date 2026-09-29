@@ -46,8 +46,17 @@ struct ConnectView: View {
 
                 if let info = link.info { InfoSection(info: info, appProto: link.spec.protocolVersion) }
 
+                Section("Wi-Fi") {
+                    NavigationLink {
+                        WifiView()
+                    } label: {
+                        LabeledContent("Wi-Fi", value: link.snapshot?.text("wifi_state") ?? "—")
+                    }
+                    .disabled(link.phase != .ready)
+                }
+
                 Section("Time") {
-                    Toggle("Send phone time on connect", isOn: $link.autoSyncTime)
+                    Toggle("Send phone time + zone on connect", isOn: $link.autoSyncTime)
                     Button("Sync time now") { Task { await link.syncTime(echo: true) } }
                         .disabled(link.phase != .ready)
                 }
