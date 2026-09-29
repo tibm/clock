@@ -177,8 +177,11 @@ status snapshot (§5), not from command output.**
 
 | Command | Status | Purpose |
 |---|---|---|
-| `chrono time epoch <unix_ms> [<utc_offset_min>]` | implemented | **set date + time + UTC offset from the phone** — see "Keeping time" below |
-| `chrono tz [<utc_offset_min>]` | implemented | the UTC offset alone (−720…840). Same instant, the hands move. Persisted |
+| `chrono time epoch <unix_ms> [<utc_offset_min>]` | implemented | **set date + time from the phone** — see "Keeping time" below |
+| `chrono tz <posix_tz> [<name>]` | implemented | **the time zone as a POSIX rule** + an IANA label — see "Keeping time". Same instant, the hands move. Persisted. Bare `chrono tz` answers `=posix=` `=name=` `=offset=` |
+| `chrono tz <utc_offset_min>` | implemented | a fixed offset (−720…840), no DST — the older form. Persisted |
+| `net wifi join <ssid> [<psk>]` · `net wifi forget` · `net wifi scan` · `net wifi` | implemented | **Wi-Fi** — see "Wi-Fi" below |
+| `net sntp` · `net sntp sync` | implemented | time servers (display) · ask them now |
 | `chrono time set <hh:mm[:ss]>` | implemented | set the *local* time of day only; keeps the date if the clock has one |
 | `chrono alarm set <hh:mm>` | implemented | alarm time, local 24 h. Persisted. `$ok` only after the clock has taken it |
 | `chrono alarm arm <on\|off>` | implemented | arm / disarm. Persisted. Armed, it rings at the set local minute: `ui_mode` goes to `ringing` (6), then `snoozed` (7) or back to `idle` |
@@ -203,20 +206,67 @@ Anything else the console accepts also works (`help` lists it) — treat it as d
 
 ### Keeping time
 
-The phone is the clock's time source until Wi-Fi/SNTP exists, and it owns the timezone rules:
-the clock stores only *the offset in force now*, never a zone or a DST table.
+The clock keeps **UTC** and a **time zone**. Once it is on Wi-Fi it sets UTC itself (SNTP, see
+"Wi-Fi"); the zone always comes from the phone.
 
-- **On every connect**, send `chrono time epoch <now_unix_ms> <utc_offset_min>` — iOS:
-  `Int64(Date().timeIntervalSince1970 * 1000)` and `TimeZone.current.secondsFromGMT() / 60`.
-  Milliseconds: a value under 10¹¹ is taken as a seconds mistake and answered `bad-arg`.
-- **When the offset changes** (DST transition, travel — iOS `NSSystemTimeZoneDidChange` /
-  `significantTimeChangeNotification`) send it again, or just `chrono tz <utc_offset_min>`.
-- The knob can also set the time of day; it keeps the date and the offset.
-- The offset and the alarm survive a reboot. **The time itself does not yet** (no RTC retention
-  in firmware) — after a reboot `time_valid` is clear until the phone reconnects.
+- **The zone is a POSIX TZ rule**, e.g. `PST8PDT,M3.2.0,M11.1.0` — standard offset, daylight
+  offset and the two switch dates — so the clock changes DST on its own with no phone around.
+  **Default, until the phone sends one: San Francisco** (`PST8PDT,M3.2.0,M11.1.0`,
+  `America/Los_Angeles`; `tz_set` clear).
+- **On every connect**, send the zone, then the time:
+  1. `chrono tz <posix> <iana_name>` — e.g. `chrono tz CET-1CEST,M3.5.0,M10.5.0/3 Europe/Zurich`.
+     iOS has no POSIX string for a `TimeZone`; build it from `secondsFromGMT(for:)` and the next
+     two `nextDaylightSavingTimeTransition(after:)` dates (the transitions this year and next
+     are enough: express each as `Mm.w.d/hh` in the local time *before* the switch, `w` = 5 when
+     it is the last such weekday of the month). A zone with no DST is just `<+0530>-5:30`
+     (POSIX sign: **west of Greenwich is positive**). Names are `<…>`-quoted unless 3+ letters.
+     The name is a label (≤ 39 bytes, no spaces). `bad-arg` = the rule did not parse: fall back
+     to the offset form below.
+  2. `chrono time epoch <now_unix_ms> <utc_offset_min>` — iOS:
+     `Int64(Date().timeIntervalSince1970 * 1000)` and `TimeZone.current.secondsFromGMT() / 60`.
+     If the offset agrees with the zone at that instant the zone is kept; if not, the zone
+     **becomes that fixed offset** (the phone knows better). Milliseconds: a value under 10¹¹
+     is taken as a seconds mistake and answered `bad-arg`. Harmless once SNTP runs — it is
+     overwritten by the next sync.
+- **When the zone changes** (travel — iOS `NSSystemTimeZoneDidChange`), send both again. A DST
+  transition needs nothing: the rule has it.
+- `chrono tz <utc_offset_min>` still sets a **fixed** offset (no DST), as before.
+- The knob can also set the time of day; it keeps the date and the zone. Once Wi-Fi is set up
+  and SNTP has answered, the knob's clock mode refuses (`net_locked`) — the network owns the time.
+- The zone and the alarm survive a reboot. The time itself does not (no RTC retention yet) —
+  after a reboot `time_valid` is clear until SNTP answers or the phone reconnects.
 
-Not on this channel: **Wi-Fi credentials** will use Espressif's standard BLE provisioning
-(separate service, SRP6a security) — specified here when built.
+### Wi-Fi
+
+Wi-Fi exists for one thing: the clock setting its own time. Credentials go over **this
+channel** (the bonded, encrypted link of §2 — nothing else can read it); there is no separate
+provisioning service.
+
+- **Join**: `net wifi join hex:<ssid> hex:<psk>` — both as `hex:` + the UTF-8 bytes in hex
+  (`"home"` → `hex:686f6d65`), so spaces and quotes need no escaping. Omit the password for an
+  open network. SSID 1–32 bytes; password 8–63 characters or 64 hex digits (`bad-arg`
+  otherwise). The clock **stores it** (replacing any other), answers `$ok` at once and starts
+  joining. **Progress is in the snapshot**: `wifi_state` (`connecting` → `online`, or
+  `backoff`) and `wifi_err`, `wifi_rssi`; the flags `net_provisioned` (stored) and
+  `net_synced` (SNTP has set the clock). A `join` line is ~140 bytes with a long password —
+  well under the 256-byte limit. The console also accepts plain `net wifi join home secret`.
+- **Failure**: `wifi_state` = `backoff` with `wifi_err` = `no-ap` (no such network in range —
+  check the name, 2.4 GHz only), `auth` (**wrong password**), `no-ip` (no DHCP address),
+  `timeout`, `other`. The clock keeps retrying (5 s, 15 s, 30 s, 1 min, 2 min, then every
+  5 min) until a new `join` or `forget`. The app should show the reason and offer to re-enter.
+- **Scan**: `net wifi scan` (~3 s; `busy` while joining) →
+  `=ap=<rssi>/<open|secured>/<channel>/<ssid>` per network, strongest first; the SSID is last
+  and may contain `/` — split on the first three. iOS cannot scan, so this is the picker's list.
+  2.4 GHz networks only (the ESP32-S3 has no 5 GHz radio). Hidden networks are not listed.
+- **State**: `net wifi` → `=state=` `=ssid=` (stored network, empty = none) `=err=` `=rssi=`
+  `=ip=` `=synced=` (the snapshot carries the same; this is for a settings screen).
+- **Forget**: `net wifi forget` → disconnected, nothing stored, `wifi_state` = `idle`.
+- **Time servers**: `time.cloudflare.com`, `time.google.com`, `pool.ntp.org` (`protocol.json`
+  → `wifi`), asked **in that order**; the next only when one gives no believable answer
+  (timeout, no DNS, kiss-of-death, unsynchronised, a reply that is not ours). Then again every
+  hour; a round where none answered is retried after 30 s, backing off to 15 min.
+  `net sntp` shows which answered; `net sntp sync` asks now.
+- The rear radio toggle turns Wi-Fi off too (`wifi_state` = `off`), and it rejoins by itself.
 
 ### Sound files
 
@@ -299,7 +349,7 @@ Field-by-field layout, types, units, scales and enums: **`protocol.json` → `sn
 | 72–87 | hands: motion state, dial tick, shown time, target time, homing sensor, faults, trims |
 | 88–95 | UI mode, volume, alarm h:m, brightness, wake-light %, BLE state |
 | 96–123 | the 7 LEDs, RGBW each |
-| 124–131 | knob count, bonds, Wi-Fi state, RSSI, reserved |
+| 124–131 | knob count, bonds, Wi-Fi state, RSSI, Wi-Fi error |
 
 ### Decoding rules
 
@@ -317,12 +367,15 @@ Field-by-field layout, types, units, scales and enums: **`protocol.json` → `sn
 ### Time
 
 - `epoch_ms` is valid only when `time_valid` is set (the clock has been told the time since boot).
-- **Local time = `epoch_ms` + `tz_off_min` × 60 000**, formatted as UTC. Always — `tz_off_min` is 0
-  until an offset has been given, and then `epoch_ms` is true UTC.
-- **`date_valid`** (flag bit 30): the date part is real (it came from `chrono time epoch`). Clear
+- **Local time = `epoch_ms` + `tz_off_min` × 60 000**, formatted as UTC. Always — `epoch_ms` is
+  UTC and `tz_off_min` is the zone's offset **at that instant** (DST included; the default zone
+  is San Francisco until one is given).
+- **`date_valid`** (flag bit 30): the date part is real (it came from `chrono time epoch` or SNTP). Clear
   → only the time of day means anything (the clock was set by the knob or `chrono time set` since
   boot and never got a date); show hh:mm:ss only.
-- `tz_set` (bit 2): an offset has been given at some point (it is persisted).
+- `tz_set` (bit 2): a zone or offset has been given at some point (it is persisted). Clear =
+  the default zone.
+- `net_synced` (bit 4): SNTP has set the clock since boot.
 - `hand_h:hand_m` is what the hands physically show right now (differs from the time while
   moving, homing, or when a UI mode uses the hands as a gauge).
 
@@ -370,6 +423,7 @@ marked newer. Unknown keys: ignore.
 | Date | Version | Change |
 |---|---|---|
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
+| 2026-09-28 | proto 1 / schema 1 | **Wi-Fi + SNTP.** New `net wifi join/forget/scan`, `net wifi`, `net sntp [sync]`; "Wi-Fi" section (credentials over the bonded link — replaces the planned Espressif provisioning). `wifi_state` enum grows `idle connecting online backoff`; byte 131 `reserved` → `wifi_err` (was always 0). **Time zones**: `chrono tz <posix> [<name>]`, default San Francisco; `tz_off_min` is now the zone's offset at the instant (DST included) and is no longer 0 before a zone is given; `chrono time epoch` with a disagreeing offset makes the zone fixed. All compatible |
 | 2026-09-28 | proto 1 / schema 1 | Implemented `chrono time epoch` (offset now optional), `chrono alarm set/arm`; added `chrono tz`, `chrono alarm`; `tz_off_min` populated; new flag bit 30 `date_valid`; "Keeping time" guidance. All compatible |
 | 2026-09-27 | proto 1 / schema 1 | The alarm rings. New `ui_mode` values `ringing` (6) and `snoozed` (7); new commands `chrono alarm tone`, `chrono alarm fire/snooze/dismiss`, `audio play`. All compatible (new enum values, new commands) |
 | 2026-09-27 | proto 1 / schema 1 | Sound files: new `blob` characteristic (…0006, write with response, offset + data); `storage tones` / `storage rm` / `storage put …`; "Sound files" section with ATT errors 0x80–0x83. All compatible (new characteristic, new commands) |

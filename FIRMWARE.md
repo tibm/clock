@@ -1193,7 +1193,16 @@ rather than leaving the default. `power_values.md` §10 says "digital boost defa
 
 ### 6.4 `chrono` — the time authority
 
-> **As built, 2026-09-28:** one offset, not a zone. `epoch_ms` is UTC once `chrono time epoch`
+> **As built, 2026-09-28 (Wi-Fi):** a ZONE now, not an offset — a POSIX TZ rule
+> (`domain/tz.hpp`: parser, `offset_s(utc)`, `local_to_utc` with the §6.4 DST policy — skipped
+> local times land an hour later, doubled ones take the first), NVS `chr.tzp` + a label
+> `chr.tzn`, **default `PST8PDT,M3.2.0,M11.1.0` (San Francisco)** until the phone sends one
+> (`chrono tz <posix> [<name>]`; the app derives the rule from iOS `TimeZone`). `chrono tz <min>`
+> is a fixed zone; `chrono time epoch <ms> <off>` keeps the zone when it agrees, else makes it
+> fixed. `tz_off_min` in the snapshot is the zone's offset at the instant. SNTP arrives as
+> `set_utc(ms, Source::Sntp)` and only steps (no slew yet). `Snapshot::src` says who set it.
+>
+> **Before that, 2026-09-28:** one offset, not a zone. `epoch_ms` is UTC once `chrono time epoch`
 > has been used, the local reading is `epoch_ms + tz_off_min`, and the offset (NVS `chr.tz`) is
 > whatever the phone last said — the phone owns DST and resends it (`app/PROTOCOL.md` "Keeping
 > time"). A POSIX TZ string on-device only becomes necessary when SNTP sets the clock with no
@@ -1663,7 +1672,30 @@ server (§8), OTA orchestration.
 wire formats in `components/transport/`). Three jobs: the pairing window, the command channel
 (CLI lines through the console's own dispatcher), and the status snapshot (§8.2–8.3). Prio 6,
 8 KB stack, 50 ms tick, **core 1** for now (§3.2 says 0; the NimBLE host task is on 0 either way,
-and `net` only ever calls it through thread-safe `hal::ble`). Wi-Fi, SNTP and OTA are not built.
+and `net` only ever calls it through thread-safe `hal::ble`). OTA is not built.
+
+**Built 2026-09-28: Wi-Fi + SNTP** (`services/src/net_wifi.cpp`, radio + UDP in
+`clk_hal/esp/src/wifi_esp.cpp`, packet checks in `domain/sntp.hpp`, fake in
+`clk_hal/host/src/wifi_host.cpp`). Not `wifi_provisioning` (§8.1 superseded): the phone sends
+the network over the **bonded, encrypted BLE command channel** — `net wifi join hex:<ssid>
+hex:<psk>` — which is already the proximity-gated, LESC-encrypted pipe §8.1 wanted, with no
+second protocol for the app to carry. Stored hex in NVS (`net.ssid`/`net.psk`, `hal::store`'s
+string cap raised to 160), never logged (`net`'s debug echo of a BLE line redacts it).
+- Wi-Fi HSM as built: `Off` (RADIO_OFF / no radio) · `Idle` (nothing stored) · `Connecting`
+  (20 s limit) · `Online` · `Backoff` (5 s → 15 → 30 → 60 → 120 → 300 s cap, for ever). The
+  failure reason is kept and published (`wifi_err`: no-ap / auth / no-ip / timeout / other).
+  The driver never auto-reconnects; `net` decides.
+- SNTP: own minimal client, not `esp_netif_sntp` — the order and the believability checks are
+  the point, and they are pure code under test. Servers **`time.cloudflare.com` →
+  `time.google.com` → `pool.ntp.org`**, always in that order, the next only when one gives no
+  believable answer (timeout 3 s, no DNS, kiss-of-death, LI=3/stratum>15, origin ≠ our nonce,
+  a date before 2026). Resync hourly; a round with no answer retries 30 s → 15 min.
+  UTC = T3 + (RTT − server hold)/2, RTT from the monotonic clock. Era-1 (post-2036) safe.
+- First good answer → `chrono.set_net(provisioned, synced)` → `ui` locks the knob out of
+  `clock` mode (§6.6c). `wifi_state`/`wifi_rssi`/`wifi_err` (byte 131, was reserved) and flags
+  `net_provisioned`/`net_synced` are in the snapshot.
+- Not yet: Wi-Fi off on battery (§7.4 policy), slewing instead of stepping, drift learning,
+  RTC retention across reboot.
 
 **`RADIO_OFF` (expander GPA3) is a hard override**, checked on the state's entry action *and* on
 every reconnect attempt — not just at boot. Asserted → `esp_wifi_stop()` + `nimble_port_stop()`,
@@ -1840,6 +1872,10 @@ Two separate concerns, deliberately not merged:
 
 ### 8.1 Wi-Fi provisioning — use Espressif's, don't invent one
 
+> **Superseded 2026-09-28** (§6.7 "Built: Wi-Fi + SNTP"): credentials travel as a CLI line
+> over the §8.2 channel, which is bonded + LESC-encrypted and only bondable inside the knob's
+> pairing window — the same guarantees, no second protocol. The text below is the original plan.
+
 `wifi_provisioning` over BLE (protocomm, **security2 / SRP6a**) with the stock "ESP BLE Provisioning"
 app for v1, and the same protocol re-implemented in your own app later. Credentials never traverse a
 characteristic you wrote. Advertised **only** while in provisioning mode (first boot, or knob
@@ -1938,7 +1974,7 @@ room fields are meaningless whatever they hold. `test_net` pins the offsets belo
 | 2 | u16 | seq (+1 per record) | | 73 | u8 | dial_tick (§6.1d) |
 | 4 | u32 | uptime s | | 74 | u8×4 | hands h, m → target h, m |
 | 8 | i64 | epoch ms UTC (`time_valid`) | | 78 | u16 | opto, 0..65535 = 0..1 |
-| 16 | i16 | tz offset min (`tz_set`; chrono has no TZ yet) | | 80 | u32 | motion faults |
+| 16 | i16 | tz offset min, the zone's at the instant | | 80 | u32 | motion faults |
 | 18 | u8 | reset reason | | 84 | u16 / i16 | auto-home trims / last trim µsteps |
 | 19 | u8 | slow-clock source (§7.1) | | 88 | u8 | ui mode (idle bell alarm clock volume pairing) |
 | 20 | u32 | **flags** (below) | | 89 | u8×4 | volume %, alarm h, m, brightness % |
@@ -1947,9 +1983,9 @@ room fields are meaningless whatever they hold. `test_net` pins the offsets belo
 | 36 | u16 | vbat mV | | 96 | u8×28 | 7 pixels R G B W, chain order (dial0 dial1 bell alarm clock vol batt) |
 | 38 | u8 | SoC % (255 = unknown, R-BOARD-3) | | 124 | i32 | knob count (256/rev) |
 | 39 | u8 | vbat source (cell / bat-node) | | 128 | u8 | bonds |
-| 40 | i16 | temp 0.01 °C | | 129 | u8 | Wi-Fi state (0 = off; not built) |
+| 40 | i16 | temp 0.01 °C | | 129 | u8 | Wi-Fi state (off idle connecting online backoff) |
 | 42 | u16 | RH 0.01 % | | 130 | i8 | Wi-Fi RSSI dBm (0 = n/a) |
-| 44 | u16 | pressure 0.1 hPa | | 131 | u8 | reserved |
+| 44 | u16 | pressure 0.1 hPa | | 131 | u8 | Wi-Fi error (none no-ap auth no-ip timeout other) |
 | 46 | u32 | gas Ω | | | | |
 | 50 | u16 | env age s (sampled every 60 s) | | | | |
 | 52 | f32 | lux (−1 saturated) | | | | |
@@ -2093,15 +2129,15 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
-| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min>]` (NVS) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono alarm tone [<name>\|none]` (which `/sd/tones` WAV rings; checked on the card, NVS) · `chrono alarm fire` (ring now) · ▲`chrono alarm snooze` · ▲`chrono alarm dismiss` **· built 2026-09-27** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
+| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min> | <posix> [<name>]]` (a zone, NVS; default San Francisco — **built 2026-09-28**) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono alarm tone [<name>\|none]` (which `/sd/tones` WAV rings; checked on the card, NVS) · `chrono alarm fire` (ring now) · ▲`chrono alarm snooze` · ▲`chrono alarm dismiss` **· built 2026-09-27** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
 | `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · `audio play <name> [loop]` (a `/sd/tones` WAV through `storage`; `audio stop` ends it) **· built 2026-09-27** · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |
 | `storage` | ▲`storage status` · ▲`storage ls [<path>]` (default `/sd/tones`; each WAV checked — length, or why not) · ▲`storage stat <file>` · ▲`storage sd` · ▲`storage sd mount` · ▲`storage sd unmount` **· built 2026-09-27** · ▲`storage tones` (the app's list, `=` pairs) · ▲`storage rm <name>` · ▲`storage put [<name> <size> <crc32>]` · ▲`storage put end` · ▲`storage put abort` · `storage put data <off> <hex>` (a `blob` write from the console) **· built 2026-09-27** · `storage cfg` · `storage cfg set <k> <v>` · ⚠`storage cfg reset` · ⚠`storage fmt <littlefs\|sd>` |
-| `net` | ▲`net status` · ▲`net ble status` · ▲`net ble pair [on\|off]` (opens through `ui`, so the row lights — refuses with the radio off) · ▲`net ble unbond` · `net ble window [<s>]` (pairing window, 120 s) · `net ble period [<ms>]` (snapshot cadence, 1000) **· built 2026-09-27** · `net wifi <ssid> <psk>` · `net wifi scan` · `net on\|off` · ⚠`net ota <url>` |
+| `net` | ▲`net status` · ▲`net ble status` · ▲`net ble pair [on\|off]` (opens through `ui`, so the row lights — refuses with the radio off) · ▲`net ble unbond` · `net ble window [<s>]` (pairing window, 120 s) · `net ble period [<ms>]` (snapshot cadence, 1000) **· built 2026-09-27** · ▲`net wifi` (`=` pairs for the app) · ▲`net wifi join <ssid> [<psk>]` (plain or `hex:`) · ▲`net wifi forget` · ▲`net wifi scan` (`=ap=` pairs) · ▲`net sntp` · ▲`net sntp sync` **· built 2026-09-28** · `net on\|off` · ⚠`net ota <url>` |
 | `sensor` | ▲`sensor list` · ▲`sensor <name> read` · ▲`sensor <name> stream [<hz>] [<s>] [--csv]` ☰ · `sensor stop [<name>\|all]` — §9.5 |
-| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim speaker <on\|off>` *(routes through `hal::audio::enable()` now, so the fake cannot reach a state the firmware could not)* · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
+| `sim` | *(all host-only)* `sim status` · `sim hand [<h\|m> <deg>]` · `sim motor <on\|off>` · `sim opto [<0..1>\|auto]` · `sim knob <±counts> [over <ms>]` (a lump, or a turn delivered at a rate — §6.6d) · `sim turn <±detents>` · `sim press [<ms>\|down\|up]` · `sim imu [<yaw> [<pitch> <roll>]]` (how the cube sits → the gravity vector §6.1d reads) · `sim tap` · `sim radio <on\|off>` · `sim wifi [ap <ssid> [<psk> [<rssi>]] \| rm <ssid> \| clear \| ntp <host\|*> <answer\|silent\|nodns\|kiss\|unsynced> \| utc <ms>]` (the room's networks and a scripted internet) · `sim speaker <on\|off>` *(routes through `hal::audio::enable()` now, so the fake cannot reach a state the firmware could not)* · `sim vbat <mV>` · `sim noise <mV>` · `sim seed <n>` · `sim plug\|unplug` · `sim warp [<x>]` · `sim jump <s>` · `sim present [<dev> [on\|off]]` · `sim reset` |
 | *(top)* | ▲`help [<group> [<verb>]]` · ▲`?` · `unsafe <on\|off>` |
 
 > Anything reachable here is reachable over BLE and vice versa (rule 6) — including `sys debug`,
@@ -4016,7 +4052,7 @@ blocked on one net for eight days (§12.0.16). Rework **R2** closed it: reg 0x08
 |---|---|---|
 | **F6.0** | ✅ | `net` AO + `hal::ble` (NimBLE) + `transport/` (framing, 132-byte snapshot) + `net …` / `sys snap` rows + `tools/clockctl.py`. 17 host cases in `test_net.cpp` (wire offsets, fake-phone policy, window ↔ `ui`). Both target profiles build clean. ⚠ Existing build dirs predate `CONFIG_BT_*`: **`rm build/*/sdkconfig`** once, or IDF keeps BT off and `ble_esp.cpp` fails to find `host/ble_hs.h` |
 | **F6.1** | ⬜ | **Bench it.** `tools/clockctl.py scan` → hold 10 s → `clockctl.py shell` → `help`, `sys snap`; then `clockctl.py status --watch`. Check on iOS *and* Android: (a) a stranger outside the window is dropped at `ENC_CHANGE` (`net status` → `refused` +1); (b) a bonded phone reconnects with the window shut; (c) `REPEAT_PAIRING` after "forget device" on the phone only succeeds inside the window; (d) `help` at the default 23-byte MTU (fragments) |
-| **F6.2** | ⬜ | Wi-Fi provisioning (§8.1) + SNTP → `chrono` (F3.2). The snapshot already carries `wifi_state`/`rssi`/`net_synced` |
+| **F6.2** | 🟡 | 2026-09-28: **built, host-tested, not benched.** Wi-Fi join over the BLE command channel + own SNTP client (3 servers in order) → `chrono.set_utc` (§6.7); POSIX TZ zones, default San Francisco (§6.4); app Wi-Fi screen + zone rule on connect. **Bench it:** from the app (or `clockctl.py shell`) `net wifi scan` → `net wifi join <ssid> <psk>` → `net wifi` online within ~5 s → `net sntp` shows server 1 answered, `chrono status` `set by sntp` with the right local time → wrong password shows `err=auth` → rear toggle off/on rejoins → reboot rejoins from NVS. Watch heap (`sys heap`) with BLE + Wi-Fi both up. ⚠ First build after this change: **`rm build/*/sdkconfig`** once so `CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` lands |
 | **F6.3** | ⬜ | Device-side history: a PSRAM ring of snapshots (or a thinned subset) read back in bulk, so a plot survives the phone being away. The record is already the unit |
 | **F6.5** | ✅ | 2026-09-28: the app's three commands — `chrono time epoch` (UTC + offset; `Chrono` now keeps `tz_off_min` in NVS and every local reading is UTC + offset), `chrono tz`, `chrono alarm set/arm` (NVS-backed in `ui`). Snapshot: `tz_off_min` populated, new flag bit 30 `date_valid`. `app/PROTOCOL.md` changelog. Product-level list of what is left: **`TODO.md`** |
 | **F6.4** | ⬜ | Move the BME688/TSL2591 reads off `net`'s thread (to `board`, §6.5) — today an ALS auto-range can delay a command answer by ~1 s |

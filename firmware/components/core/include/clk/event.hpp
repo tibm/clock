@@ -90,6 +90,7 @@ struct AlarmCfg {
 
 struct TimeChanged {
     int64_t epoch_ms;
+    uint8_t src = 0;  // svc::Chrono::Source -- core/ may not name it (§2)
 };
 
 struct PowerState {

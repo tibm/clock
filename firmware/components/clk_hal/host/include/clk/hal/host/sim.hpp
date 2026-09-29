@@ -112,6 +112,21 @@ std::size_t ble_read_status(uint8_t* out, std::size_t cap) noexcept;  // a read 
 uint32_t ble_status_notifies() noexcept;  // how many `status` notifications went out
 std::size_t ble_read_info(char* out, std::size_t cap) noexcept;
 
+// ---- Wi-Fi: access points and a scripted internet ---------------------------------------
+// The association is modelled (it takes 300 ms of sim time and then either works or fails as
+// "no such network" / "wrong password"); the internet is one rule per NTP host.  The answers
+// are real NTP packets stamped from a settable true UTC -- the laptop's clock unless a test
+// says otherwise.  `sim wifi ...` drives these, and so does test_net.  Not touched by reset():
+// like the card, the room's networks are not the board's power-on state.
+enum class NtpMode : uint8_t { Answer, Silent, NoDns, Kiss, Unsynced };
+void wifi_add_ap(const char* ssid, const char* psk, int8_t rssi) noexcept;  // replaces same ssid
+void wifi_remove_ap(const char* ssid) noexcept;
+void wifi_clear() noexcept;                             // no APs, every host answers, laptop UTC
+void wifi_ntp(const char* host, NtpMode) noexcept;      // host "*" = every host not named
+void wifi_set_utc(int64_t utc_ms) noexcept;             // what the internet says it is, now
+uint32_t wifi_ntp_requests(const char* host) noexcept;  // exchanges sent to `host`
+std::string wifi_describe();
+
 // ---- persistent settings ---------------------------------------------------------------
 // Where hal::store keeps its `key = value` file.  The app sets it; a test binary that leaves
 // it unset gets an honest NotPresent out of every read, which is what keeps a unit test from

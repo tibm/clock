@@ -1,6 +1,6 @@
-// The app link: BLE today, Wi-Fi when it lands.                [FIRMWARE.md §6.7, §8]
+// The app link over BLE, and Wi-Fi for the time.               [FIRMWARE.md §6.7, §8]
 //
-// Three jobs, and no product logic in any of them:
+// Four jobs, and no product logic in any of them:
 //
 //   1. The PAIRING WINDOW.  Opened by the ten-second knob hold (`ui` calls pair()) or by
 //      `net ble pair`; closed by a bond, by the knob, or by `window_ms` running out.  Only
@@ -10,11 +10,16 @@
 //      console's command set, no more and no less (rule 6).
 //   3. The STATUS SNAPSHOT.  Every `period_ms` it gathers what every service knows into one
 //      transport::Snapshot, serves it on `status`, and notifies a subscriber.
+//   4. WI-FI + SNTP.  The phone sends a network (`net wifi join`, over the bonded link); this
+//      AO keeps it associated with backoff, and asks three public time servers in order --
+//      the next one only when the one before gives no believable answer -- then hands UTC
+//      to `chrono`.  Resync hourly.  (net_wifi.cpp)
 //
-// RADIO_OFF (expander GPA3) is a hard override, polled here: asserted, the stack goes quiet
+// RADIO_OFF (expander GPA3) is a hard override, polled here: asserted, both radios go quiet
 // and the window cannot open.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "clk/ao.hpp"
@@ -80,6 +85,41 @@ public:
     void set_period_ms(uint32_t ms) noexcept;
 
     [[nodiscard]] Snapshot snapshot() const noexcept;
+
+    // ---- Wi-Fi + SNTP (net_wifi.cpp) ----
+    // Free public servers, tried in this order every round; the next only when the one
+    // before times out, does not resolve, or answers with something not to be believed.
+    static constexpr const char* kSntpServers[] = {"time.cloudflare.com", "time.google.com",
+                                                   "pool.ntp.org"};
+    static constexpr std::size_t kSntpCount = 3;
+
+    struct Wifi {
+        transport::WifiState state;
+        hal::wifi::Link link;
+        bool provisioned;  // a network is stored
+        char ssid[hal::wifi::kSsidMax + 1];
+        transport::WifiErr err;  // why the last attempt failed
+        uint8_t reason;          // ... in the driver's words
+        uint32_t attempts;       // association attempts since the network was set
+        uint32_t retry_in_ms;    // Backoff: until the next attempt
+        // SNTP
+        bool synced;               // SNTP has set the clock since boot
+        int8_t server;             // index into kSntpServers of the last good answer, -1 none
+        int8_t trying;             // the server being asked right now, -1 none
+        uint32_t synced_ago_s;     // since the last good answer
+        uint32_t next_sync_in_ms;  // 0 while a round is running or nothing is scheduled
+        int64_t last_step_ms;      // what the last sync moved the clock by (0 = first set)
+        uint32_t syncs, fails;     // good answers / whole rounds with none
+        char last_fail[48];        // "time.google.com: timeout"
+    };
+    // Store the network (NVS, hex) and start associating.  An empty psk is an open network.
+    // BadArg on a bad length; NotPresent when there is no persistent store to keep it in is
+    // NOT an error -- it still connects, it just will not survive a reboot.
+    Status wifi_join(const char* ssid, const char* psk) noexcept;
+    Status wifi_forget() noexcept;  // forget the network, disconnect, stay Idle
+    void sntp_now() noexcept;       // start a round at the next tick
+    [[nodiscard]] Wifi wifi() const noexcept;
+
     // The last status record taken (every period_ms, subscriber or not).
     [[nodiscard]] transport::Snapshot status() const noexcept;
 
@@ -98,6 +138,16 @@ private:
     void take_status() noexcept;
     void publish() noexcept;
     [[nodiscard]] transport::BleState ble_state(hal::ble::Link const&) const noexcept;
+    // Wi-Fi (net_wifi.cpp) -- all on this AO's thread except where noted.
+    void wifi_boot() noexcept;  // on_start: load the stored network
+    void wifi_radio(bool on) noexcept;
+    void wifi_tick(uint64_t now) noexcept;
+    void wifi_connect(uint64_t now) noexcept;
+    void wifi_fail(uint64_t now, transport::WifiErr, uint8_t reason) noexcept;
+    void sntp_tick(uint64_t now) noexcept;
+    void sntp_send(uint64_t now) noexcept;
+    void sntp_round_failed(uint64_t now) noexcept;
+    void report_net() noexcept;
 
     mutable port::Mutex mx_;
     Snapshot snap_{};
@@ -122,6 +172,21 @@ private:
     uint64_t radio_at_us_ = 0;
     uint64_t status_at_us_ = 0;
     uint16_t seq_ = 0;
+
+    // Wi-Fi.  wifi_ (and the pending flags) under mx_: the CLI thread writes them.
+    Wifi wifi_{};
+    char psk_[hal::wifi::kPskMax + 1] = "";  // under mx_; never printed, never logged
+    bool join_pending_ = false, forget_pending_ = false, sntp_pending_ = false;
+    bool wifi_up_ = false;  // hal::wifi started
+    uint64_t attempt_at_us_ = 0, retry_at_us_ = 0;
+    uint8_t backoff_ = 0;  // index into the backoff table
+    // SNTP round
+    bool sntp_busy_ = false;
+    uint8_t sntp_idx_ = 0;
+    uint8_t sntp_backoff_ = 0;
+    uint64_t sntp_nonce_ = 0;
+    uint64_t sync_at_us_ = 0, next_sync_us_ = 0;
+    bool reported_ = false, reported_prov_ = false, reported_sync_ = false;
 
     // The slow sensors are sampled on their own cadence, not the snapshot's: the BME688
     // blocks ~200 ms and heats itself, and nobody's room changes temperature in a second.

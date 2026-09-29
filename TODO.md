@@ -22,7 +22,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 4. **Bench the BLE link on the board** — **F6.1** (iOS + Android, pairing window, reconnect).
 5. **Sunrise wake light** — `hal::wake` (12 V, plugged-only).
 6. **Power modes + the 48 h backup measurement** — `supervisor`, milestone 8.
-7. **Wi-Fi provisioning + SNTP, then OTA** — **F6.2**.
+7. **Bench Wi-Fi + SNTP (built 2026-09-28), then OTA** — **F6.2**.
 
 ## Time
 
@@ -34,7 +34,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | ✅ | Set time from the phone: date + UTC + offset, `chrono tz` for DST | 2026-09-28, app/PROTOCOL.md "Keeping time" |
 | ✅ | Set time of day with the knob (`clock` mode), refused when the network owns the time | |
 | ⬜ | **Time survives a reboot / deep sleep** | RTC + 32.768 kHz crystal retention, milestone 2; today `time_valid` is lost on every reset |
-| ⬜ | Wi-Fi provisioning (Espressif, SRP6a) + SNTP → the clock sets itself | **F6.2**, **F3.2**. With SNTP and no phone the clock needs DST rules on-device (POSIX TZ string) — decide then |
+| 🟡 | Wi-Fi (credentials from the app over the bonded BLE link) + SNTP (3 free servers, in order) → the clock sets itself; POSIX TZ zones on-device, default San Francisco | **F6.2** — built + host-tested 2026-09-28, **bench next** |
 
 ## Alarm — the product
 
@@ -75,7 +75,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 |---|---|---|
 | 🟡 | BLE link: pairing window, commands, status snapshot | built + host-tested 2026-09-27; **bench it: F6.1** |
 | ✅ | Set time / alarm over BLE | 2026-09-28 |
-| ⬜ | Wi-Fi provisioning + SNTP | **F6.2** |
+| 🟡 | Wi-Fi + SNTP (app: Clock tab → Wi-Fi; zone rule sent on connect) | **F6.2** — built, not benched |
 | ⬜ | Firmware update over the air (OTA) | partition table is ready; `net ota` |
 | ⬜ | Status history on the device (plot survives the phone being away) | **F6.3** |
 | ⬜ | Upload alarm sounds from the phone | `Bulk` characteristic → `storage`; protocol addition |

@@ -53,7 +53,7 @@ FIELDS = (
     "env_age_s lux als_age_s gx gy gz yaw pitch roll taps motion_state dial_tick hand_h "
     "hand_m target_h target_m opto motion_faults trims last_trim ui_mode volume alarm_h "
     "alarm_m brightness wake_warm wake_cool ble_state px knob_count bonds wifi_state "
-    "wifi_rssi reserved"
+    "wifi_rssi wifi_err"
 ).split()
 FLAGS = (
     "time_valid time_follow tz_set net_provisioned net_synced net_locked radio_off "
@@ -64,6 +64,8 @@ FLAGS = (
 MOTION = ["uninit", "homing", "idle", "moving", "fault"]
 MODE = ["idle", "bell", "alarm", "clock", "volume", "pairing", "ringing", "snoozed"]
 BLE = ["off", "idle", "pairing", "connected", "secure"]
+WIFI = ["off", "idle", "connecting", "online", "backoff"]
+WIFI_ERR = ["none", "no-ap", "auth", "no-ip", "timeout", "other"]
 PIXELS = ["dial0", "dial1", "bell", "alarm", "clock", "vol", "batt"]
 
 
@@ -106,7 +108,9 @@ def show(d: dict) -> None:
           f"opto {d['opto']:.3f}")
     print(f"  ui     {MODE[d['ui_mode']] if d['ui_mode'] < 6 else '?'}  vol {d['volume']}%  "
           f"alarm {d['alarm_h']:02}:{d['alarm_m']:02}  knob {d['knob_count']}")
-    print(f"  radio  ble {BLE[d['ble_state']] if d['ble_state'] < 5 else '?'}  bonds {d['bonds']}")
+    print(f"  radio  ble {BLE[d['ble_state']] if d['ble_state'] < 5 else '?'}  bonds {d['bonds']}  "
+          f"wifi {WIFI[d['wifi_state']] if d['wifi_state'] < 5 else '?'} {d['wifi_rssi']} dBm"
+          + (f"  err {WIFI_ERR[d['wifi_err']] if d['wifi_err'] < 6 else '?'}" if d['wifi_err'] else ""))
     print(f"  flags  {' '.join(on)}")
 
 

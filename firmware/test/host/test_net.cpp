@@ -638,6 +638,8 @@ void test_net_sets_time_and_alarm() {
     run("chrono tz 0", r);
 }
 
+void run_wifi_service_tests();  // test_wifi.cpp
+
 void run_net_service_tests() {
     test_net_stack_is_up();
     test_net_a_stranger_cannot_pair_or_command();
@@ -648,4 +650,5 @@ void run_net_service_tests() {
     test_net_radio_off_is_absolute();
     test_net_sets_time_and_alarm();
     sim::ble_disconnect();
+    run_wifi_service_tests();
 }

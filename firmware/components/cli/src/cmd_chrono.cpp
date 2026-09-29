@@ -7,6 +7,7 @@
 
 #include "clk/cli/registry.hpp"
 #include "clk/domain/hand.hpp"
+#include "clk/domain/tz.hpp"
 #include "clk/services/chrono.hpp"
 #include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
@@ -44,9 +45,12 @@ Status cmd_status(Args const&, Sink& out) {
     const auto c = svc::chrono().snapshot();
     char off[16];
     fmt_off(off, sizeof off, c.tz_off_min);
-    out.printf("time   %02d:%02d:%02d local  %s%s%s", c.hour, c.minute, c.second,
-               c.valid ? "" : "(never set)", c.tz_set ? off : "(no offset)",
-               c.date_valid ? "" : "  (no date)");
+    out.printf("time   %02d:%02d:%02d local  %s%s%s%s  %s%s", c.hour, c.minute, c.second,
+               c.valid ? "" : "(never set) ", off, c.tz_dst ? " DST" : "",
+               c.date_valid ? "" : "  (no date)", c.valid ? "set by " : "",
+               c.valid ? svc::Chrono::name(c.src) : "");
+    out.printf("zone   %s%s%s%s", c.tz_posix, c.tz_name[0] ? "  = " : "", c.tz_name,
+               c.tz_set ? "" : "  (default)");
     out.printf("hands  %s   target h=%" PRId32 " m=%" PRId32,
                c.follow ? "following the clock" : "released (knob preview)", c.target_hour,
                c.target_minute);
@@ -83,7 +87,7 @@ Status cmd_epoch(Args const& a, Sink& out) {
     const char* v = a.arg(0);
     char* end = nullptr;
     const long long ms = v ? std::strtoll(v, &end, 10) : -1;
-    int off = svc::chrono().snapshot().tz_off_min;
+    int off = 0;
     const bool off_ok = a.count() < 2 || parse_off(a.arg(1), off);
     if (!v || !end || *end || !off_ok || ms < 0) {
         out.line("usage: chrono time epoch <unix_ms> [<utc_offset_min>]   offset -720..840");
@@ -93,7 +97,16 @@ Status cmd_epoch(Args const& a, Sink& out) {
         out.printf("%lld looks like seconds -- want milliseconds since 1970 UTC", ms);
         return Status::BadArg;
     }
-    svc::chrono().set_epoch(ms, off);
+    if (a.count() < 2) {
+        // No offset: the zone decides.  The offset shown is the one it gives this instant.
+        svc::chrono().set_utc(ms, svc::Chrono::Source::Phone);
+        const svc::Chrono& c = svc::chrono();
+        domain::tz::Zone z{};
+        (void)domain::tz::parse(c.snapshot().tz_posix, z);
+        off = domain::tz::offset_s(z, ms / 1000) / 60;
+    } else {
+        svc::chrono().set_epoch(ms, off);
+    }
     const std::time_t t = static_cast<std::time_t>((ms + off * 60'000LL) / 1000);
     std::tm tm{};
     gmtime_r(&t, &tm);
@@ -104,22 +117,46 @@ Status cmd_epoch(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// `chrono tz` -- a zone.  Three forms: nothing (show it), minutes (a fixed offset, the old
+// form, e.g. `120`), or a POSIX rule with an optional label -- the app's form, e.g.
+// `chrono tz PST8PDT,M3.2.0,M11.1.0 America/Los_Angeles`.
 Status cmd_tz(Args const& a, Sink& out) {
     char o[16];
     if (a.count() == 0) {
         const auto c = svc::chrono().snapshot();
         fmt_off(o, sizeof o, c.tz_off_min);
-        out.printf("%s%s", o, c.tz_set ? "" : "  (never set -- UTC assumed)");
+        out.printf("%s%s   %s%s%s%s", o, c.tz_dst ? " DST" : "", c.tz_posix,
+                   c.tz_name[0] ? "  = " : "", c.tz_name,
+                   c.tz_set ? "" : "  (default -- San Francisco until the phone says)");
+        out.kv("posix", c.tz_posix);
+        out.kv("name", c.tz_name);
+        char v[12];
+        std::snprintf(v, sizeof v, "%d", c.tz_off_min);
+        out.kv("offset", v);
         return Status::Ok;
     }
     int off = 0;
-    if (!parse_off(a.arg(0), off)) {
-        out.line("usage: chrono tz <utc_offset_min>   -720..840, e.g. 120 for UTC+02:00");
+    if (parse_off(a.arg(0), off) && a.count() == 1) {
+        svc::chrono().set_tz(off);
+        fmt_off(o, sizeof o, off);
+        out.printf("%s (fixed) -- same instant, the hands move", o);
+        return Status::Ok;
+    }
+    const char* label = a.count() > 1 ? a.arg(1) : "";
+    if (a.count() > 2 || std::strlen(label) >= sizeof(svc::Chrono::Snapshot{}.tz_name) ||
+        !svc::chrono().set_zone(a.arg(0), label)) {
+        out.line("usage: chrono tz [<utc_offset_min> | <posix_tz> [<name>]]");
+        out.line("  e.g. `chrono tz 120` (fixed UTC+02:00), or");
+        out.line("       `chrono tz CET-1CEST,M3.5.0,M10.5.0/3 Europe/Zurich`");
         return Status::BadArg;
     }
-    svc::chrono().set_tz(off);
-    fmt_off(o, sizeof o, off);
-    out.printf("%s -- same instant, the hands move", o);
+    const auto c = svc::chrono().snapshot();
+    domain::tz::Zone z{};
+    (void)domain::tz::parse(a.arg(0), z);
+    const int now_off = domain::tz::offset_s(z, c.epoch_ms / 1000) / 60;
+    fmt_off(o, sizeof o, now_off);
+    out.printf("zone %s%s%s -- %s now; same instant, the hands move", a.arg(0), *label ? " = " : "",
+               label, o);
     return Status::Ok;
 }
 
@@ -338,8 +375,8 @@ constexpr CmdSpec kRows[] = {
      cmd_time},
     {"chrono", "time", "epoch", "<unix_ms> [<utc_offset_min>]", "set date + time (UTC) + offset",
      None, cmd_epoch},
-    {"chrono", nullptr, "tz", "[<utc_offset_min>]", "UTC offset; the phone resends it on DST", None,
-     cmd_tz},
+    {"chrono", nullptr, "tz", "[<offset_min> | <posix> [<name>]]",
+     "zone: POSIX rule (NVS); default San Francisco", None, cmd_tz},
     {"chrono", "alarm", "set", "<hh:mm>", "alarm time (NVS)", None, cmd_alarm_set},
     {"chrono", "alarm", "arm", "<on|off>", "arm or disarm the alarm (NVS)", None, cmd_alarm_arm},
     {"chrono", "alarm", "tone", "[<name>|none]", "which /sd/tones WAV rings (NVS)", None,

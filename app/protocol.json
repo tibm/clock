@@ -131,6 +131,46 @@
       "use": "status notify cadence; global, not persisted (1000 after boot)"
     },
     {
+      "line": "net wifi",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "Wi-Fi state as `=` pairs: state= (wifi_state name), ssid= (stored network, empty = none), err= (wifi_err name), rssi=, ip=, synced= (0/1)"
+    },
+    {
+      "line": "net wifi join <ssid> [<psk>]",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "ssid": "1-32 bytes; send as hex:<utf8 bytes hex>",
+        "psk": "8-63 characters, or 64 hex digits; omit for an open network; send as hex:<utf8 bytes hex>"
+      },
+      "use": "store the network (replaces any other) and join it. Answers ok at once; watch wifi_state / wifi_err in the snapshot. Persisted; retried with backoff for ever"
+    },
+    {
+      "line": "net wifi forget",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "forget the stored network and disconnect; wifi_state -> idle"
+    },
+    {
+      "line": "net wifi scan",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "networks in range, strongest first, as `=ap=<rssi>/<open|secured>/<channel>/<ssid>` (SSID last; split on the first three '/'). Takes ~3 s. busy while joining"
+    },
+    {
+      "line": "net sntp",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "time servers, last sync, next (display only)"
+    },
+    {
+      "line": "net sntp sync",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "ask the time servers now; not-ready unless wifi_state is online"
+    },
+    {
       "line": "chrono time set <hh:mm[:ss]>",
       "status": "implemented",
       "unsafe": false,
@@ -147,19 +187,21 @@
           840
         ]
       },
-      "use": "set date + time + current UTC offset from the phone. Offset omitted = keep the stored one. A value that looks like seconds answers bad-arg"
+      "use": "set date + time from the phone. With an offset: the offset in force now -- if the clock's zone agrees it is kept, otherwise the zone becomes that fixed offset. Offset omitted = the clock's zone decides. A value that looks like seconds answers bad-arg"
     },
     {
-      "line": "chrono tz [<utc_offset_min>]",
+      "line": "chrono tz [<utc_offset_min> | <posix_tz> [<name>]]",
       "status": "implemented",
       "unsafe": false,
       "args": {
         "utc_offset_min": [
           -720,
           840
-        ]
+        ],
+        "posix_tz": "POSIX TZ rule, e.g. PST8PDT,M3.2.0,M11.1.0 (see PROTOCOL.md 'Keeping time')",
+        "name": "IANA label, e.g. America/Los_Angeles; display only, < 40 bytes, no spaces"
       },
-      "use": "read / set the UTC offset alone (same instant, the hands move). NVS-persisted"
+      "use": "read / set the zone (same instant, the hands move). A POSIX rule lets the clock change DST by itself; a bare offset is a fixed zone. Default when never set: San Francisco. NVS-persisted. Bare `chrono tz` answers `=posix=`, `=name=`, `=offset=`"
     },
     {
       "line": "chrono alarm",
@@ -349,7 +391,7 @@
         "off": 16,
         "type": "i16",
         "name": "tz_off_min",
-        "note": "local = UTC + this. 0 until an offset has been given (tz_set)"
+        "note": "the zone's offset right now, DST included; default zone San Francisco (tz_set clear)"
       },
       {
         "off": 18,
@@ -666,7 +708,9 @@
       {
         "off": 131,
         "type": "u8",
-        "name": "reserved"
+        "name": "wifi_err",
+        "enum": "wifi_err",
+        "note": "why the last Wi-Fi attempt failed; was `reserved` (always 0) before 2026-09-28"
       }
     ],
     "flags": [
@@ -740,7 +784,19 @@
         "unknown"
       ],
       "wifi_state": [
-        "off"
+        "off",
+        "idle",
+        "connecting",
+        "online",
+        "backoff"
+      ],
+      "wifi_err": [
+        "none",
+        "no-ap",
+        "auth",
+        "no-ip",
+        "timeout",
+        "other"
       ],
       "reset_reason": [
         "unknown",
@@ -865,7 +921,7 @@
         "bonds": 2,
         "wifi_state": 0,
         "wifi_rssi": -60,
-        "reserved": 0
+        "wifi_err": 0
       }
     }
   },
@@ -914,6 +970,19 @@
         "name": "failed",
         "action": "the card refused a write: `storage put abort`, then start again"
       }
+    }
+  },
+  "wifi": {
+    "sntp_servers": [
+      "time.cloudflare.com",
+      "time.google.com",
+      "pool.ntp.org"
+    ],
+    "sntp_order": "always first to last each round; the next only when one gives no believable answer",
+    "resync_s": 3600,
+    "default_zone": {
+      "posix": "PST8PDT,M3.2.0,M11.1.0",
+      "name": "America/Los_Angeles"
     }
   }
 }

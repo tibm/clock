@@ -569,9 +569,11 @@ Result<State> state() noexcept;
 // ... and one string, since 2026-09-27: the alarm tone is a FILE NAME, and there is no honest
 // way to write that as an int.  NUL-terminated, at most kStrMax - 1 bytes; get_str() answers
 // NotPresent exactly as get_i32() does.  An empty string is a value (the setting was cleared),
-// not an absence.
+// not an absence.  160 since 2026-09-28: the Wi-Fi credentials are stored HEX-encoded (a
+// password may hold any byte, the host store's file format may not), and a 63-character
+// passphrase is 126 hex digits.
 namespace store {
-inline constexpr std::size_t kStrMax = 64;
+inline constexpr std::size_t kStrMax = 160;
 Result<int32_t> get_i32(const char* key) noexcept;
 Status set_i32(const char* key, int32_t value) noexcept;
 Status get_str(const char* key, char* out, std::size_t cap) noexcept;
@@ -812,6 +814,70 @@ inline constexpr uint8_t blob_att_err(Status st) noexcept {
 }
 
 }  // namespace ble
+
+// ---- Wi-Fi station + one UDP exchange (esp_wifi / lwIP) -----------------------------------
+// The radio, the association and a socket, and no policy.  WHICH network, when to retry,
+// which time server and in what order are the `net` AO's (FIRMWARE.md §6.7).  Credentials
+// pass through here and are never logged or stored by this layer -- `net` owns them.
+//
+// Everything is asynchronous except scan(): connect() returns at once and link() says how it
+// is going; ntp_send() queues one datagram exchange that ntp_poll() collects.  All of it may
+// be called from any task.
+namespace wifi {
+
+inline constexpr std::size_t kSsidMax = 32;  // bytes, 802.11
+inline constexpr std::size_t kPskMax = 64;   // 8..63 passphrase, or 64 hex digits
+
+enum class Phase : uint8_t {
+    Off,         // stopped (never started, or RADIO_OFF)
+    Idle,        // started, not associated, not trying
+    Connecting,  // associating / authenticating / waiting for DHCP
+    Connected,   // associated AND has an IPv4 address
+    Failed,      // the last attempt ended; `err` says why
+};
+// Why an attempt failed -- the three a person can do something about, and the rest.
+enum class Err : uint8_t { None, NoAp, Auth, NoIp, Other };
+
+struct Link {
+    Phase phase;
+    Err err;
+    uint8_t reason;  // the driver's raw disconnect reason, for `net wifi` (0 = none)
+    int8_t rssi;     // dBm while connected, else 0
+    uint32_t ip;     // IPv4, network byte order, while connected
+    uint8_t channel;
+};
+
+Status start() noexcept;  // radio on in station mode; NotPresent on a build with no Wi-Fi
+Status stop() noexcept;   // drop the association and power the radio down
+// Associate.  `psk` empty = an open network.  Replaces any attempt in progress.
+Status connect(const char* ssid, const char* psk) noexcept;
+Status disconnect() noexcept;  // -> Idle
+Link link() noexcept;
+
+struct Ap {
+    char ssid[kSsidMax + 1];
+    int8_t rssi;
+    uint8_t channel;
+    bool open;  // no password needed
+};
+// BLOCKING, ~2-3 s: every AP in range, strongest first, at most `cap`.  Busy while connecting.
+Result<std::size_t> scan(Ap* out, std::size_t cap) noexcept;
+
+// One UDP request/answer to `host`:`port` (DNS included) -- the transport under SNTP.  At most
+// one in flight: Busy while one is.  NotReady when not Connected.
+Status ntp_send(const char* host, uint16_t port, const uint8_t* req, std::size_t len,
+                uint32_t timeout_ms) noexcept;
+struct Exchange {
+    Status st;       // Ok: an answer arrived.  NotPresent: DNS failed.  Failed: timeout / socket
+    uint8_t rx[64];  // the answer's first bytes
+    std::size_t len;
+    uint64_t sent_us, recv_us;  // hal::clock_::micros() at send and at receipt
+};
+// Busy while the exchange runs; NotReady when nothing was sent; else Ok with `out` filled
+// (out.st is the exchange's own result).  Collecting it frees the slot.
+Status ntp_poll(Exchange& out) noexcept;
+
+}  // namespace wifi
 
 // ---- the chip itself ------------------------------------------------------------------------
 namespace sys {

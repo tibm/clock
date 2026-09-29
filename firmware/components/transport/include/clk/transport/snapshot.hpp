@@ -64,7 +64,7 @@ struct Snapshot {
     uint16_t seq = 0;          // +1 per snapshot taken; wraps.  A gap = a missed sample
     uint32_t uptime_s = 0;     // since boot
     int64_t epoch_ms = 0;      // UTC ms, local = this + tz_off_min; needs kTimeValid
-    int16_t tz_off_min = 0;    // 0 until an offset is given (kTzSet)
+    int16_t tz_off_min = 0;    // the zone's offset now, DST included (default zone: San Francisco)
     uint8_t reset_reason = 0;  // esp_reset_reason_t
     uint8_t clk_src = 0;       // hal::clock_::SlowSrc
     uint32_t flags = 0;        // Flag
@@ -108,12 +108,19 @@ struct Snapshot {
     int32_t knob_count = 0;       // raw quadrature, 256/rev
     // ---- radio --------------------------------------------------------------------------------
     uint8_t bonds = 0;       // phones in the bond store
-    uint8_t wifi_state = 0;  // 0 = off (Wi-Fi not implemented yet)
+    uint8_t wifi_state = 0;  // WifiState
     int8_t wifi_rssi = 0;    // dBm, 0 = n/a
+    uint8_t wifi_err = 0;    // WifiErr: why the last attempt failed (was `reserved`)
 };
 
 enum class BleState : uint8_t { Off, Idle, Pairing, Connected, Secure };
 const char* name(BleState) noexcept;
+// Off: radio off (rear toggle) or no Wi-Fi.  Idle: no network stored.  Backoff: the last
+// attempt failed (wifi_err says why) and the next is scheduled.
+enum class WifiState : uint8_t { Off, Idle, Connecting, Online, Backoff };
+const char* name(WifiState) noexcept;
+enum class WifiErr : uint8_t { None, NoAp, Auth, NoIp, Timeout, Other };
+const char* name(WifiErr) noexcept;
 
 // The snapshot's `fw_id` from a `git describe` string: the first 8 hex digits of the sha
 // ("ed6214f-dirty" -> 0x0ed6214f, "v0.2-3-ged6214f" -> 0x0ed6214f).  0 when there is none.

@@ -116,7 +116,8 @@ void Net::on_start() {
         snap_.period_ms = snap_.period_ms ? snap_.period_ms : kDefaultPeriodMs;
     }
     (void)hal::ble::set_info(info_);
-    poll_radio();  // starts the stack unless the rear toggle says no
+    wifi_boot();
+    poll_radio();  // starts both radios unless the rear toggle says no
     take_status();
     publish();
 }
@@ -190,6 +191,7 @@ void Net::on_event(Event const& e) {
 void Net::on_tick() {
     const uint64_t now = port::now_us();
     if (now - radio_at_us_ >= kRadioEveryMs * 1000ull) poll_radio();
+    wifi_tick(port::now_us());  // re-read: poll_radio may just have started an attempt
 
     const auto l = hal::ble::link();
     bool open, bonded;
@@ -236,10 +238,12 @@ void Net::poll_radio() noexcept {
         if (up_) CLK_LOGI(net, "RADIO_OFF: BLE stopped");
         close_window(PairEnd::Refused);
         (void)hal::ble::stop();
+        wifi_radio(false);
         port::Lock lk{mx_};
         up_ = false;
         return;
     }
+    wifi_radio(true);
     const Status st = hal::ble::start(name_, &Net::on_rx);
     hal::ble::set_blob_handler(&Net::on_blob);
     if (st != Status::Ok) CLK_LOGW(net, "BLE did not start: %s", clk::name(st));
@@ -308,7 +312,10 @@ void Net::run_queued() noexcept {
             sink.done(Status::NotPresent);
             st = Status::NotPresent;
         } else {
-            CLK_LOGD(net, "ble cmd %u: %s", rq.id, rq.line);
+            // Never the Wi-Fi password, not even at debug level.
+            CLK_LOGD(net, "ble cmd %u: %s", rq.id,
+                     std::strncmp(rq.line, "net wifi join", 13) == 0 ? "net wifi join <redacted>"
+                                                                     : rq.line);
             st = dispatch_(rq.line, sink, kDispatchWaitMs);
         }
         port::Lock lk{mx_};
@@ -468,6 +475,12 @@ void Net::take_status() noexcept {
     const auto l = hal::ble::link();
     s.ble_state = static_cast<uint8_t>(ble_state(l));
     s.bonds = l.bonds;
+    {
+        port::Lock lk{mx_};
+        s.wifi_state = static_cast<uint8_t>(wifi_.state);
+        s.wifi_rssi = wifi_.state == WifiState::Online ? wifi_.link.rssi : int8_t{0};
+        s.wifi_err = static_cast<uint8_t>(wifi_.err);
+    }
     if (radio_off_) f |= kRadioOff;
     if (l.connected) f |= kBleConnected;
     if (l.connected && l.bonded) f |= kBleSecure;

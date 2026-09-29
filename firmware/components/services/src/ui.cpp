@@ -622,9 +622,8 @@ void Ui::press(uint32_t held_ms) noexcept {
 
 void Ui::commit_clock() noexcept {
     if (!chrono_) return;
-    const auto c = chrono_->snapshot();
-    const int64_t day = c.epoch_ms - ((c.hour * 60 + c.minute) * 60 + c.second) * 1000ll;
-    chrono_->set_time(day + set_min_of_day_ * 60'000ll);
+    // LOCAL, keeping the date: chrono does the zone arithmetic, DST day included.
+    chrono_->set_local_time(set_min_of_day_ / 60, set_min_of_day_ % 60, 0);
 }
 
 // `net` (§6.7) does not exist yet, so the two facts it will report live on `chrono` -- which

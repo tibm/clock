@@ -1,5 +1,8 @@
 #include "clk/services/chrono.hpp"
 
+#include <cstdio>
+#include <cstring>
+
 #include "clk/domain/hand.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/log.hpp"
@@ -7,8 +10,12 @@
 namespace clk::svc {
 namespace {
 
-constexpr uint32_t kTickMs = 250;         // four times a second is plenty for a minute hand
-constexpr const char* kKeyTz = "chr.tz";  // NVS (§7.5): the last UTC offset the phone sent
+constexpr uint32_t kTickMs = 250;  // four times a second is plenty for a minute hand
+// NVS (§7.5).  The zone as its POSIX rule + a label; `chr.tz` is the fixed offset an older
+// firmware stored, read once if there is no rule.
+constexpr const char* kKeyTzPosix = "chr.tzp";
+constexpr const char* kKeyTzName = "chr.tzn";
+constexpr const char* kKeyTzLegacy = "chr.tz";
 
 struct Hms {
     int h, m, s;
@@ -23,7 +30,22 @@ Hms hms_of(int64_t epoch_ms) noexcept {
             static_cast<int>(day % 60)};
 }
 
+int64_t floor_div(int64_t a, int64_t b) noexcept { return domain::tz::floor_div(a, b); }
+
 }  // namespace
+
+const char* Chrono::name(Source s) noexcept {
+    switch (s) {
+        case Source::Manual:
+            return "manual";
+        case Source::Phone:
+            return "phone";
+        case Source::Sntp:
+            return "sntp";
+        default:
+            return "none";
+    }
+}
 
 Chrono::Chrono() noexcept : ActiveObject({"chrono", 12, 4096, kTickMs}) {}
 
@@ -34,53 +56,99 @@ Chrono& chrono() noexcept {
 
 void Chrono::on_start() {
     mono_base_us_ = port::now_us();
-    if (const auto tz = hal::store::get_i32(kKeyTz); tz.ok()) {
-        port::Lock lk{mx_};
-        tz_off_min_ = tz.v;
-        tz_set_ = true;
+    char posix[domain::tz::kPosixMax] = "";
+    char label[sizeof snap_.tz_name] = "";
+    domain::tz::Zone z{};
+    port::Lock lk{mx_};
+    if (hal::store::get_str(kKeyTzPosix, posix, sizeof posix) == Status::Ok &&
+        domain::tz::parse(posix, z)) {
+        (void)hal::store::get_str(kKeyTzName, label, sizeof label);
+        zone_locked(z, posix, label, true);
+    } else if (const auto tz = hal::store::get_i32(kKeyTzLegacy); tz.ok()) {
+        domain::tz::fixed(tz.v, posix, sizeof posix);
+        (void)domain::tz::parse(posix, z);
+        zone_locked(z, posix, "", true);
+    } else {
+        (void)domain::tz::parse(domain::tz::kDefault, z);
+        zone_locked(z, domain::tz::kDefault, domain::tz::kDefaultName, false);
     }
-    CLK_LOGI(chrono, "up; time not set (no RTC here -- `chrono time set`)");
+    CLK_LOGI(chrono, "up; zone %s%s%s; time not set until the phone or SNTP says", snap_.tz_posix,
+             snap_.tz_name[0] ? " = " : "", snap_.tz_name);
+}
+
+void Chrono::zone_locked(domain::tz::Zone const& z, const char* posix, const char* label,
+                         bool set) noexcept {
+    zone_ = z;
+    std::snprintf(snap_.tz_posix, sizeof snap_.tz_posix, "%s", posix ? posix : "");
+    std::snprintf(snap_.tz_name, sizeof snap_.tz_name, "%s", label ? label : "");
+    snap_.tz_set = set;
+    last_h_ = last_m_ = -1;  // same instant, possibly different hands
+}
+
+int Chrono::off_min_locked(int64_t utc_ms) const noexcept {
+    return domain::tz::offset_s(zone_, floor_div(utc_ms, 1000)) / 60;
 }
 
 void Chrono::set_epoch(int64_t utc_ms, int tz_off_min) noexcept {
     {
         port::Lock lk{mx_};
-        tz_off_min_ = tz_off_min;
-        tz_set_ = true;
+        if (off_min_locked(utc_ms) != tz_off_min) {
+            char posix[domain::tz::kPosixMax];
+            domain::tz::fixed(tz_off_min, posix, sizeof posix);
+            domain::tz::Zone z{};
+            (void)domain::tz::parse(posix, z);
+            zone_locked(z, posix, "", true);
+            (void)hal::store::set_str(kKeyTzPosix, posix);
+            (void)hal::store::set_str(kKeyTzName, "");
+        }
         date_valid_ = true;
     }
-    (void)hal::store::set_i32(kKeyTz, tz_off_min);
-    post(TimeChanged{utc_ms});
+    post(TimeChanged{utc_ms, static_cast<uint8_t>(Source::Phone)});
+}
+
+void Chrono::set_utc(int64_t utc_ms, Source src) noexcept {
+    {
+        port::Lock lk{mx_};
+        date_valid_ = true;
+    }
+    post(TimeChanged{utc_ms, static_cast<uint8_t>(src)});
 }
 
 void Chrono::set_tz(int tz_off_min) noexcept {
+    char posix[domain::tz::kPosixMax];
+    domain::tz::fixed(tz_off_min, posix, sizeof posix);
+    (void)set_zone(posix, "");
+}
+
+bool Chrono::set_zone(const char* posix, const char* label) noexcept {
+    domain::tz::Zone z{};
+    if (!posix || std::strlen(posix) >= domain::tz::kPosixMax || !domain::tz::parse(posix, z))
+        return false;
     {
         port::Lock lk{mx_};
-        tz_off_min_ = tz_off_min;
-        tz_set_ = true;
-        last_h_ = last_m_ = -1;  // same instant, different hands
+        zone_locked(z, posix, label, true);
     }
-    (void)hal::store::set_i32(kKeyTz, tz_off_min);
-    CLK_LOGI(chrono, "UTC offset %+d min", tz_off_min);
+    (void)hal::store::set_str(kKeyTzPosix, posix);
+    (void)hal::store::set_str(kKeyTzName, label ? label : "");
+    CLK_LOGI(chrono, "zone %s%s%s", posix, label && *label ? " = " : "", label ? label : "");
+    return true;
 }
 
 int64_t Chrono::set_local_time(int h, int m, int s) noexcept {
-    const int64_t tod_ms = ((h * 60LL + m) * 60 + s) * 1000;
+    const int64_t tod_s = (h * 60LL + m) * 60 + s;
     int64_t utc;
     {
         port::Lock lk{mx_};
-        const int64_t off_ms = tz_off_min_ * 60'000LL;
+        int64_t day_s = 0;  // local midnight, as local seconds since the epoch
         if (valid_) {
-            // Today, locally: the local midnight of the current instant, plus the new time.
-            const int64_t local = snap_.epoch_ms + off_ms;
-            int64_t day = local / 86'400'000LL * 86'400'000LL;
-            if (local < 0 && local % 86'400'000LL) day -= 86'400'000LL;
-            utc = day + tod_ms - off_ms;
-        } else {
-            utc = tod_ms - off_ms;  // no date to keep: 1970-01-01, and date_valid says so
+            // Today, locally: the local date of the current instant.
+            const int64_t local = snap_.epoch_ms + off_min_locked(snap_.epoch_ms) * 60'000LL;
+            day_s = floor_div(local, 86'400'000LL) * 86'400;
         }
+        // No date to keep: 1970-01-01, and date_valid says so.
+        utc = domain::tz::local_to_utc(zone_, day_s + tod_s) * 1000;
     }
-    post(TimeChanged{utc});
+    post(TimeChanged{utc, static_cast<uint8_t>(Source::Manual)});
     return utc;
 }
 
@@ -127,16 +195,27 @@ int Chrono::steps_per_minute() const noexcept {
 
 void Chrono::on_event(Event const& e) {
     if (const auto* t = as<TimeChanged>(e)) {
+        const bool was_valid = valid_;
+        const int64_t before =
+            epoch_base_ms_ + static_cast<int64_t>((port::now_us() - mono_base_us_) / 1000ull);
         epoch_base_ms_ = t->epoch_ms;
         mono_base_us_ = port::now_us();
         valid_ = true;
+        const auto src = static_cast<Source>(t->src);
         int off;
         {
             port::Lock lk{mx_};
-            off = tz_off_min_;
+            src_ = src;
+            off = off_min_locked(t->epoch_ms);
         }
         const auto hm = hms_of(t->epoch_ms + off * 60'000LL);
-        CLK_LOGI(chrono, "time set to %02d:%02d:%02d local (UTC%+d min)", hm.h, hm.m, hm.s, off);
+        if (src == Source::Sntp && was_valid) {
+            CLK_LOGI(chrono, "sntp: %02d:%02d:%02d local, stepped %+lld ms", hm.h, hm.m, hm.s,
+                     static_cast<long long>(t->epoch_ms - before));
+        } else {
+            CLK_LOGI(chrono, "time set to %02d:%02d:%02d local (UTC%+d min, %s)", hm.h, hm.m, hm.s,
+                     off, name(src));
+        }
         push_target(true);
         return;
     }
@@ -152,10 +231,12 @@ void Chrono::on_tick() {
     const int64_t now_ms =
         epoch_base_ms_ + static_cast<int64_t>((port::now_us() - mono_base_us_) / 1000ull);
     int steps, off;
+    bool dst;
     {
         port::Lock lk{mx_};
         steps = steps_per_minute_;
-        off = tz_off_min_;
+        off = off_min_locked(now_ms);
+        dst = zone_.has_dst && off * 60 == zone_.dst_off_s;
     }
     const auto hm = hms_of(now_ms + off * 60'000LL);
     const auto p = domain::for_time(hm.h, hm.m, hm.s, steps);
@@ -166,10 +247,11 @@ void Chrono::on_tick() {
         snap_.minute = hm.m;
         snap_.second = hm.s;
         snap_.tz_off_min = off;
-        snap_.tz_set = tz_set_;
+        snap_.tz_dst = dst;
         snap_.date_valid = date_valid_ && valid_;
         snap_.valid = valid_;
         snap_.follow = follow_;
+        snap_.src = src_;
         snap_.target_hour = p.hour;
         snap_.target_minute = p.minute;
     }

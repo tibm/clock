@@ -226,6 +226,57 @@ Status cmd_sd(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// The room's Wi-Fi and the internet behind it.  `sim wifi ap home secret123` puts a network
+// in range; `sim wifi ntp time.cloudflare.com silent` makes the first time server go quiet so
+// the fallback to the next one can be watched (`net sntp`).
+Status cmd_wifi(Args const& a, Sink& out) {
+    const auto v = a.sv(0);
+    if (v.empty()) {
+        const std::string d = sim::wifi_describe();
+        if (d.empty()) out.line("no networks in range; every time server answers");
+        std::size_t i = 0;
+        while (i < d.size()) {
+            const std::size_t j = d.find('\n', i);
+            out.line(d.substr(i, j - i).c_str());
+            i = j == std::string::npos ? d.size() : j + 1;
+        }
+        return Status::Ok;
+    }
+    if (v == "ap" && a.arg(1)) {
+        sim::wifi_add_ap(a.arg(1), a.arg(2) ? a.arg(2) : "", static_cast<int8_t>(arg_l(a, 3, -55)));
+        out.printf("ap \"%s\" %s in range", a.arg(1), a.arg(2) ? "(secured)" : "(open)");
+        return Status::Ok;
+    }
+    if (v == "rm" && a.arg(1)) {
+        sim::wifi_remove_ap(a.arg(1));
+        out.printf("ap \"%s\" gone", a.arg(1));
+        return Status::Ok;
+    }
+    if (v == "clear") {
+        sim::wifi_clear();
+        out.line("no networks; every time server answers with the laptop's time");
+        return Status::Ok;
+    }
+    if (v == "ntp" && a.arg(1) && a.arg(2)) {
+        static constexpr const char* kModes[] = {"answer", "silent", "nodns", "kiss", "unsynced"};
+        for (std::size_t i = 0; i < sizeof kModes / sizeof kModes[0]; ++i) {
+            if (a.sv(2) == kModes[i]) {
+                sim::wifi_ntp(a.arg(1), static_cast<sim::NtpMode>(i));
+                out.printf("ntp %s -> %s", a.arg(1), kModes[i]);
+                return Status::Ok;
+            }
+        }
+    }
+    if (v == "utc" && a.arg(1)) {
+        sim::wifi_set_utc(std::strtoll(a.arg(1), nullptr, 10));
+        out.printf("the internet now says %s ms UTC", a.arg(1));
+        return Status::Ok;
+    }
+    out.line("usage: sim wifi [ap <ssid> [<psk> [<rssi>]] | rm <ssid> | clear |");
+    out.line("                 ntp <host|*> <answer|silent|nodns|kiss|unsynced> | utc <unix_ms>]");
+    return Status::BadArg;
+}
+
 Status cmd_vbat(Args const& a, Sink& out) {
     const long mv = arg_l(a, 0, -1);
     if (mv < 2500 || mv > 4400) {
@@ -481,6 +532,8 @@ constexpr CmdSpec kRows[] = {
     {"sim", nullptr, "radio", "<on|off>", "rear J11 toggle; on = radios off", kHost, cmd_radio},
     {"sim", nullptr, "speaker", "<on|off>", "amp out of shutdown", kHost, cmd_speaker},
     {"sim", nullptr, "sd", "[<dir>|off]", "the microSD card: a directory, or none", kHost, cmd_sd},
+    {"sim", nullptr, "wifi", "[ap|rm|clear|ntp|utc ...]", "networks in range, the time servers",
+     kHost, cmd_wifi},
     {"sim", nullptr, "vbat", "<mV>", "cell voltage", kHost, cmd_vbat},
     {"sim", nullptr, "cell", "[in|out]", "a cell in the holder, or none", kHost, cmd_cell},
     {"sim", nullptr, "noise", "<mV>", "ADC noise, deterministic", kHost, cmd_noise},

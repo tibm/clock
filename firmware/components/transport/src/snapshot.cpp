@@ -147,9 +147,44 @@ void fields(Io& io, S& s) noexcept {
     u8(s.bonds);        // 128
     u8(s.wifi_state);   // 129
     u8(s.wifi_rssi);    // 130
+    u8(s.wifi_err);     // 131 (was reserved, always 0, until 2026-09-28)
 }
 
 }  // namespace
+
+const char* name(WifiState s) noexcept {
+    switch (s) {
+        case WifiState::Off:
+            return "off";
+        case WifiState::Idle:
+            return "idle";
+        case WifiState::Connecting:
+            return "connecting";
+        case WifiState::Online:
+            return "online";
+        case WifiState::Backoff:
+            return "backoff";
+    }
+    return "?";
+}
+
+const char* name(WifiErr e) noexcept {
+    switch (e) {
+        case WifiErr::None:
+            return "none";
+        case WifiErr::NoAp:
+            return "no-ap";
+        case WifiErr::Auth:
+            return "auth";
+        case WifiErr::NoIp:
+            return "no-ip";
+        case WifiErr::Timeout:
+            return "timeout";
+        case WifiErr::Other:
+            return "other";
+    }
+    return "?";
+}
 
 const char* name(BleState s) noexcept {
     switch (s) {
@@ -205,7 +240,6 @@ std::size_t encode(Snapshot const& s, uint8_t* out, std::size_t cap) noexcept {
     w.u8(static_cast<uint8_t>(kWireSize));
     Snapshot copy = s;  // fields() is one template for both ways; it wants a mutable ref
     fields(w, copy);
-    w.u8(0);  // 131: reserved, keeps the record a multiple of four
     return w.size() == kWireSize ? kWireSize : 0;
 }
 
@@ -215,7 +249,7 @@ bool decode(const uint8_t* in, std::size_t len, Snapshot& out) noexcept {
     Reader r{in + 2};
     out = Snapshot{};
     fields(r, out);
-    return r.size() + 2 + 1 == kWireSize;
+    return r.size() + 2 == kWireSize;
 }
 
 }  // namespace clk::transport
