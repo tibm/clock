@@ -23,6 +23,7 @@
 #include "clk/services/motion.hpp"
 #include "clk/services/net.hpp"
 #include "clk/services/storage.hpp"
+#include "clk/services/supervisor.hpp"
 #include "clk/services/ui.hpp"
 
 namespace {
@@ -124,11 +125,19 @@ int main(int argc, char** argv) {
     auto& ui = clk::svc::ui();
     auto& net = clk::svc::net();
     auto& storage = clk::svc::storage();
+    auto& sup = clk::svc::supervisor();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
     ui.bind(&motion, &chrono, &net, &storage);
     net.bind(&motion, &chrono, &ui, &storage);
     clk::cli::bind_net();
+    // Watching, never restarting: a re-exec'd clocksim under a test rig is not a recovery.
+    sup.bind(&motion, &chrono, &storage);
+    for (clk::ActiveObject* ao :
+         {static_cast<clk::ActiveObject*>(&motion), static_cast<clk::ActiveObject*>(&chrono),
+          static_cast<clk::ActiveObject*>(&storage), static_cast<clk::ActiveObject*>(&net),
+          static_cast<clk::ActiveObject*>(&ui)})
+        sup.watch(ao);
     // A real clock homes the moment it powers up (§6.1).  The test rig turns that off: a
     // nine-second sweep before every case buys nothing there, and the case that is ABOUT
     // boot homing simply starts a clocksim without the flag.
@@ -138,11 +147,13 @@ int main(int argc, char** argv) {
     storage.start();  // before ui: an alarm due at boot must find the card already mounted
     net.start();
     ui.start();
+    sup.start();
 
     clk::uibridge::start(ui_port);
     clk::cli::console_run();
     clk::uibridge::stop();
 
+    sup.stop();
     ui.stop();
     net.stop();
     storage.stop();

@@ -107,6 +107,7 @@ struct State {
     // movement
     AxisSt ax[2]{AxisSt{.offset_deg = kHourStartDeg}, AxisSt{.offset_deg = kMinuteStartDeg}};
     bool motor_on = false;
+    bool motor_jam = false;  // sim::set_motor_jam
     bool motor_inhibit = board::motor_inhibited_default();
     // imu
     float yaw = 0.0f, pitch = 0.0f, roll = 0.0f;
@@ -533,6 +534,7 @@ Status run(Hand h, int32_t usteps_per_s, int32_t stop_at) noexcept {
     if (!g_st.motor_on) return Status::NotReady;  // STEP_STBY is low: the coils are dead
     const int i = hand_idx(h);
     axis_park_locked(i);
+    if (g_st.motor_jam) return Status::Ok;  // accepted, and nothing turns
     // A velocity pointing away from the target is a caller bug, not a slow move: reject it
     // rather than run the hand into the next revolution.
     const double delta = static_cast<double>(stop_at) - g_st.ax[i].pos;
@@ -1523,6 +1525,14 @@ void set_hand_angle(motor::Hand h, float deg) noexcept {
     std::lock_guard lk{g_mx};
     const int i = hand_idx(h);
     g_st.ax[i].offset_deg = wrap360(deg - axis_pos_locked(i) * 360.0 / motor::kUstepsPerRev);
+}
+void set_motor_jam(bool on) noexcept {
+    std::lock_guard lk{g_mx};
+    g_st.motor_jam = on;
+    if (on) {
+        axis_park_locked(0);
+        axis_park_locked(1);
+    }
 }
 void set_hand_offset(motor::Hand h, float deg) noexcept {
     std::lock_guard lk{g_mx};

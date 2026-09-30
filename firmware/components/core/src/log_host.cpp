@@ -4,6 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 
+#include "clk/journal.hpp"
 #include "clk/log.hpp"
 
 namespace clk::log {
@@ -26,8 +27,16 @@ void vwrite(Mod m, Level l, const char* fmt, std::va_list ap) noexcept {
     const auto i = static_cast<std::size_t>(l);
     char body[192];
     std::vsnprintf(body, sizeof body, fmt, ap);
-    std::fprintf(stderr, "%s%c (%u) %s: %s\033[0m\n", kColor[i], kLetter[i], millis(), name(m),
-                 body);
+    const uint32_t t = millis();
+    std::fprintf(stderr, "%s%c (%u) %s: %s\033[0m\n", kColor[i], kLetter[i], t, name(m), body);
+    // No vprintf to hook on the host, so the line goes to the journal from here.
+    char line[journal::kLineMax];
+    const int n =
+        std::snprintf(line, sizeof line, "%c (%u) %s: %s\n", kLetter[i], t, name(m), body);
+    if (n > 0) {
+        const auto len = static_cast<std::size_t>(n);
+        journal::write(line, len < sizeof line ? len : sizeof line - 1);
+    }
     if (const auto t = g_tap.load(std::memory_order_relaxed)) t(m, l, body);
 }
 
@@ -36,3 +45,11 @@ void on_level_set(Mod, Level) noexcept {}  // no IDF tags to forward to on the h
 }  // namespace detail
 
 }  // namespace clk::log
+
+namespace clk::journal::detail {
+Mem& mem() noexcept {
+    static Mem m{};  // zeroed: the first write finds no magic and starts it empty
+    return m;
+}
+void on_init() noexcept {}
+}  // namespace clk::journal::detail

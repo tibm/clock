@@ -24,6 +24,12 @@
 // clock, keeps records in a RAM ring and appends them to `/sd/log/<yyyy>/<mmdd>.bin` every
 // 15 min.  Retention by age AND by megabytes, both measured on the card.  The phone downloads
 // a day file through the `bulk` characteristic (`log fetch`), resumable by offset.
+//
+// DEBUG JOURNAL (§9.4a; storage_debug.cpp): every log line, one text file per boot --
+// `/sd/debug/<boot>.log`, the boot number an NVS counter -- appended from clk::journal's RAM
+// ring every 5 s.  Lines the previous boot never got to the card (a panic, a watchdog reset)
+// survive in `.noinit` RAM and are appended to THAT boot's file first.  Bounded: a file rolls
+// to `<boot>.old` at 4 MB, and the oldest boots go once the directory passes 32 MB / 64 files.
 #pragma once
 
 #include <cstdint>
@@ -152,6 +158,26 @@ public:
     // The last few records (RAM, newest last), for `log tail`.  Returns how many were copied.
     std::size_t log_tail(uint8_t (*out)[transport::hist::kRecord], std::size_t max) const noexcept;
 
+    // ---- debug journal (storage_debug.cpp) ----
+    static constexpr const char* kDbgDir = "/sd/debug";
+    static constexpr uint32_t kDbgEveryMs = 5000;
+    static constexpr uint32_t kDbgFileCap = 4u * 1024u * 1024u;  // then <boot>.log -> .old
+    static constexpr uint64_t kDbgDirCap = 32ull * 1024u * 1024u;
+    static constexpr uint32_t kDbgKeepBoots = 64;
+    struct DbgSnap {
+        uint32_t boot;         // this boot's number; 0 until storage has started
+        char file[32];         // this boot's file ("" until the card has taken a line)
+        uint32_t file_bytes;   // its size, as of the last flush
+        uint32_t flushed;      // journal bytes written to the card since boot
+        uint32_t recovered;    // ... of which the previous boot's, rescued from RAM
+        uint32_t flush_ago_s;  // UINT32_MAX = never
+        uint32_t files;        // .log/.old files in kDbgDir, as of the last prune
+        uint64_t dir_bytes;
+        const char* last_err;  // a literal, or nullptr
+    };
+    [[nodiscard]] DbgSnap dbg_snapshot() const noexcept;
+    uint32_t dbg_flush() noexcept;  // write the journal to the card now (a request)
+
     // Blocking: open `path`, read and check its header.  For `storage ls`, which is a bench
     // listing and reads each file's first 512 bytes on the CLI thread (FATFS is re-entrant).
     // Everything that PLAYS goes through the queue above.
@@ -180,6 +206,7 @@ private:
         LogFlush,
         LogFetch,
         LogFetchStop,
+        DbgFlush,
     };
     struct Req {
         Kind kind;
@@ -225,6 +252,14 @@ private:
     Status log_fetch_begin(uint32_t day, uint32_t off) noexcept;
     void log_fetch_pump() noexcept;
     void log_fetch_end(const char* why) noexcept;
+    // debug journal
+    void dbg_start() noexcept;
+    void dbg_tick() noexcept;
+    Status dbg_write() noexcept;  // journal -> card
+    Status dbg_append(int& fd, bool& fd_prev, bool prev, const char* data, std::size_t n) noexcept;
+    void dbg_path(uint32_t boot, const char* ext, char* out, std::size_t cap) const noexcept;
+    void dbg_roll() noexcept;
+    void dbg_prune() noexcept;
 
     mutable port::Mutex mx_;  // guards snap_ and the request queue
     Snapshot snap_{};
@@ -298,6 +333,18 @@ private:
     uint32_t fetch_off_ = 0, fetch_end_ = 0;
     uint8_t fetch_pkt_[4 + 512] = {};
     std::size_t fetch_pkt_n_ = 0;  // a packet read but not yet accepted by the radio
+
+    // --- debug journal.  dmx_ guards dsnap_; the rest is this AO's thread only.
+    mutable port::Mutex dmx_;
+    DbgSnap dsnap_{};
+    uint32_t dbg_boot_ = 0;
+    uint32_t dbg_size_ = 0;         // this boot's .log, as the card has it
+    bool dbg_opened_ = false;       // the header line is in it
+    bool dbg_prev_marked_ = false;  // the "recovered" marker is in the previous boot's file
+    uint64_t dbg_at_us_ = 0;        // next flush
+    uint64_t dbg_mount_at_us_ = 0;  // next mount attempt when there is no card
+    uint64_t dbg_last_us_ = 0;
+    const char* dbg_err_ = nullptr;  // last logged, so a missing card is said once
 };
 
 Storage& storage() noexcept;

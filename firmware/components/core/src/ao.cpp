@@ -14,6 +14,11 @@ void ActiveObject::stop() noexcept {
     sig_.notify();
     port::thread_join(thread_);
     thread_ = nullptr;
+    // The Stop above is still queued if the thread saw run_ go false first.  Left there, a
+    // later start() pops it and the new thread exits at once -- running() true, never looping
+    // again.  (Found by the supervisor's stuck-AO check, 2026-09-29.)
+    port::Lock lk{mx_};
+    head_ = count_ = 0;
 }
 
 bool ActiveObject::post(Event const& e) noexcept {
@@ -43,7 +48,19 @@ void ActiveObject::entry(void* self) noexcept { static_cast<ActiveObject*>(self)
 
 void ActiveObject::run() noexcept {
     on_start();
+    // Watched from here on, not across on_start(): that is where the one-off slow things are
+    // (mounting a card, reading NVS), and a watchdog reset during boot would be a boot loop.
+    watched_.store(port::wdt_watch());
+    uint64_t fed_us = port::now_us();
     while (run_.load(std::memory_order_relaxed)) {
+        const uint64_t loop_us = port::now_us();
+        alive_us_.store(loop_us, std::memory_order_relaxed);
+        // A handler that never returns stops this, and the TWDT resets the chip.  Keyed on
+        // this loop and nothing else: an AO that is merely idle still comes round every 1 ms.
+        if (loop_us - fed_us >= kFeedUs || loop_us < fed_us) {
+            port::wdt_feed();
+            fed_us = loop_us;
+        }
         Event ev;
         if (pop(ev)) {
             if (as<Stop>(ev)) break;
@@ -68,6 +85,7 @@ void ActiveObject::run() noexcept {
         }
         sig_.wait_real_ms(kPollMs);
     }
+    if (watched_.exchange(false)) port::wdt_unwatch();
 }
 
 }  // namespace clk

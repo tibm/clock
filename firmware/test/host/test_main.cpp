@@ -3,6 +3,7 @@
 #include "clk/hal/hal.hpp"
 
 void run_log_tests();
+void run_journal_tests();
 void run_cli_tests();
 void run_sim_tests();
 void run_motor_tests();
@@ -24,6 +25,8 @@ int main() {
     clk::hal::init();
 
     run_log_tests();
+    // The debug journal's ring (§9.4a) -- before any AO, so this thread is its only writer.
+    run_journal_tests();
     run_cli_tests();
     run_sim_tests();
     run_motor_tests();

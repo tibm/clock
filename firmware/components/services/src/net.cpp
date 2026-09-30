@@ -327,6 +327,9 @@ void Net::run_queued() noexcept {
             CLK_LOGD(net, "ble cmd %u: %s", rq.id,
                      std::strncmp(rq.line, "net wifi join", 13) == 0 ? "net wifi join <redacted>"
                                                                      : rq.line);
+            // Most commands answer in milliseconds; a `... stream` holds this thread for up
+            // to 120 s (app/PROTOCOL.md says the app never sends one -- a person might).
+            WdtPause wp{*this};
             st = dispatch_(rq.line, sink, kDispatchWaitMs);
         }
         port::Lock lk{mx_};

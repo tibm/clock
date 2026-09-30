@@ -18,6 +18,7 @@
 #include "clk/services/motion.hpp"
 #include "clk/services/net.hpp"
 #include "clk/services/storage.hpp"
+#include "clk/services/supervisor.hpp"
 #include "clk/services/ui.hpp"
 
 using namespace clk;
@@ -1528,8 +1529,9 @@ void test_chrono_drives_the_hands() {
     sim::set_warp(1.0);
 }
 
-void run_net_service_tests();      // test_net.cpp -- needs every AO running
-void run_storage_service_tests();  // test_storage.cpp -- likewise
+void run_net_service_tests();         // test_net.cpp -- needs every AO running
+void run_storage_service_tests();     // test_storage.cpp -- likewise
+void run_supervisor_service_tests();  // test_supervisor.cpp -- likewise, and last
 
 void run_motion_service_tests() {
     test_hand_wrap();
@@ -1544,16 +1546,24 @@ void run_motion_service_tests() {
     auto& u = svc::ui();
     auto& net = svc::net();
     auto& storage = svc::storage();
+    auto& sup = svc::supervisor();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
     u.bind(&motion, &chrono, &net, &storage);
     net.bind(&motion, &chrono, &u, &storage);
     cli::bind_net();
+    sup.bind(&motion, &chrono, &storage);
+    for (ActiveObject* ao :
+         {static_cast<ActiveObject*>(&motion), static_cast<ActiveObject*>(&chrono),
+          static_cast<ActiveObject*>(&storage), static_cast<ActiveObject*>(&net),
+          static_cast<ActiveObject*>(&u)})
+        sup.watch(ao);
     motion.start();
     chrono.start();
     storage.start();
     net.start();
     u.start();
+    sup.start();
 
     test_motion_homes_from_an_unknown_position();
     test_motion_homes_with_a_hand_on_the_sensor();
@@ -1586,7 +1596,9 @@ void run_motion_service_tests() {
     test_chrono_drives_the_hands();
     run_net_service_tests();
     run_storage_service_tests();
+    run_supervisor_service_tests();
 
+    sup.stop();
     u.stop();
     net.stop();
     storage.stop();

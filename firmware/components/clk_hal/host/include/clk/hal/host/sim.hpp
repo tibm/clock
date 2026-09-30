@@ -52,6 +52,9 @@ void set_hand_angle(hal::motor::Hand, float deg) noexcept;  // reach in and poin
 float hand_angle(hal::motor::Hand) noexcept;
 void set_hand_offset(hal::motor::Hand, float deg) noexcept;  // the raw error, for tests
 float hand_offset(hal::motor::Hand) noexcept;
+// A step generator that has silently died: motor::run() still answers Ok, and no hand moves.
+// The failure the supervisor's stall check exists for (§6.8).  Cleared by reset().
+void set_motor_jam(bool) noexcept;
 
 // ---- IMU -------------------------------------------------------------------------------
 void set_orientation(float yaw_deg, float pitch_deg, float roll_deg) noexcept;

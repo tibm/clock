@@ -1,10 +1,15 @@
 // `help`, `unsafe`, and the `sys` group.                    [FIRMWARE.md §9.3, §9.4]
+#include <cinttypes>
 #include <cstdio>
 #include <cstring>
 
 #include "clk/cli/registry.hpp"
 #include "clk/hal/hal.hpp"
+#include "clk/journal.hpp"
 #include "clk/log.hpp"
+#include "clk/services/storage.hpp"
+#include "clk/services/supervisor.hpp"
+#include "sto_wait.hpp"
 
 namespace clk::cli {
 
@@ -149,6 +154,55 @@ Status cmd_reboot(Args const& a, Sink& out) {
     return st;
 }
 
+// The debug journal (§9.4a): the RAM ring, and this boot's file on the card.
+Status cmd_journal(Args const& a, Sink& out) {
+    const auto v = a.sv(0);
+    if (v == "flush") {
+        if (const Status st = sto_await(svc::storage().dbg_flush(), "flush", out); st != Status::Ok)
+            return st;
+    } else if (!v.empty()) {
+        out.line("usage: sys journal [flush]");
+        return Status::BadArg;
+    }
+    const auto j = journal::stats();
+    const auto d = svc::storage().dbg_snapshot();
+    out.printf("ram     %" PRIu32 " / %zu bytes waiting, %" PRIu32 " written, %" PRIu32
+               " lost (ring full)",
+               j.used, journal::kBytes, j.written, j.lost);
+    out.printf("boot    %" PRIu32 "  (%s start, %" PRIu32 " bytes carried from the last boot)",
+               d.boot, j.warm ? "warm" : "cold", j.carried);
+    out.printf("file    %s  %" PRIu32 " bytes", d.file[0] ? d.file : "(none yet)", d.file_bytes);
+    char ago[24];
+    if (d.flush_ago_s == UINT32_MAX) {
+        std::snprintf(ago, sizeof ago, "never");
+    } else {
+        std::snprintf(ago, sizeof ago, "%" PRIu32 " s ago", d.flush_ago_s);
+    }
+    out.printf("card    %" PRIu32 " bytes flushed (%" PRIu32 " rescued), last %s%s%s", d.flushed,
+               d.recovered, ago, d.last_err ? " -- " : "", d.last_err ? d.last_err : "");
+    out.printf("dir     %s  %" PRIu32 " file(s), %" PRIu64 " KB (cap %" PRIu64 " KB, %" PRIu32
+               " boots)",
+               svc::Storage::kDbgDir, d.files, d.dir_bytes / 1024u,
+               svc::Storage::kDbgDirCap / 1024u, svc::Storage::kDbgKeepBoots);
+    return Status::Ok;
+}
+
+// The supervisor (§6.8): stalls seen, and a heartbeat on demand.
+Status cmd_wd(Args const&, Sink& out) {
+    auto& sup = svc::supervisor();
+    const auto s = sup.snapshot();
+    out.printf("hands   %s%s%s", s.stalled ? "STALLED " : "moving", s.stalled ? "-- " : "",
+               s.stalled && s.why ? s.why : "");
+    if (s.stalled)
+        out.printf("        for %" PRIu32 " s%s", s.stalled_s,
+                   s.restart ? "; restarts if it persists" : "");
+    out.printf("stalls  %" PRIu32 " hands, %" PRIu32 " AO (since boot); %" PRIu32 " heartbeat(s)",
+               s.hand_stalls, s.ao_stalls, s.beats);
+    sup.heartbeat();
+    out.line("heartbeat logged (module `sup`)");
+    return Status::Ok;
+}
+
 // ---- tables ---------------------------------------------------------------------------
 
 constexpr CmdSpec kTop[] = {
@@ -166,6 +220,10 @@ constexpr CmdSpec kSys[] = {
      ReleaseOk, cmd_debug},
     {"sys", nullptr, "top", "", "per-task CPU, stack high-water, core", ReleaseOk, cmd_notyet},
     {"sys", nullptr, "heap", "", "internal + PSRAM, largest block, min", ReleaseOk, cmd_notyet},
+    {"sys", nullptr, "journal", "[flush]", "the debug log: RAM ring + this boot's file on the card",
+     ReleaseOk, cmd_journal},
+    {"sys", nullptr, "wd", "", "supervisor: hands / AO stalls, log a heartbeat now", ReleaseOk,
+     cmd_wd},
     {"sys", nullptr, "reboot", "[ota|dfu]", "restart the whole image", Unsafe, cmd_reboot},
     {"sys", "coredump", "info", "", "is there a coredump, and from what", ReleaseOk, cmd_notyet},
     {"sys", "ev", "dump", "", "print the 256-entry RTC event ring", ReleaseOk, cmd_notyet},

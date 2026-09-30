@@ -93,7 +93,8 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 
 | | Feature | Notes |
 |---|---|---|
-| ⬜ | Task watchdog on every AO, reset-reason + coredump report at boot | `supervisor`, §6.8 |
+| 🟡 | Task watchdog on every AO, reset-reason + coredump report at boot | `supervisor`, §6.8 — TWDT (panic → reboot) + stuck-AO + hands-stall detection built 2026-09-29, bench next; `sys coredump` still ⬜ |
+| 🟡 | Debug log on the SD card, one file per boot, survives a watchdog reset | §9.4a — built + host-tested 2026-09-29, bench next |
 | ⬜ | `sys top`, `sys heap`, `sys ev dump` | registered, still `not implemented` |
 | ⬜ | One `storage`-owned config (§7.5) instead of ad-hoc NVS keys | keys today: `ui.input`, `ui.alarm`, `ui.armed`, `chr.tz`, motion zero/inhibit |
 | ⬜ | `BOARD=devkit-uart` compiles | **F5.5** |

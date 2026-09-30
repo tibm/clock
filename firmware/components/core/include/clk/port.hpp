@@ -81,4 +81,13 @@ struct ThreadCfg {
 bool thread_start(ThreadCfg, void (*fn)(void*), void* arg, void** out) noexcept;
 void thread_join(void* handle) noexcept;  // on target this only frees the handle
 
+// ---- the task watchdog ---------------------------------------------------------------------
+// On target: IDF's TWDT (CONFIG_ESP_TASK_WDT_TIMEOUT_S, and CONFIG_ESP_TASK_WDT_PANIC so a
+// starved task RESETS the chip rather than printing about it).  The calling task subscribes;
+// from then on it has to feed at least once per timeout or the chip restarts.  No-ops on the
+// host, where a hung AO is a failing test, not a frozen clock.
+[[nodiscard]] bool wdt_watch() noexcept;  // false = not watched (TWDT off)
+void wdt_unwatch() noexcept;
+void wdt_feed() noexcept;
+
 }  // namespace clk::port

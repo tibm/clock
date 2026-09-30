@@ -47,6 +47,15 @@ public:
     [[nodiscard]] uint32_t dropped() const noexcept { return dropped_.load(); }
     [[nodiscard]] uint32_t handled() const noexcept { return handled_.load(); }
     [[nodiscard]] bool running() const noexcept { return run_.load(); }
+    // port::now_us() at the top of this AO's loop, most recent.  The loop comes round at
+    // least every kPollMs, so an age of more than a few ms is a handler that has not
+    // returned -- which is what the supervisor watches for, and what the TWDT resets on.
+    [[nodiscard]] uint64_t alive_us() const noexcept {
+        return alive_us_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] bool watched() const noexcept { return watched_.load(); }  // by the TWDT
+    // Inside a WdtPause: blocking on purpose, not stuck.
+    [[nodiscard]] bool paused() const noexcept { return paused_.load(); }
 
 protected:
     virtual void on_start() {}
@@ -54,6 +63,27 @@ protected:
     virtual void on_tick() {}
 
     void set_tick(uint32_t ms) noexcept { tick_us_.store(ms * 1000ull); }
+
+    // For the one kind of handler that blocks longer than the TWDT on purpose: `net` running
+    // a BLE-issued command, which can be a bounded 120 s `sensor ... stream`.  The task is
+    // unsubscribed for the scope and re-subscribed (and fed) after, and the supervisor does
+    // not call it stuck meanwhile.  This AO's thread only.
+    class WdtPause {
+    public:
+        explicit WdtPause(ActiveObject& ao) noexcept : ao_(ao) {
+            ao_.paused_.store(true);
+            if (ao_.watched_.load()) port::wdt_unwatch();
+        }
+        ~WdtPause() {
+            if (ao_.watched_.load()) ao_.watched_.store(port::wdt_watch());
+            ao_.paused_.store(false);
+        }
+        WdtPause(WdtPause const&) = delete;
+        WdtPause& operator=(WdtPause const&) = delete;
+
+    private:
+        ActiveObject& ao_;
+    };
 
 private:
     static void entry(void*) noexcept;
@@ -63,6 +93,8 @@ private:
     // Real-milliseconds poll bound.  Short enough that a sim deadline computed before a
     // `sim warp` or a `sim jump` is re-evaluated promptly afterwards.
     static constexpr uint32_t kPollMs = 1;
+    // Feed the TWDT this often.  Far inside its 10 s, far above the 1 ms loop.
+    static constexpr uint64_t kFeedUs = 1'000'000;
 
     Cfg cfg_;
     std::atomic<uint64_t> tick_us_;
@@ -76,6 +108,9 @@ private:
     std::atomic<bool> run_{false};
     std::atomic<uint32_t> dropped_{0};
     std::atomic<uint32_t> handled_{0};
+    std::atomic<uint64_t> alive_us_{0};
+    std::atomic<bool> watched_{false};
+    std::atomic<bool> paused_{false};
     void* thread_ = nullptr;
 };
 

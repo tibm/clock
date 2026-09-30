@@ -259,6 +259,7 @@ void Storage::on_start() {
     CLK_LOGI(storage, "up; card %s, alarm tone %s", st == Status::Ok ? "mounted" : clk::name(st),
              tone_[0] ? tone_ : "(none -- the beep)");
     log_start();
+    dbg_start();
     publish();
 }
 
@@ -286,6 +287,7 @@ void Storage::on_tick() {
     if (playing_ == Playing::File) pump();
     if (playing_ == Playing::Beep) beep_tick();
     log_tick();
+    dbg_tick();
     publish();
 }
 
@@ -433,6 +435,10 @@ void Storage::handle(Req const& r) noexcept {
             return answer(r.seq, Status::Ok, nullptr);
         case Kind::LogFlush: {
             const Status st = log_write();
+            return answer(r.seq, st, st == Status::Ok ? nullptr : "no card");
+        }
+        case Kind::DbgFlush: {
+            const Status st = dbg_write();
             return answer(r.seq, st, st == Status::Ok ? nullptr : "no card");
         }
         case Kind::LogFetch: {

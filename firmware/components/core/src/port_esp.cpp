@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdlib>
 
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -78,5 +79,11 @@ void thread_join(void* handle) noexcept {
     // and the firmware can share one shutdown path.
     std::free(handle);
 }
+
+// ESP_ERR_INVALID_STATE (TWDT not initialised) is not worth failing an AO start over; it only
+// means this task is not watched, and the heartbeat line says so.
+bool wdt_watch() noexcept { return esp_task_wdt_add(nullptr) == ESP_OK; }
+void wdt_unwatch() noexcept { (void)esp_task_wdt_delete(nullptr); }
+void wdt_feed() noexcept { (void)esp_task_wdt_reset(); }
 
 }  // namespace clk::port

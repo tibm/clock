@@ -70,4 +70,8 @@ void thread_join(void* handle) noexcept {
     delete t;
 }
 
+bool wdt_watch() noexcept { return false; }
+void wdt_unwatch() noexcept {}
+void wdt_feed() noexcept {}
+
 }  // namespace clk::port

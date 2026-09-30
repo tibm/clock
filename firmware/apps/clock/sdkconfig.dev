@@ -2,6 +2,8 @@
 CONFIG_COMPILER_STACK_CHECK_MODE_STRONG=y
 CONFIG_FREERTOS_CHECK_STACKOVERFLOW_CANARY=y
 CONFIG_HEAP_POISONING_LIGHT=y
-CONFIG_ESP_SYSTEM_PANIC_PRINT_HALT=y
+# Reboot, not halt: a halted dev build on the bench looks exactly like "the hands are stuck",
+# and the evidence is kept anyway -- coredump in flash, last log lines in .noinit (§9.4a).
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
 CONFIG_CLOCK_CLI_UNSAFE=y
 CONFIG_CLOCK_LOG_MAX_LEVEL_VERBOSE=y

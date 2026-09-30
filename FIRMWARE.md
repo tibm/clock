@@ -1751,6 +1751,28 @@ Power policy (§7.4), TWDT registration for all 9 AOs (10 s timeout; each AO's q
 is 2 s so it feeds naturally), low-battery shutdown sequencing, `esp_reset_reason()` +
 coredump reporting on boot, fault latch → LED code.
 
+**Built 2026-09-29 — the watching half** (`services/supervisor.{hpp,cpp}`, prio 21, *above* the AOs it
+watches; power policy + fault latch still to come). Triggered by "sometimes the hands get stuck":
+
+- **TWDT on every AO.** `ActiveObject::run()` subscribes after `on_start()` (`port::wdt_watch()`) and
+  feeds once a second from its own loop — so a handler that never returns stops the feeding.
+  `CONFIG_ESP_TASK_WDT_PANIC=y` (it used to only *print*) and the dev profile now
+  `PANIC_PRINT_REBOOT` (it used to *halt* — a halted clock is indistinguishable from stuck hands).
+  Coredump to flash first, as before.
+- **AO liveness.** Each AO stamps `alive_us()` per loop; a stamp unchanged across ticks and older than
+  3 s is logged by name (`AO storage stuck: …`) while the chip is still up — seconds before the
+  TWDT's reset, so the line survives in the journal (§9.4a).
+- **Hands stall.** Expected to follow = chrono valid + following, motion homed and `accepts()` Ok.
+  Stalled = ≥ 2 chrono target changes unanswered for 180 s, or one move in `Moving` for 120 s.
+  Logs `HANDS STALLED`, a heartbeat, and flushes the journal. Still stalled 300 s later → **restart**
+  (firmware only; `set_restart_on_stall`, off in clocksim/tests). Recovery logged as `hands moving again`.
+- **Heartbeat** every 60 s (`sup` module): uptime, heap, time, motion state/pos/target, chrono target,
+  each AO's handled/dropped/age, journal fill.
+- `sys wd` shows it and logs a heartbeat now. `sim::set_motor_jam()` is the host's dead step
+  generator; `test_supervisor` proves the stall is caught and cleared.
+- Found on the way: `ActiveObject::stop()` could leave its own `Stop` in the mailbox, so a later
+  `start()` spawned a thread that exited at once while `running()` said true. Cleared after the join.
+
 **Firmware safety interlocks** (the hardware is already double-redundant per README §10 — the
 firmware's job is not to undermine it):
 
@@ -2165,7 +2187,7 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 
 | Group | Commands |
 |---|---|
-| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 132 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` |
+| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 132 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` · ▲`sys journal [flush]` (§9.4a) · ▲`sys wd` (§6.8) **· built 2026-09-29** |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
@@ -2251,6 +2273,27 @@ Four properties, each of which is the reason for a specific choice above:
 **ISR safety:** logging from an ISR is a compile error, not a runtime hazard —
 `CLK_LOG*` is unavailable in translation units marked `IRAM_ATTR`-only (rule 8). ISRs record to the
 event tracer (§6.9) instead, which is lock-free and IRAM-resident.
+
+### 9.4a The debug journal — every log line on the card, one file per boot (built 2026-09-29)
+
+For "it got stuck overnight" — the console is not attached when it matters.
+
+- **RAM ring** (`core/journal.{hpp,cpp}`), 16 KB, in **`.noinit` internal DRAM** on target: a panic,
+  TWDT or `esp_restart` reset leaves it intact; power-on/brown-out fails the header check and starts
+  empty. `journal::init()` is the first line of `app_main`: whatever is still in the ring becomes
+  *the previous boot's*.
+- **Every line**, IDF's included: on target the journal hooks `esp_log_set_vprintf` (skipped in ISR /
+  critical section / pre-scheduler, where the mutex cannot be taken); on the host `log::vwrite` feeds
+  it. ANSI stripped, lines cut at 256 B. Full ring → the oldest *whole* lines go, counted as `lost`.
+  Producers never wait on the card (20 ms try-lock, then counted).
+- **Card** (`services/storage_debug.cpp`): `storage` drains every 5 s to
+  **`/sd/debug/<boot>.log`** (6-digit NVS counter `sys.boot`), open-append-close each time. Header
+  `=== boot N  reset: <reason>  journal: warm|cold, K bytes of boot N-1 rescued ===`. Rescued bytes go
+  to the end of `<N-1>.log` under `--- the last lines before the reset …`.
+- **Bounded:** `<boot>.log` rolls to `<boot>.old` at 4 MB; oldest boots pruned past 32 MB or 64 boots.
+  No card: retried once a minute, the ring keeps the newest 16 KB meanwhile.
+- `sys journal [flush]` — ring fill/lost, boot, file, bytes flushed/rescued, directory size.
+- Only what is *logged* is kept: `sys debug motion debug` before a hunt puts more in it.
 
 ### 9.5 `sensor` — the bring-up group
 

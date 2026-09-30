@@ -50,7 +50,11 @@ CONFIG_FREERTOS_UNICORE=n
 CONFIG_ESP_MAIN_TASK_AFFINITY_CPU0=y
 
 # reliability
+# Every AO subscribes to the TWDT and feeds it from its loop (port::wdt_*, ActiveObject::run).
+# PANIC: a starved AO RESETS the chip (coredump first) instead of printing and carrying on
+# with the hands stopped.  The journal (§9.4a) carries the last lines across the reset.
 CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_PANIC=y
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
 CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1=n
 CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
