@@ -46,6 +46,15 @@ struct ConnectView: View {
 
                 if let info = link.info { InfoSection(info: info, appProto: link.spec.protocolVersion) }
 
+                Section("Alarm") {
+                    NavigationLink {
+                        AlarmView()
+                    } label: {
+                        LabeledContent("Alarm", value: AlarmView.summary(link.snapshot))
+                    }
+                    .disabled(link.phase != .ready)
+                }
+
                 Section("Wi-Fi") {
                     NavigationLink {
                         WifiView()

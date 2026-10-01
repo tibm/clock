@@ -6,23 +6,34 @@ nonisolated enum FieldValue: Sendable, Equatable {
     case uint(UInt64)
     case float(Double)
     case bytes([UInt8])
+    /// A numeric array wider than bytes (`u16[7]`, …).
+    case list([FieldValue])
 
-    /// Numeric value before scaling; nil for byte arrays.
+    /// Numeric value before scaling; nil for arrays.
     var number: Double? {
         switch self {
         case .int(let v): Double(v)
         case .uint(let v): Double(v)
         case .float(let v): v
-        case .bytes: nil
+        case .bytes, .list: nil
         }
     }
 
-    /// Integer value, for enums / bitfields / sentinels; nil for floats and byte arrays.
+    /// Integer value, for enums / bitfields / sentinels; nil for floats and arrays.
     var integer: Int64? {
         switch self {
         case .int(let v): v
         case .uint(let v): Int64(truncatingIfNeeded: v)
-        case .float, .bytes: nil
+        case .float, .bytes, .list: nil
+        }
+    }
+
+    /// Element values of an array (bytes or list), before scaling; nil for scalars.
+    var numbers: [Double]? {
+        switch self {
+        case .bytes(let b): b.map(Double.init)
+        case .list(let l): l.compactMap(\.number)
+        default: nil
         }
     }
 }
@@ -55,6 +66,11 @@ nonisolated struct DecodedField: Sendable, Identifiable {
         switch raw {
         case .bytes(let b):
             return b.map { String(format: "%02x", $0) }.joined(separator: " ")
+        case .list(let l):
+            let scale = spec.scale ?? 1
+            return Self.withUnit(l.compactMap(\.number).map { n in
+                spec.scale == nil ? String(Int64(n)) : String(format: "%.\(Self.decimals(for: scale))f", n * scale)
+            }.joined(separator: ", "), spec.unit)
         case .float(let f):
             return Self.withUnit(String(format: "%.2f", f * (spec.scale ?? 1)), spec.unit)
         case .int, .uint:
@@ -125,6 +141,12 @@ nonisolated struct Snapshot: Sendable {
         // tz_off_min is the clock's zone offset at this instant (default zone: San Francisco).
         let off = Int64(self["tz_off_min"]?.raw.integer ?? 0) * 60_000
         return (Date(timeIntervalSince1970: Double(ms + off) / 1000), has("date_valid"))
+    }
+
+    /// Integer elements of an array field by name, only when valid.
+    func ints(_ name: String) -> [Int]? {
+        guard let f = self[name], f.isValid, let n = f.raw.numbers else { return nil }
+        return n.map { Int($0) }
     }
 
     /// The seven LEDs as RGBW quadruples, in chain order.

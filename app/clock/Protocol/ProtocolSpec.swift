@@ -143,11 +143,21 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
     struct SnapshotSpec: Decodable, Sendable {
         let endianness: String?
         let size: Int
+        /// The oldest record a decoder must accept; fields past it may be absent. Nil → `size`.
+        let minSize: Int?
         let fields: [Field]
         /// Index = bit number.
         let flags: [String]
         let enums: [String: [String]]
         let golden: Golden?
+
+        enum CodingKeys: String, CodingKey {
+            case endianness, size, fields, flags, enums, golden
+            case minSize = "min_size"
+        }
+
+        /// Bytes a record must have to be decoded at all.
+        var requiredSize: Int { min(minSize ?? size, size) }
     }
 
     struct Field: Decodable, Sendable {

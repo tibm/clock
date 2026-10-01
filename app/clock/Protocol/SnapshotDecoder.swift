@@ -24,7 +24,8 @@ nonisolated struct SnapshotDecoder: Sendable {
 
     func decode(_ data: Data, receivedAt: Date = .now) throws -> Snapshot {
         let bytes = [UInt8](data)
-        let need = spec.snapshot.size
+        // An older firmware's shorter record is fine: fields past its end are simply absent.
+        let need = spec.snapshot.requiredSize
         guard bytes.count >= need else { throw DecodeError.tooShort(got: bytes.count, need: need) }
 
         let fieldSpecs = spec.snapshot.fields
@@ -99,7 +100,12 @@ nonisolated struct SnapshotDecoder: Sendable {
     /// Reads one value; nil when the type is unknown or the field runs past the data.
     static func read(_ b: [UInt8], _ type: String, at off: Int) -> FieldValue? {
         guard let w = width(of: type), off >= 0, off + w <= b.count else { return nil }
-        if type.contains("[") { return .bytes(Array(b[off..<off + w])) }
+        if let open = type.firstIndex(of: "[") {
+            // `u8[N]` stays raw bytes (pixels, …); wider elements are a list of numbers.
+            let elem = String(type[..<open])
+            guard elem != "u8", let ew = width(of: elem) else { return .bytes(Array(b[off..<off + w])) }
+            return .list(stride(from: off, to: off + w, by: ew).compactMap { read(b, elem, at: $0) })
+        }
         var u: UInt64 = 0
         for i in 0..<w { u |= UInt64(b[off + i]) << (8 * UInt64(i)) }
         switch type {

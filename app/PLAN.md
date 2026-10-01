@@ -185,7 +185,7 @@ how the app captures it; nothing here needs a firmware change.
 being recorded, `log days` / `log status` what is on the card. `firmware/tools/clockctl.py` can
 be extended the same way as the app for a desktop check.
 
-## Next: alarm schedule (firmware + protocol done 2026-09-30, Swift not started)
+## Alarm schedule (firmware + protocol + app done 2026-09-30)
 
 Contract: `PROTOCOL.md` → "Alarm schedule"; `protocol.json` → commands `chrono alarm week`,
 `chrono alarm next`, snapshot fields `alarm_days` `alarm_next` `alarm_week` `alarm_next_wday`

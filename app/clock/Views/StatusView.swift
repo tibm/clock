@@ -16,11 +16,12 @@ struct StatusView: View {
         ("Motion sensor", ["grav_x", "grav_y", "grav_z", "yaw", "pitch", "roll", "taps"]),
         ("Hands", ["motion_state", "dial_tick", "hand_h", "hand_m", "target_h", "target_m",
                    "opto", "motion_faults", "trims", "last_trim"]),
-        ("UI", ["ui_mode", "volume", "alarm_h", "alarm_m", "brightness", "wake_warm", "wake_cool", "knob_count"]),
-        ("Radio", ["ble_state", "bonds", "wifi_state", "wifi_rssi"]),
+        ("UI", ["ui_mode", "volume", "brightness", "wake_warm", "wake_cool", "knob_count"]),
+        ("Alarm", ["alarm_next", "alarm_h", "alarm_m", "alarm_next_wday", "alarm_days", "alarm_week"]),
+        ("Radio", ["ble_state", "bonds", "wifi_state", "wifi_rssi", "wifi_err"]),
     ]
-    /// Shown elsewhere (header, time, LEDs, flags) or meaningless on screen.
-    private static let hidden: Set<String> = ["schema", "size", "seq", "flags", "pixels", "reserved", "epoch_ms", "tz_off_min"]
+    /// Shown elsewhere (header, time, LEDs, flags) or meaningless on screen. `reserved*` too.
+    private static let hidden: Set<String> = ["schema", "size", "seq", "flags", "pixels", "epoch_ms", "tz_off_min"]
 
     private static let periods: [(label: String, ms: Int)] = [
         ("0.5 s", 500), ("1 s", 1000), ("5 s", 5000), ("60 s", 60000),
@@ -60,7 +61,7 @@ struct StatusView: View {
 
     private func content(_ snap: Snapshot) -> some View {
         let listed = Set(Self.groups.flatMap(\.fields)).union(Self.hidden)
-        let others = snap.fields.filter { !listed.contains($0.name) }
+        let others = snap.fields.filter { !listed.contains($0.name) && !$0.name.hasPrefix("reserved") }
         return List {
             Section {
                 HeaderRow(snap: snap)
@@ -168,6 +169,19 @@ private struct FieldRow: View {
         case "fw_id": field.raw.integer.map { String(format: "%08x", $0) } ?? "—"
         case "uptime_s": field.raw.integer.map { Duration.seconds($0).formatted(.time(pattern: .hourMinuteSecond)) } ?? "—"
         case "motion_faults": field.raw.integer.map { String(format: "0x%08x", $0) } ?? "—"
+        // Alarm schedule: weekday 0 = Monday, minutes of day.
+        case "alarm_week" where field.isValid:
+            field.raw.numbers.map { m in
+                m.enumerated().map { "\(AlarmView.dayName($0.offset)) \(AlarmSchedule.hhmm(Int($0.element)))" }
+                    .joined(separator: ", ")
+            } ?? field.display
+        case "alarm_days" where field.isValid:
+            field.raw.integer.map { bits in
+                let on = (0..<7).filter { bits & (1 << $0) != 0 }.map { AlarmView.dayName($0) }
+                return on.isEmpty ? "none" : on.joined(separator: " ")
+            } ?? field.display
+        case "alarm_next_wday" where field.isValid && field.sentinel == nil:
+            field.raw.integer.map { AlarmView.dayName(Int($0)) } ?? field.display
         default: field.display
         }
     }

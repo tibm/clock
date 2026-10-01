@@ -63,6 +63,10 @@ struct SnapshotDecoderTests {
             case "pixels":
                 let quads = try #require(want.array).map { ($0.array ?? []).compactMap(\.number).map { UInt8($0) } }
                 #expect(snap.pixels == quads)
+            case let k where want.array != nil:
+                // A numeric array field (e.g. `alarm_week`, u16[7]).
+                let f = try #require(snap[k], "golden key \(k) has no field")
+                #expect(f.raw.numbers == want.array?.compactMap(\.number), "\(k)")
             case let k where k.hasSuffix("_raw") && snap[String(k.dropLast(4))] != nil:
                 // e.g. `opto_raw`: the unscaled value of `opto`.
                 let f = try #require(snap[String(k.dropLast(4))])
@@ -93,9 +97,43 @@ struct SnapshotDecoderTests {
 
     @Test func rejectsShortRecord() throws {
         let short = try goldenData.prefix(100)
-        #expect(throws: SnapshotDecoder.DecodeError.tooShort(got: 100, need: spec.snapshot.size)) {
+        #expect(throws: SnapshotDecoder.DecodeError.tooShort(got: 100, need: spec.snapshot.requiredSize)) {
             try decoder.decode(Data(short))
         }
+    }
+
+    /// PROTOCOL.md §5 rule 1: an older firmware's shorter record (132 B, before the alarm week)
+    /// decodes; the fields it lacks are absent, not garbage.
+    @Test func acceptsOlderShorterRecord() throws {
+        let minSize = try #require(spec.snapshot.minSize)
+        #expect(minSize < spec.snapshot.size)
+        var d = Data(try goldenData.prefix(minSize))
+        let size = try #require(spec.snapshot.fields.first { $0.name == "size" })
+        d[size.off] = UInt8(minSize)
+        let snap = try decoder.decode(d)
+        #expect(snap["seq"]?.raw == .uint(48879))
+        #expect(snap["alarm_week"] == nil)
+        #expect(AlarmSchedule(snap).week == nil)
+        #expect(throws: SnapshotDecoder.DecodeError.self) { try decoder.decode(Data(d.prefix(minSize - 1))) }
+    }
+
+    @Test func alarmScheduleFromGolden() throws {
+        let a = AlarmSchedule(try decoder.decode(try goldenData))
+        let week = try #require(a.week)
+        #expect(week.map(\.on) == [true, true, true, true, true, false, false])
+        #expect(week.map(\.minute) == [420, 420, 420, 420, 420, 570, 570])
+        #expect(a.next == "override" && a.hasOverride)
+        #expect(a.nextMinute == 8 * 60 && a.nextWeekday == 1)
+        #expect(a.replaced == .init(on: true, minute: 420))
+        #expect(AlarmSchedule.weekCommand(week) == "chrono alarm week 07:00 07:00 07:00 07:00 07:00 -09:30 -09:30")
+        #expect(spec.commands.contains { $0.line.hasPrefix("chrono alarm week") })
+    }
+
+    @Test func alarmNoWeekdaySentinel() throws {
+        var d = try goldenData
+        let f = try #require(spec.snapshot.fields.first { $0.name == "alarm_next_wday" })
+        d[f.off] = 255
+        #expect(AlarmSchedule(try decoder.decode(d)).nextWeekday == nil)
     }
 
     @Test func rejectsWrongSchema() throws {

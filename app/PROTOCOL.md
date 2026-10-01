@@ -477,7 +477,7 @@ Field-by-field layout, types, units, scales and enums: **`protocol.json` → `sn
 
 ### Decoding rules
 
-1. Reject `schema != 1` or `size < 132` (or fewer bytes). **Ignore bytes beyond the 150 you know**
+1. Reject `schema != 1` or `size < 132` (`snapshot.min_size`) (or fewer bytes). **Ignore bytes beyond the 150 you know**
    — newer firmware appends fields. A record of **132** bytes is a firmware from before the
    schedule: it has one daily alarm (`alarm_h:alarm_m`, every day) — hide the week editor.
 2. **Validity lives in `flags`**, not in the values: e.g. if `env_ok` is clear, temperature/humidity
@@ -548,6 +548,7 @@ marked newer. Unknown keys: ignore.
 | Date | Version | Change |
 |---|---|---|
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
+| 2026-09-30 | proto 1 / schema 1 | `protocol.json`: new `snapshot.min_size` (132, the oldest record a decoder must accept — was prose only); `gatt.status.len` 132 → 150 (stale). No wire change |
 | 2026-09-30 | proto 1 / schema 1 | **Weekly alarm schedule + one-off override.** New `chrono alarm week` (the schedule, 7 tokens Monday first), `chrono alarm next <hh:mm>\|clear` (the knob's one-off), `chrono alarm day` (console). Snapshot **132 → 150 bytes**: `alarm_days` @132, `alarm_next` @133 (new enum `alarm_next`), `alarm_week` u16[7] @134, `alarm_next_wday` @148, reserved @149. `alarm_h:alarm_m` now means the **next** alarm (unchanged for a daily alarm). `chrono alarm set` = every day at that time. "Alarm schedule" section; golden vector regenerated. All compatible (appended fields, new commands) |
 | 2026-09-28 | proto 1 / schema 1 | **History log.** New `bulk` characteristic (…0007, notify, offset + data); `log status/period/keep/cap/enable/flush/days/fetch` commands; "History" section; `protocol.json` → `history` (file + record layout, flags, event codes, golden vectors). All compatible (new characteristic, new commands) |
 | 2026-09-28 | proto 1 / schema 1 | **Wi-Fi + SNTP.** New `net wifi join/forget/scan`, `net wifi`, `net sntp [sync]`; "Wi-Fi" section (credentials over the bonded link — replaces the planned Espressif provisioning). `wifi_state` enum grows `idle connecting online backoff`; byte 131 `reserved` → `wifi_err` (was always 0). **Time zones**: `chrono tz <posix> [<name>]`, default San Francisco; `tz_off_min` is now the zone's offset at the instant (DST included) and is no longer 0 before a zone is given; `chrono time epoch` with a disagreeing offset makes the zone fixed. All compatible |

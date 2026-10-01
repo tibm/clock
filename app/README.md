@@ -43,13 +43,15 @@ On connect the app automatically:
 
 On iOS it disconnects when backgrounded and reconnects when it comes back (PROTOCOL.md §7).
 
-## Alarm schedule (firmware ready, app screen not built yet)
+## Alarm schedule (Clock tab → Alarm)
 
 The clock now keeps a **weekly schedule** (a time per weekday, each on/off — set from the app with
 `chrono alarm week`) and at most **one one-off** of the next alarm, set with the clock's knob (or
 `chrono alarm next`). The one-off replaces that one day's alarm and never changes the schedule;
-the snapshot shows it live (`alarm_next = override`), even while the app is connected. Until the
-screen exists, the fields appear under "Other fields" and the commands work from the console tab.
+the snapshot shows it live (`alarm_next = override`), even while the app is connected. The Alarm
+screen: master switch, next alarm + a *Cancel* banner for a one-off, seven day rows (any edit sends
+the whole week, debounced), "Just once". A 132-byte snapshot (older firmware) shows the single
+daily alarm instead. Status tab: "Alarm" group.
 Behaviour: PROTOCOL.md "Alarm schedule"; what to build: PLAN.md "Next: alarm schedule".
 
 ## Alarm sounds
