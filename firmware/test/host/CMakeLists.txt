@@ -6,7 +6,7 @@
 set(CLK_GTEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/googletest)
 
 add_executable(test_host test_main.cpp test_log.cpp test_cli.cpp test_sim.cpp test_motor.cpp
-                         test_anim.cpp test_level.cpp test_motion.cpp
+                         test_anim.cpp test_level.cpp test_alarm.cpp test_motion.cpp
                          test_tsl2591.cpp test_bme688.cpp test_bno085.cpp
                          test_audio.cpp test_net.cpp test_storage.cpp test_wifi.cpp
                          test_history.cpp test_journal.cpp test_supervisor.cpp)

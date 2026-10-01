@@ -16,10 +16,12 @@
 #include "check.hpp"
 #include "testutil.hpp"
 
+#include "clk/domain/alarm.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/hal/host/sim.hpp"
 #include "clk/hal/pcm.hpp"
 #include "clk/hal/wav.hpp"
+#include "clk/services/chrono.hpp"
 #include "clk/services/storage.hpp"
 #include "clk/services/ui.hpp"
 
@@ -467,6 +469,106 @@ void test_alarm_fires_at_its_minute_once() {
     CHECK(quiet());
 }
 
+// The week and the knob's one-off, end to end (§6.6f).  The request as it was put: every day
+// 07:00; Monday evening the next alarm is moved to 08:00 without the phone; Tuesday rings at
+// 08:00 and not 07:00, Wednesday is 07:00 again -- the week never changed.
+int64_t utc_ms(int64_t day, int h, int m, int s) {
+    return ((day * 86'400LL) + h * 3600 + m * 60 + s) * 1000;
+}
+
+void test_alarm_week_and_one_off() {
+    namespace al = domain::alarm;
+    // 2026-08-31, a Monday -- and NOT 2026-09-28, the day test_history reads its log file for:
+    // samples taken while this test runs land in the file of whatever day the clock says.
+    constexpr int64_t kMon = 20696;
+    sim::set_warp(1.0);
+    RecordingSink r;
+    char cmd[80];
+    // ... and wait for chrono to have it: its snapshot follows a new time on its own tick, and
+    // an alarm edit placed against the old one is placed on the wrong day.
+    auto at = [&](int64_t day, int h, int m, int sec) {
+        const int64_t want = utc_ms(day, h, m, sec);
+        std::snprintf(cmd, sizeof cmd, "chrono time epoch %lld 0", static_cast<long long>(want));
+        const Status st = run(cmd, r);
+        CHECK(wait_until([&] {
+            const auto c = svc::chrono().snapshot();
+            return c.date_valid && c.epoch_ms >= want && c.epoch_ms < want + 1500;
+        }));
+        return st;
+    };
+    CHECK(at(kMon, 21, 30, 0) == Status::Ok);
+    CHECK(run("chrono alarm set 07:00", r) == Status::Ok);
+    CHECK(run("chrono alarm arm on", r) == Status::Ok);
+
+    // The week, whole: weekdays 07:00, Saturday off at 09:30, Sunday off keeping its 07:00.
+    CHECK(run("chrono alarm week 07:00 07:00 07:00 07:00 07:00 -09:30 -", r) == Status::Ok);
+    auto u = svc::ui().snapshot();
+    CHECK(u.alarm_week.days == 0x1F && u.alarm_week.min[5] == 570 && u.alarm_week.min[6] == 420);
+    CHECK(u.alarm_next == al::Src::Schedule && u.alarm_next_wday == 1);
+    // ... persisted as one string (read back through a scratch store; the suite runs without).
+    const std::string store = g_dir + "/store.txt";
+    sim::set_store_path(store.c_str());
+    CHECK(run("chrono alarm week 07:00 07:00 07:00 07:00 07:00 -09:30 -", r) == Status::Ok);
+    CHECK(wait_until([] {
+        char nvs[64] = {};
+        return hal::store::get_str("ui.week", nvs, sizeof nvs) == Status::Ok &&
+               std::strcmp(nvs, "1f 420 420 420 420 420 570 420") == 0;
+    }));
+    sim::set_store_path("");
+    CHECK(run("chrono alarm week 07:00 07:00", r) == Status::BadArg);
+    CHECK(run("chrono alarm week 07:00 07:00 07:00 07:00 25:00 - -", r) == Status::BadArg);
+    CHECK(run("chrono alarm day weekend 09:30", r) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_week.days == 0x7F);
+    CHECK(run("chrono alarm day sat off", r) == Status::Ok);
+    CHECK(run("chrono alarm day sun off", r) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_week.days == 0x1F);
+
+    // Monday evening, the next alarm moved to 08:00 (the knob's edit; `next` is its CLI form).
+    RecordingSink n;
+    CHECK(run("chrono alarm next 08:00", n) == Status::Ok);
+    CHECK(n.contains("one-off"));
+    u = svc::ui().snapshot();
+    CHECK(u.alarm_next == al::Src::Override && u.alarm_next_wday == 1);
+    CHECK(u.alarm_hour == 8 && u.alarm_minute == 0);
+    CHECK(u.alarm_week.min[1] == 420 && u.alarm_week.days == 0x1F);  // the week: untouched
+    // A new week from the phone keeps the knob's one-off.
+    CHECK(run("chrono alarm week 07:00 07:00 07:00 07:00 07:00 - -", r) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_next == al::Src::Override);
+
+    // Tuesday 07:00: silent.
+    CHECK(at(kMon + 1, 6, 59, 58) == Status::Ok);
+    hal::clock_::sleep_ms(3000);
+    CHECK(svc::ui().snapshot().mode == svc::Ui::Mode::Idle);
+    // Tuesday 08:00: rings.
+    CHECK(at(kMon + 1, 7, 59, 58) == Status::Ok);
+    CHECK(mode_is(svc::Ui::Mode::Ringing, 4000));
+    CHECK(run("chrono alarm dismiss", r) == Status::Ok);
+    CHECK(mode_is(svc::Ui::Mode::Idle));
+    // ... and the next one is Wednesday's, from the week.
+    CHECK(wait_until([] {
+        const auto s = svc::ui().snapshot();
+        return s.alarm_next == al::Src::Schedule && s.alarm_next_wday == 2 && s.alarm_hour == 7;
+    }));
+    CHECK(svc::ui().snapshot().alarm_ovr.empty() == false);  // Tuesday stays replaced ...
+    CHECK(at(kMon + 2, 6, 59, 58) == Status::Ok);
+    CHECK(mode_is(svc::Ui::Mode::Ringing, 4000));  // ... Wednesday 07:00 rings
+    CHECK(svc::ui().snapshot().alarm_ovr.empty());
+    CHECK(run("chrono alarm dismiss", r) == Status::Ok);
+
+    // `next` at the week's own time is nothing to remember; `next clear` drops a one-off.
+    CHECK(run("chrono alarm next 07:00", r) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_ovr.empty());
+    CHECK(run("chrono alarm next 06:15", r) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_next == al::Src::Override);
+    CHECK(run("chrono alarm next clear", r) == Status::Ok);
+    CHECK(svc::ui().snapshot().alarm_next == al::Src::Schedule);
+    CHECK(run("chrono alarm next someday", r) == Status::BadArg);
+
+    CHECK(run("chrono alarm arm off", r) == Status::Ok);
+    CHECK(run("chrono alarm set 07:00", r) == Status::Ok);
+    CHECK(quiet());
+}
+
 // ---- uploads, list, remove (app/PROTOCOL.md "Sound files") ----------------------------------
 
 std::vector<uint8_t> blob_at(uint32_t off, const uint8_t* p, std::size_t n) {
@@ -702,6 +804,7 @@ void run_storage_service_tests() {
     test_alarm_rings_snoozes_and_dismisses();
     test_alarm_falls_back_to_the_beep();
     test_alarm_fires_at_its_minute_once();
+    test_alarm_week_and_one_off();
     test_crc32_is_zlibs();
     test_upload_lands_a_playable_file();
     test_upload_refuses_damage_and_wrong_files();

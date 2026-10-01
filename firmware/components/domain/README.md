@@ -7,7 +7,8 @@ host coverage.
 |---|---|
 | `hand.hpp` ✅ | Microstep ↔ degrees ↔ time, positive modulo, shortest signed path, the **directed** and **chased** paths a knob needs instead (§6.6e), and the backlash `approach()` that makes every move finish clockwise (§6.1, §7.2) |
 | `anim.hpp` ✅ | Every pattern a light can make — ramp, breathe, blink, flash burst — plus the one `AnimCfg` that times all of them and the one place gamma is applied (§6.6a). `render(anim, cfg, now)` is a pure function, so a 30-minute sunrise ramp is asserted in a microsecond |
-| still to come | Alarm scheduler (TZ/DST), the sunrise *colour* curve, DSP biquad + limiter |
+| `alarm.hpp` ✅ | The alarm week (a minute per weekday, each on/off) and the knob's one-off override that replaces the next day's alarm only: `next`, `due`, `override_at`, `expire`, all in local minutes (§6.6f) |
+| still to come | the sunrise *colour* curve, DSP biquad + limiter |
 
 Header-only for now — it is all `constexpr`, so there is nothing to link. It still gets a
 component so the §2 dependency rule is enforced by CMake rather than by good intentions.

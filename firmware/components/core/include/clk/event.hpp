@@ -83,9 +83,15 @@ struct ModeSet {
 
 // The alarm, from somewhere other than the knob (`chrono alarm`, the app).  `ui` owns it
 // until the alarm table moves to `chrono` (§6.4).  -1 = leave that half alone.
+//
+// `op` says what `min_of_day` means: the whole week at that minute (the old single daily
+// alarm), the one-off override the knob also sets, or none of it.  A new WEEK is too big for a
+// mailbox slot every AO pays for, so it waits in `ui` (Ui::set_week) and this only says "look".
 struct AlarmCfg {
+    enum Op : uint8_t { Daily, Week, Next, NextClear };
     int16_t min_of_day;  // 0..1439, or -1
     int8_t armed;        // 0 / 1, or -1
+    uint8_t op = Daily;
 };
 
 struct TimeChanged {

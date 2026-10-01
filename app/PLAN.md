@@ -184,3 +184,23 @@ how the app captures it; nothing here needs a firmware change.
 `log period 10` on the bench makes records every 10 s; `log tail` on the console shows what is
 being recorded, `log days` / `log status` what is on the card. `firmware/tools/clockctl.py` can
 be extended the same way as the app for a desktop check.
+
+## Next: alarm schedule (firmware + protocol done 2026-09-30, Swift not started)
+
+Contract: `PROTOCOL.md` → "Alarm schedule"; `protocol.json` → commands `chrono alarm week`,
+`chrono alarm next`, snapshot fields `alarm_days` `alarm_next` `alarm_week` `alarm_next_wday`
+(size 150), enum `alarm_next`. The generic decoder already shows the new fields under "Other
+fields" with zero Swift changes (`alarm_week` as `u16[7]` falls back to raw bytes).
+
+To build:
+- **Decoder**: `u16[N]` arrays as numbers (today any `[N]` type is `.bytes`); golden test
+  compares `alarm_week` = `[420,420,420,420,420,570,570]`.
+- **Alarm screen**: seven rows (Mon first), a toggle + time picker each, plus the master
+  `alarm_armed` switch. Any edit → send the **whole** week (`chrono alarm week …`, `-hh:mm` for
+  a day that is off so its time is kept). State always from the snapshot, never from the reply.
+- **One-off banner** when `alarm_next == override`: "Next alarm: <wday> <alarm_h:alarm_m> — set
+  on the clock, just once (schedule: <alarm_week[wday]>)" + *Cancel* → `chrono alarm next clear`.
+  It must update live while connected (the knob edits it; the next `status` notification shows it).
+- Optional "just tomorrow" action → `chrono alarm next <hh:mm>`.
+- A 132-byte snapshot = older firmware: hide the editor, show the single daily alarm.
+

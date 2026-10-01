@@ -143,11 +143,16 @@ void fields(Io& io, S& s) noexcept {
     u8(s.ble_state);                    //  95
     for (auto& p : s.px)                //  96 .. 123
         for (auto& c : p) u8(c);
-    u32(s.knob_count);  // 124
-    u8(s.bonds);        // 128
-    u8(s.wifi_state);   // 129
-    u8(s.wifi_rssi);    // 130
-    u8(s.wifi_err);     // 131 (was reserved, always 0, until 2026-09-28)
+    u32(s.knob_count);                    // 124
+    u8(s.bonds);                          // 128
+    u8(s.wifi_state);                     // 129
+    u8(s.wifi_rssi);                      // 130
+    u8(s.wifi_err);                       // 131 (was reserved, always 0, until 2026-09-28)
+    u8(s.alarm_days);                     // 132 -- appended 2026-09-30
+    u8(s.alarm_next);                     // 133
+    for (auto& m : s.alarm_week) u16(m);  // 134 .. 147
+    u8(s.alarm_next_wday);                // 148
+    u8(s.reserved149);                    // 149
 }
 
 }  // namespace

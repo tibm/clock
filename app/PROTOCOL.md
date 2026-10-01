@@ -36,7 +36,7 @@ profiles are not available to iOS apps.)
 | service | `7a3e0001-5c1d-4b8e-9f3a-2c6d1e0b9a41` | | |
 | `cmd` | `7a3e0002-5c1d-4b8e-9f3a-2c6d1e0b9a41` | write **with response** | UTF-8 command line, §3 |
 | `rsp` | `7a3e0003-5c1d-4b8e-9f3a-2c6d1e0b9a41` | notify | UTF-8 response frames, §3 |
-| `status` | `7a3e0004-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read, notify | 132-byte binary snapshot, §5 |
+| `status` | `7a3e0004-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read, notify | 150-byte binary snapshot, §5 |
 | `info` | `7a3e0005-5c1d-4b8e-9f3a-2c6d1e0b9a41` | read | UTF-8 `key=value` pairs separated by spaces, §6 |
 | `blob` | `7a3e0006-5c1d-4b8e-9f3a-2c6d1e0b9a41` | write **with response** | binary upload data: 4-byte LE offset + bytes, §4 "Sound files" |
 | `bulk` | `7a3e0007-5c1d-4b8e-9f3a-2c6d1e0b9a41` | notify | binary download data: 4-byte LE offset + bytes, §4 "History" |
@@ -184,8 +184,10 @@ status snapshot (§5), not from command output.**
 | `net wifi join <ssid> [<psk>]` · `net wifi forget` · `net wifi scan` · `net wifi` | implemented | **Wi-Fi** — see "Wi-Fi" below |
 | `net sntp` · `net sntp sync` | implemented | time servers (display) · ask them now |
 | `chrono time set <hh:mm[:ss]>` | implemented | set the *local* time of day only; keeps the date if the clock has one |
-| `chrono alarm set <hh:mm>` | implemented | alarm time, local 24 h. Persisted. `$ok` only after the clock has taken it |
-| `chrono alarm arm <on\|off>` | implemented | arm / disarm. Persisted. Armed, it rings at the set local minute: `ui_mode` goes to `ringing` (6), then `snoozed` (7) or back to `idle` |
+| `chrono alarm week <mon> … <sun>` | implemented | **the weekly schedule** — see "Alarm schedule" below. Persisted |
+| `chrono alarm next <hh:mm>` · `chrono alarm next clear` | implemented | **one-off**: the next alarm only, as the knob sets it · drop it. See "Alarm schedule" |
+| `chrono alarm set <hh:mm>` | implemented | **every day** at hh:mm (all seven days on, one-off dropped) — the old single daily alarm. Persisted. `$ok` only after the clock has taken it |
+| `chrono alarm arm <on\|off>` | implemented | the master switch. Persisted. Armed, it rings at the next alarm: `ui_mode` goes to `ringing` (6), then `snoozed` (7) or back to `idle`. Disarmed, nothing rings; schedule and one-off are kept |
 | `chrono alarm tone [<name>\|none]` | implemented | which `/sd/tones` WAV rings; `none` = the built-in beep. Checked on the card first — `bad-arg` if it is not 48 kHz mono 16-bit PCM, `not-present` with no card. Persisted. (No list the app can parse yet — `storage ls` is display text) |
 | `chrono alarm fire` · `chrono alarm snooze` · `chrono alarm dismiss` | implemented | ring now (test the sound) · snooze a ring · stop it (stays armed). The last two answer `not-ready` when nothing rings |
 | `audio play <name> [loop]` | implemented | preview a `/sd/tones` WAV; `audio stop` ends it |
@@ -236,8 +238,64 @@ The clock keeps **UTC** and a **time zone**. Once it is on Wi-Fi it sets UTC its
 - `chrono tz <utc_offset_min>` still sets a **fixed** offset (no DST), as before.
 - The knob can also set the time of day; it keeps the date and the zone. Once Wi-Fi is set up
   and SNTP has answered, the knob's clock mode refuses (`net_locked`) — the network owns the time.
-- The zone and the alarm survive a reboot. The time itself does not (no RTC retention yet) —
+- The zone and the alarm (schedule, one-off, armed) survive a reboot. The time itself does not (no RTC retention yet) —
   after a reboot `time_valid` is clear until SNTP answers or the phone reconnects.
+
+### Alarm schedule
+
+The clock has **one weekly schedule** — a time for each weekday, each day on or off — and at
+most **one one-off override** of the next alarm. They belong to two different people and never
+overwrite each other:
+
+| | Set by | Persisted | Changes |
+|---|---|---|---|
+| **Schedule** | the app (`chrono alarm week`) | yes (NVS) | only when the app (or the console) sends a new one |
+| **One-off** | the clock's knob (`alarm` mode), or the app (`chrono alarm next`) | yes (NVS) | rings once, then it is gone |
+
+- **Set the week**: `chrono alarm week <mon> <tue> <wed> <thu> <fri> <sat> <sun>` — Monday
+  first, seven tokens, local time, 24 h. Each token is `hh:mm` (that day rings at that time),
+  `-hh:mm` (off, but remember the time — so switching the day back on restores it) or `-` (off,
+  keep the time the clock already has). E.g. weekdays 06:45, weekend off keeping 09:00:
+  `chrono alarm week 06:45 06:45 06:45 06:45 06:45 -09:00 -09:00`. `$ok` after the clock has
+  taken it; `bad-arg` unless there are exactly seven valid tokens. **Send the whole week every
+  time** the user edits any day. It does **not** touch a pending one-off.
+- **The one-off** (the knob): turning the knob in `alarm` mode edits **the next alarm only**.
+  It rings the next time the clock reads that minute and **replaces that day's scheduled alarm**;
+  every other day stays on the schedule. Example: the week is 07:00 every day; on Monday
+  evening the user turns the knob to 08:00 → Tuesday rings at 08:00 (not 07:00), Wednesday at
+  07:00 again, and the schedule in the app still says 07:00 everywhere. Setting it earlier the
+  same morning (06:00 → 06:30) replaces that morning's 07:00 — it is not a second alarm. On a
+  day that is off (Friday night → Saturday 09:00) it is a single extra alarm. Opening `alarm`
+  mode and leaving without turning changes nothing.
+- The app can do the same: `chrono alarm next <hh:mm>` ("just tomorrow"), and
+  `chrono alarm next clear` to cancel a one-off (from the clock or the app) and return to the
+  schedule. A one-off at the schedule's own time for that day is no one-off at all
+  (`alarm_next` stays `schedule`).
+- `chrono alarm arm <on|off>` is the master switch over both (the knob's `bell` mode is the
+  same switch). Off, nothing rings; the schedule and a pending one-off are kept.
+- `chrono alarm set <hh:mm>` (older apps) = every day at that time, all days on, one-off
+  dropped.
+
+**Reading it** — everything is in the snapshot (§5), and it changes **live**: a knob edit while
+the app is connected shows up in the next `status` notification, no command needed.
+
+| Field | Meaning |
+|---|---|
+| `alarm_days`, `alarm_week[7]` | the schedule: days on (bit 0 = Monday) and each day's minute of day |
+| `alarm_next` | `none` (nothing will ring: every day off, no one-off) · `schedule` · `override` (a one-off is pending) |
+| `alarm_h`:`alarm_m` | the **next** alarm's time (the one-off's, when there is one). While `ui_mode` = `alarm` (2) it is the time under the knob, moving |
+| `alarm_next_wday` | the next alarm's weekday (0 = Monday), 255 = none / no date |
+| flag `alarm_armed` | the master switch |
+
+Suggested UI: show the week as the schedule, and — when `alarm_next` = `override` — a banner
+such as *"Next alarm: Tue 08:00 (changed on the clock, just once)"* with a *Cancel* that sends
+`chrono alarm next clear`. Compare with `alarm_week[alarm_next_wday]` to say what it replaced.
+
+**Without a date** (`date_valid` clear — the clock was set by the knob and has not heard from
+the phone or SNTP since boot) the clock knows the hour but not the weekday: only a schedule that
+is the same every day (all days on, one time) can ring, plus a one-off. Sending the time on
+connect ("Keeping time") fixes it. A one-off set before the clock had a date is dropped when
+the date arrives.
 
 ### Wi-Fi
 
@@ -398,28 +456,30 @@ covers that. Don't send other commands while uploading except `storage put`/`end
 
 ## 5. The status snapshot (`status`)
 
-One **132-byte, little-endian, fixed-layout** record of everything the clock knows. Read it, or
+One **150-byte, little-endian, fixed-layout** record of everything the clock knows. Read it, or
 subscribe: the clock re-takes it every `net ble period` ms (1000 by default) and notifies each
-new one. Designed to be **logged and plotted** (132 B/sample ≈ 190 KB/day at 1/min).
+new one. Designed to be **logged and plotted** (150 B/sample ≈ 216 KB/day at 1/min).
 
 Field-by-field layout, types, units, scales and enums: **`protocol.json` → `snapshot`**. Summary:
 
 | Bytes | Content |
 |---|---|
-| 0–1 | `schema` (=1), `size` (=132) |
+| 0–1 | `schema` (=1), `size` (=150; 132 before 2026-09-30) |
 | 2–35 | `seq`, `uptime_s`, `epoch_ms`, `tz_off_min`, reset reason, clock source, **`flags`** (u32 @20), `fw_id`, heap |
 | 36–39 | battery mV, SoC %, source |
 | 40–57 | room: temperature, humidity, pressure, gas, age · light: lux, age |
 | 58–71 | gravity xyz, yaw/pitch/roll, tap counter |
 | 72–87 | hands: motion state, dial tick, shown time, target time, homing sensor, faults, trims |
-| 88–95 | UI mode, volume, alarm h:m, brightness, wake-light %, BLE state |
+| 88–95 | UI mode, volume, **next** alarm h:m, brightness, wake-light %, BLE state |
 | 96–123 | the 7 LEDs, RGBW each |
 | 124–131 | knob count, bonds, Wi-Fi state, RSSI, Wi-Fi error |
+| 132–149 | the alarm schedule: days on, next-alarm kind, 7 × minute of day, next weekday, reserved |
 
 ### Decoding rules
 
-1. Reject `schema != 1` or `size < 132` (or fewer bytes). **Ignore bytes beyond the 132 you know**
-   — newer firmware appends fields.
+1. Reject `schema != 1` or `size < 132` (or fewer bytes). **Ignore bytes beyond the 150 you know**
+   — newer firmware appends fields. A record of **132** bytes is a firmware from before the
+   schedule: it has one daily alarm (`alarm_h:alarm_m`, every day) — hide the week editor.
 2. **Validity lives in `flags`**, not in the values: e.g. if `env_ok` is clear, temperature/humidity
    /pressure are garbage whatever they hold. Each field's `valid_if` in the JSON names its flag.
    Show "—" for invalid values; do not plot them.
@@ -488,6 +548,7 @@ marked newer. Unknown keys: ignore.
 | Date | Version | Change |
 |---|---|---|
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
+| 2026-09-30 | proto 1 / schema 1 | **Weekly alarm schedule + one-off override.** New `chrono alarm week` (the schedule, 7 tokens Monday first), `chrono alarm next <hh:mm>\|clear` (the knob's one-off), `chrono alarm day` (console). Snapshot **132 → 150 bytes**: `alarm_days` @132, `alarm_next` @133 (new enum `alarm_next`), `alarm_week` u16[7] @134, `alarm_next_wday` @148, reserved @149. `alarm_h:alarm_m` now means the **next** alarm (unchanged for a daily alarm). `chrono alarm set` = every day at that time. "Alarm schedule" section; golden vector regenerated. All compatible (appended fields, new commands) |
 | 2026-09-28 | proto 1 / schema 1 | **History log.** New `bulk` characteristic (…0007, notify, offset + data); `log status/period/keep/cap/enable/flush/days/fetch` commands; "History" section; `protocol.json` → `history` (file + record layout, flags, event codes, golden vectors). All compatible (new characteristic, new commands) |
 | 2026-09-28 | proto 1 / schema 1 | **Wi-Fi + SNTP.** New `net wifi join/forget/scan`, `net wifi`, `net sntp [sync]`; "Wi-Fi" section (credentials over the bonded link — replaces the planned Espressif provisioning). `wifi_state` enum grows `idle connecting online backoff`; byte 131 `reserved` → `wifi_err` (was always 0). **Time zones**: `chrono tz <posix> [<name>]`, default San Francisco; `tz_off_min` is now the zone's offset at the instant (DST included) and is no longer 0 before a zone is given; `chrono time epoch` with a disagreeing offset makes the zone fixed. All compatible |
 | 2026-09-28 | proto 1 / schema 1 | Implemented `chrono time epoch` (offset now optional), `chrono alarm set/arm`; added `chrono tz`, `chrono alarm`; `tz_off_min` populated; new flag bit 30 `date_valid`; "Keeping time" guidance. All compatible |

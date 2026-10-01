@@ -1,6 +1,7 @@
 #include "clk/services/ui.hpp"
 
 #include <cinttypes>
+#include <cstdio>
 #include <cstdlib>
 
 #include "clk/domain/hand.hpp"
@@ -11,8 +12,16 @@ namespace {
 
 // NVS key (§7.5).  Fifteen characters is the NVS limit and this is eight.
 constexpr const char* kKeyInput = "ui.input";
-constexpr const char* kKeyAlarm = "ui.alarm";  // minute of day
+constexpr const char* kKeyAlarm = "ui.alarm";  // minute of day -- read once, to seed ui.week
 constexpr const char* kKeyArmed = "ui.armed";
+// The phone's week, "<days hex> <min mon> .. <min sun>" (§6.6f), and the knob's one-off as two
+// local minutes/days.  int32 is plenty: local minutes pass 2^31 in the year 6053.
+constexpr const char* kKeyWeek = "ui.week";
+constexpr const char* kKeyOvrAt = "ui.ovr_at";
+constexpr const char* kKeyOvrDay = "ui.ovr_day";
+constexpr int32_t kNvsNone = INT32_MIN;
+
+namespace al = domain::alarm;
 
 using hal::pixels::Rgbw;
 
@@ -97,6 +106,30 @@ int wrap_day(int minutes) noexcept {
     return minutes < 0 ? minutes + 1440 : minutes;
 }
 
+void week_to_str(al::Week const& w, char* out, std::size_t cap) noexcept {
+    std::snprintf(out, cap, "%02x %d %d %d %d %d %d %d", w.days, w.min[0], w.min[1], w.min[2],
+                  w.min[3], w.min[4], w.min[5], w.min[6]);
+}
+
+bool week_from_str(const char* s, al::Week& w) noexcept {
+    unsigned days = 0;
+    int m[al::kDays] = {};
+    if (std::sscanf(s, "%x %d %d %d %d %d %d %d", &days, &m[0], &m[1], &m[2], &m[3], &m[4], &m[5],
+                    &m[6]) != 8)
+        return false;
+    al::Week t;
+    t.days = static_cast<uint8_t>(days);
+    for (int d = 0; d < al::kDays; ++d) t.min[d] = static_cast<int16_t>(m[d]);
+    if (days > al::kAllDays || !t.valid()) return false;
+    w = t;
+    return true;
+}
+
+int64_t ovr_from_nvs(const char* key) noexcept {
+    const auto v = hal::store::get_i32(key);
+    return v.ok() && v.v != kNvsNone ? v.v : al::kNone;
+}
+
 }  // namespace
 
 Ui::Ui() noexcept : ActiveObject({"ui", 10, 4096, kTickMs}) {}
@@ -109,9 +142,16 @@ Ui& ui() noexcept {
 void Ui::on_start() {
     // The bench gate first: it decides whether the seeding read below means anything.
     if (const auto v = hal::store::get_i32(kKeyInput); v.ok()) input_ = v.v != 0;
-    if (const auto v = hal::store::get_i32(kKeyAlarm); v.ok() && v.v >= 0 && v.v < 24 * 60)
-        alarm_min_of_day_ = v.v;
     if (const auto v = hal::store::get_i32(kKeyArmed); v.ok()) alarm_armed_ = v.v != 0;
+    char wk[64] = {};
+    if (hal::store::get_str(kKeyWeek, wk, sizeof wk) != Status::Ok || !week_from_str(wk, week_)) {
+        // No week yet: the single daily alarm this clock had before 2026-09-30 becomes a week
+        // of seven identical days, which rings exactly as it did.
+        const auto v = hal::store::get_i32(kKeyAlarm);
+        week_ = al::Week::daily(
+            static_cast<int16_t>(v.ok() && v.v >= 0 && v.v < 24 * 60 ? v.v : al::kDefaultMin));
+    }
+    ovr_ = {ovr_from_nvs(kKeyOvrAt), ovr_from_nvs(kKeyOvrDay)};
 
     const auto k = hal::knob::read();
     knob_last_ = k.ok() ? k.v.count : 0;
@@ -155,19 +195,46 @@ void Ui::on_event(Event const& e) {
         const auto want = static_cast<Mode>(m->mode);
         // Snoozing is an answer to a ring; there is nothing to snooze otherwise.
         if (want == Mode::Snoozed && mode_ != Mode::Ringing) return;
-        if (want == Mode::Ringing) CLK_LOGI(ui, "ALARM fires (asked for)");
+        if (want == Mode::Ringing) {
+            CLK_LOGI(ui, "ALARM fires (asked for)");
+            if (const auto n = next_alarm(); n.src != al::Src::None)
+                alarm_rung_min_ = al::min_of_day(n.at);
+        }
         return enter(want);
     }
     if (const auto* a = as<AlarmCfg>(e)) {
-        if (a->min_of_day >= 0 && a->min_of_day < 24 * 60) {
-            alarm_min_of_day_ = a->min_of_day;
-            if (mode_ == Mode::Alarm) set_min_of_day_ = a->min_of_day;  // the dial follows
+        const bool m_ok = a->min_of_day >= 0 && a->min_of_day < 24 * 60;
+        switch (a->op) {
+            case AlarmCfg::Daily:
+                if (m_ok) {
+                    week_ = al::Week::daily(a->min_of_day);
+                    ovr_ = {};
+                    save_override();
+                }
+                break;
+            case AlarmCfg::Week: {
+                port::Lock lk{mx_};
+                if (week_in_.valid()) week_ = week_in_;
+                break;
+            }
+            case AlarmCfg::Next:
+                if (m_ok) make_override(a->min_of_day);
+                break;
+            case AlarmCfg::NextClear:
+                ovr_ = {};
+                save_override();
+                break;
         }
         if (a->armed >= 0) alarm_armed_ = a->armed != 0;
         save_alarm();
-        CLK_LOGI(ui, "alarm %02d:%02d %s", alarm_min_of_day_ / 60, alarm_min_of_day_ % 60,
-                 alarm_armed_ ? "armed" : "off");
-        if (mode_ == Mode::Alarm || mode_ == Mode::Bell) show_hands();
+        const auto n = next_alarm();
+        CLK_LOGI(ui, "alarm %s; next %s", alarm_armed_ ? "armed" : "off",
+                 n.src == al::Src::None       ? "none"
+                 : n.src == al::Src::Override ? "one-off"
+                                              : "scheduled");
+        // The dial follows a change made while somebody is looking at it -- unless the knob is
+        // mid-edit, where the edit is what they are looking at.
+        if (mode_ == Mode::Bell) show_hands();
         return;
     }
     if (const auto* d = as<KnobDelta>(e)) return rotate(d->counts);
@@ -372,15 +439,18 @@ void Ui::enter(Mode m) noexcept {
     // that does not, and it is the refusal above (which never entered it).
     if (mode_ == Mode::Clock && m != Mode::Clock) commit_clock();
     if (mode_ == Mode::Volume && m != Mode::Volume) chime_stop();
-    if (mode_ == Mode::Alarm && m != Mode::Alarm) save_alarm();  // once per edit, not per minute
+    // Once per edit, not per minute -- and only an edit that changed something.  Opening
+    // `alarm` to look at the time and pressing on is not asking for tomorrow to be different.
+    if (mode_ == Mode::Alarm && m != Mode::Alarm && set_min_of_day_ != alarm_edit_from_)
+        make_override(set_min_of_day_);
     // The sound.  Ringing is the only mode that makes one; leaving it for anything, snooze
     // included, stops it (with a fade -- hal::audio::stop() always releases through the tail).
     if (m == Mode::Ringing && mode_ != Mode::Ringing) {
         ring_since_us_ = port::now_us();
         if (storage_) {
             (void)storage_->ring_alarm();
-            const uint8_t a[2] = {static_cast<uint8_t>(alarm_min_of_day_ / 60),
-                                  static_cast<uint8_t>(alarm_min_of_day_ % 60)};
+            const uint8_t a[2] = {static_cast<uint8_t>(alarm_rung_min_ / 60),
+                                  static_cast<uint8_t>(alarm_rung_min_ % 60)};
             storage_->log_event(transport::hist::Ev::AlarmFire, a, sizeof a);
         }
     }
@@ -398,6 +468,7 @@ void Ui::enter(Mode m) noexcept {
         if (storage_) storage_->log_event(transport::hist::Ev::AlarmDismiss);
     }
 
+    const Mode was = mode_;
     mode_ = m;
     last_input_us_ = port::now_us();
     // Part of a turn left over from the last mode is not part of this one.
@@ -405,7 +476,18 @@ void Ui::enter(Mode m) noexcept {
     arm_resid_ = 0;
     last_unit_us_ = 0;  // ... and the first turn in a mode lands straight away
 
-    if (m == Mode::Alarm) set_min_of_day_ = alarm_min_of_day_;
+    if (m == Mode::Alarm && was != Mode::Alarm) {
+        // The knob edits the NEXT alarm, so it opens on it (§6.6f).
+        const auto n = next_alarm();
+        int64_t now = 0;
+        bool dated = false;
+        (void)now_local(now, dated);
+        // Nothing coming (every day off): today's time, off or not, is the best place to start.
+        set_min_of_day_ = n.src != al::Src::None
+                              ? al::min_of_day(n.at)
+                              : week_.min[dated ? al::weekday(al::day_of(now)) : 0];
+        alarm_edit_from_ = set_min_of_day_;
+    }
     if (m == Mode::Clock) {
         // Start from the time the clock is keeping -- and from 12:00 when nothing has ever
         // told it one.  chrono's hour and minute are an offset from an epoch it never had, so
@@ -579,7 +661,6 @@ void Ui::drain_setting() noexcept {
     // not buy a free minute the instant it is touched again.
     if (now - last_unit_us_ > pace_us) last_unit_us_ = now - pace_us;
     set_min_of_day_ = wrap_day(set_min_of_day_ + dir * units);
-    if (mode_ == Mode::Alarm) alarm_min_of_day_ = set_min_of_day_;  // saved on leaving the mode
     // The hands are still moving to what the knob asked for, so the mode is not idle -- a
     // five-second timeout that fired while the dial was visibly winding would be measured
     // from the wrong thing.
@@ -665,11 +746,17 @@ void Ui::show_hands(int dir) noexcept {
             // Armed, the dial shows when it will go off.  Disarmed, both hands go to the 6 --
             // stacked, which is a reading no working clock can produce, so the dial is
             // visibly saying something rather than displaying a plausible wrong time.
-            if (!alarm_armed_) {
-                motion_->goto_usteps(kSouth, kSouth, true, dir);
-                return;
+            //
+            // "When it will go off" is the NEXT alarm: tomorrow's one-off, or the week's next
+            // day.  Armed with nothing coming (every day off) reads as off, because it is.
+            {
+                const auto n = next_alarm();
+                if (!alarm_armed_ || n.src == al::Src::None) {
+                    motion_->goto_usteps(kSouth, kSouth, true, dir);
+                    return;
+                }
+                show = al::min_of_day(n.at);
             }
-            show = alarm_min_of_day_;
             break;
         case Mode::Alarm:
         case Mode::Clock:
@@ -849,11 +936,66 @@ void Ui::chime_tick() noexcept {
     }
 }
 
-// Two keys.  Called once per edit -- leaving `alarm`, an arm/disarm, a `chrono alarm` --
-// never per minute of a knob wind: NVS pages are not free.
+// Called once per edit -- an arm/disarm, a `chrono alarm` -- never per minute of a knob wind:
+// NVS pages are not free.  The week is a string so the same key can grow a field.
 void Ui::save_alarm() const noexcept {
-    (void)hal::store::set_i32(kKeyAlarm, alarm_min_of_day_);
+    char wk[64];
+    week_to_str(week_, wk, sizeof wk);
+    (void)hal::store::set_str(kKeyWeek, wk);
     (void)hal::store::set_i32(kKeyArmed, alarm_armed_ ? 1 : 0);
+}
+
+void Ui::save_override() const noexcept {
+    auto i32 = [](int64_t v) {
+        return v == al::kNone || v < INT32_MIN + 1 || v > INT32_MAX ? kNvsNone
+                                                                    : static_cast<int32_t>(v);
+    };
+    (void)hal::store::set_i32(kKeyOvrAt, i32(ovr_.at));
+    (void)hal::store::set_i32(kKeyOvrDay, i32(ovr_.day));
+}
+
+void Ui::set_week(al::Week const& w) noexcept {
+    {
+        port::Lock lk{mx_};
+        week_in_ = w;
+    }
+    post(AlarmCfg{-1, -1, AlarmCfg::Week});
+}
+
+bool Ui::now_local(int64_t& min, bool& dated) const noexcept {
+    min = 0;
+    dated = false;
+    if (!chrono_) return false;
+    const auto c = chrono_->snapshot();
+    if (!c.valid) return false;
+    min = al::local_minute(c.epoch_ms, c.tz_off_min);
+    dated = c.date_valid;
+    return true;
+}
+
+al::Next Ui::next_alarm() const noexcept {
+    int64_t now = 0;
+    bool dated = false;
+    // No time at all: nothing can be placed on a calendar, but the dial still wants a minute
+    // to show, and minute 0 of day 0 finds the week's first one.
+    (void)now_local(now, dated);
+    return al::next(week_, ovr_, after_fired(now), dated);
+}
+
+// The knob's edit (and `chrono alarm next`): the next alarm rings at `m`, once.  Anchored to
+// whatever the clock reads now -- with no time at all there is no "next", but nothing rings
+// without a time either (watch_alarm), and the first real time sweeps it away as stale.
+void Ui::make_override(int m) noexcept {
+    int64_t now = 0;
+    bool dated = false;
+    (void)now_local(now, dated);
+    ovr_ = al::override_at(week_, after_fired(now), m, dated);
+    save_override();
+    if (ovr_.pending())
+        CLK_LOGI(ui, "next alarm %02d:%02d, once (%s) -- the week is unchanged", m / 60, m % 60,
+                 dated ? al::day_name(al::weekday(ovr_.day)) : "no date");
+    else
+        CLK_LOGI(ui, "next alarm %02d:%02d is the week's own -- no override", m / 60, m % 60);
 }
 
 void Ui::chime_stop() noexcept {
@@ -878,18 +1020,26 @@ void Ui::watch_alarm() noexcept {
         enter(Mode::Idle);
         return;
     }
-    if (!alarm_armed_ || !chrono_ || ringing()) return;
+    int64_t lnow = 0;
+    bool dated = false;
+    if (!now_local(lnow, dated)) return;  // no time, no alarm: 07:00 of an unset clock is an uptime
+    // Housekeeping first, armed or not: a one-off whose minute has gone (rung, or the clock
+    // was set past it) is over, and so is the day it replaced.
+    if (const auto o = al::expire(ovr_, lnow); !(o == ovr_)) {
+        ovr_ = o;
+        save_override();
+    }
+    if (!alarm_armed_ || ringing()) return;
     // Not while the alarm is being EDITED: the time under the knob sweeps past "now" on its way
     // to where it is going, and that is not the user asking to be woken.  Nothing is marked as
     // fired, so if the edit ends inside the minute it still rings.
     if (mode_ == Mode::Alarm) return;
-    const auto c = chrono_->snapshot();
-    if (!c.valid) return;  // no time, no alarm: 07:00 of an unset clock is an uptime
-    if (c.hour * 60 + c.minute != alarm_min_of_day_) return;
-    const int64_t local_min = (c.epoch_ms + c.tz_off_min * 60'000ll) / 60'000ll;
-    if (local_min == fired_min_) return;
-    fired_min_ = local_min;
-    CLK_LOGI(ui, "ALARM %02d:%02d fires", alarm_min_of_day_ / 60, alarm_min_of_day_ % 60);
+    if (!al::due(week_, ovr_, lnow, dated)) return;
+    if (lnow == fired_min_) return;
+    fired_min_ = lnow;
+    alarm_rung_min_ = al::min_of_day(lnow);
+    CLK_LOGI(ui, "ALARM %02d:%02d fires%s", alarm_rung_min_ / 60, alarm_rung_min_ % 60,
+             ovr_.at == lnow ? " (one-off)" : "");
     enter(Mode::Ringing);
 }
 
@@ -902,12 +1052,25 @@ void Ui::publish() noexcept {
     // Read before the lock: net_owns_time() takes chrono's, and two services' mutexes held
     // in one order here and the other order there is the whole recipe for a deadlock.
     const bool locked = net_owns_time();
+    int64_t now_min = 0;
+    bool dated = false;
+    const bool timed = now_local(now_min, dated);
+    const auto nx = al::next(week_, ovr_, after_fired(now_min), dated);
+    int shown = week_.min[timed && dated ? al::weekday(al::day_of(now_min)) : 0];
+    if (nx.src != al::Src::None) shown = al::min_of_day(nx.at);
+    if (mode_ == Mode::Alarm) shown = set_min_of_day_;  // the knob's edit, live
     port::Lock lk{mx_};
     snap_.mode = mode_;
     snap_.mode_name = name_of(mode_);
     snap_.alarm_armed = alarm_armed_;
-    snap_.alarm_hour = alarm_min_of_day_ / 60;
-    snap_.alarm_minute = alarm_min_of_day_ % 60;
+    snap_.alarm_hour = shown / 60;
+    snap_.alarm_minute = shown % 60;
+    snap_.alarm_week = week_;
+    snap_.alarm_next = nx.src;
+    snap_.alarm_next_at = nx.at;
+    snap_.alarm_next_wday = static_cast<int8_t>(
+        nx.src != al::Src::None && timed && dated ? al::weekday(al::day_of(nx.at)) : -1);
+    snap_.alarm_ovr = ovr_;
     snap_.volume = volume_;
     snap_.counts_per_minute = tune_.counts_per_minute;
     snap_.idle_in_ms = mode_ == Mode::Idle ? 0 : left;

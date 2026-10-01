@@ -404,6 +404,10 @@ void Net::take_status() noexcept {
         s.volume = u.volume;
         s.alarm_h = static_cast<uint8_t>(u.alarm_hour);
         s.alarm_m = static_cast<uint8_t>(u.alarm_minute);
+        s.alarm_days = u.alarm_week.days;
+        s.alarm_next = static_cast<uint8_t>(u.alarm_next);
+        for (int d = 0; d < 7; ++d) s.alarm_week[d] = static_cast<uint16_t>(u.alarm_week.min[d]);
+        s.alarm_next_wday = u.alarm_next_wday < 0 ? 0xFF : static_cast<uint8_t>(u.alarm_next_wday);
         s.brightness = u.brightness;
         s.knob_count = u.knob_count;
         if (u.held_ms > 0) f |= kKnobPressed;

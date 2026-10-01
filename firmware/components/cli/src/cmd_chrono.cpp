@@ -6,6 +6,7 @@
 #include <ctime>
 
 #include "clk/cli/registry.hpp"
+#include "clk/domain/alarm.hpp"
 #include "clk/domain/hand.hpp"
 #include "clk/domain/tz.hpp"
 #include "clk/services/chrono.hpp"
@@ -160,24 +161,71 @@ Status cmd_tz(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
-// The alarm.  `ui` owns it (the knob edits the same two values), so these post and then wait
-// for `ui` to say it took -- a CLI line that reports what it ASKED for is the F0.1 lie.
-bool alarm_is(int min_of_day, int armed) {
+// The alarm.  `ui` owns it (the knob edits the next one), so these post and then wait for `ui`
+// to say it took -- a CLI line that reports what it ASKED for is the F0.1 lie.
+template <class Pred>
+bool ui_took(Pred p) {
     for (int i = 0; i < 60; ++i) {
-        const auto u = svc::ui().snapshot();
-        if ((min_of_day < 0 || u.alarm_hour * 60 + u.alarm_minute == min_of_day) &&
-            (armed < 0 || u.alarm_armed == (armed != 0)))
-            return true;
+        if (p(svc::ui().snapshot())) return true;
         hal::clock_::sleep_ms(5);
     }
     return false;
 }
 
+bool alarm_is(int min_of_day, int armed) {
+    return ui_took([&](svc::Ui::Snapshot const& u) {
+        return (min_of_day < 0 || u.alarm_hour * 60 + u.alarm_minute == min_of_day) &&
+               (armed < 0 || u.alarm_armed == (armed != 0));
+    });
+}
+
+namespace al = domain::alarm;
+
+// "mon".."sun", "weekdays", "weekend", "all" -> a day mask; 0 = not a day.
+uint8_t parse_days(std::string_view v) {
+    if (v == "all" || v == "daily") return al::kAllDays;
+    if (v == "weekdays") return 0x1F;
+    if (v == "weekend") return 0x60;
+    for (int d = 0; d < al::kDays; ++d)
+        if (v == al::day_name(d)) return static_cast<uint8_t>(1u << d);
+    return 0;
+}
+
+// One day of `chrono alarm week`: "07:00" rings, "-07:00" is off at 07:00, "-" is off and
+// keeps the time the clock already has for that day.
+bool parse_week_day(const char* v, al::Week& w, int d) {
+    if (!v) return false;
+    const bool off = v[0] == '-';
+    if (off) ++v;
+    if (off && !*v) {
+        w.days = static_cast<uint8_t>(w.days & ~(1u << d));
+        return true;
+    }
+    int h = 0, m = 0, sec = 0;
+    if (!parse_time(v, h, m, sec) || sec != 0) return false;
+    w.min[d] = static_cast<int16_t>(h * 60 + m);
+    w.days =
+        off ? static_cast<uint8_t>(w.days & ~(1u << d)) : static_cast<uint8_t>(w.days | (1u << d));
+    return true;
+}
+
 Status alarm_print(Sink& out) {
     const auto u = svc::ui().snapshot();
     const auto s = svc::storage().snapshot();
-    out.printf("alarm %02d:%02d %s  tone %s", u.alarm_hour, u.alarm_minute,
-               u.alarm_armed ? "armed" : "off", s.alarm_tone[0] ? s.alarm_tone : "(beep)");
+    const char* what = u.alarm_next == al::Src::Override   ? "  (one-off, the week is unchanged)"
+                       : u.alarm_next == al::Src::Schedule ? ""
+                                                           : "  (nothing coming: every day off)";
+    out.printf("alarm %02d:%02d %s%s%s%s  tone %s", u.alarm_hour, u.alarm_minute,
+               u.alarm_armed ? "armed" : "off", u.alarm_next_wday >= 0 ? " next " : "",
+               u.alarm_next_wday >= 0 ? al::day_name(u.alarm_next_wday) : "", what,
+               s.alarm_tone[0] ? s.alarm_tone : "(beep)");
+    char wk[96];
+    int n = 0;
+    for (int d = 0; d < al::kDays; ++d)
+        n += std::snprintf(wk + n, sizeof wk - static_cast<std::size_t>(n), " %s %s%02d:%02d",
+                           al::day_name(d), u.alarm_week.on(d) ? "" : "-", u.alarm_week.min[d] / 60,
+                           u.alarm_week.min[d] % 60);
+    out.printf("week %s", wk);
     if (u.mode == svc::Ui::Mode::Ringing)
         out.printf("  RINGING for %lu s -- `chrono alarm snooze|dismiss`",
                    static_cast<unsigned long>(u.ringing_ms / 1000));
@@ -189,7 +237,8 @@ Status alarm_print(Sink& out) {
 
 Status cmd_alarm(Args const& a, Sink& out) {
     if (a.count() == 0) return alarm_print(out);
-    out.line("usage: chrono alarm [set <hh:mm> | arm <on|off> | tone [<name>|none]]");
+    out.line("usage: chrono alarm [set <hh:mm> | week <mon>..<sun> | day <day> <hh:mm|on|off> |");
+    out.line("                     next <hh:mm|clear> | arm <on|off> | tone [<name>|none]]");
     return Status::BadArg;
 }
 
@@ -276,7 +325,84 @@ Status cmd_alarm_set(Args const& a, Sink& out) {
         return Status::BadArg;
     }
     svc::ui().set_alarm(h * 60 + m);
-    if (!alarm_is(h * 60 + m, -1)) {
+    const auto want = al::Week::daily(static_cast<int16_t>(h * 60 + m));
+    if (!ui_took([&](svc::Ui::Snapshot const& u) {
+            return u.alarm_week == want && u.alarm_ovr.empty();
+        })) {
+        out.line("ui did not take it (not running?)");
+        return Status::Failed;
+    }
+    return alarm_print(out);
+}
+
+Status week_apply(al::Week const& w, Sink& out) {
+    svc::ui().set_week(w);
+    if (!ui_took([&](svc::Ui::Snapshot const& u) { return u.alarm_week == w; })) {
+        out.line("ui did not take it (not running?)");
+        return Status::Failed;
+    }
+    return alarm_print(out);
+}
+
+// The phone's whole week in one line, Monday first: seven of `hh:mm`, `-hh:mm`, `-`.
+Status cmd_alarm_week(Args const& a, Sink& out) {
+    if (a.count() != al::kDays) {
+        out.line("usage: chrono alarm week <mon> <tue> <wed> <thu> <fri> <sat> <sun>");
+        out.line("  each hh:mm (rings) | -hh:mm (off, keeps the time) | - (off, time unchanged)");
+        return Status::BadArg;
+    }
+    al::Week w = svc::ui().snapshot().alarm_week;
+    for (int d = 0; d < al::kDays; ++d) {
+        if (!parse_week_day(a.arg(d), w, d)) {
+            out.printf("bad %s: '%s'", al::day_name(d), a.arg(d));
+            return Status::BadArg;
+        }
+    }
+    return week_apply(w, out);
+}
+
+// One day (or a group) of the week, for a person at the console.
+Status cmd_alarm_day(Args const& a, Sink& out) {
+    const uint8_t mask = a.arg(0) ? parse_days(a.sv(0)) : 0;
+    const auto v = a.sv(1);
+    int h = 0, m = 0, sec = 0;
+    const bool is_time = a.arg(1) && parse_time(a.arg(1), h, m, sec) && sec == 0;
+    if (!mask || (!is_time && v != "on" && v != "off")) {
+        out.line("usage: chrono alarm day <mon..sun|weekdays|weekend|all> <hh:mm|on|off>");
+        return Status::BadArg;
+    }
+    al::Week w = svc::ui().snapshot().alarm_week;
+    for (int d = 0; d < al::kDays; ++d) {
+        if (!((mask >> d) & 1u)) continue;
+        if (is_time) w.min[d] = static_cast<int16_t>(h * 60 + m);
+        if (v == "off")
+            w.days = static_cast<uint8_t>(w.days & ~(1u << d));
+        else
+            w.days = static_cast<uint8_t>(w.days | (1u << d));
+    }
+    return week_apply(w, out);
+}
+
+// The knob's one-off: the next alarm rings at hh:mm, once; the week is untouched.
+Status cmd_alarm_next(Args const& a, Sink& out) {
+    if (a.sv(0) == "clear") {
+        svc::ui().set_next(-1);
+        if (!ui_took([](svc::Ui::Snapshot const& u) { return u.alarm_ovr.empty(); })) {
+            out.line("ui did not take it (not running?)");
+            return Status::Failed;
+        }
+        return alarm_print(out);
+    }
+    int h = 0, m = 0, sec = 0;
+    if (!parse_time(a.arg(0), h, m, sec)) {
+        out.line("usage: chrono alarm next <hh:mm|clear>");
+        return Status::BadArg;
+    }
+    svc::ui().set_next(h * 60 + m);
+    if (!ui_took([&](svc::Ui::Snapshot const& u) {
+            return u.alarm_next != al::Src::None &&
+                   u.alarm_hour * 60 + u.alarm_minute == h * 60 + m;
+        })) {
         out.line("ui did not take it (not running?)");
         return Status::Failed;
     }
@@ -377,7 +503,14 @@ constexpr CmdSpec kRows[] = {
      None, cmd_epoch},
     {"chrono", nullptr, "tz", "[<offset_min> | <posix> [<name>]]",
      "zone: POSIX rule (NVS); default San Francisco", None, cmd_tz},
-    {"chrono", "alarm", "set", "<hh:mm>", "alarm time (NVS)", None, cmd_alarm_set},
+    {"chrono", "alarm", "set", "<hh:mm>", "every day at hh:mm, all days on (NVS)", None,
+     cmd_alarm_set},
+    {"chrono", "alarm", "week", "<mon> .. <sun>", "the week: hh:mm | -hh:mm | - each (NVS)", None,
+     cmd_alarm_week},
+    {"chrono", "alarm", "day", "<day|weekdays|weekend|all> <hh:mm|on|off>", "one day of the week",
+     None, cmd_alarm_day},
+    {"chrono", "alarm", "next", "<hh:mm|clear>", "the next alarm only, once -- as the knob sets it",
+     None, cmd_alarm_next},
     {"chrono", "alarm", "arm", "<on|off>", "arm or disarm the alarm (NVS)", None, cmd_alarm_arm},
     {"chrono", "alarm", "tone", "[<name>|none]", "which /sd/tones WAV rings (NVS)", None,
      cmd_alarm_tone},

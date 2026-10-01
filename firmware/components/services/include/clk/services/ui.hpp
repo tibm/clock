@@ -13,6 +13,7 @@
 #include <cstdint>
 
 #include "clk/ao.hpp"
+#include "clk/domain/alarm.hpp"
 #include "clk/domain/anim.hpp"
 #include "clk/domain/level.hpp"
 #include "clk/services/chrono.hpp"
@@ -35,7 +36,16 @@ public:
         Mode mode;
         const char* mode_name;
         bool alarm_armed;
+        // The NEXT alarm -- the override when there is one, else the week's next day -- and
+        // while the knob is editing it in `alarm`, the time under the knob.  With nothing
+        // coming (no day on, no override) it is today's scheduled minute and `alarm_next` is
+        // None.  §6.6f.
         int alarm_hour, alarm_minute;
+        domain::alarm::Week alarm_week;     // the phone's schedule, as persisted
+        domain::alarm::Src alarm_next;      // what the next alarm is
+        int8_t alarm_next_wday;             // its weekday, 0 = Mon; -1 = none / no date
+        int64_t alarm_next_at;              // its local minute (domain::alarm), kNone = none
+        domain::alarm::Override alarm_ovr;  // the knob's one-off, as persisted
         uint8_t volume;
         int32_t counts_per_minute;
         uint32_t idle_in_ms;  // time left before the timeout drops us to Idle
@@ -94,10 +104,21 @@ public:
         storage_ = s;
     }
     void set_mode(Mode) noexcept;
-    // The alarm, from the CLI / the app.  Posted: `ui` owns it (the knob edits the same two
-    // values), and both are NVS-backed so a reboot keeps the alarm the user set.
+    // The alarm, from the CLI / the app.  Posted: `ui` owns it (the knob edits the next one),
+    // and all of it is NVS-backed so a reboot keeps the alarm the user set (§6.6f).
+    //
+    // set_alarm: EVERY day at this minute, every day on, override dropped -- the old single
+    // daily alarm, and still what `chrono alarm set` means.
     void set_alarm(int min_of_day) noexcept {
-        post(AlarmCfg{static_cast<int16_t>(min_of_day), -1});
+        post(AlarmCfg{static_cast<int16_t>(min_of_day), -1, AlarmCfg::Daily});
+    }
+    // The phone's week.  An override the knob set stays: it is a different person's decision.
+    void set_week(domain::alarm::Week const& w) noexcept;
+    // The knob's one-off, from the console / the app: the next alarm rings at this minute and
+    // replaces that day's scheduled one.  -1 drops it.
+    void set_next(int min_of_day) noexcept {
+        post(AlarmCfg{static_cast<int16_t>(min_of_day), -1,
+                      min_of_day < 0 ? AlarmCfg::NextClear : AlarmCfg::Next});
     }
     void arm_alarm(bool on) noexcept { post(AlarmCfg{-1, static_cast<int8_t>(on ? 1 : 0)}); }
     // The same three things the knob and a tap do, for `chrono alarm fire|snooze|dismiss` and
@@ -170,6 +191,17 @@ private:
     [[nodiscard]] uint8_t level() const noexcept;           // Tuning::brightness, 0..255
 
     void save_alarm() const noexcept;
+    void save_override() const noexcept;
+    // The clock's local minute right now and whether it has a real date, or false when it has
+    // no time at all.
+    [[nodiscard]] bool now_local(int64_t& min, bool& dated) const noexcept;
+    // The minute the alarm already rang in is not "next" any more: from then on, the next
+    // alarm (and a one-off set inside that minute) is looked for from the minute after.
+    [[nodiscard]] int64_t after_fired(int64_t now) const noexcept {
+        return now == fired_min_ ? now + 1 : now;
+    }
+    [[nodiscard]] domain::alarm::Next next_alarm() const noexcept;
+    void make_override(int min_of_day) noexcept;
     void chime_tick() noexcept;
     void chime_stop() noexcept;
 
@@ -201,10 +233,15 @@ private:
     uint64_t sw_down_us_ = 0;
     bool pair_armed_ = false;  // the hold already became pairing; the release is spent
 
-    // Held here until `storage` exists.  An alarm the user set should survive a reboot; for
-    // now it survives as long as clocksim runs, which is enough to tune the interaction.
+    // NVS-backed (§6.6f): the master switch, the phone's week and the knob's one-off.
     bool alarm_armed_ = false;
-    int alarm_min_of_day_ = 7 * 60;
+    domain::alarm::Week week_{};
+    domain::alarm::Override ovr_{};
+    // A new week from set_week(), waiting for the AlarmCfg{Week} that says to take it.
+    domain::alarm::Week week_in_{};
+    // What `alarm` opened on: leaving it with the same minute is looking, not setting.
+    int alarm_edit_from_ = -1;
+    int alarm_rung_min_ = 7 * 60;  // the minute that last fired, for the history event
     // The LOCAL minute (minutes since the epoch, offset applied) the alarm last fired in, so
     // it fires once per matching minute however many ticks land inside it -- and a dismissal
     // at 07:00:20 does not ring again at 07:00:40.

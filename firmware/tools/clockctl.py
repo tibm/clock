@@ -67,6 +67,11 @@ BLE = ["off", "idle", "pairing", "connected", "secure"]
 WIFI = ["off", "idle", "connecting", "online", "backoff"]
 WIFI_ERR = ["none", "no-ap", "auth", "no-ip", "timeout", "other"]
 PIXELS = ["dial0", "dial1", "bell", "alarm", "clock", "vol", "batt"]
+# Appended 2026-09-30 (size 150): the alarm week.  A 132-byte record is an older firmware.
+LAYOUT_WEEK = "<BB7HBB"
+assert struct.calcsize(LAYOUT_WEEK) == 18
+ALARM_NEXT = ["none", "schedule", "override"]
+DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 
 def decode(buf: bytes) -> dict:
@@ -89,6 +94,14 @@ def decode(buf: bytes) -> dict:
         d["time"] = local.strftime("%Y-%m-%d %H:%M:%S" if d["date_valid"] else "%H:%M:%S")
     else:
         d["time"] = None
+    if len(buf) >= 150 and buf[1] >= 150:
+        days, nxt, *week, wday, _ = struct.unpack_from(LAYOUT_WEEK, buf, 132)
+        d["alarm_days"] = days
+        d["alarm_next"] = ALARM_NEXT[nxt] if nxt < len(ALARM_NEXT) else f"unknown({nxt})"
+        # one CSV-friendly string, Monday first; a leading '-' = that day is off
+        d["alarm_week"] = " ".join(
+            f"{'' if days >> i & 1 else '-'}{m // 60:02}:{m % 60:02}" for i, m in enumerate(week))
+        d["alarm_next_wday"] = DAYS[wday] if wday < 7 else None
     px = d.pop("px")
     for i, name in enumerate(PIXELS):
         d[f"px_{name}"] = px[4 * i:4 * i + 4].hex()
@@ -106,8 +119,10 @@ def show(d: dict) -> None:
     print(f"  hands  {MOTION[d['motion_state']] if d['motion_state'] < 5 else '?'}  "
           f"{d['hand_h']:02}:{d['hand_m']:02} -> {d['target_h']:02}:{d['target_m']:02}  "
           f"opto {d['opto']:.3f}")
-    print(f"  ui     {MODE[d['ui_mode']] if d['ui_mode'] < 6 else '?'}  vol {d['volume']}%  "
+    print(f"  ui     {MODE[d['ui_mode']] if d['ui_mode'] < len(MODE) else '?'}  vol {d['volume']}%  "
           f"alarm {d['alarm_h']:02}:{d['alarm_m']:02}  knob {d['knob_count']}")
+    if "alarm_week" in d:
+        print(f"  alarm  next {d['alarm_next']} {d['alarm_next_wday'] or ''}  week {d['alarm_week']}")
     print(f"  radio  ble {BLE[d['ble_state']] if d['ble_state'] < 5 else '?'}  bonds {d['bonds']}  "
           f"wifi {WIFI[d['wifi_state']] if d['wifi_state'] < 5 else '?'} {d['wifi_rssi']} dBm"
           + (f"  err {WIFI_ERR[d['wifi_err']] if d['wifi_err'] < 6 else '?'}" if d['wifi_err'] else ""))

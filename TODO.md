@@ -41,9 +41,9 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | | Feature | Notes |
 |---|---|---|
 | ✅ | Alarm time + arm/disarm: knob, CLI, BLE; persisted in NVS | 2026-09-28 |
-| ✅ | **The alarm actually rings** | 2026-09-27: `ui` fires it at the set local minute → `Ringing` / `Snoozed` (§6.6). Still `ui`'s single alarm — moving it into `chrono`'s table (§6.4) comes with weekdays below |
+| ✅ | **The alarm actually rings** | 2026-09-27: `ui` fires it at the set local minute → `Ringing` / `Snoozed` (§6.6). Still owned by `ui` (§6.6f); `chrono`'s `alarms[8]` table (§6.4) not needed for one week + one override |
 | ✅ | Snooze (tap on top via BNO085, or press) and dismiss (long press) | 2026-09-27. Snooze 9 min, auto-dismiss after 15 min unanswered (`Ui::Tuning`, not yet NVS/app-settable). Bench: **F5.7** |
-| ⬜ | Repeat by weekday (and several alarms?) | today: one daily alarm. Needs a protocol addition when built |
+| ✅ | **Weekly schedule** (a time per weekday, each on/off) from the app, NVS; the knob edits **the next alarm only** (one-off, replaces that day, schedule untouched) | 2026-09-30, §6.6f, `domain/alarm.hpp`. Protocol: `chrono alarm week` / `next <hh:mm\|clear>`, snapshot 132 → 150 B (`app/PROTOCOL.md` "Alarm schedule"). Host-tested; **iOS week editor + one-off banner still to build** (`app/PLAN.md`). Several independent alarms: not planned |
 | ⬜ | Sunrise wake light, 30 min warm→cool before the alarm | `hal::wake` is the last HAL stub (12 V boost, plugged-only; Phase 4). On battery: dim dial-pixel glow instead |
 | ✅ | Alarm sound from a file (WAV), volume ramp over 30 s | 2026-09-27: `/sd/tones/*.wav`, 48 kHz mono 16-bit only; `storage` AO + 2 s PSRAM ring; tone chosen by `chrono alarm tone` (NVS); beep fallback. Host-tested; **bench: F5.7** |
 | 🟡 | Manage sound files from the app: list, upload, delete, choose the alarm tone | Firmware + protocol done 2026-09-27 (`app/PROTOCOL.md` "Sound files", `blob` characteristic, `storage tones/put/rm`; `clockctl.py put` works as the reference). **The iOS screens are still to build**; bench the transfer rate (**F5.7**) |
@@ -96,6 +96,6 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | 🟡 | Task watchdog on every AO, reset-reason + coredump report at boot | `supervisor`, §6.8 — TWDT (panic → reboot) + stuck-AO + hands-stall detection built 2026-09-29, bench next; `sys coredump` still ⬜ |
 | 🟡 | Debug log on the SD card, one file per boot, survives a watchdog reset | §9.4a — built + host-tested 2026-09-29, bench next |
 | ⬜ | `sys top`, `sys heap`, `sys ev dump` | registered, still `not implemented` |
-| ⬜ | One `storage`-owned config (§7.5) instead of ad-hoc NVS keys | keys today: `ui.input`, `ui.alarm`, `ui.armed`, `chr.tz`, motion zero/inhibit |
+| ⬜ | One `storage`-owned config (§7.5) instead of ad-hoc NVS keys | keys today: `ui.input`, `ui.week`, `ui.ovr_at`, `ui.ovr_day`, `ui.armed` (`ui.alarm` read once to migrate), `chr.tz`, motion zero/inhibit |
 | ⬜ | `BOARD=devkit-uart` compiles | **F5.5** |
 | ⬜ | Flaky host tests (motion AO cases, ~20–30 % of runs) + `test_sim` opto cases broken by the 5 mV span | the opto cases fail on every run since `ed6214f` |

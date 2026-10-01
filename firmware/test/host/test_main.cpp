@@ -9,6 +9,7 @@ void run_sim_tests();
 void run_motor_tests();
 void run_anim_tests();
 void run_level_tests();
+void run_alarm_tests();
 void run_motion_service_tests();
 void run_tsl2591_tests();
 void run_bme688_tests();
@@ -31,6 +32,8 @@ int main() {
     run_sim_tests();
     run_motor_tests();
     run_level_tests();
+    // The weekly alarm and the knob's one-off (§6.6f) -- pure, a week in a microsecond.
+    run_alarm_tests();
     // The three sensor-board drivers.  Two of them run against register models behind the
     // fake bus (§11.2); the BNO085's transport is target-only, so what is checked here is
     // its pure half -- header parsing, Q-point maths, the dial-axis map.

@@ -218,11 +218,18 @@ void test_snapshot_layout_is_fixed() {
     s.knob_count = -1000;
     s.bonds = 2;
     s.wifi_rssi = -60;
+    // The alarm week (appended 2026-09-30): weekdays at 07:00, the weekend kept at 09:30 but
+    // off, and the next alarm a one-off on Tuesday at 08:00.
+    s.alarm_h = 8;
+    s.alarm_days = 0x1F;
+    s.alarm_next = 2;
+    for (int d = 0; d < 7; ++d) s.alarm_week[d] = d < 5 ? 420 : 570;
+    s.alarm_next_wday = 1;
 
     uint8_t w[tp::kWireSize + 8];
     CHECK(tp::encode(s, w, 10) == 0);  // too small: nothing written, nothing claimed
     CHECK(tp::encode(s, w, sizeof w) == tp::kWireSize);
-    CHECK(tp::kWireSize == 132);
+    CHECK(tp::kWireSize == 150);
 
     // The offsets FIRMWARE.md §8.3 promises an app.  Little-endian throughout.
     CHECK(w[0] == tp::kSchema && w[1] == tp::kWireSize);
@@ -244,6 +251,11 @@ void test_snapshot_layout_is_fixed() {
     std::memcpy(&knob, w + 124, 4);
     CHECK(knob == -1000);
     CHECK(w[128] == 2 && static_cast<int8_t>(w[130]) == -60 && w[131] == 0);
+    CHECK(w[90] == 8 && w[91] == 0);
+    CHECK(w[132] == 0x1F && w[133] == 2);
+    CHECK(w[134] == (420 & 0xFF) && w[135] == (420 >> 8));
+    CHECK(w[134 + 2 * 5] == (570 & 0xFF) && w[134 + 2 * 6 + 1] == (570 >> 8));
+    CHECK(w[148] == 1 && w[149] == 0);
 
     tp::Snapshot d;
     CHECK(tp::decode(w, tp::kWireSize, d));
@@ -253,6 +265,8 @@ void test_snapshot_layout_is_fixed() {
     CHECK(d.motion_faults == 0x80000001u && d.last_trim == -3 && d.knob_count == -1000);
     CHECK(d.lux == 143.25f && d.px[2][2] == 200 && d.wifi_rssi == -60);
     CHECK(std::memcmp(&d.px, &s.px, sizeof s.px) == 0);
+    CHECK(d.alarm_days == 0x1F && d.alarm_next == 2 && d.alarm_next_wday == 1);
+    CHECK(d.alarm_week[0] == 420 && d.alarm_week[6] == 570);
 
     // A newer firmware's longer record still decodes; a short one or another schema does not.
     w[1] = static_cast<uint8_t>(tp::kWireSize + 8);
@@ -321,6 +335,13 @@ void test_snapshot_matches_the_app_contract() {
     s.knob_count = -1000;
     s.bonds = 2;
     s.wifi_rssi = -60;
+    // The alarm week (appended 2026-09-30): weekdays at 07:00, the weekend kept at 09:30 but
+    // off, and the next alarm a one-off on Tuesday at 08:00.
+    s.alarm_h = 8;
+    s.alarm_days = 0x1F;
+    s.alarm_next = 2;
+    for (int d = 0; d < 7; ++d) s.alarm_week[d] = d < 5 ? 420 : 570;
+    s.alarm_next_wday = 1;
 
     uint8_t w[tp::kWireSize];
     CHECK(tp::encode(s, w, sizeof w) == tp::kWireSize);
@@ -498,7 +519,7 @@ void test_net_serves_the_status_record() {
     CHECK(snap.contains("ble secure"));
     RecordingSink hex;
     CHECK(run("sys snap --hex", hex) == Status::Ok);
-    CHECK(hex.lines.size() == 5);  // 132 bytes, 32 a row
+    CHECK(hex.lines.size() == 5);  // 150 bytes, 32 a row
 
     // A subscriber that goes away stops being notified; the value stays readable.
     sim::ble_subscribe(true, false);

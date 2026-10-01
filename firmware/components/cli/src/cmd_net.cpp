@@ -424,6 +424,19 @@ Status cmd_sys_snap(Args const& a, Sink& out) {
                pick(kMode, s.ui_mode), s.volume, s.alarm_h, s.alarm_m,
                on(kAlarmArmed) ? "armed" : "off", s.brightness, s.knob_count,
                on(kKnobPressed) ? " pressed" : "", on(kKnobInput) ? "" : "  INPUT OFF");
+    {
+        constexpr const char* kNext[] = {"none", "scheduled", "one-off"};
+        constexpr const char* kDay[] = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"};
+        char wk[96];
+        int n = 0;
+        for (int d = 0; d < 7; ++d)
+            n += std::snprintf(wk + n, sizeof wk - static_cast<std::size_t>(n), "%s %s%02u:%02u ",
+                               kDay[d], (s.alarm_days >> d) & 1u ? "" : "-", s.alarm_week[d] / 60u,
+                               s.alarm_week[d] % 60u);
+        out.printf("        next %s%s%s  week %s", pick(kNext, s.alarm_next),
+                   s.alarm_next_wday < 7 ? " " : "",
+                   s.alarm_next_wday < 7 ? kDay[s.alarm_next_wday] : "", wk);
+    }
     char px[160];
     int k = 0;
     for (std::size_t i = 0; i < kPixels; ++i) {

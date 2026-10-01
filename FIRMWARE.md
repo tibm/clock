@@ -1703,6 +1703,37 @@ clockwise move by construction, so the hands sweep 12 → 10 and never cut back 
 dead zone. The arithmetic is three pure functions in `domain/hand.hpp` — `directed`, `chase`,
 `approach_by` — exhaustively tested from every position to every other.
 
+#### 6.6f The alarm — a week from the phone, a one-off from the knob (2026-09-30)
+
+Two things, owned by two people, and neither overwrites the other:
+
+| | Set by | Stored | Lifetime |
+|---|---|---|---|
+| **Week** — a minute per weekday, each day on/off | the app: `chrono alarm week` (also `set` = every day, `day` for the console) | NVS `ui.week` = `"<days hex> <min mon> … <min sun>"` | until the app sends another |
+| **One-off** — "the next alarm is at hh:mm" | the knob in `alarm`, or `chrono alarm next` | NVS `ui.ovr_at` / `ui.ovr_day` (local minute / local day, `INT32_MIN` = none) | rings once |
+| **Armed** — the master switch | `bell`, `chrono alarm arm` | NVS `ui.armed` | — |
+
+The rule (`domain/alarm.hpp`, pure, `test_alarm.cpp`): the one-off rings the **next time the
+clock reads that minute** (this minute included) and **replaces the scheduled alarm of the day
+it lands on** — so Monday 22:00 → 08:00 rings Tuesday 08:00 and not 07:00; Monday 06:00 → 06:30
+rings 06:30 and *not* 07:00 after it; Friday night → Saturday 09:00 on a weekdays-only week is
+one extra alarm. The replaced day is remembered until it is over, even after the one-off has
+rung. A one-off equal to that day's scheduled minute is no one-off. `alarm` opens on the **next**
+alarm, and leaving it without a change is not an edit. A new week from the app keeps a pending
+one-off; `chrono alarm set` (every day) and `chrono alarm next clear` drop it.
+
+Everything is in **local minutes** (minutes since 1970-01-01 local = UTC + the zone's offset at
+the instant), so a DST night is one day like another and `fired_min_` still guards a repeated
+minute. With **no date** (`date_valid` clear: knob-set time) there is no weekday — only a
+*uniform* week (all days on, one time) rings, plus a one-off; a pre-date one-off is swept away
+as stale when the real date arrives. No time at all: nothing rings (unchanged).
+
+`Ui::Snapshot` / the §8.3 record carry the week, `alarm_next` (none / schedule / override) and
+the next alarm's weekday; `alarm_h:alarm_m` is now the **next** alarm (and, in `alarm`, the time
+under the knob). Migration: no `ui.week` → the old `ui.alarm` minute becomes seven identical
+days, which rings exactly as before. `ui` still owns all of it — the alarm table moving into
+`chrono` (§6.4, `alarms[8]` in §7.5) is not needed for one week + one override and stays open.
+
 ### 6.7 `net`
 
 Wi-Fi HSM (`Off → Provisioning → Connecting → Online → Backoff`), `esp_netif_sntp`, NimBLE GATT
@@ -1964,7 +1995,7 @@ forget.
 | `01` | *service* | — | |
 | `02` | `cmd` | write (w/ response), ≤ 256 B | `"<id> <cli line>"`, e.g. `"7 motion goto 07:15"`. `<id>` 0–65535, optional (absent = 0). Blank → `bad-arg` |
 | `03` | `rsp` | **notify** | `"<id>\|<text>"` one output line · `"<id>+<text>"` a fragment, the line continues in the next frame · `"<id>=<k>=<v>"` a `Sink::kv` pair · `"<id>$<status>"` terminal, exactly one, last. `<status>` = `ok bad-arg denied busy not-ready failed not-present` |
-| `04` | `status` | read, **notify** | the 132-byte snapshot, §8.3. Re-taken every `net ble period` (1 s default); notified to a subscriber |
+| `04` | `status` | read, **notify** | the 150-byte snapshot, §8.3. Re-taken every `net ble period` (1 s default); notified to a subscriber |
 | `05` | `info` | read | `fw=… sha=… built=… board=… profile=… sdk=… proto=1 schema=1` |
 | `06` | `blob` | write (w/ response), ≤ 512 B | upload data: `u32 LE offset` + bytes → `Storage::put_data()` on the host task (copy + return). The ATT answer is the flow control and the error: `0x80` busy · `0x81` bad offset · `0x82` no upload open · `0x83` card write failed. Control is on `cmd` (`storage put …`). **Built 2026-09-27** |
 
@@ -2016,14 +2047,14 @@ sequenceDiagram
     NET->>CLI: dispatch_line_wait (same table as USB)
     CLI-->>NET: lines + Status
     NET-->>App: notify "1|..." ... "1$ok"
-    NET-->>App: notify status (132 B, every period)
+    NET-->>App: notify status (150 B, every period)
 ```
 
-### 8.3 The status snapshot — schema 1, 132 bytes
+### 8.3 The status snapshot — schema 1, 150 bytes
 
 One timestamped record of everything the clock knows (`transport/snapshot.hpp`): what `status`
 serves, what `sys snap` prints (`--hex` for the raw bytes), and what an app logs to plot the clock
-over time — 132 B a sample, ~190 KB a day at one a minute. Little-endian, fixed offsets.
+over time — 150 B a sample, ~216 KB a day at one a minute (132 B until 2026-09-30). Little-endian, fixed offsets.
 **Append-only:** new fields go on the end and raise `size`; `schema` changes only if a field
 moves. A reader decodes the prefix it knows. **Validity is in `flags`** — `env_ok` clear means the
 room fields are meaningless whatever they hold. `test_net` pins the offsets below;
@@ -2032,14 +2063,14 @@ room fields are meaningless whatever they hold. `test_net` pins the offsets belo
 | off | type | field | | off | type | field |
 |---|---|---|---|---|---|---|
 | 0 | u8 | schema = 1 | | 70 | u16 | taps (monotonic) |
-| 1 | u8 | size = 132 | | 72 | u8 | motion state (uninit homing idle moving fault) |
+| 1 | u8 | size = 150 | | 72 | u8 | motion state (uninit homing idle moving fault) |
 | 2 | u16 | seq (+1 per record) | | 73 | u8 | dial_tick (§6.1d) |
 | 4 | u32 | uptime s | | 74 | u8×4 | hands h, m → target h, m |
 | 8 | i64 | epoch ms UTC (`time_valid`) | | 78 | u16 | opto, 0..65535 = 0..1 |
 | 16 | i16 | tz offset min, the zone's at the instant | | 80 | u32 | motion faults |
 | 18 | u8 | reset reason | | 84 | u16 / i16 | auto-home trims / last trim µsteps |
 | 19 | u8 | slow-clock source (§7.1) | | 88 | u8 | ui mode (idle bell alarm clock volume pairing) |
-| 20 | u32 | **flags** (below) | | 89 | u8×4 | volume %, alarm h, m, brightness % |
+| 20 | u32 | **flags** (below) | | 89 | u8×4 | volume %, **next** alarm h, m (§6.6f), brightness % |
 | 24 | u32 | fw_id (first 8 hex of the git sha) | | 93 | u8×2 | wake light warm %, cool % |
 | 28 | u32×2 | heap free, heap low-water | | 95 | u8 | BLE state (off idle pairing connected secure) |
 | 36 | u16 | vbat mV | | 96 | u8×28 | 7 pixels R G B W, chain order (dial0 dial1 bell alarm clock vol batt) |
@@ -2048,10 +2079,10 @@ room fields are meaningless whatever they hold. `test_net` pins the offsets belo
 | 40 | i16 | temp 0.01 °C | | 129 | u8 | Wi-Fi state (off idle connecting online backoff) |
 | 42 | u16 | RH 0.01 % | | 130 | i8 | Wi-Fi RSSI dBm (0 = n/a) |
 | 44 | u16 | pressure 0.1 hPa | | 131 | u8 | Wi-Fi error (none no-ap auth no-ip timeout other) |
-| 46 | u32 | gas Ω | | | | |
-| 50 | u16 | env age s (sampled every 60 s) | | | | |
-| 52 | f32 | lux (−1 saturated) | | | | |
-| 56 | u16 | light age s (every 5 s) | | | | |
+| 46 | u32 | gas Ω | | 132 | u8 | alarm days on (bit 0 = Mon) — §6.6f, appended 2026-09-30 |
+| 50 | u16 | env age s (sampled every 60 s) | | 133 | u8 | alarm next (none schedule override) |
+| 52 | f32 | lux (−1 saturated) | | 134 | u16×7 | alarm week, minute of day Mon..Sun |
+| 56 | u16 | light age s (every 5 s) | | 148 | u8 | next alarm weekday (255 = none / no date); 149 reserved |
 | 58 | i16×3 | gravity mm/s², dial axes | | | | |
 | 64 | i16×3 | yaw pitch roll 0.01° | | | | |
 
@@ -2187,11 +2218,11 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 
 | Group | Commands |
 |---|---|
-| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 132 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` · ▲`sys journal [flush]` (§9.4a) · ▲`sys wd` (§6.8) **· built 2026-09-29** |
+| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 150 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` · ▲`sys journal [flush]` (§9.4a) · ▲`sys wd` (§6.8) **· built 2026-09-29** |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
-| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min> | <posix> [<name>]]` (a zone, NVS; default San Francisco — **built 2026-09-28**) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono alarm tone [<name>\|none]` (which `/sd/tones` WAV rings; checked on the card, NVS) · `chrono alarm fire` (ring now) · ▲`chrono alarm snooze` · ▲`chrono alarm dismiss` **· built 2026-09-27** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
+| `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min> | <posix> [<name>]]` (a zone, NVS; default San Francisco — **built 2026-09-28**) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` (every day) · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono alarm week <mon>..<sun>` (`hh:mm` \| `-hh:mm` \| `-` each) · `chrono alarm day <day\|weekdays\|weekend\|all> <hh:mm\|on\|off>` · `chrono alarm next <hh:mm\|clear>` (the knob's one-off, §6.6f) **· built 2026-09-30** · `chrono alarm tone [<name>\|none]` (which `/sd/tones` WAV rings; checked on the card, NVS) · `chrono alarm fire` (ring now) · ▲`chrono alarm snooze` · ▲`chrono alarm dismiss` **· built 2026-09-27** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
 | `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
 | `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · `audio play <name> [loop]` (a `/sd/tones` WAV through `storage`; `audio stop` ends it) **· built 2026-09-27** · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |

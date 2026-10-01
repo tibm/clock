@@ -2,7 +2,7 @@
 //
 // One struct, one fixed little-endian wire layout, no allocation.  It is what the BLE
 // `status` characteristic serves and notifies, what `sys snap` prints, and -- because it is
-// small (132 bytes) and self-describing by schema + size -- what a future app logs to plot the
+// small (150 bytes) and self-describing by schema + size -- what a future app logs to plot the
 // clock over time.  The layout table in FIRMWARE.md §8.3 is generated from nothing; it is
 // kept honest by test_net's round-trip and by the static_assert on kWireSize below.
 //
@@ -21,7 +21,7 @@
 namespace clk::transport {
 
 inline constexpr uint8_t kSchema = 1;
-inline constexpr std::size_t kWireSize = 132;  // schema 1, as first shipped
+inline constexpr std::size_t kWireSize = 150;  // schema 1: 132 as first shipped, +18 2026-09-30
 inline constexpr uint16_t kAgeNever = 0xFFFF;  // env_age_s / als_age_s: never read
 inline constexpr std::size_t kPixels = 7;
 
@@ -111,6 +111,12 @@ struct Snapshot {
     uint8_t wifi_state = 0;  // WifiState
     int8_t wifi_rssi = 0;    // dBm, 0 = n/a
     uint8_t wifi_err = 0;    // WifiErr: why the last attempt failed (was `reserved`)
+    // ---- the alarm week (appended 2026-09-30, §6.6f) --------------------------------------------
+    uint8_t alarm_days = 0;          // bit d = weekday d rings (0 = Monday)
+    uint8_t alarm_next = 0;          // domain::alarm::Src: none schedule override
+    uint16_t alarm_week[7] = {};     // minute of day per weekday, Mon..Sun, kept while off
+    uint8_t alarm_next_wday = 0xFF;  // the next alarm's weekday; 0xFF = none / no date
+    uint8_t reserved149 = 0;
 };
 
 enum class BleState : uint8_t { Off, Idle, Pairing, Connected, Secure };
