@@ -45,6 +45,13 @@ The standard GAP/GATT services are also present. **All six characteristics requi
 encrypted, bonded link** (§2) — `bulk` included; before bonding every access fails with an ATT
 insufficient-authentication / -encryption error.
 
+**The table can grow** (new characteristics in new firmware). The clock indicates the standard
+*Service Changed* characteristic (`0x2A05`, range `0x0001–0xFFFF`) on the first boot of a firmware
+whose table differs from the last one — to a connected phone at once, to a bonded phone on its
+next connect — so iOS/macOS drop their cached copy and discover again. A phone that bonded with
+firmware older than 2026-10-01 never subscribed to it: *Forget This Device* and pair again once.
+Look characteristics up by UUID and treat a missing one as "this firmware doesn't have it".
+
 ### Advertising
 
 - Always on while the clock's rear radio toggle is on. Interval ~1 s normally, ~100 ms while the
@@ -547,6 +554,7 @@ marked newer. Unknown keys: ignore.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-01 | proto 1 / schema 1 | The clock indicates *Service Changed* when its GATT table differs from the previous firmware's (§1). No wire change |
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
 | 2026-09-30 | proto 1 / schema 1 | `protocol.json`: new `snapshot.min_size` (132, the oldest record a decoder must accept — was prose only); `gatt.status.len` 132 → 150 (stale). No wire change |
 | 2026-09-30 | proto 1 / schema 1 | **Weekly alarm schedule + one-off override.** New `chrono alarm week` (the schedule, 7 tokens Monday first), `chrono alarm next <hh:mm>\|clear` (the knob's one-off), `chrono alarm day` (console). Snapshot **132 → 150 bytes**: `alarm_days` @132, `alarm_next` @133 (new enum `alarm_next`), `alarm_week` u16[7] @134, `alarm_next_wday` @148, reserved @149. `alarm_h:alarm_m` now means the **next** alarm (unchanged for a daily alarm). `chrono alarm set` = every day at that time. "Alarm schedule" section; golden vector regenerated. All compatible (appended fields, new commands) |

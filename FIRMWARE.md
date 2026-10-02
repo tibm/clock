@@ -2050,6 +2050,14 @@ forget.
 | `05` | `info` | read | `fw=… sha=… built=… board=… profile=… sdk=… proto=1 schema=1` |
 | `06` | `blob` | write (w/ response), ≤ 512 B | upload data: `u32 LE offset` + bytes → `Storage::put_data()` on the host task (copy + return). The ATT answer is the flow control and the error: `0x80` busy · `0x81` bad offset · `0x82` no upload open · `0x83` card write failed. Control is on `cmd` (`storage put …`). **Built 2026-09-27** |
 
+**Service Changed.** iOS/macOS cache a bonded peer's GATT table and re-discover only on a
+*Service Changed* indication, so a characteristic added by an update was invisible to phones
+paired before it (`bulk`, 2026-10-01). `on_sync` fingerprints the table (FNV-1a of each
+characteristic's UUID + flags), compares with NVS `ble.gatt`, and on a difference calls
+`ble_svc_gatt_changed(0x0001, 0xFFFF)`: NimBLE indicates a connected subscriber and marks each
+bonded peer's persisted CCCD, so the indication goes out on its next connect. Automatic — no
+constant to bump.
+
 - **Fragments.** A notification carries MTU − 3 bytes (244 at the 247 we ask for, 20 before the
   exchange). A longer line goes out as `+` frames ending in `|`/`=`; a reader appends until it sees
   a terminator kind. `test_net` checks that `help sys` over a 23-byte MTU reassembles to exactly

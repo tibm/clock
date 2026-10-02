@@ -18,6 +18,7 @@
 // transmits.  The controller stays initialised -- a quiet stack, not a torn-down one, because
 // NimBLE's deinit/re-init path is the least-exercised code in it and the toggle is a switch
 // people flick.  Nothing is emitted either way.
+#include <cinttypes>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
@@ -355,6 +356,37 @@ int gap_event(ble_gap_event* ev, void*) {
     }
 }
 
+// A fingerprint of our GATT table: every characteristic's UUID and flags, FNV-1a.  Handles
+// follow from the order, so a reorder changes it too.
+int32_t gatt_layout() {
+    uint32_t h = 2166136261u;
+    auto mix = [&h](const void* p, std::size_t n) {
+        for (std::size_t i = 0; i < n; ++i) h = (h ^ static_cast<const uint8_t*>(p)[i]) * 16777619u;
+    };
+    for (const ble_gatt_chr_def* c = kChrs; c->uuid; ++c) {
+        mix(reinterpret_cast<const ble_uuid128_t*>(c->uuid)->value, 16);
+        mix(&c->flags, sizeof c->flags);
+    }
+    return static_cast<int32_t>(h);
+}
+
+// iOS and macOS cache a BONDED peripheral's GATT table and only discover it again after a
+// Service Changed indication -- without one, a characteristic added by a firmware update stays
+// invisible to every phone paired before it (the History tab's "no `bulk` characteristic").
+// So: when the table differs from the one the bonds were made against, indicate "everything
+// changed".  NimBLE sends it to a connected subscriber now and stores it for each bonded,
+// disconnected one (its persisted CCCD), to go out when that phone reconnects.
+void announce_gatt_changes() {
+    constexpr const char* kKey = "ble.gatt";
+    const int32_t now = gatt_layout();
+    const auto was = store::get_i32(kKey);
+    if (was.ok() && was.v == now) return;
+    ::ble_svc_gatt_changed(0x0001, 0xFFFF);
+    (void)store::set_i32(kKey, now);
+    CLK_LOGI(net, "ble: GATT table changed (%08" PRIx32 " -> %08" PRIx32 "): bonded phones told",
+             was.ok() ? static_cast<uint32_t>(was.v) : 0u, static_cast<uint32_t>(now));
+}
+
 void on_sync() {
     int rc = ::ble_hs_util_ensure_addr(0);
     if (rc == 0) rc = ::ble_hs_id_infer_auto(0, &g_own_addr_type);
@@ -362,6 +394,7 @@ void on_sync() {
         CLK_LOGE(net, "ble: no identity address (rc=%d)", rc);
         return;
     }
+    announce_gatt_changes();
     std::lock_guard lk{g_mx};
     g_synced = true;
     g_bonds = count_bonds();
