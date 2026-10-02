@@ -5,6 +5,7 @@
 // the curves live in domain/ and not in ui.cpp.
 #include "check.hpp"
 
+#include "clk/domain/ambient.hpp"
 #include "clk/domain/anim.hpp"
 
 using namespace clk;
@@ -268,7 +269,92 @@ void test_same_ignores_arming_time() {
     CHECK(!domain::same(domain::flash(domain::kRed, 255, 3), domain::flash(domain::kRed, 255, 2)));
 }
 
+// ---- the room (domain/ambient.hpp, §6.6g) --------------------------------------------------
+
+void test_room_map_is_log_between_night_and_day() {
+    const domain::AmbientCfg c{};  // 1 lux -> 20 %, 50 lux -> 100 %
+    CHECK(domain::room_scale(0.0f, c) == 51);
+    CHECK(domain::room_scale(1.0f, c) == 51);
+    CHECK(domain::room_scale(50.0f, c) == 255);
+    CHECK(domain::room_scale(5000.0f, c) == 255);
+    // Halfway in LOG lux (sqrt 50 = 7.07 lux) is halfway in level.
+    const int mid = domain::room_scale(7.07f, c);
+    CHECK(mid >= 152 && mid <= 154);
+    // Monotonic all the way up.
+    int last = 0;
+    for (float l = 0.01f; l < 1000.0f; l *= 1.1f) {
+        const int v = domain::room_scale(l, c);
+        CHECK(v >= last);
+        last = v;
+    }
+    // `floor 0` is "dark at night", literally.
+    domain::AmbientCfg dark = c;
+    dark.night_pct = 0;
+    CHECK(domain::room_scale(0.5f, dark) == 0);
+    // A config that cannot be a map does not dim anything.
+    domain::AmbientCfg bad = c;
+    bad.day_lux = 0.5f;
+    CHECK(domain::room_scale(0.1f, bad) == 255);
+}
+
+void test_room_dimmer_no_opinion_is_full() {
+    const domain::AmbientCfg c{};
+    domain::Dimmer d;
+    CHECK(d.update({}, 0, c) == 255);  // no sensor
+    // Stale: a reading older than stale_ms is not the room any more.
+    CHECK(d.update({true, 0.1f, false, c.stale_ms + 1}, 10 * kMs * 1000, c) == 255);
+    // Off: the room is ignored.
+    domain::AmbientCfg off = c;
+    off.on = false;
+    domain::Dimmer e;
+    CHECK(e.update({true, 0.1f, false, 0}, 0, off) == 255);
+    // Saturated is daylight.
+    domain::Dimmer f;
+    CHECK(f.update({true, -1.0f, true, 0}, 0, c) == 255);
+}
+
+void test_room_dimmer_glides_and_holds() {
+    const domain::AmbientCfg c{};  // slew 2000 ms end to end
+    domain::Dimmer d;
+    uint64_t t = 0;
+    CHECK(d.update({true, 300.0f, false, 0}, t, c) == 255);
+    // The lamp goes off: the target drops at once, the scale glides.
+    t += 20 * kMs;
+    const int first = d.update({true, 0.2f, false, 0}, t, c);
+    CHECK(d.target() == 51);
+    CHECK(first < 255 && first > 240);  // 20 ms of a 2 s slew
+    t += 1000 * kMs;
+    const int half = d.update({true, 0.2f, false, 0}, t, c);
+    CHECK(half > 51 && half < 255);
+    t += 2000 * kMs;
+    CHECK(d.update({true, 0.2f, false, 0}, t, c) == 51);
+    // A decade brighter moves the target ...
+    t += 20 * kMs;
+    d.update({true, 2.0f, false, 0}, t, c);
+    const int settled = d.target();
+    CHECK(settled > 51);
+    // ... and a wobble inside the band (2.0 <-> 2.5 lux is 0.1 decade) moves nothing after it.
+    for (int i = 0; i < 50; ++i) {
+        t += 20 * kMs;
+        d.update({true, i % 2 ? 2.0f : 2.5f, false, 0}, t, c);
+        CHECK(d.target() == settled);
+    }
+    CHECK(d.anchor_lux() == 2.0f);
+}
+
+void test_room_dim_keeps_a_lit_pixel_lit() {
+    CHECK(domain::dim(0, 255) == 0);
+    CHECK(domain::dim(153, 0) == 0);
+    CHECK(domain::dim(153, 255) == 153);
+    CHECK(domain::dim(153, 51) == 30);
+    CHECK(domain::dim(3, 20) == 1);  // rounds to 0, floored to 1
+}
+
 void run_anim_tests() {
+    test_room_map_is_log_between_night_and_day();
+    test_room_dimmer_no_opinion_is_full();
+    test_room_dimmer_glides_and_holds();
+    test_room_dim_keeps_a_lit_pixel_lit();
     test_ramp_up();
     test_ramp_down();
     test_ramp_duration_override();

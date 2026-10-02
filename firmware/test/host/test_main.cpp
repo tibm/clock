@@ -31,6 +31,8 @@ int main() {
     run_cli_tests();
     run_sim_tests();
     run_motor_tests();
+    // The light engine and the room's dimmer (§6.6a, §6.6g) -- pure.
+    run_anim_tests();
     run_level_tests();
     // The weekly alarm and the knob's one-off (§6.6f) -- pure, a week in a microsecond.
     run_alarm_tests();

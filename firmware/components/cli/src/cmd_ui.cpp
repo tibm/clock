@@ -313,6 +313,68 @@ Status cmd_anim(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// The room's light (§6.6g): how the TSL2591's lux scales every pixel.  Live, not persisted --
+// the same as `ui knob` and `ui anim` until §7.5's one config exists.
+Status cmd_room(Args const& a, Sink& out) {
+    auto c = svc::ui().ambient_cfg();
+    const char* k = a.arg(0);
+    if (!k) {
+        const auto u = svc::ui().snapshot();
+        out.printf("room   %s   light %u%% of `bright`%s", c.on ? "on" : "OFF",
+                   u.room_scale * 100u / 255u, c.on ? "" : " -- the room is ignored");
+        if (u.room_lux < 0.0f)
+            out.line("lux    no reading -- full brightness");
+        else
+            out.printf("lux    %.2f (the reading the level was last moved at)",
+                       static_cast<double>(u.room_lux));
+        out.printf("map    <= %.2f lux -> %u%%   >= %.1f lux -> 100%%   log between",
+                   static_cast<double>(c.night_lux), c.night_pct, static_cast<double>(c.day_lux));
+        out.printf("       hysteresis %.2f decades, slew %" PRIu32 " ms, stale after %" PRIu32
+                   " ms",
+                   static_cast<double>(c.hyst_dec), c.slew_ms, c.stale_ms);
+        out.line("  ui room <on|off> | ui room <night|day> <lux> | ui room <floor> <pct>");
+        out.line("  ui room <hyst> <decades> | ui room <slew> <ms>");
+        return Status::Ok;
+    }
+    if (std::strcmp(k, "on") == 0 || std::strcmp(k, "off") == 0) {
+        c.on = k[1] == 'n';
+        svc::ui().set_ambient_cfg(c);
+        out.printf("room %s", c.on ? "on" : "OFF -- full brightness whatever the room");
+        return Status::Ok;
+    }
+    if (!a.arg(1)) {
+        out.line("usage: ui room [<on|off> | <night|day|floor|hyst|slew> <value>]");
+        return Status::BadArg;
+    }
+    const float v = std::strtof(a.arg(1), nullptr);
+    if (!(v >= 0.0f)) {
+        out.line("values are not negative");
+        return Status::BadArg;
+    }
+    if (std::strcmp(k, "night") == 0) {
+        c.night_lux = v;
+    } else if (std::strcmp(k, "day") == 0) {
+        c.day_lux = v;
+    } else if (std::strcmp(k, "floor") == 0) {
+        c.night_pct = static_cast<uint8_t>(v > 100.0f ? 100.0f : v);
+    } else if (std::strcmp(k, "hyst") == 0) {
+        c.hyst_dec = v;
+    } else if (std::strcmp(k, "slew") == 0) {
+        c.slew_ms = static_cast<uint32_t>(v);
+    } else {
+        out.printf("no such setting '%s'", k);
+        return Status::BadArg;
+    }
+    if (!(c.day_lux > c.night_lux) || c.night_lux <= 0.0f) {
+        out.printf("night (%.2f) must be above 0 and below day (%.2f) lux",
+                   static_cast<double>(c.night_lux), static_cast<double>(c.day_lux));
+        return Status::BadArg;
+    }
+    svc::ui().set_ambient_cfg(c);
+    out.printf("%s = %.2f", k, static_cast<double>(v));
+    return Status::Ok;
+}
+
 Status cmd_status(Args const&, Sink& out) {
     const auto u = svc::ui().snapshot();
     out.printf("mode   %s   alarm %02d:%02d %s   vol %u%%%s", u.mode_name, u.alarm_hour,
@@ -331,6 +393,8 @@ Status cmd_status(Args const&, Sink& out) {
             out.printf("  [%zu] r=%u g=%u b=%u w=%u", i, c.r, c.g, c.b, c.w);
         }
     }
+    out.printf("room   light %u%%%s   faults on the row 0x%02x", u.room_scale * 100u / 255u,
+               u.room_lux < 0.0f ? " (no reading)" : "", u.faults);
     out.printf("wake   warm=%u%% cool=%u%%", hal::wake::warm(), hal::wake::cool());
     const auto k = hal::knob::read();
     if (k.ok())
@@ -366,6 +430,8 @@ constexpr CmdSpec kRows[] = {
      cmd_mode},
     {"ui", nullptr, "knob", "[<knob> <value>]", "sensitivity, timeouts, brightness", None,
      cmd_knob},
+    {"ui", nullptr, "room", "[<setting> <value>]", "brightness follows the room (TSL2591)", None,
+     cmd_room},
     {"ui", nullptr, "anim", "[<timing> <ms>]", "every LED animation duration", None, cmd_anim},
     {"ui", "led", "test", "", "walk the chain head to tail", Unsafe, cmd_led_test},
     {"ui", "led", "", "<id> <color|r g b w>", "set pixel(s)", Unsafe, cmd_led},

@@ -1533,6 +1533,7 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 | — | `snoozed` | `bell` | **breathe amber** until it rings again | the time |
 | — | *(overlay)* | `batt` | **breathe amber** below 20 % SoC on battery | — |
 | — | *(overlay)* | `clock` | **flash red ×3** — the refusal | — |
+| — | *(fault)* | `clock` / `batt` / `vol` | **slow blink red** — hands / charger / amp fault, latched until a long press in idle (§6.6g) | — |
 | — | *(overlay)* | `dial0` `dial1` | **swell** — the tap's dial wash, armed → red · off → white | — |
 | — | *(overlay)* | `bell` | **breathe ×2** over the wash's five seconds, same colour | — |
 
@@ -1574,14 +1575,15 @@ bring-up command overwritten 20 ms later is not a bring-up command.
 - **Zero emission when idle is a hard invariant** (R2/R6) — with one documented exception, the
   low-cell warning, because a clock that dies in the night without saying so is worse than an
   amber pixel. Leaving a mode *fades* rather than cuts, and the fade ends at a hard zero.
-  ALS gating only ever *reduces* brightness.
+  ALS gating only ever *reduces* brightness (§6.6g). A latched **fault code** is the second
+  exception to zero emission (§6.6g).
 
 #### 6.6c Press, hold, and the one refusal
 
 | gesture | effect |
 |---|---|
 | press < 800 ms | next mode |
-| press ≥ 800 ms, < 10 s | commit and drop to `idle` |
+| press ≥ 800 ms, < 10 s | commit and drop to `idle` — **in `idle` with a fault code showing: acknowledge it** (§6.6g) |
 | **hold ≥ 10 s** | **BLE pairing** — commits at the 10 s mark, *while the knob is still down*, and the release that follows is spent |
 | press, in `pairing` | back to `idle` |
 | **5 s without input** | drop to `idle`, committing whatever was being set — every mode, **and pairing only when there is no radio** |
@@ -1734,6 +1736,52 @@ under the knob). Migration: no `ui.week` → the old `ui.alarm` minute becomes s
 days, which rings exactly as before. `ui` still owns all of it — the alarm table moving into
 `chrono` (§6.4, `alarms[8]` in §7.5) is not needed for one week + one override and stays open.
 
+#### 6.6g The room's light, and fault codes on the status row (2026-09-30)
+
+**Brightness follows the room** (`domain/ambient.hpp`, pure, `test_anim`). The TSL2591's lux
+becomes a **scale** on every pixel's level — perceptual, applied in `render()` right before
+gamma, **never baked into a cue** (a changed level re-arms the cue and would restart a breath
+every time a lamp went off).
+
+| rule | default | why |
+|---|---|---|
+| log map: ≤ `night_lux` → floor, ≥ `day_lux` → 100 %, straight in log(lux) between | 1 lux → **20 %**, 50 lux → 100 % | the eye answers to ratios; a lamp-lit room is already "day" for a pixel |
+| Schmitt on the room | 0.15 decade (×1.4) | sensor wobble and flicker are not a reason to re-level |
+| slew | 2 s end to end | a lamp switched off is a step in lux, not in the pixels |
+| no opinion → 100 % | stale after 30 s | no sensor, no reading, `ui room off`; one failed read keeps the last good one until it is stale |
+| saturated → day | — | the channels only clip in daylight |
+
+- **Only ever reduces** (§6.6b): 100 % is `Tuning::brightness`. `floor 0` is literally dark at
+  night; the shipped 20 % keeps the knob's feedback visible (60 % × 20 % → level 30 → ~4/255
+  duty after gamma). `domain::dim()` never rounds a lit level to 0.
+- **Where the lux comes from:** `net`'s status record (TSL2591 read every 5 s on `net`'s
+  thread), polled by `ui` at 4 Hz. Not a second reader of the chip — it moves to `board` with the
+  rest of the I²C (§6.5, F6.4); the interface (`domain::Lux`) does not change.
+- `ui room` shows it (`light %`, the lux it was set at, the map) and edits it live: `on|off`,
+  `night <lux>`, `day <lux>`, `floor <pct>`, `hyst <decades>`, `slew <ms>`. Not persisted yet,
+  like `ui knob` / `ui anim` (§7.5). ⚠ **Bench:** whether the status pixels light the sensor
+  (feedback) depends on where the sensor board sits — check `ui room` with the row lit in a dark
+  room.
+
+**Fault codes** — the `Fault` region of §6.6. `supervisor` owns the latch (§6.8), `ui` shows it:
+
+| fault | raised when (confirmed 3 s) | pixel |
+|---|---|---|
+| `hands` | `motion` in `Fault`, or a hands stall (§6.8) | `clock` |
+| `charger` | LT3652 `FAULT` while **plugged** (NTC window, bad cell, timer) | `batt` |
+| `amp` | `SPK_FAULT` while the amp is up (`hal::audio::active()`) | `vol` |
+
+- **Slow red `Blink`** (2 s period, the config's duty) on the pixel that names it — `Blink` is the
+  pattern no mode uses, and slow so it does not read as the ringing alarm's fast blink on the bell.
+- **The second exception to zero emission when idle** (the first is the low cell), for the same
+  reason: a clock whose hands stopped is lying and should say so. ALS-dimmed like everything else.
+- Precedence: a mode using that pixel (`clock`, `volume`) wins while it is open; pairing owns the
+  whole row; a charger fault outranks the low-cell breath on `batt`.
+- **Latched until acknowledged.** A **long press in idle** (it had nothing to commit) or
+  `sys fault ack` hides everything latched and forgets what has cleared; a fault still active
+  stays latched but dark, and **shows again if it clears and is raised again**. `sys fault` lists
+  each one (`ACTIVE`/`ok`, `blinking`) and the raise count.
+
 ### 6.7 `net`
 
 Wi-Fi HSM (`Off → Provisioning → Connecting → Online → Backoff`), `esp_netif_sntp`, NimBLE GATT
@@ -1801,6 +1849,9 @@ watches; power policy + fault latch still to come). Triggered by "sometimes the 
   each AO's handled/dropped/age, journal fill.
 - `sys wd` shows it and logs a heartbeat now. `sim::set_motor_jam()` is the host's dead step
   generator; `test_supervisor` proves the stall is caught and cleared.
+- **Fault latch** (built 2026-09-30): hands / charger / amp, each confirmed over 3 ticks, latched,
+  acknowledged by a long press in idle or `sys fault ack` — shown by `ui` on the status row
+  (§6.6g). `test_ui_a_fault_blinks_until_acknowledged`. Power policy is still to come.
 - Found on the way: `ActiveObject::stop()` could leave its own `Stop` in the mailbox, so a later
   `start()` spawned a thread that exited at once while `running()` said true. Cleared after the join.
 
@@ -2218,12 +2269,12 @@ Legend: **⚠** = behind `unsafe` (§9.6) · **▲** = present in release builds
 
 | Group | Commands |
 |---|---|
-| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 150 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` · ▲`sys journal [flush]` (§9.4a) · ▲`sys wd` (§6.8) **· built 2026-09-29** |
+| `sys` | ▲`sys snap [--hex]` (the §8.3 status record — what the app sees — decoded, or its raw 150 bytes) **· built 2026-09-27** · ▲`sys stat` · ▲`sys top` (per-task CPU + stack high-water + core) · ▲`sys heap` · ▲`sys ver` · ⚠`sys reboot [ota\|dfu]` (`hal::reboot()`: `esp_restart()` on target, a re-exec of the process under clocksim — the `[ota\|dfu]` forms wait on the partition work) · ▲`sys coredump [info\|dump\|erase]` · ▲`sys journal [flush]` (§9.4a) · ▲`sys wd` (§6.8) **· built 2026-09-29** · ▲`sys fault [ack]` (the fault latch, §6.6g) **· built 2026-09-30** |
 | `sys debug` | ▲`sys debug` (list all modules + levels) · ▲`sys debug <mod\|glob\|all> <level>` · `sys debug save` · `sys debug reset` — §9.4 |
 | `sys ev` | ▲`sys ev` live tap ☰ · ▲`sys ev dump` (256-entry RTC ring, survives panic) · `sys ev filter <ao>` · `sys ev clear` |
 | `motion` | ▲`motion status` · ⚠`motion home` · ⚠`motion goto <hh:mm>` · ⚠`motion step <h\|m> <±n>` (works in `Fault`: it is how the index mark gets placed) · `motion stop` (**also clears a `Fault`** — the only other way out is a home, which is exactly what cannot succeed before the mark is placed) · `motion tune [<knob> <value>]` (`v_max` `accel` `v_coarse` `v_fine` `backlash` `thresh` `autohome` `level`) · `motion zero [<h\|m> <±usteps>]` (the per-unit index trim, NVS-backed — §6.1b) · ▲`motion spr` · ⚠`motion power [on\|off]` (the bench inhibit — hard "do not energise", NVS-backed, §12.0.9) — *`motion sweep` arrives with `board`* |
 | `chrono` (now) | ▲`chrono status` · `chrono time [set <hh:mm[:ss]>]` (LOCAL time of day; keeps the date) · `chrono time epoch <unix_ms> [<utc_offset_min>]` (the phone's form: UTC instant + offset) · `chrono tz [<utc_offset_min> | <posix> [<name>]]` (a zone, NVS; default San Francisco — **built 2026-09-28**) · ▲`chrono alarm` · `chrono alarm set <hh:mm>` (every day) · `chrono alarm arm <on\|off>` (both NVS; `ui` owns the alarm until the table moves here) **· built 2026-09-28** · `chrono alarm week <mon>..<sun>` (`hh:mm` \| `-hh:mm` \| `-` each) · `chrono alarm day <day\|weekdays\|weekend\|all> <hh:mm\|on\|off>` · `chrono alarm next <hh:mm\|clear>` (the knob's one-off, §6.6f) **· built 2026-09-30** · `chrono alarm tone [<name>\|none]` (which `/sd/tones` WAV rings; checked on the card, NVS) · `chrono alarm fire` (ring now) · ▲`chrono alarm snooze` · ▲`chrono alarm dismiss` **· built 2026-09-27** · `chrono net [<provisioned\|synced\|none\|both> [on\|off]]` (what `net` will report; it is what makes `ui mode clock` refuse — §6.6c) · `chrono follow <on\|off>` · `chrono steps [<1..60>]` (hand positions per minute: 1 ticks, 60 sweeps — a rendering choice, not a timekeeping one) — the rest of the row below arrives with the alarm table |
-| `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) |
+| `ui` | `ui status` · `ui input [on\|off]` (bench isolation — `off` stops `ui` READING the knob, NVS-backed, §12.0.10) · ⚠`ui led <id> <color>` · ⚠`ui led <id> <r> <g> <b> <w>` · ⚠`ui led test [<ms>]` · ⚠`ui wake <warm%> <cool%>` · `ui mode [<idle\|bell\|alarm\|clock\|volume\|pairing>]` *(`setalarm`/`setclock` still accepted as aliases)* · `ui knob [<knob> <value>]` (`counts` `slow` `fast` `factor` `deadband` `timeout` `longpress` `pair` `bright`) · `ui anim [<timing> <ms>]` (`ramp` `breathe` `blink` `duty` `flash` `gap` `floor` `rise` `hold` `fall` — §6.6a) · `ui room [<on\|off> \| <night\|day\|floor\|hyst\|slew> <value>]` (brightness follows the room, §6.6g) **· built 2026-09-30** |
 | `audio` | ▲`audio status` (clocks · `SPK_SD` · register set · faults · which rail PVDD is on) **· built 2026-09-13** · `audio tone [<hz>] [<ms>]` (a generated sine; `0` ms plays until stop) **· built** · ▲`audio stop` **· built** · `audio vol [<0-100>]` (**amplitude** percent: 100 % = 0 dB, 10 % = −20 dB; **refuses over `kMaxVolPct`** — §6.2's bring-up ceiling) **· built** · ⚠`audio reg <r> [<v>]` **· built** · `audio play <name> [loop]` (a `/sd/tones` WAV through `storage`; `audio stop` ends it) **· built 2026-09-27** · `audio dsp` · `audio dsp hpf <hz>` · `audio dsp limit <dbfs>` *(clamped ≤ −4.1 dBFS = the 8 W cap §6.2; louder is rejected **with the reason**)* |
 | `board` | `board status` · `board i2c scan` · `board i2c rd <addr> <reg> [<n>]` · ⚠`board i2c wr <addr> <reg> <v>` · `board exp` (both ports, decoded by signal name) · ⚠`board exp set <signal\|pin> <0\|1>` · ▲`board pwr` · ⚠`board pwr mode <auto\|active\|low>` · ⚠`board cell` (`CELL_TEST` discriminator — **refuses on battery**, R-BOARD-2) **· built 2026-09-13** · ⚠`board fullchg [on\|off]` (`FULLCHG_EN`: 4.20 V top-up instead of the 4.05 V float cap; off at POR without firmware help — R24 holds Q1 off while the expander is hi-Z) **· built 2026-09-13** · ⚠`board sleep <s>` |
 | `chrono` | ▲`chrono status` · `chrono time [set <iso>]` · `chrono tz [<posix>]` · `chrono sync` · ▲`chrono clk` (slow-clock source + measured ppm) · `chrono alarm list` · `chrono alarm set <id> <hh:mm> <dow>` · `chrono alarm arm\|disarm <id>` · ⚠`chrono alarm test <id>` |

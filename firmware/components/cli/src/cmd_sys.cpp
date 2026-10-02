@@ -203,6 +203,31 @@ Status cmd_wd(Args const&, Sink& out) {
     return Status::Ok;
 }
 
+// The fault latch (§6.6g): what the status row is blinking, and the acknowledgement a long
+// press in idle also gives.
+Status cmd_fault(Args const& a, Sink& out) {
+    using S = svc::Supervisor;
+    auto& sup = svc::supervisor();
+    const char* v = a.arg(0);
+    if (v && std::strcmp(v, "ack") != 0) {
+        out.line("usage: sys fault [ack]");
+        return Status::BadArg;
+    }
+    if (v) {
+        const uint8_t was = sup.ack();
+        out.printf("acknowledged 0x%02x", was);
+    }
+    const auto s = sup.snapshot();
+    for (const uint8_t bit : {S::kFaultHands, S::kFaultCharger, S::kFaultAmp}) {
+        const char* px = bit == S::kFaultHands ? "clock" : bit == S::kFaultCharger ? "batt" : "vol";
+        out.printf("%-8s %-6s %s%s", S::fault_name(bit), px,
+                   (s.faults_active & bit) ? "ACTIVE" : "ok",
+                   (s.faults_shown & bit) ? "  -- blinking" : "");
+    }
+    out.printf("raised  %" PRIu32 " since boot", s.fault_raises);
+    return Status::Ok;
+}
+
 // ---- tables ---------------------------------------------------------------------------
 
 constexpr CmdSpec kTop[] = {
@@ -224,6 +249,8 @@ constexpr CmdSpec kSys[] = {
      ReleaseOk, cmd_journal},
     {"sys", nullptr, "wd", "", "supervisor: hands / AO stalls, log a heartbeat now", ReleaseOk,
      cmd_wd},
+    {"sys", nullptr, "fault", "[ack]", "fault codes on the status row; ack hides them", ReleaseOk,
+     cmd_fault},
     {"sys", nullptr, "reboot", "[ota|dfu]", "restart the whole image", Unsafe, cmd_reboot},
     {"sys", "coredump", "info", "", "is there a coredump, and from what", ReleaseOk, cmd_notyet},
     {"sys", "ev", "dump", "", "print the 256-entry RTC event ring", ReleaseOk, cmd_notyet},

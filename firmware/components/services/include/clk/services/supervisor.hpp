@@ -1,8 +1,8 @@
 // The supervisor: is everything still running, and are the hands still moving?  [FIRMWARE.md §6.8]
 //
-// The first slice of §6.8 -- the watching half.  Power policy and the fault latch come later.
+// The watching half of §6.8, and the fault latch.  Power policy comes later.
 //
-// Three jobs, once a second:
+// Four jobs, once a second:
 //
 //   1. AO liveness.  Every watched AO stamps its loop (ActiveObject::alive_us).  One whose
 //      stamp is older than kAoStallMs is inside a handler that has not returned: logged, by
@@ -22,6 +22,13 @@
 //      targets, every AO's handled/dropped/age -- so a file on the card shows when things
 //      stopped, not just that they did.
 //
+//   4. The fault latch (§6.6g).  Three things the user can do something about -- the hands
+//      (stalled, or `motion` in Fault), the charger (LT3652 FAULT while plugged) and the amp
+//      (SPK_FAULT while it is up) -- each confirmed for kFaultConfirmS, then LATCHED: `ui`
+//      blinks the pixel that names it until somebody acknowledges it (a long press in idle,
+//      or `sys fault ack`).  Acknowledging hides what is latched; a fault that clears and comes
+//      back shows again.
+//
 // Priority ABOVE the AOs it watches (it only reads snapshots and logs), so a runaway AO on
 // core 1 does not also silence the thing that would say so.
 #pragma once
@@ -33,6 +40,7 @@
 #include "clk/services/chrono.hpp"
 #include "clk/services/motion.hpp"
 #include "clk/services/storage.hpp"
+#include "clk/services/ui.hpp"
 
 namespace clk::svc {
 
@@ -45,26 +53,45 @@ public:
     static constexpr uint32_t kMoveStallS = 120;
     static constexpr uint32_t kRestartAfterS = 300;  // of a confirmed hands stall
     static constexpr std::size_t kMaxWatched = 8;
+    static constexpr uint32_t kFaultConfirmS = 3;  // a glitch on an open-drain pin is not a fault
+
+    // The latch's bits.  Each names the status pixel that shows it (§6.6g).
+    enum Fault : uint8_t {
+        kFaultHands = 1u << 0,    // `clock` pixel: the dial is not showing the time
+        kFaultCharger = 1u << 1,  // `batt`  pixel: LT3652 FAULT (NTC window / bad cell / timer)
+        kFaultAmp = 1u << 2,      // `vol`   pixel: TAS5760M SPK_FAULT
+    };
+    static const char* fault_name(uint8_t bit) noexcept;
 
     struct Snapshot {
-        uint32_t beats;        // heartbeat lines logged
-        uint32_t ao_stalls;    // episodes, since boot
-        uint32_t hand_stalls;  // episodes, since boot
-        bool stalled;          // the hands, right now
-        uint32_t stalled_s;    // ... for this long
-        const char* why;       // a literal, or nullptr
-        bool restart;          // a confirmed stall restarts the chip
+        uint32_t beats;          // heartbeat lines logged
+        uint32_t ao_stalls;      // episodes, since boot
+        uint32_t hand_stalls;    // episodes, since boot
+        bool stalled;            // the hands, right now
+        uint32_t stalled_s;      // ... for this long
+        const char* why;         // a literal, or nullptr
+        bool restart;            // a confirmed stall restarts the chip
+        uint8_t faults_active;   // confirmed, right now
+        uint8_t faults_latched;  // seen since the last ack (active ones included)
+        uint8_t faults_shown;    // latched and not acknowledged: what the status row blinks
+        uint32_t fault_raises;   // since boot
     };
 
     Supervisor() noexcept;
 
-    void bind(Motion*, Chrono*, Storage*) noexcept;
+    // `u` is optional: it is where the charger's FAULT comes from (`ui` already polls the
+    // power chips; a second reader is a race in a driver written for one, see `net`).
+    void bind(Motion*, Chrono*, Storage*, Ui* u = nullptr) noexcept;
     void watch(ActiveObject*) noexcept;  // before start(); up to kMaxWatched
     void set_restart_on_stall(bool on) noexcept { restart_ = on; }
 
     // Log the two heartbeat lines now.  Any thread: it only reads snapshots.
     void heartbeat() noexcept;
     [[nodiscard]] Snapshot snapshot() const noexcept;
+    // "I have seen it": hide every latched fault, and forget the ones that have cleared.  One
+    // still active stays latched but hidden until it clears and is raised again.  Any thread.
+    // Returns what was showing.
+    uint8_t ack() noexcept;
 
 protected:
     void on_start() override;
@@ -73,10 +100,12 @@ protected:
 private:
     void check_aos(uint64_t now) noexcept;
     void check_hands(uint64_t now) noexcept;
+    void check_faults() noexcept;
 
     Motion* motion_ = nullptr;
     Chrono* chrono_ = nullptr;
     Storage* storage_ = nullptr;
+    Ui* ui_ = nullptr;
     ActiveObject* aos_[kMaxWatched]{};
     std::size_t n_aos_ = 0;
     bool ao_stuck_[kMaxWatched]{};
@@ -91,6 +120,9 @@ private:
     uint32_t demands_ = 0;               // chrono target changes since then
     uint64_t moving_since_us_ = 0;       // motion has been in Moving since, 0 = not moving
     uint64_t stall_since_us_ = 0;        // 0 = not stalled
+    // faults: consecutive seconds each raw condition has held (index = bit number)
+    uint8_t fault_secs_[3]{};
+    uint8_t acked_ = 0;  // under mx_, with snap_'s three masks
 
     mutable port::Mutex mx_;
     Snapshot snap_{};

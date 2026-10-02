@@ -172,9 +172,11 @@ namespace detail {
             if (a.repeats && t >= p * a.repeats) return 0;
             const uint32_t x = t % p;
             const uint32_t half = p / 2;
+            // The fall is the rise MIRRORED, not 255 minus it: smooth_u8 truncates, and
+            // subtracting a truncated value rounds the other way -- up to two counts of
+            // asymmetry between the way in and the way out.
             const uint8_t s =
-                x < half ? detail::smooth_u8(x, half)
-                         : static_cast<uint8_t>(255 - detail::smooth_u8(x - half, p - half));
+                x < half ? detail::smooth_u8(x, half) : detail::smooth_u8(p - x, p - half);
             // A floor keeps a slow breath legible in a lit room without ever reaching 0.
             return s < c.breathe_floor ? c.breathe_floor : s;
         }

@@ -98,10 +98,10 @@ extern "C" void app_main(void) {
     auto& sup = clk::svc::supervisor();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    ui.bind(&motion, &chrono, &net, &storage);
+    ui.bind(&motion, &chrono, &net, &storage, &sup);
     net.bind(&motion, &chrono, &ui, &storage);
     clk::cli::bind_net();
-    sup.bind(&motion, &chrono, &storage);
+    sup.bind(&motion, &chrono, &storage, &ui);
     for (clk::ActiveObject* ao :
          {static_cast<clk::ActiveObject*>(&motion), static_cast<clk::ActiveObject*>(&chrono),
           static_cast<clk::ActiveObject*>(&storage), static_cast<clk::ActiveObject*>(&net),

@@ -27,10 +27,33 @@ Supervisor& supervisor() noexcept {
     return s;
 }
 
-void Supervisor::bind(Motion* m, Chrono* c, Storage* s) noexcept {
+void Supervisor::bind(Motion* m, Chrono* c, Storage* s, Ui* u) noexcept {
     motion_ = m;
     chrono_ = c;
     storage_ = s;
+    ui_ = u;
+}
+
+const char* Supervisor::fault_name(uint8_t bit) noexcept {
+    switch (bit) {
+        case kFaultHands:
+            return "hands";
+        case kFaultCharger:
+            return "charger";
+        case kFaultAmp:
+            return "amp";
+        default:
+            return "?";
+    }
+}
+
+uint8_t Supervisor::ack() noexcept {
+    port::Lock lk{mx_};
+    const uint8_t was = snap_.faults_shown;
+    acked_ = snap_.faults_active;  // hidden while it lasts; a raise clears its bit again
+    snap_.faults_latched = snap_.faults_active;
+    snap_.faults_shown = 0;
+    return was;
 }
 
 void Supervisor::watch(ActiveObject* ao) noexcept {
@@ -58,6 +81,7 @@ void Supervisor::on_tick() {
     const uint64_t now = port::now_us();
     check_aos(now);  // first, and lock-free: a hung AO may be holding its snapshot's mutex
     check_hands(now);
+    check_faults();
     if (now >= next_beat_us_ || next_beat_us_ - now > kHeartbeatS * kSec) {
         next_beat_us_ = now + kHeartbeatS * kSec;
         heartbeat();
@@ -160,6 +184,55 @@ void Supervisor::check_hands(uint64_t now) noexcept {
     snap_.stalled = stall_since_us_ != 0;
     snap_.stalled_s = stall_since_us_ ? secs(now - stall_since_us_) : 0;
     snap_.why = why;
+}
+
+// Once a second.  Each raw condition has to hold kFaultConfirmS ticks running before it is a
+// fault -- an open-drain FAULT line read through an expander can glitch, and a blinking pixel
+// all night over one bad read is worse than three seconds of latency on a real one.
+void Supervisor::check_faults() noexcept {
+    uint8_t raw = 0;
+    if (motion_ && motion_->snapshot().state == Motion::State::Fault) raw |= kFaultHands;
+    if (stall_since_us_) raw |= kFaultHands;
+    if (ui_) {
+        const auto u = ui_->snapshot();
+        // FAULT is the charger's, so it only means something while the charger has an input.
+        if (u.power_ok && u.power.plugged && u.power.fault) raw |= kFaultCharger;
+    }
+    // SPK_FAULT is only the amp's answer while it is out of shutdown.
+    if (hal::audio::active()) {
+        if (const auto f = hal::expander::get(hal::expander::Sig::SpkFault); f.ok() && !f.v)
+            raw |= kFaultAmp;
+    }
+
+    uint8_t active = 0;
+    for (uint8_t i = 0; i < 3; ++i) {
+        const auto bit = static_cast<uint8_t>(1u << i);
+        if (raw & bit) {
+            if (fault_secs_[i] < 255) ++fault_secs_[i];
+        } else {
+            fault_secs_[i] = 0;
+        }
+        if (fault_secs_[i] >= kFaultConfirmS) active |= bit;
+    }
+
+    uint8_t raised = 0, cleared = 0;
+    {
+        port::Lock lk{mx_};
+        raised = active & ~snap_.faults_active;
+        cleared = snap_.faults_active & ~active;
+        acked_ &= ~raised;  // a fresh raise shows, whatever was acknowledged before
+        snap_.faults_active = active;
+        snap_.faults_latched |= active;
+        snap_.faults_shown = snap_.faults_latched & ~acked_;
+        for (uint8_t i = 0; i < 3; ++i)
+            if (raised & (1u << i)) ++snap_.fault_raises;
+    }
+    for (uint8_t i = 0; i < 3; ++i) {
+        const auto bit = static_cast<uint8_t>(1u << i);
+        if (raised & bit) CLK_LOGE(sup, "FAULT %s -- latched on the status row", fault_name(bit));
+        if (cleared & bit)
+            CLK_LOGW(sup, "fault %s cleared (still shown until acknowledged)", fault_name(bit));
+    }
 }
 
 void Supervisor::heartbeat() noexcept {

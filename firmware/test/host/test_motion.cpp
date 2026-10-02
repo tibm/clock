@@ -1496,6 +1496,88 @@ void test_ui_volume_sweeps_the_gauge() {
     sim::set_warp(1.0);
 }
 
+// The room dims the light (§6.6g): a lit pixel in a lamp-lit room, the lamp goes off, the
+// same pixel glides down to the night floor -- and back.  The cue is not re-armed by it.
+void test_ui_the_room_dims_the_light() {
+    fresh_ui(10.0);  // net samples the TSL2591 every 5 s of SIM time
+    knob_one_to_one(600000);
+    RecordingSink r;
+    run("ui room slew 0", r);
+    sim::set_lux(300.0f);
+    run("ui mode volume", r);
+    CHECK(in_mode("volume"));
+    auto w = [] { return hal::pixels::get(5).w; };
+    // 60 % perceptual -> 153 -> gamma -> 92: what the pixel was before the room had a say.
+    CHECK(wait_until([&] { return w() == 92; }, 3000));
+    CHECK(svc::ui().snapshot().room_scale == 255);
+
+    sim::set_lux(0.2f);
+    CHECK(wait_until([] { return svc::ui().snapshot().room_scale == 51; }, 3000));
+    CHECK(wait_until([&] { return w() > 0 && w() < 10; }, 1000));  // dim(153, 51) = 30 -> 4
+
+    run("ui room off", r);  // no opinion is full brightness
+    CHECK(wait_until([&] { return w() == 92; }, 1000));
+    run("ui room on", r);
+    CHECK(wait_until([] { return svc::ui().snapshot().room_scale == 51; }, 1000));
+    sim::set_lux(120.0f);
+    CHECK(wait_until(
+        [] {
+            const auto u = svc::ui().snapshot();
+            return u.room_lux > 100.0f && u.room_scale == 255;
+        },
+        3000));
+
+    run("ui room slew 2000", r);
+    run("ui mode idle", r);
+    knob_defaults();
+    sim::set_warp(1.0);
+}
+
+// A fault code (§6.6g): the charger's FAULT, plugged, blinks the `batt` pixel red on an idle
+// clock; a long press in idle acknowledges it; the same fault raised again shows again.
+void test_ui_a_fault_blinks_until_acknowledged() {
+    using S = svc::Supervisor;
+    auto& sup = svc::supervisor();
+    fresh_ui(1.0);
+    sim::set_plugged(true);
+    // A room bright enough that the light is the light (the case before may have left a glide).
+    CHECK(wait_until([] { return svc::ui().snapshot().room_scale == 255; }, 4000));
+    sup.ack();
+    CHECK(wait_until([&] { return sup.snapshot().faults_shown == 0; }, 1000));
+
+    sim::set_expander_in(hal::expander::Sig::Fault, false);  // open-drain, active low
+    CHECK(wait_until([&] { return (sup.snapshot().faults_shown & S::kFaultCharger) != 0; }, 6000));
+    CHECK(wait_until([] { return svc::ui().snapshot().faults == S::kFaultCharger; }, 1000));
+    const auto px = watch_pixel(6, 2500);  // a 2 s blink: lit AND dark inside one window
+    CHECK(px.ever_lit && px.ever_dark);
+    CHECK(px.levels == 1);  // hard-edged: one level, not a curve
+    CHECK(px.peak.r > 0 && px.peak.g == 0 && px.peak.b == 0 && px.peak.w == 0);
+    CHECK(hal::pixels::get(4) == hal::pixels::Rgbw{});  // only the pixel that names it
+
+    // "I have seen it."  Still active, so latched -- but dark.
+    tap_knob(1000);
+    CHECK(in_mode("idle"));
+    CHECK(wait_until([&] { return sup.snapshot().faults_shown == 0; }, 1000));
+    CHECK((sup.snapshot().faults_active & S::kFaultCharger) != 0);
+    CHECK(wait_until([] { return hal::pixels::get(6) == hal::pixels::Rgbw{}; }, 1000));
+    CHECK(!watch_pixel(6, 500).ever_lit);
+
+    // Clears, comes back: news again.
+    sim::set_expander_in(hal::expander::Sig::Fault, true);
+    CHECK(wait_until([&] { return sup.snapshot().faults_active == 0; }, 3000));
+    sim::set_expander_in(hal::expander::Sig::Fault, false);
+    CHECK(wait_until([&] { return (sup.snapshot().faults_shown & S::kFaultCharger) != 0; }, 6000));
+
+    RecordingSink r;
+    CHECK(run("sys fault", r) == Status::Ok);
+    CHECK(r.contains("ACTIVE"));
+    CHECK(r.contains("blinking"));
+    sim::set_expander_in(hal::expander::Sig::Fault, true);
+    CHECK(wait_until([&] { return sup.snapshot().faults_active == 0; }, 3000));
+    CHECK(run("sys fault ack", r) == Status::Ok);
+    CHECK(sup.snapshot().faults_shown == 0 && sup.snapshot().faults_latched == 0);
+}
+
 void test_chrono_drives_the_hands() {
     sim::reset();
     cli::unsafe_set(true);
@@ -1549,10 +1631,10 @@ void run_motion_service_tests() {
     auto& sup = svc::supervisor();
     motion.subscribe(&chrono);
     chrono.bind(&motion);
-    u.bind(&motion, &chrono, &net, &storage);
+    u.bind(&motion, &chrono, &net, &storage, &sup);
     net.bind(&motion, &chrono, &u, &storage);
     cli::bind_net();
-    sup.bind(&motion, &chrono, &storage);
+    sup.bind(&motion, &chrono, &storage, &u);
     for (ActiveObject* ao :
          {static_cast<ActiveObject*>(&motion), static_cast<ActiveObject*>(&chrono),
           static_cast<ActiveObject*>(&storage), static_cast<ActiveObject*>(&net),
@@ -1593,6 +1675,8 @@ void run_motion_service_tests() {
     test_ui_a_spin_is_paced_not_banked();
     test_ui_winds_a_day_without_reversing();
     test_ui_volume_sweeps_the_gauge();
+    test_ui_the_room_dims_the_light();
+    test_ui_a_fault_blinks_until_acknowledged();
     test_chrono_drives_the_hands();
     run_net_service_tests();
     run_storage_service_tests();

@@ -14,6 +14,7 @@
 
 #include "clk/ao.hpp"
 #include "clk/domain/alarm.hpp"
+#include "clk/domain/ambient.hpp"
 #include "clk/domain/anim.hpp"
 #include "clk/domain/level.hpp"
 #include "clk/services/chrono.hpp"
@@ -22,6 +23,8 @@
 #include "clk/services/storage.hpp"
 
 namespace clk::svc {
+
+class Supervisor;
 
 class Ui final : public ActiveObject {
 public:
@@ -65,6 +68,11 @@ public:
         bool batt_warn;
         bool imu_ok;
         hal::imu::State imu;
+        // The light, as the room has it (§6.6g): the scale applied to every pixel right now
+        // (255 = `brightness` as set), and the lux it was taken from (-1 = no opinion).
+        uint8_t room_scale;
+        float room_lux;
+        uint8_t faults;  // Supervisor::Fault bits the status row is showing
     };
 
     struct Tuning {
@@ -97,11 +105,14 @@ public:
     // which is what it was before the radio existed and what a test with no `net` still gets.
     // `s` likewise: without it the alarm still rings as far as the modes and the pixels go,
     // and makes no sound.
-    void bind(Motion* m, Chrono* c, Net* n = nullptr, Storage* s = nullptr) noexcept {
+    // `sup` likewise: without it there are no fault codes.
+    void bind(Motion* m, Chrono* c, Net* n = nullptr, Storage* s = nullptr,
+              Supervisor* sup = nullptr) noexcept {
         motion_ = m;
         chrono_ = c;
         net_ = n;
         storage_ = s;
+        sup_ = sup;
     }
     void set_mode(Mode) noexcept;
     // The alarm, from the CLI / the app.  Posted: `ui` owns it (the knob edits the next one),
@@ -146,6 +157,8 @@ public:
     void set_tuning(Tuning const&) noexcept;
     [[nodiscard]] domain::AnimCfg anim_cfg() const noexcept;
     void set_anim_cfg(domain::AnimCfg const&) noexcept;
+    [[nodiscard]] domain::AmbientCfg ambient_cfg() const noexcept;
+    void set_ambient_cfg(domain::AmbientCfg const&) noexcept;
 
 protected:
     void on_start() override;
@@ -157,6 +170,8 @@ private:
     void poll_tap() noexcept;
     void poll_level() noexcept;
     void watch_battery() noexcept;
+    void watch_room() noexcept;    // lux -> room_scale_, every tick (the slew is per tick)
+    void watch_faults() noexcept;  // the supervisor's latch -> faults_
     void enter(Mode) noexcept;
     void rotate(int32_t counts) noexcept;
     void press(uint32_t held_ms) noexcept;
@@ -209,11 +224,13 @@ private:
     Snapshot snap_{};
     Tuning tune_{};
     domain::AnimCfg anim_{};
+    domain::AmbientCfg amb_{};
 
     Motion* motion_ = nullptr;
     Chrono* chrono_ = nullptr;
     Net* net_ = nullptr;
     Storage* storage_ = nullptr;
+    Supervisor* sup_ = nullptr;
     uint32_t net_windows_ = 0;  // Net::Snapshot::windows when we last looked
 
     Mode mode_ = Mode::Idle;
@@ -277,6 +294,14 @@ private:
     uint64_t level_at_us_ = 0;
     bool level_polled_ = false;
     bool plugged_ = true;
+    // The room (§6.6g).  Applied at render(), never baked into a cue: a level that changed
+    // under a breathing pixel would re-arm it and restart the breath (see arm()).
+    domain::Dimmer dimmer_{};
+    domain::Lux lux_{};
+    uint64_t lux_at_us_ = 0;  // when lux_ was measured
+    uint8_t room_scale_ = 255;
+    uint8_t room_logged_ = 255;  // the target last logged
+    uint8_t faults_ = 0;         // Supervisor::Fault bits, polled with the battery
 };
 
 Ui& ui() noexcept;

@@ -6,6 +6,7 @@
 
 #include "clk/domain/hand.hpp"
 #include "clk/log.hpp"
+#include "clk/services/supervisor.hpp"
 
 namespace clk::svc {
 namespace {
@@ -41,6 +42,11 @@ constexpr uint32_t kLevelBatteryMs = 2000;
 // Chain order is dial first (§9.2): 0-1 on-PCB dial wash, 2-6 the status row through J12.
 constexpr std::size_t kDial0 = 0, kDial1 = 1;
 constexpr std::size_t kBell = 2, kAlarmPx = 3, kClockPx = 4, kVol = 5, kBatt = 6;
+
+// A fault code (§6.6g): the pixel that names the fault blinks red, hard-edged -- `Blink` is the
+// pattern no mode uses, kept for this -- and SLOW, so it reads as "something is wrong" rather
+// than as the ringing alarm's urgent 220 ms blink on the bell.
+constexpr uint32_t kFaultBlinkMs = 2000;
 
 // How many breaths the bell takes while the dial wash is up.  A COUNT rather than a duration:
 // the bell has to end dark exactly on the boundary, and a period that does not divide the
@@ -188,6 +194,15 @@ void Ui::set_anim_cfg(domain::AnimCfg const& c) noexcept {
     anim_ = c;
 }
 
+domain::AmbientCfg Ui::ambient_cfg() const noexcept {
+    port::Lock lk{mx_};
+    return amb_;
+}
+void Ui::set_ambient_cfg(domain::AmbientCfg const& c) noexcept {
+    port::Lock lk{mx_};
+    amb_ = c;
+}
+
 void Ui::set_mode(Mode m) noexcept { post(ModeSet{static_cast<uint8_t>(m)}); }
 
 void Ui::on_event(Event const& e) {
@@ -257,6 +272,8 @@ void Ui::on_tick() {
     poll_tap();
     poll_level();
     watch_battery();
+    watch_faults();
+    watch_room();
     drain_setting();  // release banked counts at the speed the hands can render them
     watch_alarm();
 
@@ -346,6 +363,40 @@ void Ui::watch_battery() noexcept {
     power_ok_ = p.ok();
     if (p.ok()) power_ = p.v;
     if (p.ok()) plugged_ = p.v.plugged;  // ... and that paces the gravity poll above
+}
+
+// The room's light (§6.6g).  The TSL2591 is read on `net`'s thread today (every 5 s, with the
+// rest of the status record) and moves to `board` with the other I2C sensors (§6.5) -- reading
+// it here as well would be a second caller in a driver written for one, and an auto-range on
+// `ui`'s thread is a second of dead knob.  So `ui` takes the last reading; the slew runs every
+// tick so the glide is smooth.
+void Ui::watch_room() noexcept {
+    const uint64_t now = port::now_us();
+    if (net_ && power_div_ == 0) {  // ~4 Hz is plenty for a number that changes every 5 s
+        const auto st = net_->status();
+        // One failed read (an auto-range mid-step) is not the room going away: keep the last
+        // good one, and let its AGE decide when it stops counting (AmbientCfg::stale_ms).
+        if ((st.flags & transport::kAlsOk) && st.als_age_s != transport::kAgeNever) {
+            lux_.ok = true;
+            lux_.lux = st.lux;
+            lux_.saturated = (st.flags & transport::kAlsSaturated) != 0;
+            lux_at_us_ = now - st.als_age_s * 1'000'000ull;
+        }
+    }
+    if (lux_.ok) lux_.age_ms = static_cast<uint32_t>((now - lux_at_us_) / 1000ull);
+    room_scale_ = dimmer_.update(lux_, now, ambient_cfg());
+    if (dimmer_.target() != room_logged_) {
+        room_logged_ = dimmer_.target();
+        CLK_LOGI(ui, "room %.2f lux -> light %u%%", static_cast<double>(dimmer_.anchor_lux()),
+                 room_logged_ * 100u / 255u);
+    }
+}
+
+// The supervisor owns the latch; `ui` only shows it.  Polled with the battery: a fault is
+// confirmed over three seconds anyway, a quarter of one more is nothing.
+void Ui::watch_faults() noexcept {
+    if (!sup_ || power_div_ != 0) return;
+    faults_ = sup_->snapshot().faults_shown;
 }
 
 void Ui::set_input(bool on) noexcept {
@@ -681,6 +732,14 @@ void Ui::press(uint32_t held_ms) noexcept {
     }
 
     if (held_ms >= tuning().long_press_ms) {
+        // In idle a long press has nothing to commit, so it is the acknowledgement for a fault
+        // code (§6.6g): "I have seen it" -- the row goes dark until something new goes wrong.
+        if (mode_ == Mode::Idle && sup_ && faults_) {
+            const uint8_t was = sup_->ack();
+            faults_ = 0;
+            CLK_LOGI(ui, "long press -> fault code acknowledged (0x%02x)", was);
+            return;
+        }
         CLK_LOGI(ui, "long press -> idle");
         enter(Mode::Idle);  // commits a clock set on the way out; dismisses an alarm
         return;
@@ -881,6 +940,26 @@ void Ui::cue() noexcept {
     // than an amber pixel.  Pairing owns the whole row, so it wins for those two minutes.
     if (batt_warn_ && mode_ != Mode::Pairing) want[kBatt] = domain::breathe(domain::kAmber, l);
 
+    // Fault codes (§6.6g) -- the second exception to zero emission, for the same reason: a
+    // clock whose hands have stopped is lying, and it should say so.  On the pixel that names
+    // what is wrong, unless a mode is using that pixel right now (it is being looked at) or
+    // pairing has the whole row.  Over the cell warning: a charger fault is the bigger news.
+    if (faults_ && mode_ != Mode::Pairing) {
+        struct Code {
+            uint8_t bit;
+            std::size_t px;
+        };
+        constexpr Code kCodes[] = {{Supervisor::kFaultHands, kClockPx},
+                                   {Supervisor::kFaultCharger, kBatt},
+                                   {Supervisor::kFaultAmp, kVol}};
+        for (auto const& c : kCodes) {
+            const bool mode_owns = (c.px == kClockPx && mode_ == Mode::Clock) ||
+                                   (c.px == kVol && mode_ == Mode::Volume);
+            if ((faults_ & c.bit) && !mode_owns)
+                want[c.px] = domain::blink(domain::kRed, l, kFaultBlinkMs);
+        }
+    }
+
     for (std::size_t i = 0; i < hal::pixels::kCount; ++i) {
         if (want[i].pattern == domain::Pattern::Off) {
             fade_out(i);
@@ -902,7 +981,10 @@ void Ui::render() noexcept {
         if (over_[i].pattern != domain::Pattern::Off && domain::done(over_[i], anim_, now)) {
             over_[i] = domain::off();  // transient finished; the mode gets its pixel back
         }
-        auto const& a = over_[i].pattern != domain::Pattern::Off ? over_[i] : base_[i];
+        // The room scales the level here, at the very end, and never in the cue: changing a
+        // cue's level re-arms it, and a breath restarted by a lamp switching off is a glitch.
+        auto a = over_[i].pattern != domain::Pattern::Off ? over_[i] : base_[i];
+        a.level = domain::dim(a.level, room_scale_);
         frame[i] = domain::render(a, anim_, now);
         changed = changed || !(frame[i] == shown_[i]);
     }
@@ -1089,6 +1171,9 @@ void Ui::publish() noexcept {
     snap_.batt_warn = batt_warn_;
     snap_.imu_ok = imu_ok_;
     snap_.imu = imu_;
+    snap_.room_scale = room_scale_;
+    snap_.room_lux = dimmer_.anchor_lux();
+    snap_.faults = faults_;
 }
 
 // The window can close without the knob: a phone bonded, the two minutes ran out, or the

@@ -10,7 +10,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 - ✅ done · 🟡 partly / built but not verified on the board · ⬜ not started. Update this file in
   the same commit that changes a line's state.
 
-*Last updated 2026-09-28.*
+*Last updated 2026-09-30.*
 
 ## Next up — the open items, in order
 
@@ -57,8 +57,8 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | ✅ | Knob HSM: modes, long press, 10 s hold = pairing, 5 s timeout | §6.6 |
 | ✅ | Status-pixel animations (five patterns), dial wash, tap acknowledgement | |
 | 🟡 | The five status pixels on the `J12` harness | **F3.1** — the on-PCB dial pixels already light |
-| ⬜ | Brightness follows the room (TSL2591), dark at night | reading exists; policy doesn't |
-| ⬜ | Fault codes on the status row | `supervisor` |
+| 🟡 | Brightness follows the room (TSL2591), dark at night | 2026-09-30, §6.6g: log map 1 lux → 20 % … 50 lux → 100 %, Schmitt + 2 s glide, `ui room` (`floor 0` = dark). Host-tested; **bench: tune the map in a real bedroom, check the row does not light the sensor**; not NVS yet (§7.5) |
+| 🟡 | Fault codes on the status row | 2026-09-30, §6.6g: `supervisor` latch (hands → `clock`, charger → `batt`, amp → `vol`), slow red blink, long press in idle / `sys fault ack` acknowledges. Host-tested; **bench: LT3652 `FAULT` quiet plugged with no cell (F1.6)** |
 
 ## Power
 
