@@ -13,18 +13,20 @@ struct clockApp: App {
     private let loaded = Result { try ProtocolSpec.loadBundled() }
     @State private var tones: ToneStore?
     @State private var history: HistoryStore?
+    @State private var journal: JournalStore?
 
     var body: some Scene {
         WindowGroup {
             switch loaded {
             case .success(let spec):
-                if let tones, let history {
-                    ContentView().environment(tones.link).environment(tones).environment(history)
+                if let tones, let history, let journal {
+                    ContentView().environment(tones.link).environment(tones).environment(history).environment(journal)
                 } else {
                     ProgressView().onAppear {
                         let link = ClockLink(spec: spec)
                         tones = ToneStore(link: link)
                         history = HistoryStore(link: link)
+                        journal = JournalStore(link: link)
                     }
                 }
             case .failure(let error):

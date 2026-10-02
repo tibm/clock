@@ -93,6 +93,11 @@ struct CommandResult {
 
     /// The first `=` pair with this key.
     func pair(_ key: String) -> String? { pairs.first { $0.key == key }?.value }
+
+    /// The status, plus the clock's explanation (display only).
+    var summary: String {
+        lines.isEmpty ? outcome.label : "\(outcome.label) — \(lines.joined(separator: " "))"
+    }
 }
 
 /// How a `blob` write ended.

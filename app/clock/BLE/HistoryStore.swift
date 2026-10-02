@@ -90,18 +90,12 @@ final class HistoryStore {
     @ObservationIgnored private let defaults = UserDefaults.standard
     @ObservationIgnored private var isPreview = false
     @ObservationIgnored private var syncTask: Task<Void, Never>?
-    @ObservationIgnored private var assembler: BulkAssembler?
-    @ObservationIgnored private var lastPacket = Date.now
     /// Per day file: its size, the bucket it was reduced with, and the result.
     @ObservationIgnored private var cache: [String: DayPoints] = [:]
-
-    /// A day that delivers nothing new for this long is given up (kept for the next sync).
-    private static let stallTimeout: TimeInterval = 5
 
     init(link: ClockLink) {
         self.link = link
         decoder = link.spec.history.map(HistoryDecoder.init)
-        link.onBulk = { [weak self] offset, payload in self?.bulk(offset, payload) }
         link.afterConnect = { [weak self] in
             guard let self else { return }
             self.startSync()
@@ -131,7 +125,12 @@ final class HistoryStore {
     private func sync() async {
         guard let id = link.connectedID else { return }
         let archive = HistoryArchive(clock: id)
-        link.beginDownload()
+        // One download at a time: wait for a journal fetch to finish.
+        while link.downloading {
+            if Task.isCancelled || link.phase != .ready { return }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        guard link.beginDownload("syncing history…") else { return }
         progress = Progress()
         message = nil
         defer {
@@ -147,7 +146,7 @@ final class HistoryStore {
             noCard = true
             return
         default:
-            message = ("log days: \(Self.describe(r))", false)
+            message = ("log days: \(r.summary)", false)
             return
         }
         let plan = HistorySync.plan(clock: HistorySync.days(r.pairs), local: archive.sizes())
@@ -189,52 +188,13 @@ final class HistoryStore {
         link.note("history sync: \(message?.text ?? "")")
     }
 
-    /// `log fetch <day> <from>` → collect `bulk` until `size` → CRC-32 → append to the local file.
+    /// `log fetch <day> <from>` → `bulk` → CRC-32 → append to the local file.
     private func fetch(_ f: HistorySync.Fetch, into archive: HistoryArchive) async throws {
-        // Ready before the request: data may start arriving before `$ok`.
-        assembler = BulkAssembler(from: f.from)
-        lastPacket = .now
-        defer { assembler = nil }
-
-        let r = await send("log fetch \(f.day) \(f.from)")
-        guard r.outcome.isOK, let size = r.pair("size").flatMap(Int.init), let crc = r.pair("crc") else {
-            throw FetchError("log fetch: \(Self.describe(r))")
+        let (_, data) = try await link.fetchBulk("log fetch \(f.day) \(f.from)", from: f.from,
+                                                 stop: "log fetch stop") { [weak self] n in
+            self?.progress?.done += n
         }
-        if let from = r.pair("from").flatMap(Int.init), from != f.from {
-            throw FetchError("the clock sends from \(from), asked \(f.from)")
-        }
-        assembler?.expect(size: size)
-        lastPacket = .now
-
-        while true {
-            guard let a = assembler else { throw FetchError("cancelled") }
-            if a.isComplete { break }
-            if a.gap {
-                _ = await send("log fetch stop")
-                throw FetchError("a packet went missing at \(a.next)")
-            }
-            if link.phase != .ready { throw FetchError("link lost at \(a.next) of \(size)") }
-            if Task.isCancelled { throw CancellationError() }
-            if Date.now.timeIntervalSince(lastPacket) > Self.stallTimeout {
-                _ = await send("log fetch stop")
-                throw FetchError("stalled at \(a.next) of \(size)")
-            }
-            try? await Task.sleep(for: .milliseconds(50))
-        }
-
-        let data = assembler?.data ?? Data()
-        let got = SoundUpload.hex(SoundUpload.crc32(data))
-        guard got == crc.lowercased() else { throw FetchError("CRC \(got), the clock says \(crc)") }
         try archive.store(f.day, from: f.from, data)
-    }
-
-    private func bulk(_ offset: Int, _ payload: Data) {
-        guard assembler != nil else { return }
-        let n = assembler?.add(offset: offset, payload) ?? 0
-        if n > 0 {
-            lastPacket = .now
-            progress?.done += n
-        }
     }
 
     private func send(_ line: String) async -> CommandResult {
@@ -254,7 +214,7 @@ final class HistoryStore {
     /// Sends one setting; on `denied` the clock's `|` line gives the budget numbers.
     func set(_ line: String) async {
         let r = await link.send(line)
-        message = r.outcome.isOK ? ("\(line): ok", true) : ("\(line): \(Self.describe(r))", false)
+        message = r.outcome.isOK ? ("\(line): ok", true) : ("\(line): \(r.summary)", false)
         await refreshStatus()
     }
 
@@ -347,11 +307,6 @@ final class HistoryStore {
     @concurrent
     nonisolated private static func csv(_ archive: HistoryArchive, _ decoder: HistoryDecoder) async -> String {
         archive.csv(decoder: decoder)
-    }
-
-    /// The status, plus the clock's explanation (display only).
-    private static func describe(_ r: CommandResult) -> String {
-        r.lines.isEmpty ? r.outcome.label : "\(r.outcome.label) — \(r.lines.joined(separator: " "))"
     }
 }
 

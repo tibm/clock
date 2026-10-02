@@ -36,14 +36,14 @@ final class ClockLink: NSObject {
     private(set) var maxWrite: Int?
     /// True while a request is in flight.
     var isBusy: Bool { inFlight != nil }
-    /// A `bulk` download runs: other requests wait in the queue (PROTOCOL.md "History": no
-    /// other commands during a download).
-    private(set) var downloading = false
-    /// Subscribed to `bulk` (history downloads).
+    /// The `bulk` download that holds the queue, as a toolbar label ("syncing history…"); nil
+    /// when none. Other requests wait (PROTOCOL.md "History", "Debug journal": one download at
+    /// a time, no other commands while it runs).
+    private(set) var downloadLabel: String?
+    var downloading: Bool { downloadLabel != nil }
+    /// Subscribed to `bulk` (history + journal downloads).
     private(set) var hasBulk = false
 
-    /// Each `bulk` notification: file offset + payload. Set by the history store.
-    @ObservationIgnored var onBulk: ((Int, Data) -> Void)?
     /// Runs once per connect, after the time sync and the command list.
     @ObservationIgnored var afterConnect: (() async -> Void)?
 
@@ -86,6 +86,13 @@ final class ClockLink: NSObject {
     /// The one `blob` write in flight (PROTOCOL.md "Sound files": one at a time).
     @ObservationIgnored private var blobWrite: CheckedContinuation<BlobWriteResult, Never>?
     @ObservationIgnored private var nextID: UInt16 = 1
+    /// The one `fetchBulk` running: its packets, and who counts the bytes.
+    @ObservationIgnored private var bulk: BulkAssembler?
+    @ObservationIgnored private var bulkProgress: ((Int) -> Void)?
+    @ObservationIgnored private var lastBulk = Date.now
+
+    /// A fetch that delivers nothing new for this long is given up.
+    private static let bulkStallTimeout: TimeInterval = 5
 
     private static let transcriptLimit = 3000
 
@@ -187,11 +194,76 @@ final class ClockLink: NSObject {
         }
     }
 
-    func beginDownload() { downloading = true }
+    /// Holds the queue for a download (`label` shows in the toolbar). False when one already runs.
+    func beginDownload(_ label: String) -> Bool {
+        guard downloadLabel == nil else { return false }
+        downloadLabel = label
+        return true
+    }
 
     func endDownload() {
-        downloading = false
+        downloadLabel = nil
         pump()
+    }
+
+    struct FetchError: LocalizedError {
+        let errorDescription: String?
+        /// The clock's answer, when it refused the fetch.
+        var result: CommandResult?
+        init(_ text: String, result: CommandResult? = nil) { errorDescription = text; self.result = result }
+    }
+
+    /// One fetch of the running download (PROTOCOL.md "History → Downloading"): sends `line`
+    /// (`log fetch …`, `sys journal fetch …`), collects the `bulk` packets of `[from, =size=)`
+    /// and checks `=crc=`. `stop` abandons it on the clock after a gap or a stall. `progress`
+    /// gets the number of new bytes per packet.
+    func fetchBulk(_ line: String, from: Int, stop: String,
+                   progress: @escaping (Int) -> Void) async throws -> (result: CommandResult, data: Data) {
+        // Ready before the request: data may start arriving before `$ok`.
+        bulk = BulkAssembler(from: from)
+        bulkProgress = progress
+        lastBulk = .now
+        defer { bulk = nil; bulkProgress = nil }
+
+        let r = await send(line, echo: false, duringDownload: true)
+        guard r.outcome.isOK, let size = r.pair("size").flatMap(Int.init), let crc = r.pair("crc") else {
+            throw FetchError("\(line): \(r.summary)", result: r)
+        }
+        if let f = r.pair("from").flatMap(Int.init), f != from {
+            throw FetchError("the clock sends from \(f), asked \(from)")
+        }
+        bulk?.expect(size: size)
+        lastBulk = .now
+
+        while true {
+            guard let a = bulk else { throw FetchError("cancelled") }
+            if a.isComplete { break }
+            if a.gap {
+                _ = await send(stop, echo: false, duringDownload: true)
+                throw FetchError("a packet went missing at \(a.next)")
+            }
+            if phase != .ready { throw FetchError("link lost at \(a.next) of \(size)") }
+            if Task.isCancelled { throw CancellationError() }
+            if Date.now.timeIntervalSince(lastBulk) > Self.bulkStallTimeout {
+                _ = await send(stop, echo: false, duringDownload: true)
+                throw FetchError("stalled at \(a.next) of \(size)")
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+
+        let data = bulk?.data ?? Data()
+        let got = SoundUpload.hex(SoundUpload.crc32(data))
+        guard got == crc.lowercased() else { throw FetchError("CRC \(got), the clock says \(crc)") }
+        return (r, data)
+    }
+
+    private func bulkPacket(_ offset: Int, _ payload: Data) {
+        guard bulk != nil else { return }
+        let n = bulk?.add(offset: offset, payload) ?? 0
+        if n > 0 {
+            lastBulk = .now
+            bulkProgress?(n)
+        }
     }
 
     /// PROTOCOL.md "Keeping time": the zone as a POSIX rule (so the clock changes DST on its
@@ -340,7 +412,7 @@ final class ClockLink: NSObject {
         connectedName = nil
         connectedID = nil
         hasBulk = false
-        downloading = false
+        downloadLabel = nil
         securingRetries = 0
         phase = .idle
         if let reason { problem = reason }
@@ -530,7 +602,7 @@ extension ClockLink: CBPeripheralDelegate {
         case "status":
             applySnapshot(data)
         case "bulk":
-            if let (offset, payload) = HistorySync.packet(data) { onBulk?(offset, payload) }
+            if let (offset, payload) = HistorySync.packet(data) { bulkPacket(offset, payload) }
         case "info":
             info = DeviceInfo(String(decoding: data, as: UTF8.self))
             if case .appTooOld(let clock, let app)? = info?.compatibility(appProto: spec.protocolVersion) {

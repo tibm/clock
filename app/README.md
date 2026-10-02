@@ -33,6 +33,7 @@ command table or a shell with autocomplete. It is the phone side of the contract
 | **Commands** | Every known command, grouped, with its help, arg ranges and badges (`unsafe`, `planned`, `device` = only the firmware's `help` knows it). Tap one to fill its arguments (pickers for `on\|off` choices, range warnings) and send it. Quick actions: sync time, `sys ver`, tone, stop, `unsafe on`, close pairing. |
 | **Clock → Wi-Fi** | The clock's own scan of networks in range, join (SSID + password sent `hex:`-encoded over the bonded link, never echoed to the shell), forget; state, last failure reason and signal from the snapshot. |
 | **History** | The clock's history log, **mirrored on the phone** (`Application Support/History/<clock id>/<yyyymmdd>.bin`, byte for byte; never deleted because the clock deleted it). Syncs on every connect and from *Sync now*: `log days` → diff → `log fetch <day> <from>` → `bulk` packets → CRC-32 → atomic append. Other commands wait while it runs (the toolbar says "syncing history…"). Charts (Swift Charts) per quantity: temperature, humidity, pressure, gas (log), light (mean + peak), battery, charge, Wi-Fi; 24 h · 7 d · 30 d · 1 y · All, bucketed to ≤ ~1000 points with a min…max band, lines broken at gaps > 2 periods, events as rules plus a list. Settings sheet: `log status`, period / keep / cap / record. Export: the raw day files, or a CSV. |
+| **Logs** | The clock's debug journal (every log line, one file per boot on its card), **mirrored on the phone** (`Application Support/Journal/<clock id>/<name>`, never deleted because the clock deleted it). Syncs on opening the tab, on *Refresh*, and every 5 s with **Follow** on (one small tail fetch of the current file): `sys journal files` → diff by name → `sys journal fetch <name> <from>` → `bulk` → CRC-32 → atomic append; shares the one download slot with History. Header from `sys journal` (boot, card, lines lost). Boot list, newest first, parts grouped: reset reason (red for panic / watchdog / brown-out), "ended: …" from the next boot, *current* and *rescued lines* badges, size. Viewer: parts concatenated, colour by level, level chips, tag menu, search, `+h:mm:ss.mmm` since boot, the rescued "before the reset" section tinted with **Jump to before the reset**, last 5000 lines with *Load all*; menu for `sys debug <tag> debug` / `sys debug all info`; Share the raw files. |
 | **Shell** | A terminal over BLE, the same commands as the USB console. Completion chips for the next word or argument. Tab / ↑ / ↓ on a hardware keyboard, or the chevrons. History is persisted. Output is coloured by record kind (`>` sent, `$` status, `=` pairs, `#` app notes), with an optional raw-frame view. |
 
 On connect the app automatically:
@@ -82,6 +83,7 @@ this folder, not a copy. Editing the contract and rebuilding is enough.
 | `snapshot.golden` | the decoder's unit test |
 | `sound_files` | the WAV format check, upload size limit, `blob` ATT error names |
 | `history` | the day-file decoder: header checks, record fields (offset, type, scale, `valid_if`, `sentinel`), kinds, `encodings` (parsed `10^(v / k) − c`), flag and event names, golden vectors |
+| `journal` | log file names + part order (`name_regex`), line split (`line_regex`), boot header and reset reasons, the rescued marker |
 
 Compatible protocol changes (PROTOCOL.md "Change process") need **no Swift change**:
 - **New command:** appears in the table and in autocomplete.
@@ -116,18 +118,22 @@ app/
 │   │   ├── CommandCatalog.swift   JSON + `help` commands, completion
 │   │   ├── SoundFiles.swift       `storage tones` list, WAV header check, CRC-32, blob values
 │   │   ├── HistoryRecord.swift    day-file decoder: header, CRC-8, samples, events
-│   │   ├── HistorySync.swift      `log days` → fetch plan, `bulk` packets + reassembly
+│   │   ├── HistorySync.swift      `log days` → fetch plan, `FileSync` diff, `bulk` packets + reassembly
 │   │   ├── HistorySeries.swift    chart points: buckets (min/mean/max), gap segments
+│   │   ├── JournalSync.swift      `sys journal files` → fetch plan, file names, boots
+│   │   ├── JournalLine.swift      journal lines: level / ms / tag, header, rescued section, filter
 │   │   └── JSONValue.swift
 │   ├── BLE/
-│   │   ├── ClockLink.swift        CoreBluetooth central, request queue, blob writes, bulk, state
+│   │   ├── ClockLink.swift        CoreBluetooth central, request queue, blob writes, bulk fetches, state
 │   │   ├── ToneStore.swift        sound files: list / delete / upload driver, bundled WAVs
 │   │   ├── HistoryStore.swift     history: sync driver, settings, chart loading, export
 │   │   ├── HistoryArchive.swift   the phone's copy of the day files, CSV
+│   │   ├── JournalStore.swift     logs: sync driver, Follow, boot list, parsing cache
+│   │   ├── JournalArchive.swift   the phone's copy of the journal files
 │   │   └── LinkTypes.swift        phases, problems/hints, results, transcript lines
 │   ├── Tones/                   drop alarm WAVs here (bundled as resources)
-│   └── Views/                   Connect, Status, History, Sounds, Commands, Shell, Common
-└── clockTests/                  Swift Testing: golden vector, framing, catalog, history, sound files
+│   └── Views/                   Connect, Status, History, Logs, Sounds, Commands, Shell, Common
+└── clockTests/                  Swift Testing: golden vector, framing, catalog, history, journal, sound files
 ```
 
 ## Troubleshooting
@@ -139,6 +145,6 @@ app/
 | No clock in the scan | Check the rear radio toggle. Another phone may be connected (one link at a time). |
 | `denied` on `motion home` / `sys reboot` | Send `unsafe on` first. The command sheet offers to do it for you. |
 | `busy` | The USB console is streaming. The app retries once after 1 s. |
-| History: "no `bulk` characteristic", Sounds tab hidden, while `info` shows a current `sha` | The phone cached the clock's old GATT table (paired before a firmware update). Firmware since 2026-10-01 announces GATT changes (*Service Changed*) so this heals on the next connect; for older firmware, or if it persists: **Forget This Device** (macOS: System Settings → Bluetooth → ⓘ → Forget), `net ble unbond` on the clock, hold the knob 10 s, pair again. If `sha` is old, reflash. |
+| History / Logs: "no `bulk` characteristic", Sounds tab hidden, while `info` shows a current `sha` | The phone cached the clock's old GATT table (paired before a firmware update). Firmware since 2026-10-01 announces GATT changes (*Service Changed*) so this heals on the next connect; for older firmware, or if it persists: **Forget This Device** (macOS: System Settings → Bluetooth → ⓘ → Forget), `net ble unbond` on the clock, hold the knob 10 s, pair again. If `sha` is old, reflash. |
 
 Reference client to compare against: `firmware/tools/clockctl.py` (`shell`, `status --watch`).

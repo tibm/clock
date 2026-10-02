@@ -18,6 +18,8 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
     let soundFiles: SoundFiles?
     /// Absent on a contract older than the history log and the `bulk` characteristic.
     let history: History?
+    /// Absent on a contract older than the debug journal download.
+    let journal: Journal?
 
     enum CodingKeys: String, CodingKey {
         case protocolVersion = "protocol_version"
@@ -26,7 +28,7 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
         case commandChannel = "command_channel"
         case commands, snapshot
         case soundFiles = "sound_files"
-        case history
+        case history, journal
     }
 
     // MARK: GATT
@@ -334,6 +336,33 @@ nonisolated struct ProtocolSpec: Decodable, Sendable {
             case eventDecoded = "event_decoded"
             case headerHex = "header_hex"
             case headerDecoded = "header_decoded"
+        }
+    }
+}
+
+// MARK: - Debug journal
+
+nonisolated extension ProtocolSpec {
+    /// PROTOCOL.md "Debug journal": the per-boot log files on the card.
+    struct Journal: Decodable, Sendable {
+        let dir: String?
+        /// Group 1 = boot, group 2 = part (absent = first file), group 3 = extension.
+        let nameRegex: String
+        /// Group 1 = level, 2 = ms since boot, 3 = tag, 4 = text.
+        let lineRegex: String
+        let headerPrefix: String
+        let resetReasons: [String]?
+        let rescuedPrefix: String
+        let partBytes: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case dir
+            case nameRegex = "name_regex"
+            case lineRegex = "line_regex"
+            case headerPrefix = "header_prefix"
+            case resetReasons = "reset_reasons"
+            case rescuedPrefix = "rescued_prefix"
+            case partBytes = "part_bytes"
         }
     }
 }

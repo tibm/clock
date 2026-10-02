@@ -24,19 +24,11 @@ nonisolated enum HistorySync {
         }
     }
 
-    /// New day → from 0; longer on the clock → from the local length; shorter on the clock
-    /// (card replaced) → from 0, replacing. Days only on the phone are kept (never deleted).
-    /// Oldest first, so today comes last.
+    /// `FileSync.plan` by day, oldest first, so today comes last.
     static func plan(clock: [(day: String, bytes: Int)], local: [String: Int]) -> [Fetch] {
-        clock.compactMap { day, bytes in
-            switch local[day] {
-            case nil: return Fetch(day: day, from: 0, size: bytes)
-            case let have? where have < bytes: return Fetch(day: day, from: have, size: bytes)
-            case let have? where have > bytes: return Fetch(day: day, from: 0, size: bytes)
-            default: return nil
-            }
-        }
-        .sorted { $0.day < $1.day }
+        FileSync.plan(clock: clock.map { ($0.day, $0.bytes) }, local: local)
+            .map { Fetch(day: $0.name, from: $0.from, size: $0.size) }
+            .sorted { $0.day < $1.day }
     }
 
     /// One `bulk` notification: 4-byte LE file offset, then data. Nil when shorter than the offset.
@@ -45,6 +37,33 @@ nonisolated enum HistorySync {
         let b = [UInt8](value.prefix(4))
         let off = Int(b[0]) | Int(b[1]) << 8 | Int(b[2]) << 16 | Int(b[3]) << 24
         return (off, value.dropFirst(4))
+    }
+}
+
+/// The mirror rule shared by history day files and journal files: what to fetch, by file name.
+nonisolated enum FileSync {
+    /// One fetch of `[from, size)` of a file.
+    struct Fetch: Sendable, Equatable {
+        let name: String
+        let from: Int
+        /// The file's size on the clock when listed.
+        let size: Int
+
+        var bytes: Int { max(0, size - from) }
+    }
+
+    /// Not on the phone → from 0; longer on the clock → from the local length; shorter on the
+    /// clock (card replaced, counter restarted) → from 0, replacing. Files only on the phone are
+    /// kept (never deleted). In the clock's order.
+    static func plan(clock: [(name: String, bytes: Int)], local: [String: Int]) -> [Fetch] {
+        clock.compactMap { name, bytes in
+            switch local[name] {
+            case nil: Fetch(name: name, from: 0, size: bytes)
+            case let have? where have < bytes: Fetch(name: name, from: have, size: bytes)
+            case let have? where have > bytes: Fetch(name: name, from: 0, size: bytes)
+            default: nil
+            }
+        }
     }
 }
 
