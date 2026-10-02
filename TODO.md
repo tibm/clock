@@ -43,10 +43,10 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | ✅ | Alarm time + arm/disarm: knob, CLI, BLE; persisted in NVS | 2026-09-28 |
 | ✅ | **The alarm actually rings** | 2026-09-27: `ui` fires it at the set local minute → `Ringing` / `Snoozed` (§6.6). Still owned by `ui` (§6.6f); `chrono`'s `alarms[8]` table (§6.4) not needed for one week + one override |
 | ✅ | Snooze (tap on top via BNO085, or press) and dismiss (long press) | 2026-09-27. Snooze 9 min, auto-dismiss after 15 min unanswered (`Ui::Tuning`, not yet NVS/app-settable). Bench: **F5.7** |
-| ✅ | **Weekly schedule** (a time per weekday, each on/off) from the app, NVS; the knob edits **the next alarm only** (one-off, replaces that day, schedule untouched) | 2026-09-30, §6.6f, `domain/alarm.hpp`. Protocol: `chrono alarm week` / `next <hh:mm\|clear>`, snapshot 132 → 150 B (`app/PROTOCOL.md` "Alarm schedule"). Host-tested; **iOS week editor + one-off banner still to build** (`app/PLAN.md`). Several independent alarms: not planned |
+| ✅ | **Weekly schedule** (a time per weekday, each on/off) from the app, NVS; the knob edits **the next alarm only** (one-off, replaces that day, schedule untouched) | 2026-09-30, §6.6f, `domain/alarm.hpp`. Protocol: `chrono alarm week` / `next <hh:mm\|clear>`, snapshot 132 → 150 B (`app/PROTOCOL.md` "Alarm schedule"). Host-tested; iOS week editor + one-off banner built (`app/README.md`). Several independent alarms: not planned |
 | ⬜ | Sunrise wake light, 30 min warm→cool before the alarm | `hal::wake` real 2026-10-01 (LEDC 1 kHz on IO45/46, owns `BOOST12_EN`: on with the first non-zero duty, off at 0/0; `denied` without PD_PG; `ui` zeroes it on unplug) — **bench `ui wake` on the 15 V brick**; the 30 min ramp itself is not built. On battery: dim dial-pixel glow instead |
 | ✅ | Alarm sound from a file (WAV), volume ramp over 30 s | 2026-09-27: `/sd/tones/*.wav`, 48 kHz mono 16-bit only; `storage` AO + 2 s PSRAM ring; tone chosen by `chrono alarm tone` (NVS); beep fallback. Host-tested; **bench: F5.7** |
-| 🟡 | Manage sound files from the app: list, upload, delete, choose the alarm tone | Firmware + protocol done 2026-09-27 (`app/PROTOCOL.md` "Sound files", `blob` characteristic, `storage tones/put/rm`; `clockctl.py put` works as the reference). **The iOS screens are still to build**; bench the transfer rate (**F5.7**) |
+| 🟡 | Manage sound files from the app: list, upload, delete, choose the alarm tone | Firmware + protocol done 2026-09-27 (`app/PROTOCOL.md` "Sound files", `blob` characteristic, `storage tones/put/rm`; `clockctl.py put` works as the reference). iOS Sounds tab built (`app/README.md`); bench the transfer rate (**F5.7**) |
 | ⬜ | Audio DSP: HPF + limiter (protects the 2″ driver) | `audio dsp`, **F5.6** |
 | ⬜ | Lift the 25 % volume ceiling | only after the protector sense loop is measured (**F5.4**, `FIRMWARE.md` R-AUDIO-1) |
 
@@ -78,7 +78,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | 🟡 | Wi-Fi + SNTP (app: Clock tab → Wi-Fi; zone rule sent on connect) | **F6.2** — built, not benched |
 | ⬜ | Firmware update over the air (OTA) | partition table is ready; `net ota` |
 | 🟡 | History log on the SD card: room / light / battery every 5 min, 2 years, ≤ 200 MB, download over `bulk` | **F6.3** — firmware built + host-tested 2026-09-28, bench next |
-| ⬜ | App: sync the history log and plot it (Swift Charts) | `app/PLAN.md` → "Next: history" |
+| ✅ | App: sync the history log and plot it (Swift Charts) | 2026-09-29, `app/README.md` "History" |
 | ⬜ | Upload alarm sounds from the phone | `Bulk` characteristic → `storage`; protocol addition |
 
 ## Sensors
@@ -94,7 +94,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | | Feature | Notes |
 |---|---|---|
 | 🟡 | Task watchdog on every AO, reset-reason + coredump report at boot | `supervisor`, §6.8 — TWDT (panic → reboot) + stuck-AO + hands-stall detection built 2026-09-29, bench next; `sys coredump` still ⬜ |
-| 🟡 | Debug log on the SD card, one file per boot, survives a watchdog reset | §9.4a — built + host-tested 2026-09-29, bench next |
+| 🟡 | Debug log on the SD card, one file per boot, survives a watchdog reset; **download to the app** (`sys journal files/fetch` over `bulk`) | §9.4a — built + host-tested 2026-09-29, download 2026-10-01; bench next. App Logs tab: ⬜ `app/PLAN.md` |
 | ⬜ | `sys top`, `sys heap`, `sys ev dump` | registered, still `not implemented` |
 | ⬜ | One `storage`-owned config (§7.5) instead of ad-hoc NVS keys | keys today: `ui.input`, `ui.week`, `ui.ovr_at`, `ui.ovr_day`, `ui.armed` (`ui.alarm` read once to migrate), `chr.tz`, motion zero/inhibit |
 | ⬜ | `BOARD=devkit-uart` compiles | **F5.5** |

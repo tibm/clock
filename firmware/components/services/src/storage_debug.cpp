@@ -172,6 +172,7 @@ void Storage::dbg_start() noexcept {
 }
 
 void Storage::dbg_tick() noexcept {
+    if (dbg_prune_due_ && fetch_fd_ < 0) dbg_prune();
     if (!dbg_boot_ || port::now_us() < dbg_at_us_) return;
     (void)dbg_write();
 }
@@ -211,7 +212,7 @@ Status Storage::dbg_append(int& fd, bool& fd_prev, bool prev, const char* data,
             } else {
                 dbg_size_ = size;
                 const auto js = journal::stats();
-                char part[16] = "";
+                char part[24] = "";
                 if (dbg_order_ > 1)
                     std::snprintf(part, sizeof part, " part %u",
                                   static_cast<unsigned>(dbg_order_ - 1));
@@ -314,6 +315,9 @@ void Storage::dbg_roll() noexcept {
 // Oldest files first, never the one being written, until the directory is inside both limits.
 // A long boot's older parts go too, once they are the oldest.
 void Storage::dbg_prune() noexcept {
+    // FATFS must not delete a file that is open: wait for the download to end.
+    dbg_prune_due_ = fetch_fd_ >= 0;
+    if (dbg_prune_due_) return;
     static constexpr std::size_t kMax = 2 * kDbgKeepBoots + 32;
     static DbgFile f[kMax];  // ~2 KB: this AO's thread only, and not on its stack
     for (int pass = 0; pass < 4; ++pass) {

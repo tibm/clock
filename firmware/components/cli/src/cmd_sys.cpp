@@ -1,7 +1,9 @@
 // `help`, `unsafe`, and the `sys` group.                    [FIRMWARE.md §9.3, §9.4]
 #include <cinttypes>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <new>
 
 #include "clk/cli/registry.hpp"
 #include "clk/hal/hal.hpp"
@@ -184,6 +186,94 @@ Status cmd_journal(Args const& a, Sink& out) {
                " boots)",
                svc::Storage::kDbgDir, d.files, d.dir_bytes / 1024u,
                svc::Storage::kDbgDirCap / 1024u, svc::Storage::kDbgKeepBoots);
+    // The app's (app/PROTOCOL.md "Debug journal"); the lines above are for people.
+    const char* slash = std::strrchr(d.file, '/');
+    char n[24];
+    std::snprintf(n, sizeof n, "%" PRIu32, d.boot);
+    out.kv("boot", n);
+    out.kv("file", slash ? slash + 1 : d.file);
+    std::snprintf(n, sizeof n, "%" PRIu32, d.file_bytes);
+    out.kv("bytes", n);
+    std::snprintf(n, sizeof n, "%" PRIu32, j.used);
+    out.kv("ram", n);
+    std::snprintf(n, sizeof n, "%" PRIu32, j.lost);
+    out.kv("lost", n);
+    std::snprintf(n, sizeof n, "%" PRIu32, d.files);
+    out.kv("files", n);
+    std::snprintf(n, sizeof n, "%" PRIu64, d.dir_bytes);
+    out.kv("dir_bytes", n);
+    out.kv("card", d.last_err ? d.last_err : "ok");
+    return Status::Ok;
+}
+
+// `sys journal files` -- what the phone mirrors: every file, oldest first, then which one is
+// still growing.  Writes the RAM ring to the card first.
+Status cmd_journal_files(Args const&, Sink& out) {
+    using svc::Storage;
+    if (const Status st = sto_await(svc::storage().dbg_flush(), "flush", out); st != Status::Ok)
+        return st;
+    constexpr std::size_t kMax = 2 * Storage::kDbgKeepBoots + 32;
+    auto* f = new (std::nothrow) Storage::DbgFile[kMax];
+    if (!f) {
+        out.line("out of memory");
+        return Status::Failed;
+    }
+    std::size_t total = 0;
+    uint64_t bytes = 0;
+    if (Storage::dbg_list(f, kMax, total, bytes) != Status::Ok) {
+        delete[] f;
+        out.line("no card");
+        return Status::NotPresent;
+    }
+    const std::size_t n = total < kMax ? total : kMax;
+    for (std::size_t i = 0; i < n; ++i) {
+        char name[24], v[40];
+        Storage::dbg_name(f[i].boot, f[i].order, name, sizeof name);
+        std::snprintf(v, sizeof v, "%s/%" PRIu32, name, f[i].size);
+        out.kv("file", v);
+    }
+    delete[] f;
+    const auto d = svc::storage().dbg_snapshot();
+    char v[16];
+    std::snprintf(v, sizeof v, "%" PRIu32, d.boot);
+    out.kv("boot", v);
+    const char* slash = std::strrchr(d.file, '/');
+    out.kv("current", slash ? slash + 1 : d.file);
+    out.printf("%zu file(s), %.2f MB%s", total, bytes / 1e6,
+               total > n ? " -- the oldest are not listed until the next prune" : "");
+    return Status::Ok;
+}
+
+// `sys journal fetch <name> [<offset>]` -- the bytes go out on `bulk`, as for `log fetch`.
+Status cmd_journal_fetch(Args const& a, Sink& out) {
+    auto& sto = svc::storage();
+    if (a.sv(0) == "stop") return sto_await(sto.log_fetch_stop(), "fetch stop", out);
+    uint32_t boot = 0, order = 0;
+    unsigned long off = 0;
+    bool off_ok = true;
+    if (a.count() > 1) {
+        char* end = nullptr;
+        off = std::strtoul(a.arg(1), &end, 10);
+        off_ok = a.arg(1)[0] >= '0' && a.arg(1)[0] <= '9' && end && !*end && off <= 0xFFFFFFFFul;
+    }
+    if (!a.arg(0) || !svc::Storage::dbg_parse(a.arg(0), boot, order) || !off_ok) {
+        out.line("usage: sys journal fetch <name> [<offset>]   |   sys journal fetch stop");
+        return Status::BadArg;
+    }
+    const auto l0 = hal::ble::link();
+    const Status st = sto_await(sto.dbg_fetch(a.arg(0), static_cast<uint32_t>(off)), "fetch", out);
+    if (st != Status::Ok) return st;
+    const auto l = sto.log_snapshot();
+    char v[16];
+    out.kv("file", a.arg(0));
+    std::snprintf(v, sizeof v, "%" PRIu32, l.fetch_from);
+    out.kv("from", v);
+    std::snprintf(v, sizeof v, "%" PRIu32, l.fetch_size);
+    out.kv("size", v);
+    std::snprintf(v, sizeof v, "%08" PRIx32, l.fetch_crc);
+    out.kv("crc", v);
+    out.printf("sending %" PRIu32 " bytes on `bulk`%s", l.fetch_size - l.fetch_from,
+               l0.bulk_sub ? "" : " -- nobody is subscribed to it, so nothing will arrive");
     return Status::Ok;
 }
 
@@ -247,6 +337,10 @@ constexpr CmdSpec kSys[] = {
     {"sys", nullptr, "heap", "", "internal + PSRAM, largest block, min", ReleaseOk, cmd_notyet},
     {"sys", nullptr, "journal", "[flush]", "the debug log: RAM ring + this boot's file on the card",
      ReleaseOk, cmd_journal},
+    {"sys", "journal", "files", "", "journal files on the card (`=file=` pairs), oldest first",
+     ReleaseOk, cmd_journal_files},
+    {"sys", "journal", "fetch", "<name> [<off>] | stop", "send a journal file on `bulk`", ReleaseOk,
+     cmd_journal_fetch},
     {"sys", nullptr, "wd", "", "supervisor: hands / AO stalls, log a heartbeat now", ReleaseOk,
      cmd_wd},
     {"sys", nullptr, "fault", "[ack]", "fault codes on the status row; ack hides them", ReleaseOk,

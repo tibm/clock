@@ -117,6 +117,9 @@ uint32_t Storage::log_fetch(uint32_t day, uint32_t offset) noexcept {
     return enqueue(Kind::LogFetch, nullptr, false, day, offset);
 }
 uint32_t Storage::log_fetch_stop() noexcept { return enqueue(Kind::LogFetchStop, nullptr, false); }
+uint32_t Storage::dbg_fetch(const char* name, uint32_t offset) noexcept {
+    return enqueue(Kind::DbgFetch, name, false, offset);
+}
 
 void Storage::retick() noexcept {
     set_tick(playing_ != Playing::Nothing || fetch_fd_ >= 0 ? kPumpMs : kIdleMs);
@@ -446,6 +449,20 @@ void Storage::handle(Req const& r) noexcept {
             const char* why = nullptr;
             if (st == Status::NotPresent) why = "no card";
             if (st == Status::Failed) why = "no log for that day";
+            if (st == Status::BadArg) why = "offset past the end of the file";
+            return answer(r.seq, st, why);
+        }
+        case Kind::DbgFetch: {
+            uint32_t boot = 0, order = 0;
+            if (!dbg_parse(r.name, boot, order))
+                return answer(r.seq, Status::BadArg, "not a journal file");
+            (void)dbg_write();  // so the current file has everything up to now
+            char path[40];
+            dbg_path(boot, order, path, sizeof path);
+            const Status st = fetch_begin(path, r.size, 0, r.name);
+            const char* why = nullptr;
+            if (st == Status::NotPresent) why = "no card";
+            if (st == Status::Failed) why = "no such file";
             if (st == Status::BadArg) why = "offset past the end of the file";
             return answer(r.seq, st, why);
         }

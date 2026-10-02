@@ -444,6 +444,34 @@
       "use": "write the RAM records to the card now"
     },
     {
+      "line": "sys journal",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "debug journal state as `=` pairs: boot (this boot's number), file (the file being written, bare name), bytes (its size), ram (bytes not on the card yet), lost (lines dropped: RAM ring full), files, dir_bytes, card (`ok` or the last error: `no card`, `card write failed`)"
+    },
+    {
+      "line": "sys journal files",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "every journal file on the card, oldest first, as `=file=<name>/<bytes>`, then `=boot=<n>` and `=current=<name>` (the one file still growing). Writes the RAM ring to the card first. not-present with no card"
+    },
+    {
+      "line": "sys journal fetch <name> [<offset>]",
+      "status": "implemented",
+      "unsafe": false,
+      "args": {
+        "name": "a file name from `sys journal files`",
+        "offset": "byte offset to start from (default 0)"
+      },
+      "use": "send [offset, size) of that journal file on the `bulk` characteristic, exactly like `log fetch`. Answers `=file=` `=from=` `=size=` `=crc=` (CRC-32/zlib of exactly the bytes sent, 8 hex) then $ok. failed = no such file; bad-arg = not a journal file name, or offset past the end; not-present = no card"
+    },
+    {
+      "line": "sys journal fetch stop",
+      "status": "implemented",
+      "unsafe": false,
+      "use": "abandon a download in progress (same as `log fetch stop`)"
+    },
+    {
       "line": "unsafe on",
       "status": "implemented",
       "unsafe": false,
@@ -1443,5 +1471,37 @@
       }
     },
     "sizes": "per day at period p: 32 + ceil(86400/p) x 24 bytes (+ events, ~24 B each). 300 s: 6.9 KB/day, 5 MB for 2 years (24 MB on a card with 32 KB clusters)"
+  },
+  "journal": {
+    "$comment": "The debug journal (PROTOCOL.md \"Debug journal\"): every log line, one text file per boot on the card. Downloaded like history day files (bulk, offset + data, CRC-32).",
+    "dir": "/sd/debug",
+    "name_regex": "^(\\d{6})(?:-([1-9]\\d*))?\\.(log|old)$",
+    "name_parts": "group 1 = boot (6 digits), group 2 = part (absent = the boot's first file), group 3 = `old` only on cards written by firmware before 2026-10-01. Sort: boot, then .old, then .log, then part",
+    "line_regex": "^([EWIDV]) \\((\\d+)\\) ([^:]+): (.*)$",
+    "line_parts": "group 1 = level, group 2 = ms since boot, group 3 = tag (our module names, or an ESP-IDF tag), group 4 = text. Lines that do not match are plain text (IDF boot banner, panic output)",
+    "header_prefix": "=== boot ",
+    "header_example": "=== boot 123 part 1 (continued)  reset: task wdt  journal: warm, 812 byte(s) of boot 122 rescued, 0 lost ===",
+    "reset_reasons": [
+      "unknown",
+      "power-on",
+      "ext pin",
+      "sw",
+      "panic",
+      "int wdt",
+      "task wdt",
+      "wdt",
+      "deep sleep",
+      "brown-out",
+      "sdio",
+      "usb",
+      "jtag",
+      "efuse",
+      "power glitch",
+      "cpu lockup"
+    ],
+    "rescued_prefix": "--- the last lines before the reset",
+    "part_bytes": 4194304,
+    "dir_cap_bytes": 33554432,
+    "keep_boots": 64
   }
 }

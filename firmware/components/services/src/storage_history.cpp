@@ -496,6 +496,15 @@ Status Storage::log_fetch_begin(uint32_t day, uint32_t off) noexcept {
     (void)log_write();  // so today's file has everything up to now
     char path[40];
     day_file_path(day, path, sizeof path);
+    return fetch_begin(path, off, day, "");
+}
+
+// The one download slot: a day file or a journal file, [off, size) as the card has it now.
+// Bytes appended after this are the next fetch's.
+Status Storage::fetch_begin(const char* path, uint32_t off, uint32_t day,
+                            const char* file) noexcept {
+    log_fetch_end(nullptr);
+    if (ensure_mounted() != Status::Ok) return Status::NotPresent;
     const auto fd = hal::sd::open(path);
     if (!fd.ok()) return Status::Failed;
     const auto sz = hal::sd::size(fd.v);
@@ -521,6 +530,7 @@ Status Storage::log_fetch_begin(uint32_t day, uint32_t off) noexcept {
         port::Lock lk{hmx_};
         hsnap_.fetching = off < sz.v;
         hsnap_.fetch_day = day;
+        std::snprintf(hsnap_.fetch_file, sizeof hsnap_.fetch_file, "%s", file);
         hsnap_.fetch_from = off;
         hsnap_.fetch_size = sz.v;
         hsnap_.fetch_crc = crc;
@@ -530,7 +540,7 @@ Status Storage::log_fetch_begin(uint32_t day, uint32_t off) noexcept {
         log_fetch_end(nullptr);
         return Status::Ok;
     }
-    CLK_LOGI(storage, "log: sending %s from %" PRIu32 " (%" PRIu32 " bytes)", path, off,
+    CLK_LOGI(storage, "fetch: sending %s from %" PRIu32 " (%" PRIu32 " bytes)", path, off,
              sz.v - off);
     retick();
     return Status::Ok;
@@ -570,7 +580,7 @@ void Storage::log_fetch_pump() noexcept {
 void Storage::log_fetch_end(const char* why) noexcept {
     if (fetch_fd_ >= 0) {
         hal::sd::close(fetch_fd_);
-        if (why) CLK_LOGW(storage, "log: download ended: %s", why);
+        if (why) CLK_LOGW(storage, "fetch: download ended: %s", why);
     }
     fetch_fd_ = -1;
     fetch_pkt_n_ = 0;

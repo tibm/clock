@@ -398,6 +398,47 @@ minutes); after that, a daily sync is one fetch of today's tail.
 `log status` gives the settings and state as `=` pairs (`on`, `period`, `keep`, `cap`,
 `projected`, `used`, `days`, `ram`) for a settings screen.
 
+### Debug journal
+
+For "it got stuck overnight". The clock writes **every log line** (its own and ESP-IDF's) to the
+card, one text file per boot, in `/sd/debug`. Lines it had not written yet when it crashed or
+was reset by a watchdog survive in RAM and are appended to the **previous** boot's file on the
+next boot, under a `--- the last lines before the reset …` line. Numbers and regexes:
+`protocol.json` → `journal`.
+
+**Files.** `<boot>.log` (boot = 6 digits, e.g. `000123.log`); past 4 MB the same boot carries on
+in `<boot>-1.log`, `<boot>-2.log`, …. **A file only ever grows** — nothing is renamed or
+rewritten — and normally only the current file grows; the one exception is the rescued lines
+above (the previous boot's newest file grows once, right after a reset). The clock deletes the
+oldest files past 32 MB or 64 boots, never the current one. (`<boot>.old` files may exist on a
+card written by firmware before 2026-10-01; treat them like any other file.) Each file part
+starts with a header line `=== boot <n>[ part <p>][ (continued)]  reset: <reason>  journal: …`;
+the reset reasons are listed in `journal.reset_reasons`.
+
+**Lines.** UTF-8 text, `\n`-terminated. Most match `journal.line_regex`:
+`<level> (<ms since boot>) <tag>: <text>`, level one of `E W I D V`. Others (the IDF boot banner,
+a panic backtrace) are plain text — show them as they are.
+
+**Downloading** — the History rules with names instead of days:
+
+1. Subscribe to `bulk` (and `rsp`).
+2. `sys journal files` → `=file=<name>/<bytes>` per file, oldest first, then `=boot=<n>` and
+   `=current=<name>`. The clock writes its RAM ring to the card first, so `current` is up to
+   date. Compare with the app's copies: not on the phone → fetch from 0; longer on the clock →
+   fetch from the phone's length; **shorter on the clock → fetch from 0 and replace** (another
+   card, or the boot counter restarted after a full flash erase); only on the phone → keep it.
+3. `sys journal fetch <name> <from>` → `=file=` `=from=` `=size=` `=crc=` then `$ok`; the bytes
+   `[from, size)` arrive on `bulk` exactly as for `log fetch` (4-byte LE offset + data; CRC-32
+   of `[from, size)`). `failed` = no such file, `bad-arg` = not a journal name or offset past
+   the end, `not-present` = no card. Lines the clock logs after the answer are the next fetch's.
+4. **One download at a time, shared with `log fetch`**: a new fetch of either kind replaces the
+   running one; `sys journal fetch stop` (= `log fetch stop`) abandons it. No other commands
+   while it runs.
+
+To follow a live clock, repeat 2–3 every few seconds: it is one small tail fetch of `current`.
+At ~20–40 KB/s a full 4 MB part takes a few minutes the first time. `sys journal` gives `=`
+pairs for a header (`boot` `file` `bytes` `ram` `lost` `files` `dir_bytes` `card`).
+
 ### Sound files
 
 The alarm plays WAV files from the clock's microSD card, directory `/sd/tones`. The app can list,
@@ -554,6 +595,7 @@ marked newer. Unknown keys: ignore.
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-10-01 | proto 1 / schema 1 | **Debug journal download.** `sys journal files`, `sys journal fetch <name> [<offset>] \| stop` (over `bulk`, shares `log fetch`'s slot), `=` pairs on `sys journal`; "Debug journal" section; `protocol.json` → `journal` + the commands. A boot past 4 MB now continues in `<boot>-<part>.log` instead of renaming to `.old`. All compatible (new commands, new block) |
 | 2026-10-01 | proto 1 / schema 1 | The clock indicates *Service Changed* when its GATT table differs from the previous firmware's (§1). No wire change |
 | 2026-09-27 | proto 1 / schema 1 | First version: 4 characteristics, CLI-over-GATT framing, 132-byte snapshot, pairing window |
 | 2026-09-30 | proto 1 / schema 1 | `protocol.json`: new `snapshot.min_size` (132, the oldest record a decoder must accept — was prose only); `gatt.status.len` 132 → 150 (stale). No wire change |

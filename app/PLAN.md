@@ -15,7 +15,7 @@ before a crash / watchdog reset. This tab mirrors those files on the phone and s
 **Contract** (read these, don't copy numbers from here into Swift):
 - `PROTOCOL.md` → "Debug journal" — files, commands, the download, the line format.
 - `protocol.json` → `journal` block (`dir`, `name_regex`, `line_regex`, `header_prefix`,
-  `rescued_prefix`, `part_bytes`) and the `sys journal …` commands in `commands`.
+  `reset_reasons`, `rescued_prefix`, `part_bytes`) and the `sys journal …` commands.
 - The download is the **same mechanism as History**: `bulk` notifications (4-byte LE offset +
   data), `=from=` `=size=` `=crc=` (CRC-32/zlib of exactly `[from, size)`), one download at a
   time, no other commands while it runs. Reuse `BulkAssembler`, the CRC-32, and `ClockLink`'s
@@ -37,16 +37,18 @@ before a crash / watchdog reset. This tab mirrors those files on the phone and s
   `bulk`. `failed` = no such file; `bad-arg` = bad name or offset past the end;
   `not-present` = no card. `sys journal fetch stop` (or `log fetch stop`) abandons it.
 - `sys journal` → `=` pairs `boot`, `file`, `bytes`, `ram` (bytes not on the card yet),
-  `lost` (lines dropped because the ring was full), `files`, `dir_bytes`, `card` (`ok` /
-  `none` / the last error) — for the tab's header.
+  `lost` (lines dropped because the ring was full), `files`, `dir_bytes`, `card` (`ok`, or the
+  last error: `no card` / `card write failed`) — for the tab's header.
 
 ### Build
 1. **`Protocol/` (pure, `nonisolated`)**
    - `ProtocolSpec`: optional `journal` block (absent on an older contract → tab hidden).
-   - `JournalSync.swift`: parse `=file=` / `=boot=` / `=current=`; the plan, keyed by name:
+   - `JournalSync.swift`: parse `=file=` / `=boot=` / `=current=` (split `<name>/<bytes>` on
+     the last `/`); the plan, keyed by name:
      not on the phone → from 0; longer on the clock → from the phone's size; **shorter on the
      clock → from 0 and replace** (card swapped, or the boot counter restarted after a flash
-     erase); only on the phone → keep. Order: oldest first, `current` last. Generalise
+     erase); only on the phone → keep. Order: as listed (oldest first); when merging with
+     phone-only files sort by `name_regex`: boot → `.old` → `.log` → part. Generalise
      `HistorySync`'s diff to a string key rather than copying it.
    - `JournalLine.swift`: split into lines (UTF-8, lossy). `line_regex` → level (`E W I D V`),
      ms since boot, tag, text. Lines that don't match (IDF boot banner, panic backtrace) are

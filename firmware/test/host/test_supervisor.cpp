@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "check.hpp"
 #include "testutil.hpp"
@@ -181,6 +182,87 @@ void test_journal_parts(const std::string& card) {
     ::unlink(nvs);
 }
 
+// What the phone does: list, fetch the current file over `bulk`, get it byte for byte, then
+// only the tail.  [app/PROTOCOL.md "Debug journal"]
+// The value of a `=` pair, "" when absent.
+std::string pair(RecordingSink const& r, const char* key) {
+    const std::string k = std::string(key) + "=";
+    for (auto const& l : r.lines)
+        if (l.rfind(k, 0) == 0) return l.substr(k.size());
+    return "";
+}
+
+void test_journal_download(const std::string& card) {
+    CLK_LOGW(sys, "download-probe-51c2");
+    sim::ble_disconnect();
+    sim::ble_reconnect();
+    sim::ble_set_mtu(185);
+    sim::ble_subscribe(true, true);
+    sim::ble_subscribe_bulk(true);
+
+    RecordingSink ls;
+    CHECK(run("sys journal files", ls) == Status::Ok);  // flushes first
+    const auto cur = pair(ls, "current");
+    CHECK(!cur.empty());
+    CHECK(!pair(ls, "boot").empty());
+    CHECK(ls.contains("file=000199.log/"));  // oldest first: 199 before 200
+    CHECK(ls.joined().find("file=000199.log/") < ls.joined().find("file=" + cur + "/"));
+
+    const auto pull = [](std::vector<uint8_t>& got) {
+        std::size_t received = 0;
+        const bool done = wait_until([&] {
+            uint8_t pkt[600];
+            for (std::size_t n; (n = sim::ble_pop_bulk(pkt, sizeof pkt)) > 0;) {
+                const uint32_t off = pkt[0] | pkt[1] << 8 | pkt[2] << 16 | pkt[3] << 24;
+                if (off + (n - 4) > got.size()) got.resize(off + (n - 4));
+                std::memcpy(got.data() + off, pkt + 4, n - 4);
+                received += n - 4;
+            }
+            return !svc::storage().log_snapshot().fetching;
+        });
+        CHECK(done);
+        return received;
+    };
+    RecordingSink fr;
+    CHECK(run(("sys journal fetch " + cur).c_str(), fr) == Status::Ok);
+    const auto file = slurp(card + "/debug/" + cur);
+    CHECK(pair(fr, "size") == std::to_string(file.size()));
+    CHECK(pair(fr, "from") == "0");
+    char crc[16];
+    std::snprintf(
+        crc, sizeof crc, "%08x",
+        svc::Storage::crc32(0, reinterpret_cast<const uint8_t*>(file.data()), file.size()));
+    CHECK(pair(fr, "crc") == crc);
+    std::vector<uint8_t> got;
+    CHECK(pull(got) == file.size());
+    CHECK(std::string(got.begin(), got.end()) == file);
+    CHECK(file.find("download-probe-51c2") != std::string::npos);
+
+    // More lines, then only the tail.
+    CLK_LOGW(sys, "tail-probe-9e04");
+    RecordingSink tr;
+    CHECK(run(("sys journal fetch " + cur + " " + std::to_string(file.size())).c_str(), tr) ==
+          Status::Ok);
+    const auto file2 = slurp(card + "/debug/" + cur);
+    CHECK(file2.size() > file.size());
+    CHECK(pair(tr, "size") == std::to_string(file2.size()));
+    CHECK(pull(got) == file2.size() - file.size());
+    CHECK(std::string(got.begin(), got.end()) == file2);
+
+    RecordingSink bad;
+    CHECK(run("sys journal fetch 000001.txt", bad) == Status::BadArg);
+    CHECK(run(("sys journal fetch " + cur + " x").c_str(), bad) == Status::BadArg);
+    CHECK(run(("sys journal fetch " + cur + " 999999999").c_str(), bad) == Status::BadArg);
+    CHECK(run("sys journal fetch 999998.log", bad) == Status::Failed);
+    CHECK(run("sys journal fetch stop", bad) == Status::Ok);
+    RecordingSink st;
+    CHECK(run("sys journal", st) == Status::Ok);
+    CHECK(pair(st, "card") == "ok");
+    CHECK(pair(st, "file") == cur);
+    sim::ble_subscribe_bulk(false);
+    sim::ble_disconnect();
+}
+
 // The failure this exists for: every AO alive, the clock ticking, and the hands not moving.
 void test_supervisor_catches_stuck_hands() {
     using svc::Motion;
@@ -238,6 +320,7 @@ void run_supervisor_service_tests() {
     test_journal_rescues_the_last_lines(card);
     test_journal_names();
     test_journal_parts(card);
+    test_journal_download(card);
     test_supervisor_catches_stuck_hands();
     // The stall is in the file too.
     RecordingSink f;

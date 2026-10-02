@@ -52,9 +52,16 @@ Status cmd_status(Args const&, Sink& out) {
                l.ram, l.ram_cap, ago, l.written, l.dropped);
     if (!l.time_ok)
         out.line("time    not set yet -- nothing is recorded until the clock has a date");
-    if (l.fetching)
-        out.printf("fetch   %" PRIu32 ": %" PRIu32 " of %" PRIu32 " bytes sent", l.fetch_day,
-                   l.fetch_sent, l.fetch_size - l.fetch_from);
+    if (l.fetching) {
+        char what[24];
+        if (l.fetch_day) {
+            std::snprintf(what, sizeof what, "%" PRIu32, l.fetch_day);
+        } else {
+            std::snprintf(what, sizeof what, "%s", l.fetch_file);
+        }
+        out.printf("fetch   %s: %" PRIu32 " of %" PRIu32 " bytes sent", what, l.fetch_sent,
+                   l.fetch_size - l.fetch_from);
+    }
     if (l.last_err) out.printf("last    %s", l.last_err);
     out.kv("on", c.on ? "1" : "0");
     kv_u(out, "period", c.period_s);

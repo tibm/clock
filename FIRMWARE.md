@@ -2387,6 +2387,12 @@ For "it got stuck overnight" — the console is not attached when it matters.
   part. Firmware before 2026-10-01 renamed to `<boot>.old`; those are still listed and pruned.
   No card: retried once a minute, the ring keeps the newest 16 KB meanwhile.
 - `sys journal [flush]` — ring fill/lost, boot, file, bytes flushed/rescued, directory size.
+- **Download to the phone (2026-10-01):** `sys journal files` (`=file=<name>/<bytes>`, oldest
+  first, `=boot=`, `=current=`) and `sys journal fetch <name> [<off>] | stop` — the same `bulk`
+  stream and the same single fetch slot as `log fetch` (`Storage::fetch_begin(path, …)`), CRC-32
+  of the range. Flushes the ring first. A prune waits while a download is open (FATFS must not
+  delete an open file). Contract: `app/PROTOCOL.md` "Debug journal"; the app's Logs tab mirrors
+  the directory (`app/PLAN.md`).
 - Only what is *logged* is kept: `sys debug motion debug` before a hunt puts more in it.
 
 ### 9.5 `sensor` — the bring-up group

@@ -134,9 +134,11 @@ public:
         uint32_t days;            // day files on the card, as of the last prune
         uint32_t oldest, newest;  // yyyymmdd, 0 = none
         const char* last_err;     // a literal, or nullptr
-        // The download in progress, and the answer to the last `log fetch`.
+        // The download in progress, and the answer to the last `log fetch` or
+        // `sys journal fetch` (one slot, shared).
         bool fetching;
-        uint32_t fetch_day;  // yyyymmdd
+        uint32_t fetch_day;   // yyyymmdd; 0 for a journal file
+        char fetch_file[24];  // the journal file's name; "" for a day file
         uint32_t fetch_from, fetch_size, fetch_crc, fetch_sent;
     };
     // `net`'s reading, every 10 s, any thread.  Only the room / light / battery / radio parts
@@ -154,7 +156,7 @@ public:
     // Stream [offset, size) of a day file on `bulk`.  Flushes first, so today is complete.
     // Answered with fetch_size / fetch_crc (CRC-32 of exactly those bytes) in log_snapshot().
     uint32_t log_fetch(uint32_t yyyymmdd, uint32_t offset) noexcept;
-    uint32_t log_fetch_stop() noexcept;
+    uint32_t log_fetch_stop() noexcept;  // stops either kind of download
     void set_fw_id(uint32_t id) noexcept { fw_id_ = id; }
     // The last few records (RAM, newest last), for `log tail`.  Returns how many were copied.
     std::size_t log_tail(uint8_t (*out)[transport::hist::kRecord], std::size_t max) const noexcept;
@@ -167,7 +169,7 @@ public:
     static constexpr uint32_t kDbgKeepBoots = 64;
     struct DbgSnap {
         uint32_t boot;         // this boot's number; 0 until storage has started
-        char file[32];         // this boot's file ("" until the card has taken a line)
+        char file[40];         // this boot's file ("" until the card has taken a line)
         uint32_t file_bytes;   // its size, as of the last flush
         uint32_t flushed;      // journal bytes written to the card since boot
         uint32_t recovered;    // ... of which the previous boot's, rescued from RAM
@@ -192,6 +194,10 @@ public:
     // to `max`; `total` / `bytes` count them all.
     static Status dbg_list(DbgFile* out, std::size_t max, std::size_t& total,
                            uint64_t& bytes) noexcept;
+    // Stream [offset, size) of a journal file (a bare name, e.g. "000123-1.log") on `bulk`,
+    // like log_fetch().  Writes the RAM ring to the card first, so the current file is
+    // complete.  The answer is in log_snapshot(): fetch_file / fetch_size / fetch_crc.
+    uint32_t dbg_fetch(const char* name, uint32_t offset) noexcept;
 
     // Blocking: open `path`, read and check its header.  For `storage ls`, which is a bench
     // listing and reads each file's first 512 bytes on the CLI thread (FATFS is re-entrant).
@@ -222,6 +228,7 @@ private:
         LogFetch,
         LogFetchStop,
         DbgFlush,
+        DbgFetch,
     };
     struct Req {
         Kind kind;
@@ -265,6 +272,7 @@ private:
     Status log_write() noexcept;                 // RAM -> card
     void log_prune(uint32_t today) noexcept;
     Status log_fetch_begin(uint32_t day, uint32_t off) noexcept;
+    Status fetch_begin(const char* path, uint32_t off, uint32_t day, const char* file) noexcept;
     void log_fetch_pump() noexcept;
     void log_fetch_end(const char* why) noexcept;
     // debug journal
@@ -363,6 +371,7 @@ private:
     uint64_t dbg_mount_at_us_ = 0;  // next mount attempt when there is no card
     uint64_t dbg_last_us_ = 0;
     const char* dbg_err_ = nullptr;  // last logged, so a missing card is said once
+    bool dbg_prune_due_ = false;     // deferred: a download may have the oldest file open
 };
 
 Storage& storage() noexcept;
