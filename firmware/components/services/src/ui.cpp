@@ -363,6 +363,11 @@ void Ui::watch_battery() noexcept {
     power_ok_ = p.ok();
     if (p.ok()) power_ = p.v;
     if (p.ok()) plugged_ = p.v.plugged;  // ... and that paces the gravity poll above
+    // §6.8 interlock 4.  Unplugging already kills the 12 V rail in hardware; this puts the
+    // PWM and BOOST12_EN back to 0 so the reported duty is the truth and a re-plug does not
+    // relight the strips on its own.
+    if (p.ok() && !p.v.plugged && (hal::wake::warm() || hal::wake::cool()))
+        (void)hal::wake::set(0, 0);
 }
 
 // The room's light (§6.6g).  The TSL2591 is read on `net`'s thread today (every 5 s, with the

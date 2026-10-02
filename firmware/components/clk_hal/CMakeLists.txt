@@ -28,7 +28,7 @@ if(ESP_PLATFORM)
                                 ${CLK_HAL_SHARED}
                            INCLUDE_DIRS api
                            REQUIRES core board_cfg esp_timer nvs_flash esp_driver_i2c
-                                    esp_driver_gpio esp_driver_pcnt esp_driver_mcpwm
+                                    esp_driver_gpio esp_driver_ledc esp_driver_pcnt esp_driver_mcpwm
                                     esp_driver_gptimer esp_driver_i2s esp_adc
                                     esp_driver_spi esp_driver_sdspi sdmmc fatfs vfs
                                     espressif__led_strip bt esp_wifi esp_netif

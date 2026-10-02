@@ -4225,6 +4225,8 @@ the ordered work. Delete a row when it closes; delete the section when it emptie
 |---|---|---|
 | `hal::wake` — `set`, `warm`, `cool` | `hal_esp.cpp`, `namespace wake` | the 12 V rail and the two AO3400A PWM channels — gated on the 12 V boost, which is gated on `PD_PG` |
 
+✅ **Written 2026-10-01**, not yet benched: LEDC timer 0, 1 kHz, 13-bit, ch0 warm / ch1 cool. `wake::set` owns `BOOST12_EN` (asserted before the duty goes up, released after both reach 0, so a dark wake light leaves the board in the pre-existing 5 V-PVDD state); `Denied` without `PD_PG`. Interlock 1 is now also enforced in the ESP `expander::set` (it was only in the fake). `ui` zeroes the wake light on unplug. Bench: brick in, `unsafe on`, `ui wake 10 0` → warm strip lit, `audio` reports `pvdd 12 V boost`; `ui wake 0 0` → boost off.
+
 #### Phase 5 — milestone 6: audio ✅ **the amp plays, 2026-09-22**
 
 `hal::audio` was written and bench-proven correct on 2026-09-13/14 (§12.0.15) and then sat

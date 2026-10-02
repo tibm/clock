@@ -7,19 +7,21 @@
 // `hal::audio` moved to esp/src/audio_esp.cpp on 2026-09-13 -- it is the only peripheral that
 // owns a task, and the amp's own register set is shared/tas5760m.cpp.
 //
-// ONE namespace here is still an honest NotPresent stub, gated on the 12 V boost rather than
-// on anything in this file (FIRMWARE.md §12.2 Phase 4):
-//   wake  -> ledc, ~1 kHz, gamma applied above this layer
+// `wake` became real on 2026-10-01 (LEDC + the 12 V boost), which leaves no stubs here.
 //
 // A stub is not a placeholder apology.  On BOARD=devkit it is the *correct* answer until you
 // wire something up (board_cfg starts the devkit with an empty presence mask), and D16 says
 // absence is a first-class result, never a faked success and never an error log.  Each
 // peripheral is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
+#include <cinttypes>
 #include <cstring>
+#include <mutex>
+#include <utility>
 
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "driver/ledc.h"
 #include "driver/pulse_cnt.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -468,10 +470,113 @@ Rgbw get(std::size_t i) noexcept { return i < kCount ? g_px[i] : Rgbw{}; }
 
 }  // namespace pixels
 
+// ============================ hal::wake ==================================================
+// Real, as of 2026-10-01.  Two LEDC channels at ~1 kHz into the AO3400A gates (led.md), and
+// the 12 V boost that feeds the strips.  The boost is this namespace's to switch: on with the
+// first non-zero duty, off again at 0/0, so a board with the wake light dark is in exactly the
+// state every earlier bench ran in (amp PVDD on the 5 V rail through the LTC4412).
+//
+// Percent is linear duty -- gamma is applied above this layer.  §6.8 interlock 4 (plugged-only)
+// is checked here against PD_PG; interlock 1 (BOOST12_EN only with PD_PG) is enforced again,
+// independently, by expander::set below, which is the single choke point for that pin.
 namespace wake {
-Status set(uint8_t, uint8_t) noexcept { return Status::NotPresent; }
-uint8_t warm() noexcept { return 0; }
-uint8_t cool() noexcept { return 0; }
+namespace {
+
+constexpr ledc_mode_t kMode = LEDC_LOW_SPEED_MODE;
+constexpr ledc_timer_t kTimer = LEDC_TIMER_0;
+constexpr ledc_timer_bit_t kRes = LEDC_TIMER_13_BIT;
+constexpr uint32_t kMaxDuty = (1u << 13) - 1;
+constexpr uint32_t kFreqHz = 1000;
+constexpr ledc_channel_t kChWarm = LEDC_CHANNEL_0;
+constexpr ledc_channel_t kChCool = LEDC_CHANNEL_1;
+
+std::mutex g_mx;
+bool g_up = false;
+bool g_failed = false;
+uint8_t g_warm = 0, g_cool = 0;
+
+bool ledc_up() noexcept {
+    if (g_up) return true;
+    if (g_failed) return false;
+    ledc_timer_config_t t{};
+    t.speed_mode = kMode;
+    t.duty_resolution = kRes;
+    t.timer_num = kTimer;
+    t.freq_hz = kFreqHz;
+    t.clk_cfg = LEDC_AUTO_CLK;
+    esp_err_t err = ::ledc_timer_config(&t);
+    for (const auto& [ch, pin] :
+         {std::pair{kChWarm, board::kPins.wake_warm}, std::pair{kChCool, board::kPins.wake_cool}}) {
+        if (err != ESP_OK) break;
+        ledc_channel_config_t c{};
+        c.gpio_num = pin;
+        c.speed_mode = kMode;
+        c.channel = ch;
+        c.timer_sel = kTimer;
+        c.duty = 0;
+        err = ::ledc_channel_config(&c);
+    }
+    if (err != ESP_OK) {
+        g_failed = true;
+        CLK_LOGE(drv_led, "wake LEDC install failed: %s", ::esp_err_to_name(err));
+        return false;
+    }
+    g_up = true;
+    CLK_LOGI(drv_led, "wake LEDC up: IO%d warm / IO%d cool, %" PRIu32 " Hz, 13-bit",
+             board::kPins.wake_warm, board::kPins.wake_cool, kFreqHz);
+    return true;
+}
+
+Status duty(ledc_channel_t ch, uint8_t pct) noexcept {
+    const uint32_t d = (kMaxDuty * pct + 50) / 100;
+    if (::ledc_set_duty(kMode, ch, d) != ESP_OK) return Status::Failed;
+    return ::ledc_update_duty(kMode, ch) == ESP_OK ? Status::Ok : Status::Failed;
+}
+
+}  // namespace
+
+Status set(uint8_t warm_pct, uint8_t cool_pct) noexcept {
+    if (warm_pct > 100 || cool_pct > 100) return Status::BadArg;
+    if (!board::present(board::Dev::WakeLed)) return Status::NotPresent;
+    std::lock_guard lk{g_mx};
+    if (!ledc_up()) return Status::NotPresent;
+    const bool on = warm_pct || cool_pct;
+
+    if (on) {
+        // PD_PG is open-drain active-low: a LOW pin is a live 15 V contract.
+        const auto pg = expander::get(expander::Sig::PdPg);
+        if (!pg.ok()) return pg.st;
+        if (pg.v) return Status::Denied;
+        if (const Status st = expander::set(expander::Sig::Boost12En, true); st != Status::Ok)
+            return st;
+    }
+    // Duty after the boost on the way up and before it on the way down, so the strips never
+    // see a gate held open while the 12 V rail is soft-starting or collapsing.
+    Status st = duty(kChWarm, warm_pct);
+    if (st == Status::Ok) st = duty(kChCool, cool_pct);
+    if (st != Status::Ok) {
+        (void)duty(kChWarm, 0);
+        (void)duty(kChCool, 0);
+        warm_pct = cool_pct = 0;
+    }
+    g_warm = warm_pct;
+    g_cool = cool_pct;
+    if (!g_warm && !g_cool) {
+        const Status b = expander::set(expander::Sig::Boost12En, false);
+        if (st == Status::Ok) st = b;
+    }
+    return st;
+}
+
+uint8_t warm() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_warm;
+}
+uint8_t cool() noexcept {
+    std::lock_guard lk{g_mx};
+    return g_cool;
+}
+
 }  // namespace wake
 
 // ============================ hal::i2c ===================================================
@@ -664,7 +769,16 @@ Result<State> read() noexcept { return bme688::read(); }
 // the chip through hal::i2c above.  Nothing here knows a register.
 namespace expander {
 Result<bool> get(Sig s) noexcept { return mcp23017::get(s); }
-Status set(Sig s, bool level) noexcept { return mcp23017::set(s, level); }
+Status set(Sig s, bool level) noexcept {
+    // §6.8 interlock 1, the single choke point: BOOST12_EN is never asserted unless PD_PG
+    // reads asserted (open-drain active-low, so a 0).  The fake refuses the same way.
+    if (s == Sig::Boost12En && level) {
+        const auto pg = mcp23017::get(Sig::PdPg);
+        if (!pg.ok()) return pg.st;
+        if (pg.v) return Status::Denied;
+    }
+    return mcp23017::set(s, level);
+}
 }  // namespace expander
 
 // hal::audio is not here either: it is the one peripheral in the HAL that owns a task, so it

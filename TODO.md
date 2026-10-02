@@ -10,7 +10,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 - ✅ done · 🟡 partly / built but not verified on the board · ⬜ not started. Update this file in
   the same commit that changes a line's state.
 
-*Last updated 2026-09-30.*
+*Last updated 2026-10-01.*
 
 ## Next up — the open items, in order
 
@@ -20,7 +20,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
    limiter; the 25 % ceiling stays until **F5.4**. *(Next session: audio requirements.)*
 3. **Time survives a reboot** — RTC / 32 kHz retention; today only the offset and the alarm do.
 4. **Bench the BLE link on the board** — **F6.1** (iOS + Android, pairing window, reconnect).
-5. **Sunrise wake light** — `hal::wake` (12 V, plugged-only).
+5. **Sunrise wake light** — the ramp; `hal::wake` is real (2026-10-01), bench it on the brick.
 6. **Power modes + the 48 h backup measurement** — `supervisor`, milestone 8.
 7. **Bench Wi-Fi + SNTP (built 2026-09-28), then OTA** — **F6.2**.
 
@@ -44,7 +44,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 | ✅ | **The alarm actually rings** | 2026-09-27: `ui` fires it at the set local minute → `Ringing` / `Snoozed` (§6.6). Still owned by `ui` (§6.6f); `chrono`'s `alarms[8]` table (§6.4) not needed for one week + one override |
 | ✅ | Snooze (tap on top via BNO085, or press) and dismiss (long press) | 2026-09-27. Snooze 9 min, auto-dismiss after 15 min unanswered (`Ui::Tuning`, not yet NVS/app-settable). Bench: **F5.7** |
 | ✅ | **Weekly schedule** (a time per weekday, each on/off) from the app, NVS; the knob edits **the next alarm only** (one-off, replaces that day, schedule untouched) | 2026-09-30, §6.6f, `domain/alarm.hpp`. Protocol: `chrono alarm week` / `next <hh:mm\|clear>`, snapshot 132 → 150 B (`app/PROTOCOL.md` "Alarm schedule"). Host-tested; **iOS week editor + one-off banner still to build** (`app/PLAN.md`). Several independent alarms: not planned |
-| ⬜ | Sunrise wake light, 30 min warm→cool before the alarm | `hal::wake` is the last HAL stub (12 V boost, plugged-only; Phase 4). On battery: dim dial-pixel glow instead |
+| ⬜ | Sunrise wake light, 30 min warm→cool before the alarm | `hal::wake` real 2026-10-01 (LEDC 1 kHz on IO45/46, owns `BOOST12_EN`: on with the first non-zero duty, off at 0/0; `denied` without PD_PG; `ui` zeroes it on unplug) — **bench `ui wake` on the 15 V brick**; the 30 min ramp itself is not built. On battery: dim dial-pixel glow instead |
 | ✅ | Alarm sound from a file (WAV), volume ramp over 30 s | 2026-09-27: `/sd/tones/*.wav`, 48 kHz mono 16-bit only; `storage` AO + 2 s PSRAM ring; tone chosen by `chrono alarm tone` (NVS); beep fallback. Host-tested; **bench: F5.7** |
 | 🟡 | Manage sound files from the app: list, upload, delete, choose the alarm tone | Firmware + protocol done 2026-09-27 (`app/PROTOCOL.md` "Sound files", `blob` characteristic, `storage tones/put/rm`; `clockctl.py put` works as the reference). **The iOS screens are still to build**; bench the transfer rate (**F5.7**) |
 | ⬜ | Audio DSP: HPF + limiter (protects the 2″ driver) | `audio dsp`, **F5.6** |
