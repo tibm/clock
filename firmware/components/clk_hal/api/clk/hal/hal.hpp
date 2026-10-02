@@ -891,6 +891,12 @@ struct Info {
     uint32_t heap_free;    // bytes, all heaps
     uint32_t heap_min;     // low-water since boot
     uint8_t reset_reason;  // esp_reset_reason_t; 0 on the host
+    // The heap that runs out first.  heap_free is mostly PSRAM (8 MB), which no DMA engine
+    // here can use -- so it read "8 MB free" on the boot where SPI3 and the SD card failed
+    // for want of 512 bytes of internal RAM (2026-10-01).  0 on the host.
+    uint32_t int_free;     // internal DRAM, bytes
+    uint32_t int_min;      // ... low-water since boot
+    uint32_t dma_largest;  // the largest DMA-capable block: what one allocation can get
 };
 Info info() noexcept;
 }  // namespace sys

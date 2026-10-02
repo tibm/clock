@@ -258,7 +258,7 @@ std::size_t ble_read_info(char* out, std::size_t cap) noexcept {
 
 // Heap numbers mean nothing on a laptop; zero says "not measured" without inventing one.
 namespace sys {
-Info info() noexcept { return Info{0, 0, 0}; }
+Info info() noexcept { return Info{}; }
 }  // namespace sys
 
 }  // namespace clk::hal

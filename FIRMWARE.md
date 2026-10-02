@@ -4139,6 +4139,34 @@ U9  TAS5760M   pin 1 AVDD (92.850, 83.432) -- bodged to C170 pad 1 PVDD (103.500
       cut at (92.4, 83.43); via (91.688, 83.101) restores +3V3 if ever needed
 ```
 
+### 12.0.18 No DMA RAM left with both radios up — 2026-10-01
+
+First boot with Wi-Fi (F6.2) and BLE together on build #1:
+
+```
+E led_strip_spi: led_strip_new_spi_device(220): create SPI bus failed
+E sdmmc_cmd: allocate_dma_buf: not enough mem, err=0x101        (every read, every 5 s)
+I sup: hb up 10s heap 8092531/8074880
+```
+
+One cause. **Internal DRAM was exhausted**, not the heap: the 8 MB "free" is PSRAM, which no DMA
+engine here uses. `idf.py size` leaves ~114 KB of DIRAM after static data; the BT controller,
+the NimBLE host (`MEM_ALLOC_MODE_INTERNAL`, the default), 16 static Wi-Fi RX buffers (~1.6 KB each)
+and ~15 task stacks took the rest — and `net` brings both radios up before `ui` draws its first
+frame, so SPI3 (lazily created there) and the SD card's 512 B per-read bounce buffer (FatFS
+buffers live in PSRAM) found nothing.
+
+| fix | where |
+|---|---|
+| NimBLE host heap → PSRAM (`CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL`) | `sdkconfig.defaults` |
+| Wi-Fi static RX 16 → 8, BA window 16 → 8 (help: static RX ≥ BA window) | `sdkconfig.defaults` |
+| pixel chain's SPI3 + DMA claimed in `hal::init()`, before any AO | `hal_esp.cpp` |
+| `sys::Info` gains `int_free` / `int_min` / `dma_largest`; the heartbeat prints them; `supervisor` logs them at start, **Error under 8 KB** | `hal.hpp`, `supervisor.cpp` |
+
+⚠ `rm build/*/sdkconfig` once so the new defaults land. **Bench:** the `sup` start line and the
+heartbeat's `int`/`dma` numbers with BLE connected **and** Wi-Fi online; an SD read under load
+(`storage ls`, a tone playing).
+
 ### 12.1 Milestones
 
 | # | Milestone | Proves |

@@ -791,6 +791,14 @@ Status init() noexcept {
     if (!i2c::install()) CLK_LOGE(sys, "i2c bus unavailable -- expander, amp and J7 are dark");
 
     install_sensor_int();
+    // The pixel chain's SPI3 bus + DMA buffer NOW, not on `ui`'s first frame.  By then `net`
+    // has brought both radios up, and on 2026-10-01 that left no DMA-capable RAM at all: the
+    // bus failed to create and the clock booted with every pixel dark (§12.0.18).  Claiming it
+    // in the single-threaded boot makes the order a fact rather than a race.
+    if (board::present(board::Dev::Pixels)) {
+        (void)pixels::set_all(pixels::Rgbw{});
+        (void)pixels::refresh();
+    }
     CLK_LOGI(sys, "hal: board=%s, peripherals not implemented yet (see hal/esp)",
              board::board_name());
     return Status::Ok;
@@ -798,9 +806,14 @@ Status init() noexcept {
 
 namespace sys {
 Info info() noexcept {
-    return Info{static_cast<uint32_t>(::esp_get_free_heap_size()),
-                static_cast<uint32_t>(::esp_get_minimum_free_heap_size()),
-                static_cast<uint8_t>(::esp_reset_reason())};
+    Info i{};
+    i.heap_free = static_cast<uint32_t>(::esp_get_free_heap_size());
+    i.heap_min = static_cast<uint32_t>(::esp_get_minimum_free_heap_size());
+    i.reset_reason = static_cast<uint8_t>(::esp_reset_reason());
+    i.int_free = static_cast<uint32_t>(::heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    i.int_min = static_cast<uint32_t>(::heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+    i.dma_largest = static_cast<uint32_t>(::heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+    return i;
 }
 }  // namespace sys
 

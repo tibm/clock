@@ -14,6 +14,7 @@ namespace {
 constexpr int kPrio = 21;
 constexpr std::size_t kStack = 4096;
 constexpr uint64_t kSec = 1'000'000;
+constexpr uint32_t kDmaLowBytes = 8 * 1024;
 constexpr uint64_t kFirstBeatUs = 10 * kSec;  // one early, so a short boot still has one
 
 uint32_t secs(uint64_t us) noexcept { return static_cast<uint32_t>(us / kSec); }
@@ -75,6 +76,19 @@ void Supervisor::on_start() {
     }
     CLK_LOGI(sup, "up; watching %zu AO(s), hands stall after %" PRIu32 " s%s", n_aos_, kHandsStallS,
              restart_ ? ", restart if it persists" : "");
+    // Started last, so this is the RAM the running clock has.  The SD card needs a DMA bounce
+    // buffer per read and SPI per transfer; under kDmaLowBytes those start failing (§12.0.18).
+    const auto si = hal::sys::info();
+    if (si.int_free) {
+        if (si.dma_largest < kDmaLowBytes)
+            CLK_LOGE(sup,
+                     "internal RAM %" PRIu32 " B free, largest DMA block %" PRIu32
+                     " B -- LOW: SD and SPI DMA will fail",
+                     si.int_free, si.dma_largest);
+        else
+            CLK_LOGI(sup, "internal RAM %" PRIu32 " B free, largest DMA block %" PRIu32 " B",
+                     si.int_free, si.dma_largest);
+    }
 }
 
 void Supervisor::on_tick() {
@@ -242,12 +256,13 @@ void Supervisor::heartbeat() noexcept {
         const auto m = motion_->snapshot();
         const auto c = chrono_->snapshot();
         CLK_LOGI(sup,
-                 "hb up %" PRIu32 "s heap %" PRIu32 "/%" PRIu32
+                 "hb up %" PRIu32 "s heap %" PRIu32 "/%" PRIu32 " int %" PRIu32 "/%" PRIu32
+                 " dma %" PRIu32
                  " | %02d:%02d:%02d%s%s | "
                  "motion %s%s%s pos %" PRId32 "/%" PRId32 " tgt %" PRId32 "/%" PRId32
                  " | chrono %" PRId32 "/%" PRId32,
-                 secs(now), si.heap_free, si.heap_min, c.hour, c.minute, c.second,
-                 c.valid ? "" : " unset", c.follow ? "" : " nofollow",
+                 secs(now), si.heap_free, si.heap_min, si.int_free, si.int_min, si.dma_largest,
+                 c.hour, c.minute, c.second, c.valid ? "" : " unset", c.follow ? "" : " nofollow",
                  m.state_name ? m.state_name : "?", m.phase && *m.phase ? "/" : "",
                  m.phase ? m.phase : "", m.hour, m.minute, m.target_hour, m.target_minute,
                  c.target_hour, c.target_minute);

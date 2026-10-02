@@ -76,8 +76,17 @@ CONFIG_BT_NIMBLE_SM_SC=y
 CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=247
 CONFIG_BT_NIMBLE_SVC_GAP_DEVICE_NAME="clock"
 CONFIG_BT_NIMBLE_LOG_LEVEL_WARNING=y
+# The host's heap in PSRAM.  INTERNAL was the default, and with Wi-Fi up it was the largest
+# single claim on internal RAM -- on 2026-10-01 the board booted with no DMA-capable RAM left:
+# `led_strip` could not create SPI3 and every SD read failed at allocate_dma_buf (§12.0.18).
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
 
 # Wi-Fi station for SNTP (FIRMWARE.md §6.7).  Its buffers and lwIP's go to PSRAM where the
 # driver allows, so BLE + Wi-Fi together leave the internal heap to DMA and the audio ring.
 # Coexistence (CONFIG_ESP_COEX_SW_COEXIST_ENABLE) is on by default with both radios built.
 CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+# ... except the static RX buffers, which are internal DMA at ~1.6 KB each.  The PSRAM default
+# is 16 (with a BA window of 16) for iperf-class throughput; a clock moves SNTP packets and a
+# few KB of history, so 8/8 -- the Kconfig help asks for static RX >= the BA window.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=8
+CONFIG_ESP_WIFI_RX_BA_WIN=8
