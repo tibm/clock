@@ -8,6 +8,10 @@
 // What the ring carried over a reset belongs to the PREVIOUS boot and goes to the end of its
 // file, under a marker.  That is the useful part when the clock hangs: the task watchdog
 // resets it ~10 s later, and the lines that say what it was doing are in RAM, not on the card.
+//
+// A file only ever GROWS.  Past kDbgFileCap a boot starts its next part, `<boot>-<part>.log`,
+// instead of renaming anything -- so the phone can mirror the directory by name and size
+// (`sys journal fetch`), and no file is renamed under an open download.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -24,46 +28,35 @@ constexpr const char* kKeyBoot = "sys.boot";  // NVS: the boot counter, one per 
 constexpr uint64_t kMountRetryUs = 60'000'000;
 constexpr int kMaxChunks = 8;  // per flush: 8 x 8 KB, several times the whole ring
 
-// "000123.log" -> 123 / ext "log".  False for anything that is not ours.
-bool parse_name(const char* n, uint32_t& boot, bool& old) {
-    if (std::strlen(n) != 10 || n[6] != '.') return false;
-    for (int i = 0; i < 6; ++i)
-        if (n[i] < '0' || n[i] > '9') return false;
-    if (std::strcmp(n + 7, "log") == 0) {
-        old = false;
-    } else if (std::strcmp(n + 7, "old") == 0) {
-        old = true;
-    } else {
-        return false;
-    }
-    boot = static_cast<uint32_t>(std::strtoul(n, nullptr, 10));
-    return true;
-}
-
-struct DbgFile {
-    uint32_t boot;
-    uint32_t size;
-    bool old;
-};
 struct DbgList {
-    static constexpr std::size_t kMax = 2 * Storage::kDbgKeepBoots + 32;
-    DbgFile f[kMax];
+    Storage::DbgFile* f;
+    std::size_t max;
     std::size_t n = 0;
+    std::size_t total = 0;
     uint64_t bytes = 0;
-    std::size_t skipped = 0;  // past kMax: pruned on a later pass
 };
 
 bool collect(hal::sd::Entry const& e, void* ctx) {
     auto& l = *static_cast<DbgList*>(ctx);
-    DbgFile d{};
-    if (e.dir || !parse_name(e.name, d.boot, d.old)) return true;
+    Storage::DbgFile d{};
+    if (e.dir || !Storage::dbg_parse(e.name, d.boot, d.order)) return true;
     d.size = e.size;
     l.bytes += e.size;
-    if (l.n < DbgList::kMax) {
-        l.f[l.n++] = d;
-    } else {
-        ++l.skipped;
-    }
+    ++l.total;
+    if (l.n < l.max) l.f[l.n++] = d;
+    return true;
+}
+
+struct LastOrder {
+    uint32_t boot;
+    uint32_t order = 0;
+};
+
+bool find_last(hal::sd::Entry const& e, void* ctx) {
+    auto& l = *static_cast<LastOrder*>(ctx);
+    uint32_t boot = 0, order = 0;
+    if (!e.dir && Storage::dbg_parse(e.name, boot, order) && boot == l.boot && order > l.order)
+        l.order = order;
     return true;
 }
 
@@ -80,6 +73,62 @@ const char* reset_name(uint8_t r) {
 
 uint32_t Storage::dbg_flush() noexcept { return enqueue(Kind::DbgFlush, nullptr, false); }
 
+// "000123.log" -> 123/1, "000123-4.log" -> 123/5, "000123.old" -> 123/0.  False for anything
+// that is not ours.
+bool Storage::dbg_parse(const char* n, uint32_t& boot, uint32_t& order) noexcept {
+    boot = 0;
+    for (int i = 0; i < 6; ++i) {
+        if (n[i] < '0' || n[i] > '9') return false;
+        boot = boot * 10 + static_cast<uint32_t>(n[i] - '0');
+    }
+    const char* t = n + 6;
+    if (std::strcmp(t, ".log") == 0) {
+        order = 1;
+        return true;
+    }
+    if (std::strcmp(t, ".old") == 0) {
+        order = 0;
+        return true;
+    }
+    if (*t != '-' || t[1] < '1' || t[1] > '9') return false;  // no "-0", no leading zero
+    uint32_t part = 0;
+    int digits = 0;
+    for (++t; *t >= '0' && *t <= '9'; ++t) {
+        if (++digits > 6) return false;
+        part = part * 10 + static_cast<uint32_t>(*t - '0');
+    }
+    if (std::strcmp(t, ".log") != 0) return false;
+    order = part + 1;
+    return true;
+}
+
+void Storage::dbg_name(uint32_t boot, uint32_t order, char* out, std::size_t cap) noexcept {
+    const auto b = static_cast<unsigned>(boot % 1'000'000u);
+    if (order == 0) {
+        std::snprintf(out, cap, "%06u.old", b);
+    } else if (order == 1) {
+        std::snprintf(out, cap, "%06u.log", b);
+    } else {
+        std::snprintf(out, cap, "%06u-%u.log", b, static_cast<unsigned>(order - 1));
+    }
+}
+
+Status Storage::dbg_list(DbgFile* out, std::size_t max, std::size_t& total,
+                         uint64_t& bytes) noexcept {
+    DbgList l{out, max};
+    const Status st = hal::sd::list(kDbgDir, &collect, &l);
+    total = l.total;
+    bytes = l.bytes;
+    if (st != Status::Ok) return st;
+    std::qsort(out, l.n, sizeof out[0], [](const void* a, const void* b) {
+        const auto& x = *static_cast<const DbgFile*>(a);
+        const auto& y = *static_cast<const DbgFile*>(b);
+        if (x.boot != y.boot) return x.boot < y.boot ? -1 : 1;
+        return x.order == y.order ? 0 : (x.order < y.order ? -1 : 1);
+    });
+    return Status::Ok;
+}
+
 Storage::DbgSnap Storage::dbg_snapshot() const noexcept {
     port::Lock lk{dmx_};
     DbgSnap s = dsnap_;
@@ -89,14 +138,24 @@ Storage::DbgSnap Storage::dbg_snapshot() const noexcept {
     return s;
 }
 
-void Storage::dbg_path(uint32_t boot, const char* ext, char* out, std::size_t cap) const noexcept {
-    std::snprintf(out, cap, "%s/%06u.%s", kDbgDir, static_cast<unsigned>(boot % 1'000'000u), ext);
+void Storage::dbg_path(uint32_t boot, uint32_t order, char* out, std::size_t cap) noexcept {
+    char name[24];
+    dbg_name(boot, order, name, sizeof name);
+    std::snprintf(out, cap, "%s/%s", kDbgDir, name);
+}
+
+uint32_t Storage::dbg_last_order(uint32_t boot) const noexcept {
+    LastOrder l{boot};
+    (void)hal::sd::list(kDbgDir, &find_last, &l);
+    return l.order ? l.order : 1;
 }
 
 void Storage::dbg_start() noexcept {
     const auto prev = hal::store::get_i32(kKeyBoot);
     dbg_boot_ = prev.ok() && prev.v > 0 ? static_cast<uint32_t>(prev.v) + 1u : 1u;
     if (dbg_boot_ >= 1'000'000u) dbg_boot_ = 1;  // six digits in the name
+    dbg_order_ = 1;
+    dbg_prev_order_ = 0;
     dbg_size_ = 0;
     dbg_opened_ = false;
     dbg_prev_marked_ = false;
@@ -125,8 +184,11 @@ Status Storage::dbg_append(int& fd, bool& fd_prev, bool prev, const char* data,
     }
     if (fd < 0) {
         (void)hal::sd::mkdir(kDbgDir);
-        char path[32];
-        dbg_path(prev ? dbg_boot_ - 1 : dbg_boot_, "log", path, sizeof path);
+        // The previous boot's lines go to the end of its newest file, whichever part that is.
+        if (prev && !dbg_prev_order_) dbg_prev_order_ = dbg_last_order(dbg_boot_ - 1);
+        char path[40];
+        dbg_path(prev ? dbg_boot_ - 1 : dbg_boot_, prev ? dbg_prev_order_ : dbg_order_, path,
+                 sizeof path);
         const auto h = hal::sd::create(path, true);
         if (!h.ok()) return Status::Failed;
         fd = h.v;
@@ -149,14 +211,18 @@ Status Storage::dbg_append(int& fd, bool& fd_prev, bool prev, const char* data,
             } else {
                 dbg_size_ = size;
                 const auto js = journal::stats();
-                k = std::snprintf(line, sizeof line,
-                                  "=== boot %u%s  reset: %s  journal: %s, %u byte(s) of boot %u "
-                                  "rescued, %u lost ===\n",
-                                  static_cast<unsigned>(dbg_boot_), dbg_size_ ? " (continued)" : "",
-                                  reset_name(hal::sys::info().reset_reason),
-                                  js.warm ? "warm" : "cold", static_cast<unsigned>(js.carried),
-                                  static_cast<unsigned>(dbg_boot_ - 1),
-                                  static_cast<unsigned>(js.lost));
+                char part[16] = "";
+                if (dbg_order_ > 1)
+                    std::snprintf(part, sizeof part, " part %u",
+                                  static_cast<unsigned>(dbg_order_ - 1));
+                k = std::snprintf(
+                    line, sizeof line,
+                    "=== boot %u%s%s  reset: %s  journal: %s, %u byte(s) of boot %u "
+                    "rescued, %u lost ===\n",
+                    static_cast<unsigned>(dbg_boot_), part, dbg_size_ ? " (continued)" : "",
+                    reset_name(hal::sys::info().reset_reason), js.warm ? "warm" : "cold",
+                    static_cast<unsigned>(js.carried), static_cast<unsigned>(dbg_boot_ - 1),
+                    static_cast<unsigned>(js.lost));
                 dbg_opened_ = true;
                 port::Lock lk{dmx_};
                 std::snprintf(dsnap_.file, sizeof dsnap_.file, "%s", path);
@@ -234,55 +300,44 @@ Status Storage::dbg_write() noexcept {
     return Status::Ok;
 }
 
-// A boot that runs for weeks must not grow one file forever: at the cap the file becomes
-// <boot>.old (replacing the one before) and a fresh <boot>.log carries on.  Between them they
-// always hold at least the last kDbgFileCap bytes.
+// A boot that runs for weeks must not grow one file forever: at the cap it carries on in its
+// next part.  Nothing is renamed -- a part is never written again once the next one starts.
 void Storage::dbg_roll() noexcept {
-    char from[32], to[32];
-    dbg_path(dbg_boot_, "log", from, sizeof from);
-    dbg_path(dbg_boot_, "old", to, sizeof to);
-    (void)hal::sd::remove(to);
-    if (hal::sd::rename(from, to) != Status::Ok) {
-        CLK_LOGW(storage, "debug journal: could not roll %s", from);
-        return;
-    }
+    ++dbg_order_;
     dbg_size_ = 0;
     dbg_opened_ = false;  // the next flush writes a fresh header
-    CLK_LOGI(storage, "debug journal: %s rolled to .old", from);
+    CLK_LOGI(storage, "debug journal: boot %u continues in part %u",
+             static_cast<unsigned>(dbg_boot_), static_cast<unsigned>(dbg_order_ - 1));
     dbg_prune();
 }
 
-// Oldest boots first, never this one, until the directory is inside both limits.
+// Oldest files first, never the one being written, until the directory is inside both limits.
+// A long boot's older parts go too, once they are the oldest.
 void Storage::dbg_prune() noexcept {
-    static DbgList l;  // ~2 KB: this AO's thread only, and not on its stack
+    static constexpr std::size_t kMax = 2 * kDbgKeepBoots + 32;
+    static DbgFile f[kMax];  // ~2 KB: this AO's thread only, and not on its stack
     for (int pass = 0; pass < 4; ++pass) {
-        l.n = 0;
-        l.bytes = 0;
-        l.skipped = 0;
-        if (hal::sd::list(kDbgDir, &collect, &l) != Status::Ok) return;
-        std::qsort(l.f, l.n, sizeof l.f[0], [](const void* a, const void* b) {
-            const auto& x = *static_cast<const DbgFile*>(a);
-            const auto& y = *static_cast<const DbgFile*>(b);
-            if (x.boot != y.boot) return x.boot < y.boot ? -1 : 1;
-            return x.old == y.old ? 0 : (x.old ? -1 : 1);
-        });
+        std::size_t files = 0;
+        uint64_t bytes = 0;
+        if (dbg_list(f, kMax, files, bytes) != Status::Ok) return;
+        const std::size_t n = files < kMax ? files : kMax;
         std::size_t boots = 0;
-        for (std::size_t i = 0; i < l.n; ++i)
-            if (i == 0 || l.f[i].boot != l.f[i - 1].boot) ++boots;
-        std::size_t files = l.n + l.skipped;
-        uint64_t bytes = l.bytes;
+        for (std::size_t i = 0; i < n; ++i)
+            if (i == 0 || f[i].boot != f[i - 1].boot) ++boots;
+        const bool skipped = files > n;
         std::size_t removed = 0;
         for (std::size_t i = 0;
-             i < l.n && (bytes > kDbgDirCap || boots > kDbgKeepBoots || files > 2 * kDbgKeepBoots);
+             i < n && (bytes > kDbgDirCap || boots > kDbgKeepBoots || files > 2 * kDbgKeepBoots);
              ++i) {
-            if (l.f[i].boot == dbg_boot_) break;  // sorted: everything after is this boot too
-            char path[32];
-            dbg_path(l.f[i].boot, l.f[i].old ? "old" : "log", path, sizeof path);
+            if (f[i].boot == dbg_boot_ && f[i].order >= dbg_order_) continue;  // being written
+            char path[40];
+            dbg_path(f[i].boot, f[i].order, path, sizeof path);
             if (hal::sd::remove(path) != Status::Ok) continue;
-            bytes -= l.f[i].size;
+            bytes -= f[i].size;
             --files;
             ++removed;
-            if (i + 1 == l.n || l.f[i + 1].boot != l.f[i].boot) --boots;
+            // The last file of a boot gone: one boot fewer (never this one -- its file stays).
+            if (i + 1 == n || f[i + 1].boot != f[i].boot) --boots;
         }
         {
             port::Lock lk{dmx_};
@@ -290,7 +345,7 @@ void Storage::dbg_prune() noexcept {
             dsnap_.dir_bytes = bytes;
         }
         if (removed) CLK_LOGI(storage, "debug journal: pruned %zu old file(s)", removed);
-        if (!l.skipped || !removed) return;
+        if (!skipped || !removed) return;
     }
 }
 

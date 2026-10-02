@@ -2380,7 +2380,11 @@ For "it got stuck overnight" — the console is not attached when it matters.
   **`/sd/debug/<boot>.log`** (6-digit NVS counter `sys.boot`), open-append-close each time. Header
   `=== boot N  reset: <reason>  journal: warm|cold, K bytes of boot N-1 rescued ===`. Rescued bytes go
   to the end of `<N-1>.log` under `--- the last lines before the reset …`.
-- **Bounded:** `<boot>.log` rolls to `<boot>.old` at 4 MB; oldest boots pruned past 32 MB or 64 boots.
+- **Bounded:** past 4 MB a boot carries on in `<boot>-<part>.log` (`000123-1.log`, …) — nothing is
+  ever renamed, a file only grows, so the phone mirrors the directory by name + size (§9.4a
+  download below). Oldest files pruned past 32 MB or 64 boots, never the one being written (a
+  long boot's older parts go too). Rescued lines go to the end of the previous boot's *newest*
+  part. Firmware before 2026-10-01 renamed to `<boot>.old`; those are still listed and pruned.
   No card: retried once a minute, the ring keeps the newest 16 KB meanwhile.
 - `sys journal [flush]` — ring fill/lost, boot, file, bytes flushed/rescued, directory size.
 - Only what is *logged* is kept: `sys debug motion debug` before a hunt puts more in it.

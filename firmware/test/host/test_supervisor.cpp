@@ -117,6 +117,70 @@ void test_journal_rescues_the_last_lines(const std::string& card) {
     ::unlink(nvs);
 }
 
+// Names: "<boot>.log", "<boot>-<part>.log", the legacy "<boot>.old" -- and nothing else.
+void test_journal_names() {
+    using svc::Storage;
+    uint32_t b = 0, o = 0;
+    CHECK(Storage::dbg_parse("000123.log", b, o) && b == 123 && o == 1);
+    CHECK(Storage::dbg_parse("000123-4.log", b, o) && b == 123 && o == 5);
+    CHECK(Storage::dbg_parse("000123-12.log", b, o) && o == 13);
+    CHECK(Storage::dbg_parse("000123.old", b, o) && b == 123 && o == 0);
+    for (const char* bad : {"00012.log", "000123-0.log", "000123-01.log", "000123-.log",
+                            "000123.txt", "000123-4.old", "abcdef.log", "000123.log.tmp"})
+        CHECK(!Storage::dbg_parse(bad, b, o));
+    char n[24];
+    for (uint32_t ord : {0u, 1u, 2u, 13u}) {
+        Storage::dbg_name(77, ord, n, sizeof n);
+        CHECK(Storage::dbg_parse(n, b, o) && b == 77 && o == ord);
+    }
+}
+
+// A boot past kDbgFileCap carries on in its next part -- nothing renamed, the full file stays
+// as it was.  And a previous boot that had parts gets its rescued lines in the NEWEST one.
+void test_journal_parts(const std::string& card) {
+    auto& sto = svc::storage();
+    sto.ActiveObject::stop();
+    char nvs[] = "/tmp/clk-dbg-nvs-XXXXXX";
+    const int fd = ::mkstemp(nvs);
+    CHECK(fd >= 0);
+    if (fd >= 0) ::close(fd);
+    sim::set_store_path(nvs);
+    CHECK(hal::store::set_i32("sys.boot", 199) == Status::Ok);  // this boot 199, the next 200
+    const std::string dir = card + "/debug/";
+    {
+        std::ofstream(dir + "000199.log") << "=== boot 199 ===\n";
+        std::ofstream(dir + "000199-1.log") << "=== boot 199 part 1 ===\n";
+        // Boot 200 already at the cap (as if it had been running for weeks).
+        std::ofstream big(dir + "000200.log");
+        const std::string line(99, 'x');
+        for (uint32_t n = 0; n < svc::Storage::kDbgFileCap; n += 100) big << line << '\n';
+    }
+    const auto big0 = slurp(dir + "000200.log").size();
+    const char kLast[] = "E (1) motion: rescued-into-the-newest-part\n";
+    journal::write(kLast, sizeof kLast - 1);
+    journal::init();
+    sto.start();
+    CHECK(wait_until([&] { return sto.dbg_snapshot().boot == 200; }, 2000));
+    RecordingSink r;
+    CHECK(run("sys journal flush", r) == Status::Ok);  // 000200.log passes the cap: next part
+    CLK_LOGI(sys, "line-in-part-one");
+    CHECK(run("sys journal flush", r) == Status::Ok);
+
+    CHECK(slurp(dir + "000199-1.log").find("rescued-into-the-newest-part") != std::string::npos);
+    CHECK(slurp(dir + "000199.log").find("rescued-into-the-newest-part") == std::string::npos);
+    const auto big = slurp(dir + "000200.log");
+    CHECK(big.size() > big0);
+    CHECK(big.find("line-in-part-one") == std::string::npos);
+    const auto p1 = slurp(dir + "000200-1.log");
+    CHECK(p1.rfind("=== boot 200 part 1 (continued)", 0) == 0 ||
+          p1.rfind("=== boot 200 part 1 ", 0) == 0);
+    CHECK(p1.find("line-in-part-one") != std::string::npos);
+    CHECK(std::strstr(sto.dbg_snapshot().file, "000200-1.log") != nullptr);
+    ::unlink((dir + "000200.log").c_str());  // 4 MB: keep the temp card small
+    sim::set_store_path("");
+    ::unlink(nvs);
+}
+
 // The failure this exists for: every AO alive, the clock ticking, and the hands not moving.
 void test_supervisor_catches_stuck_hands() {
     using svc::Motion;
@@ -172,6 +236,8 @@ void run_supervisor_service_tests() {
     run("storage sd mount", r);
     test_journal_reaches_the_card(card);
     test_journal_rescues_the_last_lines(card);
+    test_journal_names();
+    test_journal_parts(card);
     test_supervisor_catches_stuck_hands();
     // The stall is in the file too.
     RecordingSink f;

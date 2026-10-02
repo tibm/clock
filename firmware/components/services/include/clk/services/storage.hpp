@@ -28,8 +28,9 @@
 // DEBUG JOURNAL (§9.4a; storage_debug.cpp): every log line, one text file per boot --
 // `/sd/debug/<boot>.log`, the boot number an NVS counter -- appended from clk::journal's RAM
 // ring every 5 s.  Lines the previous boot never got to the card (a panic, a watchdog reset)
-// survive in `.noinit` RAM and are appended to THAT boot's file first.  Bounded: a file rolls
-// to `<boot>.old` at 4 MB, and the oldest boots go once the directory passes 32 MB / 64 files.
+// survive in `.noinit` RAM and are appended to THAT boot's file first.  Bounded: past 4 MB a
+// boot carries on in `<boot>-<part>.log` (a file only ever grows -- the phone mirrors them by
+// size), and the oldest files go once the directory passes 32 MB / 64 boots.
 #pragma once
 
 #include <cstdint>
@@ -161,7 +162,7 @@ public:
     // ---- debug journal (storage_debug.cpp) ----
     static constexpr const char* kDbgDir = "/sd/debug";
     static constexpr uint32_t kDbgEveryMs = 5000;
-    static constexpr uint32_t kDbgFileCap = 4u * 1024u * 1024u;  // then <boot>.log -> .old
+    static constexpr uint32_t kDbgFileCap = 4u * 1024u * 1024u;  // then the next part
     static constexpr uint64_t kDbgDirCap = 32ull * 1024u * 1024u;
     static constexpr uint32_t kDbgKeepBoots = 64;
     struct DbgSnap {
@@ -171,12 +172,26 @@ public:
         uint32_t flushed;      // journal bytes written to the card since boot
         uint32_t recovered;    // ... of which the previous boot's, rescued from RAM
         uint32_t flush_ago_s;  // UINT32_MAX = never
-        uint32_t files;        // .log/.old files in kDbgDir, as of the last prune
+        uint32_t files;        // journal files in kDbgDir, as of the last prune
         uint64_t dir_bytes;
         const char* last_err;  // a literal, or nullptr
     };
     [[nodiscard]] DbgSnap dbg_snapshot() const noexcept;
     uint32_t dbg_flush() noexcept;  // write the journal to the card now (a request)
+    // One file in kDbgDir: "<boot>.log", then "<boot>-<part>.log" once a boot has filled
+    // kDbgFileCap, or "<boot>.old" (firmware before 2026-10-01).  `order` sorts one boot's
+    // files: .old 0, .log 1, part p p + 1.
+    struct DbgFile {
+        uint32_t boot;
+        uint32_t order;
+        uint32_t size;
+    };
+    static bool dbg_parse(const char* name, uint32_t& boot, uint32_t& order) noexcept;
+    static void dbg_name(uint32_t boot, uint32_t order, char* out, std::size_t cap) noexcept;
+    // Every journal file, oldest first.  Blocking, any thread (FATFS is re-entrant).  Fills up
+    // to `max`; `total` / `bytes` count them all.
+    static Status dbg_list(DbgFile* out, std::size_t max, std::size_t& total,
+                           uint64_t& bytes) noexcept;
 
     // Blocking: open `path`, read and check its header.  For `storage ls`, which is a bench
     // listing and reads each file's first 512 bytes on the CLI thread (FATFS is re-entrant).
@@ -257,7 +272,8 @@ private:
     void dbg_tick() noexcept;
     Status dbg_write() noexcept;  // journal -> card
     Status dbg_append(int& fd, bool& fd_prev, bool prev, const char* data, std::size_t n) noexcept;
-    void dbg_path(uint32_t boot, const char* ext, char* out, std::size_t cap) const noexcept;
+    static void dbg_path(uint32_t boot, uint32_t order, char* out, std::size_t cap) noexcept;
+    uint32_t dbg_last_order(uint32_t boot) const noexcept;  // its newest file; 1 when none
     void dbg_roll() noexcept;
     void dbg_prune() noexcept;
 
@@ -338,7 +354,9 @@ private:
     mutable port::Mutex dmx_;
     DbgSnap dsnap_{};
     uint32_t dbg_boot_ = 0;
-    uint32_t dbg_size_ = 0;         // this boot's .log, as the card has it
+    uint32_t dbg_order_ = 1;        // this boot's file being written (DbgFile::order)
+    uint32_t dbg_prev_order_ = 0;   // the previous boot's newest file; 0 = not looked up yet
+    uint32_t dbg_size_ = 0;         // this boot's file, as the card has it
     bool dbg_opened_ = false;       // the header line is in it
     bool dbg_prev_marked_ = false;  // the "recovered" marker is in the previous boot's file
     uint64_t dbg_at_us_ = 0;        // next flush
