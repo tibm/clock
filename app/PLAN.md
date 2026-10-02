@@ -1,206 +1,88 @@
-# Clock BLE debug app — plan
+# App — open work
 
-## Context
-The clock firmware now has a BLE link (commit 0f15b09, protocol v1). The app in `app/clock/` is still the SwiftData template. Goal: a working debug app that tests the BLE setup end to end:
-- scan, connect, pair
-- a table of commands
-- a shell with autocomplete
-- a live status view: snapshot + `info`/FW version
-
-The protocol will change over time, so all protocol numbers come from `app/protocol.json`, bundled as-is (UUIDs, command list, snapshot offsets/types/scales, flags, enums, valid_if, sentinels). Swift code holds only the *rules* from PROTOCOL.md, not the *numbers*.
-
-Decisions (confirmed with the user): iOS + macOS (drop visionOS) · autocomplete = bundled JSON + live `help` parse · drop SwiftData · reference the repo's `protocol.json` directly as a bundle resource (no copy).
-
-## Protocol update folded in (2026-09-28, firmware 8a3c2c8)
-- `chrono time epoch`, `chrono tz`, `chrono alarm [set|arm]` are now implemented. On every connect the app sends `chrono time epoch <now_ms> <offset_min>`, and sends it again on a timezone/DST change (`NSSystemTimeZoneDidChange`).
-- Local time = `epoch_ms + tz_off_min*60000` always. Show the date only when flag `date_valid` is set.
-- A command's `args` value is `[min,max]` **or** a text hint → `ArgSpec.range / .hint`.
-
-## Project setup
-- Target `clock` (bundle `ch.tallyo.clock`, iOS/macOS 27, synchronized folder group, MainActor default isolation).
-- Remove visionOS from `SUPPORTED_PLATFORMS` → `iphoneos iphonesimulator macosx`.
-- Delete `Item.swift`. Strip SwiftData from `clockApp.swift`/`ContentView.swift`.
-- Add `../protocol.json` (sits next to `clock/`, outside the synced folder) to the target's Copy Bundle Resources as a reference. Do not add PROTOCOL.md.
-- Info.plist keys: `NSBluetoothAlwaysUsageDescription` (AddInfoPlist). macOS: App Sandbox → Bluetooth entitlement (AddEntitlement).
-- Add a unit-test target `clockTests` (Swift Testing) for the decoder and the framing.
-
-## Files (all in `app/clock/clock/`)
-
-### Protocol layer (`Protocol/`) — pure, UI-free, testable
-- **`ProtocolSpec.swift`**: `Decodable` model of protocol.json (`gatt`, `advertising`, `command_channel`, `commands`, `snapshot{fields, flags, enums, golden}`). `ProtocolSpec.bundled` loads it from `Bundle.main`. Unknown JSON keys are ignored, so the file can grow.
-- **`SnapshotDecoder.swift`**: generic decoder driven by `spec.snapshot.fields`.
-  - Types `u8/i8/u16/i16/u32/i32/i64/f32/u8[N]`, read little-endian at `off`. `scale` gives Double.
-  - Returns `Snapshot { fields: [DecodedField], flagsSet: Set<String>, raw: Data }`. A `DecodedField` holds name, raw value, display string, unit, and an `isValid` computed from `valid_if` against the flags. Sentinel labels come from `sentinel`, enum names from `enums` (`unknown(n)` fallback).
-  - Rules from §5: reject `schema != spec.snapshot_schema` or `size`/length < spec size; ignore extra bytes; ignore unknown flag bits (show them as `bit N`).
-  - Convenience typed accessors (`localTime`, `vbat`, `flags`) look fields up by name, so the dashboard never hard-codes offsets. Missing name → nil → "—".
-  - `localTime`: `epoch_ms + (tz_set ? tz_off_min*60000 : 0)`, formatted as UTC. hh:mm:ss only when `tz_set` is clear (v1).
-- **`ResponseFramer.swift`**: parses `rsp` frames (`<id>` + one of `| + = $`) and reassembles `+` fragments per id. Emits `ResponseEvent.line(id, text) / .pair(id, key, value) / .terminal(id, Status)`. `Status` is a string-backed enum built from `spec.command_channel.statuses`, plus `.unknown(String)`.
-- **`InfoParser.swift`**: `key=value` splitter → `[String:String]`, plus `proto` compared with `spec.protocol_version` → `.ok / .appTooOld / .firmwareOlder`.
-- **`CommandCatalog.swift`**: `CommandEntry { words: [String], argsTemplate, help, status (implemented/planned/device), unsafe, argRanges, source (spec|device) }`.
-  - Seeded from `spec.commands`: split each `line` into literal words and `<arg>`/`[<arg>]` placeholders.
-  - `mergeHelp(lines:)` is the best-effort parser for `help <group>` rows. Tokens up to the first `<`/`[`/`--` are words; placeholder-looking tokens are args; the rest is help text; a trailing `[unsafe]` sets the flag. Rows that fail to parse are skipped, and the JSON entries always stay.
-  - `completions(for input:)` gives prefix matches, one token at a time: next literal words, then an arg hint (e.g. `<pct 0–100>`).
-
-### BLE layer (`BLE/`)
-- **`ClockBLE.swift`** — `@Observable @MainActor final class`, owns `CBCentralManager`. UUIDs come from the spec.
-  - **Scan**: `scanForPeripherals(withServices:[service])` with duplicates allowed while the scanner is on screen. Each discovered clock shows name, RSSI, `pairingOpen` (manufacturer data: company id from spec, then the state byte and its bit 0), `identifier`.
-  - **Connect** → discover service/chars → `setNotifyValue(true, rsp)` first (this triggers iOS pairing) → then subscribe `status`, read `status`, read `info`. Request MTU is automatic on iOS; record `maximumWriteValueLength(.withResponse)`.
-  - **Connection state enum**: `idle, scanning, connecting, pairing, ready, disconnected(reason)`. Map the failure modes from PROTOCOL.md §2 to user hints: disconnect right after encryption → "hold the knob 10 s…"; `peerRemovedPairingInformation` → "Forget This Device"; insufficient auth → waiting for pairing.
-  - **Command queue**: one request in flight. Ids go up from 1 and wrap at 65535 (skip 0). Write `"<id> <line>"` with response, reject lines longer than min(256, maxWriteLen), 10 s timeout from the spec. `busy` → retry once after 1 s. `send(_ line) async -> CommandResult { lines, pairs, status }` via `CheckedContinuation`. Frames also go to a transcript stream for the shell. On disconnect, pending requests resolve as `.linkLost` ("outcome unknown"), and `sys reboot` counts as expected.
-  - Reconnect: remember the last identifier in UserDefaults, `retrievePeripherals(withIdentifiers:)` on launch. Disconnect when the scene goes to background (`scenePhase`), per §7.
-  - Delegates are `nonisolated` and hop to MainActor. Uses async/await, no Combine.
-
-### UI (`Views/`) — plain SwiftUI, `TabView` with 3 tabs + a connection sheet
-1. **`ConnectView`**: scanner list (name, RSSI, green "ready to pair" badge), connect/disconnect, state banner + the pairing hint text. Shown as a sheet whenever there is no link.
-2. **`StatusView`** (dashboard):
-   - Header: fw / sha / built / board / proto from `info`, a proto-mismatch warning, seq + gap counter, last-update age.
-   - Sections: Time, Power, Room, Light, IMU, Hands, UI, LEDs (7 color swatches from `pixels`), Radio. Each row reads a field by name; invalid values show "—".
-   - A flag chip grid over every flag in the spec (set = highlighted).
-   - "All fields" disclosure: a generic list of every decoded field, so new fields show up without any UI change.
-   - Period picker (1 s / 5 s / 60 s → `net ble period`).
-3. **`CommandsView`**: table (`List` grouped by first word) of the catalog entries, showing line, use/help, badges (`planned`, `unsafe`, `device-only`), and arg ranges.
-   - Tap a row → an arg form (a stepper/field per placeholder, range-clamped from `args`) → send → inline result (status + lines).
-   - Quick-action buttons for the common ones: `sys ver`, `audio tone`, `audio stop`, set time from the phone (`chrono time set HH:MM:SS`), and `unsafe on`.
-   - Unsafe commands ask for confirmation and offer to send `unsafe on` first.
-   - Planned commands can be sent; `bad-arg` shows as "not in this firmware".
-4. **`ShellView`**: monospaced scrolling transcript. `> line` in accent, `|` lines plain, `=` pairs dimmed, `$status` colored by status. Text field with:
-   - a completion chip bar above it (tap to insert), and Tab on macOS/hardware keyboards
-   - ↑/↓ history (last 100, UserDefaults)
-   - clear and copy-all buttons
-   - Also a toggle that shows raw frames (debug the framing).
-
-`clockApp.swift`: builds `ProtocolSpec.bundled` and `ClockBLE(spec:)`, puts them in `.environment`. On connect it runs `help`, then `help <group>` for each group from the `groups` line, feeding `CommandCatalog.mergeHelp`.
-
-## Reuse / references
-- `firmware/tools/clockctl.py` — reference client (framing in `Session.run`, decode, `pairable()`); mirror its behaviour.
-- `firmware/components/cli/src/registry.cpp` `help()` — the exact `help <group>` row format (`group [object ]verb args`, padded to column 34, `   [unsafe]` suffix). Parser handles the 1-space pad case via the placeholder heuristic.
-
-## Verification
-1. **Unit tests (`clockTests`, Swift Testing)**:
-   - Decode `spec.snapshot.golden.hex` and assert every key in `golden.decoded`. Scaled fields within 1e-3; check `flags_set` and pixels. Note that `opto_raw` in the golden data is the unscaled value.
-   - Truncated/wrong-schema input rejects; extra trailing bytes are ignored.
-   - Framer: the §3 `help sys` fragment example; interleaved `=` and `$`; unknown status.
-   - Catalog: parse the JSON lines plus sample `help sys` rows from registry.cpp; completions for `au` → `audio`, `audio v` → `vol`, `audio vol ` → `<pct 0–100>`.
-   - Info parser + proto comparison.
-2. `BuildProject` for iOS and for My Mac. `XcodeRefreshCodeIssuesInFile` while editing.
-3. `RenderPreview` of Status/Commands/Shell with a mock snapshot (golden vector) and mock transcript.
-4. On hardware (by the user; needs a real device, not the simulator): open the pairing window (knob 10 s), pair, see `info` + live status ticking with seq, run `sys ver`, `audio tone`, `help` in the shell, and try `motion home` without `unsafe` → `denied`.
+Only what is **not built yet**. When a step is done, delete it here and describe the result in
+`README.md` (screens, behaviour). Earlier plans (the app itself, History, the alarm schedule)
+are done — they are in `README.md` and in git history (`git log -- app/PLAN.md`).
 
 ---
 
-## Next: history — capture the clock's log and plot it (added 2026-09-28)
+## Logs tab — read the clock's debug journal (firmware done 2026-10-01)
 
-**Built 2026-09-29.** Where the build differs from this plan, to fit the app as it is:
-- `ClockLink` gained `connectedID` (the archive key), `hasBulk` (set once the `bulk`
-  subscription is confirmed, subscribed right after `rsp`), `onBulk`, and an `afterConnect`
-  hook (runs after time sync + `help`, so the sync starts last).
-- "No other commands during a download" is enforced in the queue, not just shown:
-  `beginDownload()/endDownload()` hold every request not sent with `duringDownload: true`
-  until the download ends. `LinkStatusLabel` shows "syncing history…" meanwhile.
-- The archive lives in `BLE/HistoryArchive.swift` (file I/O, `nonisolated`); pure code stays in
-  `Protocol/` (`HistoryRecord`, `HistorySync` + `BulkAssembler`, `HistorySeries`).
-- Files are written with `Data.write(.atomic)` (temp + rename) instead of `replaceItemAt`.
-- The `encodings` formulas are parsed (`10^(v / k) − c`), so their constants stay in the JSON.
-  String lists (`sample_flags`, `event_code`) are found by the key a field names.
-- Buckets: raw up to 1000 samples, then the first of 5 min · 15 min · 1 h · 6 h · 1 d that gives
-  ≤ 1000 points (instead of "hour ≥ 7 d, day ≥ 90 d"). Reduced per day file, cached by
-  day + size + bucket, off the main actor.
-- Events: rule marks on every chart + a list with their args and `event_args` meaning (no
-  tap-on-chart selection).
-- The fetch loop is not tested against a fake link (`ClockLink` has no protocol seam, same as
-  the uploads); the plan, reassembly (repeat / overlap / gap / before `=size=`) and the archive
-  append / replace are.
+**Why.** "It got stuck overnight": the USB console is never attached when it matters. The clock
+writes every log line to its microSD card, one file per boot, and keeps the lines from just
+before a crash / watchdog reset. This tab mirrors those files on the phone and shows them.
 
-The firmware now records the room (temperature, humidity, pressure, gas), light, battery and
-Wi-Fi to the microSD card on its own, every **5 min** by default, and keeps **2 years**. The
-contract is `PROTOCOL.md` §4 "History" + `protocol.json` → `history` (record layout, flags,
-event codes, encodings, **golden vectors**) and the new `bulk` characteristic. This section is
-how the app captures it; nothing here needs a firmware change.
+**Contract** (read these, don't copy numbers from here into Swift):
+- `PROTOCOL.md` → "Debug journal" — files, commands, the download, the line format.
+- `protocol.json` → `journal` block (`dir`, `name_regex`, `line_regex`, `header_prefix`,
+  `rescued_prefix`, `part_bytes`) and the `sys journal …` commands in `commands`.
+- The download is the **same mechanism as History**: `bulk` notifications (4-byte LE offset +
+  data), `=from=` `=size=` `=crc=` (CRC-32/zlib of exactly `[from, size)`), one download at a
+  time, no other commands while it runs. Reuse `BulkAssembler`, the CRC-32, and `ClockLink`'s
+  `beginDownload()/endDownload()` queue hold.
 
-### Model: the phone is the archive
-- The clock keeps at most `keep` days and deletes older ones. **The app never deletes a day
-  because the clock did** — after the first sync the phone holds the full history.
-- Mirror the clock's files **byte for byte**, one file per clock per UTC day:
-  `Application Support/History/<clock CBPeripheral.identifier>/<yyyymmdd>.bin`. The raw file is
-  the source of truth (re-decodable when the decoder learns new fields); anything derived
-  (a SwiftData/SQLite index, hourly aggregates) is a cache that can be rebuilt from it.
-- Exclude nothing from backup by default: two years is ~5 MB per clock at the default period.
+### What the clock does (so the sync rules make sense)
+- `sys journal files` → one `=file=<name>/<bytes>` per file, **oldest first**, then
+  `=boot=<n>` (this boot) and `=current=<name>` (the file still growing). It writes the RAM ring
+  to the card first, so `current` is up to date.
+- Names: `<boot>.log` (6 digits, e.g. `000123.log`), and when one boot's file reaches
+  `part_bytes` (4 MB) it carries on in `<boot>-<part>.log` (`000123-1.log`, `-2`, …).
+  **A file only ever grows, and only `current` grows.** (Legacy `<boot>.old` files from
+  firmware before 2026-10-01 may still be listed: treat them as any other file.)
+- One exception: after a crash, the next boot appends the rescued lines to the **previous**
+  boot's last file — so the file before `current` can grow once more, right after a reset.
+  The "longer → fetch the tail" rule covers it.
+- Old boots are deleted by the clock (32 MB / 64 boots). The phone keeps its copies.
+- `sys journal fetch <name> [<from>]` → `=file=` `=from=` `=size=` `=crc=` `$ok`, bytes on
+  `bulk`. `failed` = no such file; `bad-arg` = bad name or offset past the end;
+  `not-present` = no card. `sys journal fetch stop` (or `log fetch stop`) abandons it.
+- `sys journal` → `=` pairs `boot`, `file`, `bytes`, `ram` (bytes not on the card yet),
+  `lost` (lines dropped because the ring was full), `files`, `dir_bytes`, `card` (`ok` /
+  `none` / the last error) — for the tab's header.
 
-### Protocol layer (`Protocol/`, pure, `nonisolated`)
-- **`HistoryRecord.swift`** — decode a file: header (magic `CLKL`, version 1, record 24), then
-  24-byte records; CRC-8/SMBUS on bytes 0–22 (skip failures, keep going); kind 1 = sample,
-  2 = event, anything else skipped; trailing partial record ignored. Offsets, flag names,
-  event codes and the three log encodings come from `spec.history` (add a `History` block to
-  `ProtocolSpec`, optional like `soundFiles`). Output: `[HistorySample]` (Date + optional
-  values, nil when the validity flag is clear) and `[HistoryEvent]` (Date, code name, args).
-- **`HistorySync.swift`** — the pure diff from PROTOCOL.md "Downloading": given
-  `log days` pairs (`=day=<yyyymmdd>/<bytes>`) and the local sizes, return the fetch plan
-  `[(day, from)]`: new day → 0, longer on the clock → local size, shorter on the clock → 0 and
-  replace; days only on the phone are kept. Oldest first, today last.
-- **CRC-32** already exists for uploads (`zlib.crc32`); reuse it to check `=crc=`.
+### Build
+1. **`Protocol/` (pure, `nonisolated`)**
+   - `ProtocolSpec`: optional `journal` block (absent on an older contract → tab hidden).
+   - `JournalSync.swift`: parse `=file=` / `=boot=` / `=current=`; the plan, keyed by name:
+     not on the phone → from 0; longer on the clock → from the phone's size; **shorter on the
+     clock → from 0 and replace** (card swapped, or the boot counter restarted after a flash
+     erase); only on the phone → keep. Order: oldest first, `current` last. Generalise
+     `HistorySync`'s diff to a string key rather than copying it.
+   - `JournalLine.swift`: split into lines (UTF-8, lossy). `line_regex` → level (`E W I D V`),
+     ms since boot, tag, text. Lines that don't match (IDF boot banner, panic backtrace) are
+     plain text. A line starting with `header_prefix` = a boot header (boot number, reset
+     reason — show the text, don't parse more than the reason word after `reset:`). A line
+     starting with `rescued_prefix` starts the "before the reset" section.
+2. **`BLE/`**
+   - `JournalArchive.swift`: `Application Support/Journal/<clock id>/<name>`, atomic writes,
+     like `HistoryArchive`.
+   - `JournalStore.swift` (`@Observable`, like `HistoryStore`): `sync()` = `sys journal files`
+     → plan → `sys journal fetch` per entry, collecting `bulk` → CRC → append/replace.
+     **`ClockLink.onBulk` has one owner today (`HistoryStore`)** — route it to whichever store
+     started the current download (e.g. `link.bulkSink = …` set in `beginDownload`).
+   - When: on opening the tab, on *Refresh*, and with **Follow** on: re-sync every 5 s while the
+     tab is visible (only `current` grows, so this is one small tail fetch). Not on every
+     connect — History already syncs then. Don't start while a History sync runs.
+3. **`Views/LogsView.swift`** — a new tab "Logs" (`doc.text.magnifyingglass`):
+   - Header from `sys journal`: boot, card state, ring `lost`.
+   - **Boot list**, newest first, grouped by boot (its parts together): boot #, reset reason
+     from the header (highlight `panic`, `task wdt`, `int wdt`, `wdt`, `brown-out`), size,
+     a "rescued lines" badge when the file contains `rescued_prefix`, "current" badge.
+   - **Viewer** (a boot = its parts concatenated): monospaced, lazy, colour by level
+     (E red, W orange, D/V secondary). Level chips, tag filter (menu of the tags seen), search,
+     **"Jump to before the reset"**, time as `+h:mm:ss.mmm` since boot. Render the last 5000
+     lines by default with "Load all"; parse off the main actor, cache by name + size.
+   - Toolbar: Refresh, Follow toggle, Share (`ShareLink` of the boot's raw files), and a menu
+     sending `sys debug <tag> debug` / `sys debug all info` (the card only has what is logged).
+   - Hidden with a sentence when: no `journal` block, no `bulk` (see README "Troubleshooting"
+     — usually a stale GATT cache), or `not-present` (no card).
+4. **Tests (`clockTests`)**: sync plans (new / grown / shrunk / previous boot grew after a
+   reset / pruned on the clock); line parsing of a real excerpt with a header, the rescued
+   marker, IDF lines and a non-matching backtrace line; a boot's parts concatenated in order.
+5. `README.md`: add the tab to "Screens"; delete this section.
 
-### BLE layer (`BLE/`)
-- `ClockLink`: subscribe to `bulk` together with `rsp` when the characteristic exists
-  (`hasBulk`, like `hasBlob`). Route `bulk` notifications to a handler instead of the framer:
-  `offset = UInt32(le: bytes 0..<4)`, payload after it.
-- **`HistoryStore`** (`@Observable`, MainActor), like `ToneStore`:
-  1. `send("log days")` → sync plan.
-  2. For each entry: `send("log fetch <day> <from>")` → read `=size=`, `=from=`, `=crc=`.
-     Collect `bulk` packets into a buffer at `offset - from` until `size - from` bytes arrived
-     (timeout: nothing new for 5 s → give up this day, keep what is on disk, retry next sync).
-  3. Check CRC-32 of the received bytes, then append to (or, from 0, replace) the local file
-     atomically (write to a temp file + `replaceItemAt`). A bad CRC → discard and retry once.
-  4. Progress: bytes done / total for the whole plan; cancellable (`log fetch stop`).
-  - Don't send other commands during a fetch (the shell/Commands tabs should show "syncing").
-  - Run a sync on every connect (after time + zone), and from a "Sync now" button. On iOS a
-    backgrounded app loses the link (§7): a sync interrupted there simply resumes next time,
-    because every step is idempotent and resumable by offset.
-
-### UI (`Views/`) — a "History" tab (Swift Charts)
-- One chart per quantity: temperature (°C), humidity (%), pressure (hPa), gas (Ω, log scale),
-  light (lx, log scale, mean line + peak points), battery (mV / %). Range picker: 24 h · 7 d ·
-  30 d · 1 y · all. Break the line where two points are more than 2 × period apart (PROTOCOL.md:
-  plot by `t`, not by position).
-- **Downsample for long ranges** before handing points to Charts (≤ ~1000 points per series):
-  bucket by hour (≥ 7 d) or by day (≥ 90 d) with min/mean/max bands. Compute from the decoded
-  samples; cache per day.
-- Events as vertical rule marks with an icon (alarm, boot, Wi-Fi), tappable for details.
-- Local time for display (`TimeZone.current`); the data are UTC.
-- Settings sheet: `log status` pairs → period / keep / cap pickers sending `log period|keep|cap`;
-  show the `|` line when the clock answers `denied` (the budget numbers). Show `used`, `days`,
-  `projected`, and the last sync time.
-- Export: share the raw `.bin` files and a CSV (`time_utc,temp_c,rh_pct,…`) generated on the
-  phone.
-
-### Tests (`clockTests`)
-- Decode `spec.history.golden.sample_hex` / `event_hex` / `header_hex` and assert every key in
-  the matching `*_decoded` (scaled/log fields within 0.1 %); a flipped bit fails the CRC and is
-  skipped; a torn tail is ignored.
-- `HistorySync` plans: new / grown / shrunk / clock-deleted days.
-- The fetch loop against a fake link feeding out-of-order-free packets with offsets, including a
-  drop mid-day and a resume from the stored length.
-
-### On hardware
-`log period 10` on the bench makes records every 10 s; `log tail` on the console shows what is
-being recorded, `log days` / `log status` what is on the card. `firmware/tools/clockctl.py` can
-be extended the same way as the app for a desktop check.
-
-## Alarm schedule (firmware + protocol + app done 2026-09-30)
-
-Contract: `PROTOCOL.md` → "Alarm schedule"; `protocol.json` → commands `chrono alarm week`,
-`chrono alarm next`, snapshot fields `alarm_days` `alarm_next` `alarm_week` `alarm_next_wday`
-(size 150), enum `alarm_next`. The generic decoder already shows the new fields under "Other
-fields" with zero Swift changes (`alarm_week` as `u16[7]` falls back to raw bytes).
-
-To build:
-- **Decoder**: `u16[N]` arrays as numbers (today any `[N]` type is `.bytes`); golden test
-  compares `alarm_week` = `[420,420,420,420,420,570,570]`.
-- **Alarm screen**: seven rows (Mon first), a toggle + time picker each, plus the master
-  `alarm_armed` switch. Any edit → send the **whole** week (`chrono alarm week …`, `-hh:mm` for
-  a day that is off so its time is kept). State always from the snapshot, never from the reply.
-- **One-off banner** when `alarm_next == override`: "Next alarm: <wday> <alarm_h:alarm_m> — set
-  on the clock, just once (schedule: <alarm_week[wday]>)" + *Cancel* → `chrono alarm next clear`.
-  It must update live while connected (the knob edits it; the next `status` notification shows it).
-- Optional "just tomorrow" action → `chrono alarm next <hh:mm>`.
-- A 132-byte snapshot = older firmware: hide the editor, show the single daily alarm.
-
+### Verify on hardware
+`sys debug motion debug` → wait a few seconds → Refresh: new lines. Reset test: `unsafe on`,
+`sys reboot`, reconnect, Refresh: the previous boot's file ends with
+`--- the last lines before the reset …`. Speed is the same as History (~20–40 KB/s): a full
+4 MB part takes a couple of minutes the first time — show progress.

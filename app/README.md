@@ -52,7 +52,7 @@ the snapshot shows it live (`alarm_next = override`), even while the app is conn
 screen: master switch, next alarm + a *Cancel* banner for a one-off, seven day rows (any edit sends
 the whole week, debounced), "Just once". A 132-byte snapshot (older firmware) shows the single
 daily alarm instead. Status tab: "Alarm" group.
-Behaviour: PROTOCOL.md "Alarm schedule"; what to build: PLAN.md "Next: alarm schedule".
+Behaviour: PROTOCOL.md "Alarm schedule".
 
 ## Alarm sounds
 
@@ -139,5 +139,6 @@ app/
 | No clock in the scan | Check the rear radio toggle. Another phone may be connected (one link at a time). |
 | `denied` on `motion home` / `sys reboot` | Send `unsafe on` first. The command sheet offers to do it for you. |
 | `busy` | The USB console is streaming. The app retries once after 1 s. |
+| History: "no `bulk` characteristic", Sounds tab hidden, while `info` shows a current `sha` | The phone cached the clock's old GATT table (paired before a firmware update). Firmware since 2026-10-01 announces GATT changes (*Service Changed*) so this heals on the next connect; for older firmware, or if it persists: **Forget This Device** (macOS: System Settings → Bluetooth → ⓘ → Forget), `net ble unbond` on the clock, hold the knob 10 s, pair again. If `sha` is old, reflash. |
 
 Reference client to compare against: `firmware/tools/clockctl.py` (`shell`, `status --watch`).

@@ -1,7 +1,8 @@
 # CLAUDE.md — app/
 
 SwiftUI debug app (iOS 27 + macOS 27, one target) for the clock's BLE link. `README.md` = what it
-does and the layout; `PLAN.md` = the original plan.
+does and the layout; `PLAN.md` = the open work only (start
+there; delete a step from it once it is built and in `README.md`).
 
 ## Rules
 - **The contract is `PROTOCOL.md` (behaviour) + `protocol.json` (numbers).** Never hard-code a UUID,
