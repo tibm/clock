@@ -60,15 +60,6 @@ bool find_last(hal::sd::Entry const& e, void* ctx) {
     return true;
 }
 
-const char* reset_name(uint8_t r) {
-    static constexpr const char* kNames[] = {
-        "unknown",  "power-on", "ext pin",      "sw",         "panic", "int wdt",
-        "task wdt", "wdt",      "deep sleep",   "brown-out",  "sdio",  "usb",
-        "jtag",     "efuse",    "power glitch", "cpu lockup",
-    };
-    return r < std::size(kNames) ? kNames[r] : "?";
-}
-
 }  // namespace
 
 uint32_t Storage::dbg_flush() noexcept { return enqueue(Kind::DbgFlush, nullptr, false); }
@@ -221,7 +212,7 @@ Status Storage::dbg_append(int& fd, bool& fd_prev, bool prev, const char* data,
                     "=== boot %u%s%s  reset: %s  journal: %s, %u byte(s) of boot %u "
                     "rescued, %u lost ===\n",
                     static_cast<unsigned>(dbg_boot_), part, dbg_size_ ? " (continued)" : "",
-                    reset_name(hal::sys::info().reset_reason), js.warm ? "warm" : "cold",
+                    hal::sys::reset_name(hal::sys::info().reset_reason), js.warm ? "warm" : "cold",
                     static_cast<unsigned>(js.carried), static_cast<unsigned>(dbg_boot_ - 1),
                     static_cast<unsigned>(js.lost));
                 dbg_opened_ = true;

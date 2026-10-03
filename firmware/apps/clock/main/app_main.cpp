@@ -11,6 +11,7 @@
 #include "clk/cli/console.hpp"
 #include "clk/cli/net_bind.hpp"
 #include "clk/cli/registry.hpp"
+#include "clk/evtrace.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/journal.hpp"
 #include "clk/log.hpp"
@@ -34,41 +35,24 @@ void init_nvs() {
     ESP_ERROR_CHECK(err);
 }
 
-const char* reset_name(esp_reset_reason_t r) {
-    switch (r) {
-        case ESP_RST_POWERON:
-            return "power-on";
-        case ESP_RST_SW:
-            return "sw restart";
-        case ESP_RST_PANIC:
-            return "PANIC";
-        case ESP_RST_INT_WDT:
-            return "INTERRUPT WATCHDOG";
-        case ESP_RST_TASK_WDT:
-            return "TASK WATCHDOG";
-        case ESP_RST_WDT:
-            return "WATCHDOG";
-        case ESP_RST_DEEPSLEEP:
-            return "deep sleep";
-        case ESP_RST_BROWNOUT:
-            return "BROWN-OUT";
-        case ESP_RST_USB:
-            return "usb";
-        case ESP_RST_JTAG:
-            return "jtag";
-        case ESP_RST_CPU_LOCKUP:
-            return "CPU LOCKUP";
-        default:
-            return "other";
-    }
-}
-
 void banner() {
     const auto& b = clk::cli::build_info();
     CLK_LOGI(sys, "clock %s %s  %s/%s  idf %s", b.app_version, b.git_sha, b.profile, b.board,
              b.sdk);
-    CLK_LOGI(sys, "reset reason %d (%s)", static_cast<int>(esp_reset_reason()),
-             reset_name(esp_reset_reason()));
+    const auto rst = static_cast<uint8_t>(esp_reset_reason());
+    const auto ev = clk::evtrace::stats();
+    CLK_LOGI(sys, "reset reason %u (%s); event ring %s, %u carried", rst,
+             clk::hal::sys::reset_name(rst), ev.warm ? "warm" : "cold",
+             static_cast<unsigned>(ev.carried));
+    // §6.8: the panic handler's post-mortem, said once per boot until erased -- it lands in
+    // the journal and so on the card, which is where it gets read in a closed box.
+    clk::hal::sys::Coredump cd{};
+    if (clk::hal::sys::coredump(cd) == clk::Status::Ok && cd.present) {
+        CLK_LOGW(sys, "coredump on flash: %u B, %s; task '%s' pc 0x%08x cause %u -- `sys coredump`",
+                 static_cast<unsigned>(cd.size), cd.valid ? "valid" : "CORRUPT", cd.task,
+                 static_cast<unsigned>(cd.pc), static_cast<unsigned>(cd.cause));
+        if (cd.reason[0]) CLK_LOGW(sys, "coredump reason: %s", cd.reason);
+    }
 }
 
 }  // namespace
@@ -77,6 +61,7 @@ extern "C" void app_main(void) {
     // First: adopt whatever the last boot's log ring still holds (a panic, the watchdog) before
     // this boot writes a single line into it.  `storage` takes it to the card (§9.4a).
     clk::journal::init();
+    clk::evtrace::init();  // likewise the event ring, before any AO dispatches into it
     clk::log::init(Level::Info);
     init_nvs();
     banner();

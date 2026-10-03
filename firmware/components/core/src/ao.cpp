@@ -1,9 +1,12 @@
 #include "clk/ao.hpp"
 
+#include "clk/evtrace.hpp"
+
 namespace clk {
 
 void ActiveObject::start() noexcept {
     if (run_.exchange(true)) return;
+    trace_id_ = evtrace::source(cfg_.name);
     next_tick_us_ = port::now_us() + tick_us_.load();
     port::thread_start({cfg_.name, cfg_.prio, cfg_.stack, 1}, &ActiveObject::entry, this, &thread_);
 }
@@ -64,6 +67,8 @@ void ActiveObject::run() noexcept {
         Event ev;
         if (pop(ev)) {
             if (as<Stop>(ev)) break;
+            // Before the handler: one that never returns is then the ring's last line.
+            evtrace::record(trace_id_, ev);
             on_event(ev);
             handled_.fetch_add(1, std::memory_order_relaxed);
             continue;

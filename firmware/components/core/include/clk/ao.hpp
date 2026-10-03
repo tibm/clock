@@ -111,6 +111,7 @@ private:
     std::atomic<uint64_t> alive_us_{0};
     std::atomic<bool> watched_{false};
     std::atomic<bool> paused_{false};
+    uint8_t trace_id_ = 0xFF;  // evtrace::source(name), set by start()
     void* thread_ = nullptr;
 };
 

@@ -74,10 +74,18 @@ void console_run() {
     repl_cfg.task_stack_size = 6 * 1024;  // §3.2: the cli AO stack
     repl_cfg.task_priority = 3;
 
+    // The REPL goes where the primary console is: USB-Serial-JTAG on every board but
+    // `devkit-uart`, which inverts the pair to catch a panic tail on the CP2102N (F5.5).
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
     esp_console_dev_usb_serial_jtag_config_t dev_cfg =
         ESP_CONSOLE_DEV_USB_SERIAL_JTAG_CONFIG_DEFAULT();
-
     ESP_ERROR_CHECK(esp_console_new_repl_usb_serial_jtag(&dev_cfg, &repl_cfg, &repl));
+#elif CONFIG_ESP_CONSOLE_UART
+    esp_console_dev_uart_config_t dev_cfg = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_console_new_repl_uart(&dev_cfg, &repl_cfg, &repl));
+#else
+#error "console: pick USB-Serial-JTAG or UART as the primary console (sdkconfig)"
+#endif
 
     for (const char* g : kGroups) {
         const esp_console_cmd_t cmd{

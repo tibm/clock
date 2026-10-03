@@ -897,8 +897,57 @@ struct Info {
     uint32_t int_free;     // internal DRAM, bytes
     uint32_t int_min;      // ... low-water since boot
     uint32_t dma_largest;  // the largest DMA-capable block: what one allocation can get
+    uint32_t int_largest;  // the largest internal block
+    uint32_t psram_total;  // 0 = no PSRAM (or the host)
+    uint32_t psram_free, psram_min, psram_largest;
 };
 Info info() noexcept;
+
+// esp_reset_reason_t by name -- "task wdt", "brown-out".  "?" past the end.
+constexpr const char* reset_name(uint8_t r) noexcept {
+    constexpr const char* kNames[] = {
+        "unknown",  "power-on", "ext pin",      "sw",         "panic", "int wdt",
+        "task wdt", "wdt",      "deep sleep",   "brown-out",  "sdio",  "usb",
+        "jtag",     "efuse",    "power glitch", "cpu lockup",
+    };
+    return r < sizeof kNames / sizeof kNames[0] ? kNames[r] : "?";
+}
+
+// One FreeRTOS task, as `sys top` shows it.  `runtime` is the run-time-stats counter
+// (CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS: esp_timer microseconds), cumulative since boot --
+// a caller wanting a percentage takes two samples and divides the differences.
+struct Task {
+    char name[16];
+    uint32_t id;  // xTaskNumber: stable for the task's life, how two samples are matched
+    uint32_t
+        runtime;  // µs on CPU since boot, low 32 bits: wraps every ~71 min, a difference does not
+    uint32_t stack_hw;  // bytes never used, the high-water mark
+    uint8_t prio;
+    int8_t core;  // 0, 1, or -1 = either
+    char state;   // R(unning) r(eady) B(locked) S(uspended) D(eleted)
+};
+// Up to `cap` tasks into `out`; `n` gets how many exist (may exceed cap), `total` the runtime
+// counter now.  NotPresent on the host, where there is no scheduler to ask.
+Status tasks(Task* out, std::size_t cap, std::size_t& n, uint32_t& total) noexcept;
+
+// The post-mortem the panic handler wrote to the `coredump` partition (§6.8).  It stays until
+// erased, so the same one is reported every boot until someone has looked.
+struct Coredump {
+    bool present;
+    bool valid;  // the image's checksum holds
+    uint32_t size;
+    char task[16];  // the task that faulted
+    uint32_t pc;
+    uint32_t cause, vaddr;  // Xtensa EXCCAUSE / EXCVADDR
+    uint32_t bt[8];         // backtrace PCs, innermost first
+    uint8_t depth;
+    bool bt_corrupted;
+    char elf_sha[17];  // first 16 hex digits of the crashing image's ELF SHA-256
+    char reason[96];   // the panic reason, when the image carries one ("" otherwise)
+};
+// NotPresent: no coredump partition / no backend (the host).  Ok with present=false: none.
+Status coredump(Coredump& out) noexcept;
+Status coredump_erase() noexcept;
 }  // namespace sys
 
 // Brings the fake or the real peripherals up.  Idempotent.

@@ -10,7 +10,7 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 - ✅ done · 🟡 partly / built but not verified on the board · ⬜ not started. Update this file in
   the same commit that changes a line's state.
 
-*Last updated 2026-10-01.*
+*Last updated 2026-10-02.*
 
 ## Next up — the open items, in order
 
@@ -93,9 +93,9 @@ its only link to this list is [`app/PROTOCOL.md`](app/PROTOCOL.md).
 
 | | Feature | Notes |
 |---|---|---|
-| 🟡 | Task watchdog on every AO, reset-reason + coredump report at boot | `supervisor`, §6.8 — TWDT (panic → reboot) + stuck-AO + hands-stall detection built 2026-09-29, bench next; `sys coredump` still ⬜ |
-| 🟡 | Debug log on the SD card, one file per boot, survives a watchdog reset; **download to the app** (`sys journal files/fetch` over `bulk`) | §9.4a — built + host-tested 2026-09-29, download 2026-10-01; bench next. App Logs tab: ⬜ `app/PLAN.md` |
-| ⬜ | `sys top`, `sys heap`, `sys ev dump` | registered, still `not implemented` |
+| 🟡 | Task watchdog on every AO, reset-reason + coredump report at boot | `supervisor`, §6.8 — TWDT (panic → reboot) + stuck-AO + hands-stall detection built 2026-09-29; `sys coredump info` / `erase` + a boot-banner line when one is on flash, 2026-10-02. **Bench:** force a panic, check the banner + `sys coredump` + `idf.py coredump-info` agree |
+| 🟡 | Debug log on the SD card, one file per boot, survives a watchdog reset; **download to the app** (`sys journal files/fetch` over `bulk`) | §9.4a — built + host-tested 2026-09-29, download 2026-10-01; bench next. App Logs tab built 2026-10-02 (`app/PLAN.md`: hardware check left) |
+| 🟡 | `sys top`, `sys heap`, `sys ev dump` | 2026-10-02: `sys top [<ms>]` (CPU over a window, stack HW, core), `sys heap` (internal/PSRAM/DMA), the RTC event ring (§6.9, `sys ev dump/clear`, survives a reset). Host-tested + all four profiles build; **bench: read them on the board** (`sys top` is target-only). `sys stat` is still the placeholder (§9.7) |
 | ⬜ | One `storage`-owned config (§7.5) instead of ad-hoc NVS keys | keys today: `ui.input`, `ui.week`, `ui.ovr_at`, `ui.ovr_day`, `ui.armed` (`ui.alarm` read once to migrate), `chr.tz`, motion zero/inhibit |
-| ⬜ | `BOARD=devkit-uart` compiles | **F5.5** |
+| ✅ | `BOARD=devkit-uart` compiles | **F5.5**, 2026-10-02 — REPL on UART under `CONFIG_ESP_CONSOLE_UART` |
 | ⬜ | Flaky host tests (motion AO cases, ~20–30 % of runs) + `test_sim` opto cases broken by the 5 mV span | the opto cases fail on every run since `ed6214f` |

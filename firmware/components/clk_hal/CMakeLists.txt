@@ -32,7 +32,7 @@ if(ESP_PLATFORM)
                                     esp_driver_gptimer esp_driver_i2s esp_adc
                                     esp_driver_spi esp_driver_sdspi sdmmc fatfs vfs
                                     espressif__led_strip bt esp_wifi esp_netif
-                                    esp_event lwip)
+                                    esp_event lwip espcoredump)
 else()
     find_package(Threads REQUIRED)
     add_library(clk_hal STATIC host/src/hal_host.cpp host/src/ble_host.cpp host/src/wifi_host.cpp

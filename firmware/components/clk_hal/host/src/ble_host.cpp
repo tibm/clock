@@ -259,6 +259,17 @@ std::size_t ble_read_info(char* out, std::size_t cap) noexcept {
 // Heap numbers mean nothing on a laptop; zero says "not measured" without inventing one.
 namespace sys {
 Info info() noexcept { return Info{}; }
+// No scheduler to ask and no panic handler writing a partition: the commands say so.
+Status tasks(Task*, std::size_t, std::size_t& n, uint32_t& total) noexcept {
+    n = 0;
+    total = 0;
+    return Status::NotPresent;
+}
+Status coredump(Coredump& out) noexcept {
+    out = Coredump{};
+    return Status::NotPresent;
+}
+Status coredump_erase() noexcept { return Status::NotPresent; }
 }  // namespace sys
 
 }  // namespace clk::hal

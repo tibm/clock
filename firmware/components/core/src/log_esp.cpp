@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "clk/evtrace.hpp"
 #include "clk/journal.hpp"
 #include "clk/log.hpp"
 
@@ -84,3 +85,13 @@ void on_init() noexcept {
 }
 
 }  // namespace clk::journal::detail
+
+// ---- the event tracer's memory -----------------------------------------------------------
+namespace clk::evtrace::detail {
+namespace {
+// RTC slow memory, not initialised: survives a panic, the watchdog, esp_restart AND deep
+// sleep (evtrace.hpp).  3.2 KB of the S3's 8 KB.
+RTC_NOINIT_ATTR Mem g_mem;
+}  // namespace
+Mem& mem() noexcept { return g_mem; }
+}  // namespace clk::evtrace::detail

@@ -1,4 +1,5 @@
 // `help`, `unsafe`, and the `sys` group.                    [FIRMWARE.md §9.3, §9.4]
+#include <algorithm>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
@@ -6,9 +7,11 @@
 #include <new>
 
 #include "clk/cli/registry.hpp"
+#include "clk/evtrace.hpp"
 #include "clk/hal/hal.hpp"
 #include "clk/journal.hpp"
 #include "clk/log.hpp"
+#include "clk/port.hpp"
 #include "clk/services/storage.hpp"
 #include "clk/services/supervisor.hpp"
 #include "sto_wait.hpp"
@@ -132,11 +135,6 @@ Status cmd_stat(Args const&, Sink& out) {
     out.line("ui     -   (ui AO not implemented yet)");
     out.line("pwr    -   (board AO not implemented yet)");
     return Status::Ok;
-}
-
-Status cmd_notyet(Args const&, Sink& out) {
-    out.line("not implemented yet -- scaffold only (see FIRMWARE.md §12.1 for the order)");
-    return Status::NotReady;
 }
 
 // One restart, one meaning, both builds: esp_restart() on the board, a re-exec of the
@@ -318,6 +316,229 @@ Status cmd_fault(Args const& a, Sink& out) {
     return Status::Ok;
 }
 
+// ---- field diagnostics: heap, tasks, coredump, event ring (§9.6) -----------------------
+
+// "123.4 K", "7.81 M": the heaps here are 300 K and 8 M, and both need to read at a glance.
+void human(char* out, std::size_t n, uint32_t b) {
+    if (b >= 1024u * 1024u) {
+        std::snprintf(out, n, "%.2f M", b / (1024.0 * 1024.0));
+    } else {
+        std::snprintf(out, n, "%.1f K", b / 1024.0);
+    }
+}
+
+Status cmd_heap(Args const&, Sink& out) {
+    const auto i = hal::sys::info();
+    if (i.heap_free == 0) {
+        out.line("no heap figures on the host");
+        return Status::NotPresent;
+    }
+    char f[16], m[16], l[16], d[16];
+    human(f, sizeof f, i.int_free);
+    human(m, sizeof m, i.int_min);
+    human(l, sizeof l, i.int_largest);
+    human(d, sizeof d, i.dma_largest);
+    // Internal first: it is the one that runs out (2026-10-01, hal.hpp sys::Info).
+    out.printf("internal  free %-9s min %-9s largest %-9s dma largest %s", f, m, l, d);
+    if (i.psram_total) {
+        char t[16];
+        human(f, sizeof f, i.psram_free);
+        human(m, sizeof m, i.psram_min);
+        human(l, sizeof l, i.psram_largest);
+        human(t, sizeof t, i.psram_total);
+        out.printf("psram     free %-9s min %-9s largest %-9s of %s", f, m, l, t);
+    } else {
+        out.line("psram     none");
+    }
+    human(f, sizeof f, i.heap_free);
+    human(m, sizeof m, i.heap_min);
+    out.printf("all       free %-9s min %s", f, m);
+    char v[16];
+    std::snprintf(v, sizeof v, "%" PRIu32, i.int_free);
+    out.kv("int_free", v);
+    std::snprintf(v, sizeof v, "%" PRIu32, i.int_min);
+    out.kv("int_min", v);
+    std::snprintf(v, sizeof v, "%" PRIu32, i.psram_free);
+    out.kv("psram_free", v);
+    return Status::Ok;
+}
+
+// `sys top [<ms>]`: two scheduler snapshots `ms` apart, so the CPU column is THIS window's
+// load rather than an average since boot that a stuck task hides in after a day.
+Status cmd_top(Args const& a, Sink& out) {
+    unsigned long ms = 1000;
+    if (a.count() > 0) {
+        char* end = nullptr;
+        ms = std::strtoul(a.arg(0), &end, 10);
+        if (!end || *end || ms < 100 || ms > 5000) {
+            out.line("usage: sys top [<window ms, 100..5000>]");
+            return Status::BadArg;
+        }
+    }
+    constexpr std::size_t kMax = 48;
+    using hal::sys::Task;
+    auto* t0 = new (std::nothrow) Task[2 * kMax];
+    if (!t0) {
+        out.line("out of memory");
+        return Status::Failed;
+    }
+    Task* t1 = t0 + kMax;
+    std::size_t n0 = 0, n1 = 0;
+    uint32_t tot0 = 0, tot1 = 0;
+    if (const Status st = hal::sys::tasks(t0, kMax, n0, tot0); st != Status::Ok) {
+        delete[] t0;
+        out.line(st == Status::NotPresent ? "no scheduler stats on the host" : "task list failed");
+        return st;
+    }
+    port::Signal{}.wait_real_ms(static_cast<uint32_t>(ms));
+    (void)hal::sys::tasks(t1, kMax, n1, tot1);
+    const std::size_t k0 = n0 < kMax ? n0 : kMax, k1 = n1 < kMax ? n1 : kMax;
+    const uint32_t span = tot1 - tot0;  // µs of wall time: one core's worth
+
+    struct Row {
+        Task const* t;
+        uint32_t used;
+    };
+    Row rows[kMax];
+    uint32_t idle[2] = {span, span};  // a core with no IDLE task seen reads 0 % busy
+    for (std::size_t k = 0; k < k1; ++k) {
+        uint32_t before = 0;  // a task born inside the window: all of it is this window's
+        for (std::size_t j = 0; j < k0; ++j)
+            if (t0[j].id == t1[k].id) before = t0[j].runtime;
+        rows[k] = {&t1[k], t1[k].runtime - before};
+        if (std::strcmp(t1[k].name, "IDLE0") == 0) idle[0] = rows[k].used;
+        if (std::strcmp(t1[k].name, "IDLE1") == 0) idle[1] = rows[k].used;
+    }
+    std::sort(rows, rows + k1, [](Row const& x, Row const& y) { return x.used > y.used; });
+    const auto pct = [span](uint32_t u) { return span ? 100.0 * u / span : 0.0; };
+
+    out.line("task              core prio   cpu%  stack free  state");
+    for (std::size_t k = 0; k < k1; ++k) {
+        Task const& t = *rows[k].t;
+        char core[4];
+        std::snprintf(core, sizeof core, "%s", t.core < 0 ? "-" : t.core == 0 ? "0" : "1");
+        out.printf("%-16s  %-4s %4u  %5.1f  %10" PRIu32 "  %c", t.name, core, t.prio,
+                   pct(rows[k].used), t.stack_hw, t.state);
+    }
+    out.printf("load      core0 %.1f %%  core1 %.1f %%  (%lu ms window, %zu tasks%s)",
+               100.0 - pct(idle[0] < span ? idle[0] : span),
+               100.0 - pct(idle[1] < span ? idle[1] : span), ms, n1, n1 > kMax ? ", list cut" : "");
+    delete[] t0;
+    return Status::Ok;
+}
+
+// Xtensa EXCCAUSE, the ones a firmware bug produces.  A panic from abort() / the task
+// watchdog has no exception and the reason line says what it was instead.
+const char* exc_name(uint32_t c) {
+    switch (c) {
+        case 0:
+            return "IllegalInstruction";
+        case 2:
+            return "InstructionFetchError";
+        case 3:
+            return "LoadStoreError";
+        case 6:
+            return "IntegerDivideByZero";
+        case 9:
+            return "LoadStoreAlignment";
+        case 20:
+            return "InstFetchProhibited";
+        case 28:
+            return "LoadProhibited";
+        case 29:
+            return "StoreProhibited";
+        default:
+            return "";
+    }
+}
+
+Status cmd_coredump_info(Args const&, Sink& out) {
+    hal::sys::Coredump cd{};
+    const Status st = hal::sys::coredump(cd);
+    if (st == Status::NotPresent) {
+        out.line("no coredump partition here");
+        return st;
+    }
+    if (st != Status::Ok) {
+        out.line("could not read the coredump partition");
+        return st;
+    }
+    out.kv("coredump", cd.present ? (cd.valid ? "valid" : "corrupt") : "none");
+    if (!cd.present) {
+        out.line("coredump  none");
+        return Status::Ok;
+    }
+    out.printf("coredump  %" PRIu32 " bytes, %s", cd.size,
+               cd.valid ? "checksum ok" : "CORRUPT -- the summary below is unavailable");
+    if (!cd.valid) return Status::Ok;
+    const char* en = exc_name(cd.cause);
+    out.printf("task      '%s'  pc 0x%08" PRIx32 "  cause %" PRIu32 "%s%s%s  vaddr 0x%08" PRIx32,
+               cd.task, cd.pc, cd.cause, *en ? " (" : "", en, *en ? ")" : "", cd.vaddr);
+    if (cd.reason[0]) out.printf("reason    %s", cd.reason);
+    char bt[8 * 11 + 1] = "";
+    std::size_t w = 0;
+    for (uint8_t k = 0; k < cd.depth && w + 12 <= sizeof bt; ++k)
+        w += static_cast<std::size_t>(
+            std::snprintf(bt + w, sizeof bt - w, "%s0x%08" PRIx32, k ? " " : "", cd.bt[k]));
+    out.printf("backtrace %s%s", cd.depth ? bt : "(none)", cd.bt_corrupted ? "  |<-CORRUPTED" : "");
+    out.printf("elf sha   %s  (`sys ver` names this image; decode against the build that matches)",
+               cd.elf_sha);
+    out.line("decode    idf.py -p <port> coredump-info   |   `sys coredump erase` once read");
+    return Status::Ok;
+}
+
+Status cmd_coredump_erase(Args const&, Sink& out) {
+    const Status st = hal::sys::coredump_erase();
+    out.line(st == Status::Ok           ? "coredump erased"
+             : st == Status::NotPresent ? "no coredump partition here"
+                                        : "erase failed");
+    return st;
+}
+
+Status cmd_ev_dump(Args const& a, Sink& out) {
+    unsigned long last = evtrace::kEntries;
+    if (a.count() > 0) {
+        char* end = nullptr;
+        last = std::strtoul(a.arg(0), &end, 10);
+        if (!end || *end || last == 0) {
+            out.line("usage: sys ev dump [<last n>]");
+            return Status::BadArg;
+        }
+    }
+    auto* e = new (std::nothrow) evtrace::Entry[evtrace::kEntries];
+    if (!e) {
+        out.line("out of memory");
+        return Status::Failed;
+    }
+    const std::size_t n = evtrace::snapshot(e, evtrace::kEntries);
+    const std::size_t from = n > last ? n - last : 0;
+    const auto s = evtrace::stats();
+    out.printf("event ring: %zu entr%s held, %" PRIu32 " recorded this boot (+%" PRIu32
+               " repeats not stored), %" PRIu32 " carried from the last (%s start)",
+               n, n == 1 ? "y" : "ies", s.recorded, s.repeats, s.carried, s.warm ? "warm" : "cold");
+    out.line("     seq        ms  ao        event        data");
+    bool prev = from < n && e[from].prev;
+    if (prev) out.line("-- previous boot --");
+    for (std::size_t k = from; k < n; ++k) {
+        if (prev && !e[k].prev) {
+            out.printf("-- this boot (reset: %s) --",
+                       hal::sys::reset_name(hal::sys::info().reset_reason));
+            prev = false;
+        }
+        out.printf("%8" PRIu32 "  %8" PRIu32 "  %-8s  %-11s  %02x %02x %02x %02x", e[k].seq,
+                   e[k].ms, evtrace::source_name(e[k].src), evtrace::tag_name(e[k].tag),
+                   e[k].data[0], e[k].data[1], e[k].data[2], e[k].data[3]);
+    }
+    delete[] e;
+    return Status::Ok;
+}
+
+Status cmd_ev_clear(Args const&, Sink& out) {
+    evtrace::clear();
+    out.line("event ring cleared");
+    return Status::Ok;
+}
+
 // ---- tables ---------------------------------------------------------------------------
 
 constexpr CmdSpec kTop[] = {
@@ -333,8 +554,9 @@ constexpr CmdSpec kSys[] = {
      ReleaseOk, cmd_sys_snap},
     {"sys", nullptr, "debug", "[<module|glob|all> <level>]", "show or set per-module log levels",
      ReleaseOk, cmd_debug},
-    {"sys", nullptr, "top", "", "per-task CPU, stack high-water, core", ReleaseOk, cmd_notyet},
-    {"sys", nullptr, "heap", "", "internal + PSRAM, largest block, min", ReleaseOk, cmd_notyet},
+    {"sys", nullptr, "top", "[<ms>]", "per-task CPU over a window, stack high-water, core",
+     ReleaseOk, cmd_top},
+    {"sys", nullptr, "heap", "", "internal + PSRAM, largest block, min", ReleaseOk, cmd_heap},
     {"sys", nullptr, "journal", "[flush]", "the debug log: RAM ring + this boot's file on the card",
      ReleaseOk, cmd_journal},
     {"sys", "journal", "files", "", "journal files on the card (`=file=` pairs), oldest first",
@@ -346,8 +568,13 @@ constexpr CmdSpec kSys[] = {
     {"sys", nullptr, "fault", "[ack]", "fault codes on the status row; ack hides them", ReleaseOk,
      cmd_fault},
     {"sys", nullptr, "reboot", "[ota|dfu]", "restart the whole image", Unsafe, cmd_reboot},
-    {"sys", "coredump", "info", "", "is there a coredump, and from what", ReleaseOk, cmd_notyet},
-    {"sys", "ev", "dump", "", "print the 256-entry RTC event ring", ReleaseOk, cmd_notyet},
+    {"sys", "coredump", "info", "", "is there a coredump, and from what", ReleaseOk,
+     cmd_coredump_info},
+    {"sys", "coredump", "erase", "", "forget the coredump once it has been read", Unsafe,
+     cmd_coredump_erase},
+    {"sys", "ev", "dump", "[<last n>]", "the 256-entry RTC event ring, oldest first", ReleaseOk,
+     cmd_ev_dump},
+    {"sys", "ev", "clear", "", "empty the event ring", ReleaseOk, cmd_ev_clear},
 };
 
 }  // namespace

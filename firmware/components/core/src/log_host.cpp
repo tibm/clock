@@ -4,6 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 
+#include "clk/evtrace.hpp"
 #include "clk/journal.hpp"
 #include "clk/log.hpp"
 
@@ -53,3 +54,10 @@ Mem& mem() noexcept {
 }
 void on_init() noexcept {}
 }  // namespace clk::journal::detail
+
+namespace clk::evtrace::detail {
+Mem& mem() noexcept {
+    static Mem m{};  // zeroed: no magic, so the first use starts it empty
+    return m;
+}
+}  // namespace clk::evtrace::detail

@@ -15,6 +15,8 @@
 // peripheral is independently testable the moment its part is on the breadboard, which is
 // exactly why the presence mask is per-device rather than per-board.
 #include <cinttypes>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <utility>
@@ -27,6 +29,7 @@
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_attr.h"
+#include "esp_core_dump.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -927,7 +930,94 @@ Info info() noexcept {
     i.int_free = static_cast<uint32_t>(::heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     i.int_min = static_cast<uint32_t>(::heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
     i.dma_largest = static_cast<uint32_t>(::heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+    i.int_largest = static_cast<uint32_t>(::heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    i.psram_total = static_cast<uint32_t>(::heap_caps_get_total_size(MALLOC_CAP_SPIRAM));
+    i.psram_free = static_cast<uint32_t>(::heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    i.psram_min = static_cast<uint32_t>(::heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
+    i.psram_largest = static_cast<uint32_t>(::heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
     return i;
+}
+
+Status tasks(Task* out, std::size_t cap, std::size_t& n, uint32_t& total) noexcept {
+    n = 0;
+    total = 0;
+    // A few spare: tasks can be created between the count and the snapshot.  PSRAM is fine
+    // for this -- nothing but the CPU reads it -- and keeps it out of the scarce internal heap.
+    const UBaseType_t want = ::uxTaskGetNumberOfTasks() + 4;
+    auto* st = static_cast<TaskStatus_t*>(
+        ::heap_caps_malloc(want * sizeof(TaskStatus_t), MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM));
+    if (!st) st = static_cast<TaskStatus_t*>(::malloc(want * sizeof(TaskStatus_t)));
+    if (!st) return Status::Failed;
+    configRUN_TIME_COUNTER_TYPE all = 0;
+    const UBaseType_t got = ::uxTaskGetSystemState(st, want, &all);
+    total = static_cast<uint32_t>(all);
+    n = got;
+    for (UBaseType_t k = 0; k < got && k < cap; ++k) {
+        auto const& t = st[k];
+        auto& o = out[k];
+        o = Task{};
+        std::snprintf(o.name, sizeof o.name, "%s", t.pcTaskName ? t.pcTaskName : "?");
+        o.id = static_cast<uint32_t>(t.xTaskNumber);
+        o.runtime = static_cast<uint32_t>(t.ulRunTimeCounter);
+        o.stack_hw = static_cast<uint32_t>(t.usStackHighWaterMark);  // bytes: StackType_t is 1
+        o.prio = static_cast<uint8_t>(t.uxCurrentPriority);
+        o.core = taskVALID_CORE_ID(t.xCoreID) ? static_cast<int8_t>(t.xCoreID) : int8_t{-1};
+        switch (t.eCurrentState) {
+            case eRunning:
+                o.state = 'R';
+                break;
+            case eReady:
+                o.state = 'r';
+                break;
+            case eBlocked:
+                o.state = 'B';
+                break;
+            case eSuspended:
+                o.state = 'S';
+                break;
+            default:
+                o.state = 'D';
+                break;
+        }
+    }
+    ::free(st);
+    return Status::Ok;
+}
+
+Status coredump(Coredump& out) noexcept {
+    out = Coredump{};
+    size_t addr = 0, size = 0;
+    const esp_err_t got = ::esp_core_dump_image_get(&addr, &size);
+    if (got == ESP_ERR_NOT_FOUND) return Status::NotPresent;  // no `coredump` partition
+    if (got == ESP_ERR_INVALID_SIZE) return Status::Ok;       // blank (erased): none
+    if (got != ESP_OK) return Status::Failed;                 // could not read the flash
+    out.present = true;
+    out.size = static_cast<uint32_t>(size);
+    out.valid = ::esp_core_dump_image_check() == ESP_OK;
+    if (!out.valid) return Status::Ok;
+    auto* sum = static_cast<esp_core_dump_summary_t*>(::malloc(sizeof(esp_core_dump_summary_t)));
+    if (!sum) return Status::Ok;
+    if (::esp_core_dump_get_summary(sum) == ESP_OK) {
+        std::snprintf(out.task, sizeof out.task, "%.15s", sum->exc_task);
+        out.pc = sum->exc_pc;
+        out.cause = sum->ex_info.exc_cause;
+        out.vaddr = sum->ex_info.exc_vaddr;
+        const uint32_t d = sum->exc_bt_info.depth;
+        out.depth = static_cast<uint8_t>(d < std::size(out.bt) ? d : std::size(out.bt));
+        for (uint8_t k = 0; k < out.depth; ++k) out.bt[k] = sum->exc_bt_info.bt[k];
+        out.bt_corrupted = sum->exc_bt_info.corrupted;
+        std::snprintf(out.elf_sha, sizeof out.elf_sha, "%.16s",
+                      reinterpret_cast<const char*>(sum->app_elf_sha256));
+    }
+    ::free(sum);
+    if (::esp_core_dump_get_panic_reason(out.reason, sizeof out.reason) != ESP_OK)
+        out.reason[0] = '\0';
+    return Status::Ok;
+}
+
+Status coredump_erase() noexcept {
+    const esp_err_t e = ::esp_core_dump_image_erase();
+    return e == ESP_OK ? Status::Ok : e == ESP_ERR_NOT_FOUND ? Status::NotPresent : Status::Failed;
 }
 }  // namespace sys
 
